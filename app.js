@@ -1,57 +1,38 @@
 // app.js
 const APP_VERSION = "1.2";
-
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
 let currentMode = "5v5";
+let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 
 async function loadData() {
     try {
         const response = await fetch(API_URL);
         gacData = await response.json();
         render();
-        
     } catch (error) {
-    document.getElementById("app").innerHTML =
-        "Error: " + error.message;
+        document.getElementById("app").innerHTML = "Error: " + error.message;
+        console.error(error);
+    }
+}
 
-    console.error(error);
-}
-}
 function render() {
-    
-
-const app = document.getElementById("app");
+    const app = document.getElementById("app");
     const teams = Object.keys(gacData[currentMode] || {});
 
-app.innerHTML = `
-<h2>SWGOH Counters v${APP_VERSION}</h2>
-
-    <button
-        onclick="setMode('5v5')"
-        style="
-            padding:10px;
-            margin-right:5px;
-            font-weight:bold;
-            background:${currentMode === "5v5" ? "#4CAF50" : "#ddd"};
-            color:${currentMode === "5v5" ? "white" : "black"};
-        "
-    >
-        5v5
-    </button>
-
-    <button
-        onclick="setMode('3v3')"
-        style="
-            padding:10px;
-            font-weight:bold;
-            background:${currentMode === "3v3" ? "#4CAF50" : "#ddd"};
-            color:${currentMode === "3v3" ? "white" : "black"};
-        "
-    >
-        3v3
-    </button>
+    app.innerHTML = `
+        <h2>SWGOH Counters v${APP_VERSION}</h2>
+        <button onclick="resetRound()" style="margin-bottom:10px; padding:8px 12px; background:#f44336; color:white; border:none; border-radius:6px;">
+            Reset GAC Round
+        </button>
+        <br><br>
+        <button onclick="setMode('5v5')" style="padding:10px; margin-right:5px; font-weight:bold; background:${currentMode === "5v5" ? "#4CAF50" : "#ddd"}; color:${currentMode === "5v5" ? "white" : "black"};">
+            5v5
+        </button>
+        <button onclick="setMode('3v3')" style="padding:10px; font-weight:bold; background:${currentMode === "3v3" ? "#4CAF50" : "#ddd"}; color:${currentMode === "3v3" ? "white" : "black"};">
+            3v3
+        </button>
         <br><br>
         <select id="teamSelect" onchange="showCounters()">
             ${teams.map(team => `<option value="${team}">${team}</option>`).join("")}
@@ -67,19 +48,31 @@ function setMode(mode) {
     render();
 }
 
+// FIXED: Extracted into its own properly scoped function
 function getTierColour(tier) {
     switch ((tier || "").toUpperCase()) {
-        case "S":
-            return "#4CAF50"; // Green
-        case "A":
-            return "#2196F3"; // Blue
-        case "B":
-            return "#FF9800"; // Orange
-        case "C":
-            return "#F44336"; // Red
-        default:
-            return "#999999";
+        case "S": return "#4CAF50"; // Green
+        case "A": return "#2196F3"; // Blue
+        case "B": return "#FF9800"; // Orange
+        case "C": return "#F44336"; // Red
+        default: return "#999999";
     }
+}
+
+// FIXED: Moved outside of getTierColour
+function markUsed(teamName) {
+    if (!usedTeams.includes(teamName)) {
+        usedTeams.push(teamName);
+        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+    }
+    showCounters();
+}
+
+// FIXED: Moved outside of getTierColour
+function resetRound() {
+    usedTeams = [];
+    localStorage.removeItem("usedTeams");
+    render(); // Changed to render() so the main view updates and reflects the reset changes
 }
 
 function showCounters() {
@@ -87,30 +80,27 @@ function showCounters() {
     if (!teamSelect || !teamSelect.value) return;
 
     const team = teamSelect.value;
-    const counters = gacData[currentMode][team] || [];
+    const counters = (gacData[currentMode] && gacData[currentMode][team]) || [];
 
-    // FIXED: Wrapped the HTML template in backticks so JavaScript handles it correctly
-    document.getElementById("results").innerHTML = counters.map(counter => `
-        <div style="border:1px solid #ccc; border-radius:8px; padding:10px; margin-top:10px;">
-            <strong>${counter.counter}</strong><br>
-            Tier:
-<span
-    style="
-        background:${getTierColour(counter.tier)};
-        color:white;
-        padding:2px 8px;
-        border-radius:12px;
-        font-weight:bold;
-    "
->
-    ${counter.tier || "-"}
-</span>
-<br>
-            Banner Score: ${counter.bannerScore || "-"}<br>
-            Undersize: ${counter.undersize || "-"}<br>
-            Notes: ${counter.notes || ""}
-        </div>
-    `).join("");
+    document.getElementById("results").innerHTML = counters.map(counter => {
+        const isUsed = usedTeams.includes(counter.counter);
+
+        return `
+            <div style="border:1px solid #ccc; border-radius:8px; padding:10px; margin-top:10px; opacity:${isUsed ? "0.5" : "1"};">
+                <strong>${counter.counter}</strong><br>
+                Tier: <span style="background:${getTierColour(counter.tier)}; color:white; padding:2px 8px; border-radius:12px; font-weight:bold;">
+                    ${counter.tier || "-"}
+                </span><br>
+                Banner Score: ${counter.bannerScore || "-"}<br>
+                Undersize: ${counter.undersize || "-"}<br>
+                Notes: ${counter.notes || ""}<br><br>
+                ${isUsed 
+                    ? `<strong style="color:red;">✓ USED</strong>` 
+                    : `<button onclick="markUsed('${counter.counter}')">Mark Used</button>`
+                }
+            </div>
+        `;
+    }).join("");
 }
 
 // Start the app
