@@ -1,4 +1,6 @@
 // app.js
+const APP_VERSION = "1.2";
+
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
@@ -24,6 +26,8 @@ const app = document.getElementById("app");
     const teams = Object.keys(gacData[currentMode] || {});
 
 app.innerHTML = `
+<h2>SWGOH Counters v${APP_VERSION}</h2>
+
     <button
         onclick="setMode('5v5')"
         style="
