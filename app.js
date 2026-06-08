@@ -26,7 +26,7 @@ const app = document.getElementById("app");
     const teams = Object.keys(gacData[currentMode] || {});
 
 app.innerHTML = `
-<h1>SWGOH Counters v${APP_VERSION}</1>
+<h2>SWGOH Counters v${APP_VERSION}</h2>
 
     <button
         onclick="setMode('5v5')"
