@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "1.2";
+const APP_VERSION = "1.3";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
