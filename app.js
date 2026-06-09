@@ -1,10 +1,11 @@
 // app.js
-const APP_VERSION = "1.3";
+const APP_VERSION = "1.4";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
 let currentMode = "5v5";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
+let searchText = "";
 
 async function loadData() {
     try {
@@ -19,7 +20,11 @@ async function loadData() {
 
 function render() {
     const app = document.getElementById("app");
-    const teams = Object.keys(gacData[currentMode] || {});
+    const teams = Object.keys(gacData[currentMode] || {})
+    .filter(team =>
+        team.toLowerCase().includes(searchText.toLowerCase())
+    )
+    .sort((a, b) => a.localeCompare(b));
 
     app.innerHTML = `
         <h2>SWGOH Counters v${APP_VERSION}</h2>
@@ -34,10 +39,21 @@ function render() {
             3v3
         </button>
         <br><br>
-        <select id="teamSelect" onchange="showCounters()">
-            ${teams.map(team => `<option value="${team}">${team}</option>`).join("")}
-        </select>
-        <div id="results"></div>
+
+<input
+    type="text"
+    id="searchBox"
+    placeholder="Search defence team..."
+    value="${searchText}"
+    oninput="updateSearch(this.value)"
+    style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;"
+>
+
+<select id="teamSelect" onchange="showCounters()" style="width:100%; padding:10px;">
+    ${teams.map(team => `<option value="${team}">${team}</option>`).join("")}
+</select>
+
+<div id="results"></div>
     `;
 
     showCounters();
@@ -46,6 +62,25 @@ function render() {
 function setMode(mode) {
     currentMode = mode;
     render();
+}
+
+function updateSearch(value) {
+    searchText = value;
+
+    const teamSelect = document.getElementById("teamSelect");
+
+    const teams = Object.keys(gacData[currentMode] || {})
+        .filter(team =>
+            team.toLowerCase().includes(searchText.toLowerCase())
+        )
+        .sort((a, b) => a.localeCompare(b));
+
+    teamSelect.innerHTML =
+        teams.map(team =>
+            `<option value="${team}">${team}</option>`
+        ).join("");
+
+    showCounters();
 }
 
 // FIXED: Extracted into its own properly scoped function
@@ -76,9 +111,16 @@ function resetRound() {
 }
 
 function showCounters() {
+    
     const teamSelect = document.getElementById("teamSelect");
     if (!teamSelect || !teamSelect.value) return;
-
+    
+if (teamSelect.options.length === 0) {
+    document.getElementById("results").innerHTML =
+        "<p>No matching defence teams found.</p>";
+    return;
+}
+    
     const team = teamSelect.value;
     const counters = (gacData[currentMode] && gacData[currentMode][team]) || [];
 
