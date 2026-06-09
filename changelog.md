@@ -14,3 +14,7 @@
 - mark used
 - reset round
 - local storage
+
+## v1.4
+- search box
+- alphabetical sorting
