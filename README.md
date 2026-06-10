@@ -18,24 +18,20 @@ https://nimbrethil81.github.io/gac-helper/
 Development:
 https://nimbrethil81.github.io/gac-helper-dev/
 
-## Current Version
-
-v1.0
-
 ## Roadmap
 
 ### Phase 1 - Counter Lookup
 
 - [x] Google Sheets integration
 - [x] PWA deployment
-- [ ] Populate 100+ counters
+- [x] Populate 100+ counters
 - [ ] Tier colour coding
 - [ ] Counter notes
 
 ### Phase 2 - Team Tracking
 
-- [ ] Mark team used
-- [ ] Reset round
+- [x] Mark team used
+- [x] Reset round
 - [ ] Hide used counters
 
 ### Phase 3 - Roster Awareness
