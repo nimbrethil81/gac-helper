@@ -86,9 +86,9 @@ function updateSearch(value) {
 // FIXED: Extracted into its own properly scoped function
 function getTierColour(tier) {
     switch ((tier || "").toUpperCase()) {
-        case "S": return "#4CAF50"; // Green
-        case "A": return "#2196F3"; // Blue
-        case "B": return "#FF9800"; // Orange
+        case "S": return "#1976D2"; // Blue
+        case "A": return "#4CAF50"; // Green
+        case "B": return "#FF9800"; // Amber
         case "C": return "#F44336"; // Red
         default: return "#999999";
     }
@@ -122,20 +122,86 @@ if (teamSelect.options.length === 0) {
 }
     
     const team = teamSelect.value;
-    const counters = (gacData[currentMode] && gacData[currentMode][team]) || [];
+    const counters = ((gacData[currentMode] && gacData[currentMode][team]) || [])
+    .sort((a, b) => {
+
+        const tierOrder = {
+            "S": 1,
+            "A": 2,
+            "B": 3,
+            "C": 4
+        };
+
+        const tierDiff =
+            (tierOrder[a.tier?.toUpperCase()] || 99) -
+            (tierOrder[b.tier?.toUpperCase()] || 99);
+
+        if (tierDiff !== 0) {
+            return tierDiff;
+        }
+
+        return (
+            Number(b.bannerScore || 0) -
+            Number(a.bannerScore || 0)
+        );
+    });
 
     document.getElementById("results").innerHTML = counters.map(counter => {
         const isUsed = usedTeams.includes(counter.counter);
 
         return `
-            <div style="border:1px solid #ccc; border-radius:8px; padding:10px; margin-top:10px; opacity:${isUsed ? "0.5" : "1"};">
-                <strong>${counter.counter}</strong><br>
-                Tier: <span style="background:${getTierColour(counter.tier)}; color:white; padding:2px 8px; border-radius:12px; font-weight:bold;">
-                    ${counter.tier || "-"}
-                </span><br>
-                Banner Score: ${counter.bannerScore || "-"}<br>
-                Undersize: ${counter.undersize || "-"}<br>
-                Notes: ${counter.notes || ""}<br><br>
+<div style="
+    border:1px solid #ddd;
+    border-radius:12px;
+    padding:14px;
+    margin-top:12px;
+    background:white;
+    box-shadow:0 2px 4px rgba(0,0,0,0.08);
+    opacity:${isUsed ? "0.5" : "1"};
+">
+
+    <div style="
+        display:flex;
+        justify-content:space-between;
+        align-items:center;
+        margin-bottom:10px;
+    ">
+
+        <div style="
+            font-size:18px;
+            font-weight:bold;
+        ">
+            ${counter.counter}
+        </div>
+
+        <span style="
+            background:${getTierColour(counter.tier)};
+            color:white;
+            padding:4px 12px;
+            border-radius:16px;
+            font-weight:bold;
+            font-size:14px;
+        ">
+            ${counter.tier === "S" ? "⭐ S" :
+  counter.tier === "A" ? "🟢 A" :
+  counter.tier === "B" ? "🟠 B" :
+  counter.tier === "C" ? "🔴 C" :
+  counter.tier}
+        </span>
+
+    </div>
+
+    <div style="margin-bottom:6px;">
+        🎯 <strong>Expected Banners:</strong> ${counter.bannerScore || "-"}
+    </div>
+
+    <div style="margin-bottom:6px;">
+        👥 <strong>Undersize:</strong> ${counter.undersize || "-"}
+    </div>
+
+    <div style="margin-bottom:10px;">
+        📝 <strong>Notes:</strong> ${counter.notes || "-"}
+    </div>
                 ${isUsed 
                     ? `<strong style="color:red;">✓ USED</strong>` 
                     : `<button onclick="markUsed('${counter.counter}')">Mark Used</button>`
