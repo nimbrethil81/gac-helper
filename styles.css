@@ -1,0 +1,180 @@
+:root {
+    --bg: #05070d;
+    --panel: #0d1624;
+    --panel-light: #15253d;
+
+    --jedi-blue: #4fc3f7;
+    --jedi-blue-dark: #2196f3;
+
+    --s-tier: #66bb6a;
+    --a-tier: #42a5f5;
+    --b-tier: #ffb74d;
+    --c-tier: #ef5350;
+
+    --text: #f5f7fa;
+    --muted: #8b9bb4;
+}
+
+body {
+    margin: 0;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+
+    background:
+        radial-gradient(circle at top,
+        #14233a 0%,
+        #05070d 60%);
+
+    color: var(--text);
+}
+
+h1 {
+    text-align: center;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+}
+
+.subtitle {
+    text-align: center;
+    color: var(--muted);
+    margin-bottom: 20px;
+}
+
+.round-card {
+    background: var(--panel);
+    border: 1px solid #22324a;
+    border-radius: 14px;
+    padding: 15px;
+    margin-bottom: 20px;
+
+    box-shadow:
+        0 0 12px rgba(79,195,247,0.15);
+}
+
+.round-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.round-stat {
+    margin-bottom: 10px;
+}
+
+.reset-button {
+    width: 100%;
+    border: none;
+    border-radius: 10px;
+    padding: 12px;
+
+    background: #d32f2f;
+    color: white;
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+.mode-toggle {
+    display: flex;
+    background: var(--panel);
+    padding: 4px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.mode-button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+
+    color: var(--muted);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.mode-button.active {
+    background: var(--jedi-blue);
+    color: black;
+
+    box-shadow:
+        0 0 15px rgba(79,195,247,0.5);
+}
+
+.search-box,
+.team-select {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 12px;
+    margin-bottom: 12px;
+
+    background: var(--panel);
+    color: white;
+
+    border: 1px solid #22324a;
+    border-radius: 10px;
+}
+
+.counter-card {
+    background: var(--panel);
+
+    border: 1px solid #22324a;
+    border-radius: 14px;
+
+    padding: 14px;
+    margin-top: 12px;
+
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.3);
+}
+
+.counter-card.used {
+    opacity: 0.5;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    margin-bottom: 10px;
+}
+
+.team-name {
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.tier-badge {
+    color: white;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-weight: bold;
+}
+
+.mark-used-button {
+    margin-top: 10px;
+
+    border: none;
+    border-radius: 8px;
+
+    padding: 10px 14px;
+
+    background: var(--jedi-blue);
+    color: black;
+
+    font-weight: bold;
+}
+
+.used-label {
+    color: #ff6666;
+    font-weight: bold;
+}
+
+.footer {
+    text-align: center;
+    color: var(--muted);
+    margin-top: 20px;
+    font-size: 12px;
+}

@@ -27,34 +27,69 @@ function render() {
     .sort((a, b) => a.localeCompare(b));
 
     app.innerHTML = `
-        <h2>SWGOH Counters v${APP_VERSION}</h2>
-        <button onclick="resetRound()" style="margin-bottom:10px; padding:8px 12px; background:#f44336; color:white; border:none; border-radius:6px;">
-            Reset GAC Round
-        </button>
-        <br><br>
-        <button onclick="setMode('5v5')" style="padding:10px; margin-right:5px; font-weight:bold; background:${currentMode === "5v5" ? "#4CAF50" : "#ddd"}; color:${currentMode === "5v5" ? "white" : "black"};">
-            5v5
-        </button>
-        <button onclick="setMode('3v3')" style="padding:10px; font-weight:bold; background:${currentMode === "3v3" ? "#4CAF50" : "#ddd"}; color:${currentMode === "3v3" ? "white" : "black"};">
-            3v3
-        </button>
-        <br><br>
+
+<div class="round-card">
+
+    <div class="round-title">
+        🏆 CURRENT ROUND
+    </div>
+
+    <div class="round-stat">
+        Used Teams: ${getUsedTeamCount()}
+    </div>
+
+    <button
+        class="reset-button"
+        onclick="resetRound()"
+    >
+        Reset Round
+    </button>
+
+</div>
+
+<div class="mode-toggle">
+
+    <button
+        class="mode-button ${currentMode === "5v5" ? "active" : ""}"
+        onclick="setMode('5v5')"
+    >
+        5v5
+    </button>
+
+    <button
+        class="mode-button ${currentMode === "3v3" ? "active" : ""}"
+        onclick="setMode('3v3')"
+    >
+        3v3
+    </button>
+
+</div>
 
 <input
     type="text"
     id="searchBox"
+    class="search-box"
     placeholder="Search defence team..."
     value="${searchText}"
     oninput="updateSearch(this.value)"
-    style="width:100%; padding:10px; margin-bottom:10px; box-sizing:border-box;"
 >
 
-<select id="teamSelect" onchange="showCounters()" style="width:100%; padding:10px;">
-    ${teams.map(team => `<option value="${team}">${team}</option>`).join("")}
+<select
+    id="teamSelect"
+    class="team-select"
+    onchange="showCounters()"
+>
+    ${teams.map(team =>
+        `<option value="${team}">${team}</option>`
+    ).join("")}
 </select>
 
 <div id="results"></div>
-    `;
+
+<div class="footer">
+    v${APP_VERSION}
+</div>
+`;
 
     showCounters();
 }
@@ -102,12 +137,24 @@ function markUsed(teamName) {
     }
     showCounters();
 }
-
+function getUsedTeamCount() {
+    return usedTeams.length;
+}
 // FIXED: Moved outside of getTierColour
 function resetRound() {
+
+    const confirmed = confirm(
+        "Clear all used teams?"
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
     usedTeams = [];
     localStorage.removeItem("usedTeams");
-    render(); // Changed to render() so the main view updates and reflects the reset changes
+
+    render();
 }
 
 function showCounters() {
@@ -150,64 +197,51 @@ if (teamSelect.options.length === 0) {
         const isUsed = usedTeams.includes(counter.counter);
 
         return `
-<div style="
-    border:1px solid #ddd;
-    border-radius:12px;
-    padding:14px;
-    margin-top:12px;
-    background:white;
-    box-shadow:0 2px 4px rgba(0,0,0,0.08);
-    opacity:${isUsed ? "0.5" : "1"};
-">
+<div class="counter-card ${isUsed ? "used" : ""}">
 
-    <div style="
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        margin-bottom:10px;
-    ">
+    <div class="card-header">
 
-        <div style="
-            font-size:18px;
-            font-weight:bold;
-        ">
+        <div class="team-name">
             ${counter.counter}
         </div>
 
-        <span style="
-            background:${getTierColour(counter.tier)};
-            color:white;
-            padding:4px 12px;
-            border-radius:16px;
-            font-weight:bold;
-            font-size:14px;
-        ">
-            ${counter.tier === "S" ? "⭐ S" :
-  counter.tier === "A" ? "🟢 A" :
-  counter.tier === "B" ? "🟠 B" :
-  counter.tier === "C" ? "🔴 C" :
-  counter.tier}
+        <span
+            class="tier-badge"
+            style="background:${getTierColour(counter.tier)};"
+        >
+            ${counter.tier}
         </span>
 
     </div>
 
-    <div style="margin-bottom:6px;">
-        🎯 <strong>Expected Banners:</strong> ${counter.bannerScore || "-"}
+    <div>
+        🎯 <strong>Expected Banners:</strong>
+        ${counter.bannerScore || "-"}
     </div>
 
-    <div style="margin-bottom:6px;">
-        👥 <strong>Undersize:</strong> ${counter.undersize || "-"}
+    <div>
+        👥 <strong>Undersize:</strong>
+        ${counter.undersize || "-"}
     </div>
 
-    <div style="margin-bottom:10px;">
-        📝 <strong>Notes:</strong> ${counter.notes || "-"}
+    <div>
+        📝 <strong>Notes:</strong>
+        ${counter.notes || "-"}
     </div>
-                ${isUsed 
-                    ? `<strong style="color:red;">✓ USED</strong>` 
-                    : `<button onclick="markUsed('${counter.counter}')">Mark Used</button>`
-                }
-            </div>
-        `;
+
+    ${
+        isUsed
+        ? `<div class="used-label">✓ USED</div>`
+        : `<button
+              class="mark-used-button"
+              onclick="markUsed('${counter.counter}')"
+           >
+              Mark Used
+           </button>`
+    }
+
+</div>
+`;
     }).join("");
 }
 
