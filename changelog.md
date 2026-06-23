@@ -16,3 +16,5 @@
 - reset round
 - search bar
 - more colour coding
+## v1.5
+- roster import foundations

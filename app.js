@@ -1,16 +1,34 @@
 // app.js
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
+let counterDefinitions = {};
+let characterDefinitions = {};
 let currentMode = "5v5";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 let searchText = "";
+let ownedCharacters =
+    JSON.parse(
+        localStorage.getItem(
+            "ownedCharacters"
+        ) || "[]"
+    );
 
 async function loadData() {
     try {
         const response = await fetch(API_URL);
-        gacData = await response.json();
+        const data =
+    await response.json();
+
+gacData =
+    data.counters;
+
+counterDefinitions =
+    data.counterDefinitions;
+
+characterDefinitions =
+    data.characterDefinitions;
         render();
     } catch (error) {
         document.getElementById("app").innerHTML = "Error: " + error.message;
@@ -157,6 +175,40 @@ function resetRound() {
     render();
 }
 
+function getAvailability(counterId) {
+
+    const def =
+        counterDefinitions[counterId];
+
+    if (!def) {
+
+        return {
+            available: false,
+            missing: ["Missing definition"]
+        };
+    }
+
+    const required =
+        currentMode === "5v5"
+        ? def.required5v5
+        : def.required3v3;
+
+    const missing =
+        required.filter(
+            character =>
+                !ownedCharacters.includes(
+                    character
+                )
+        );
+
+    return {
+        available:
+            missing.length === 0,
+
+        missing
+    };
+}
+
 function showCounters() {
     
     const teamSelect = document.getElementById("teamSelect");
@@ -195,6 +247,10 @@ if (teamSelect.options.length === 0) {
 
     document.getElementById("results").innerHTML = counters.map(counter => {
         const isUsed = usedTeams.includes(counter.counter);
+        const availability =
+    getAvailability(
+        counter.counterId
+    );
 
         return `
 <div class="counter-card ${isUsed ? "used" : ""}">
@@ -204,6 +260,13 @@ if (teamSelect.options.length === 0) {
         <div class="team-name">
             ${counter.counter}
         </div>
+        <div>
+    ${
+        availability.available
+        ? "🟢 Available"
+        : "🔴 Unavailable"
+    }
+</div>
 
         <span
             class="tier-badge"
@@ -227,6 +290,20 @@ if (teamSelect.options.length === 0) {
     <div>
         📝 <strong>Notes:</strong>
         ${counter.notes || "-"}
+        ${
+    !availability.available
+    ? `
+    <div>
+        ❌ <strong>Missing:</strong>
+        ${availability.missing
+            .map(id =>
+                characterDefinitions[id] || id
+            )
+            .join(", ")}
+    </div>
+    `
+    : ""
+}
     </div>
 
     ${
