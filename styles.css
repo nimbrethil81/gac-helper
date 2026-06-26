@@ -18,6 +18,7 @@
 body {
     margin: 0;
     padding: 20px;
+    padding-bottom: 80px;
     font-family: Arial, sans-serif;
 
     background:
@@ -179,32 +180,43 @@ h1 {
     font-size: 12px;
 }
 
-/* ─── NAV TOGGLE ─────────────────────────────────────────────────── */
+/* ─── BOTTOM NAV ─────────────────────────────────────────────────── */
 
-.nav-toggle {
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: flex;
     background: var(--panel);
-    padding: 4px;
-    border-radius: 12px;
-    margin-bottom: 20px;
+    border-top: 1px solid #22324a;
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 100;
 }
 
 .nav-button {
     flex: 1;
-    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 0;
     border: none;
-    border-radius: 8px;
     background: transparent;
     color: var(--muted);
+    font-size: 11px;
     font-weight: bold;
     cursor: pointer;
-    font-size: 14px;
+    letter-spacing: 0.5px;
 }
 
 .nav-button.active {
-    background: var(--jedi-blue);
-    color: black;
-    box-shadow: 0 0 15px rgba(79,195,247,0.5);
+    color: var(--jedi-blue);
+}
+
+.nav-icon {
+    font-size: 22px;
+    line-height: 1;
 }
 
 /* ─── ROSTER ─────────────────────────────────────────────────────── */

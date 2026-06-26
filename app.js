@@ -72,19 +72,21 @@ function setView(view) {
 function render() {
     const app = document.getElementById("app");
 
-    app.innerHTML = `
-<div class="nav-toggle">
-    <button class="nav-button ${currentView === "counters" ? "active" : ""}" onclick="setView('counters')">
-        ⚔️ Counters
-    </button>
-    <button class="nav-button ${currentView === "roster" ? "active" : ""}" onclick="setView('roster')">
-        👤 Roster
-    </button>
-</div>
-
+app.innerHTML = `
 ${currentView === "counters" ? renderCounters() : renderRoster()}
 
 <div class="footer">v${APP_VERSION}</div>
+
+<nav class="bottom-nav">
+    <button class="nav-button ${currentView === "counters" ? "active" : ""}" onclick="setView('counters')">
+        <span class="nav-icon">⚔️</span>
+        COUNTERS
+    </button>
+    <button class="nav-button ${currentView === "roster" ? "active" : ""}" onclick="setView('roster')">
+        <span class="nav-icon">👤</span>
+        ROSTER
+    </button>
+</nav>
 `;
 
     if (currentView === "counters") {
