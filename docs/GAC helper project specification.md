@@ -1,6 +1,20 @@
 # SWGOH GAC Helper App Specification
 
-## 1. Vision
+## Overview
+
+SWGOH GAC Helper is a mobile-first web application designed to support Grand Arena Championship (GAC) planning in Star Wars: Galaxy of Heroes.
+
+The app provides a fast, simplified counter lookup experience focused on practical decision-making during a live GAC round.
+
+The design philosophy is:
+
+* Fast to use during a match
+* Easy to maintain
+* Mobile friendly
+* Focused on strategic team identities rather than exact squad compositions
+* Incrementally extensible towards future planning and roster-aware functionality
+
+---
 
 ### Purpose
 
@@ -15,6 +29,22 @@ The app will evolve from a simple counter lookup tool into a personal GAC planni
 * Recommends the best attack order and counter allocation.
 * Ultimately acts as a "GAC co-pilot" during attack phases.
 
+  ---
+
+# Core Objectives
+
+The app should allow a player to:
+
+1. Select the current GAC mode (5v5 or 3v3)
+2. Search for an enemy defence team
+3. View recommended counters
+4. View counter quality and expected banners
+5. Track which counters have already been used
+6. Determine whether a counter can be fielded from the player's roster
+7. Support future GAC planning functionality
+
+---
+
 ### Target User
 
 * Intermediate to advanced SWGOH players.
@@ -24,7 +54,8 @@ The app will evolve from a simple counter lookup tool into a personal GAC planni
 
 ---
 
-# 2. Design Principles
+
+# Design Principles
 
 ### Mobile First
 
@@ -48,89 +79,7 @@ Features should be built in stages, ensuring the app remains functional througho
 
 ---
 
-# 3. Architecture
-
-## Front End
-
-Technology:
-
-* HTML
-* CSS
-* JavaScript
-* Progressive Web App (PWA)
-
-Hosted via:
-
-* GitHub Pages
-
-Repositories:
-
-* gac-helper-dev
-* gac-helper
-
----
-
-## Data Layer
-
-Counter data maintained in:
-
-Google Sheets
-
-Structure:
-
-```text
-Mode | Defence Team | Counter Team | Tier | Banner Score | Undersize | Notes
-```
-
-Example:
-
-```text
-5v5 | Darth Malgus | Bane | S | 64 | Yes | Preferred counter
-```
-
----
-
-## API Layer
-
-Google Apps Script
-
-Responsibilities:
-
-* Read Google Sheet
-* Convert rows to JSON
-* Serve JSON to app
-
-Example endpoint:
-
-```text
-https://script.google.com/macros/s/.../exec
-```
-
----
-
-## Storage
-
-### Current
-
-Browser Local Storage
-
-Stores:
-
-* Used teams
-* User preferences
-* Future settings
-
-### Future
-
-Potential cloud storage:
-
-* Google account
-* Firebase
-* SWGOH.gg integration
-
----
-
-# 4. Functional Requirements
+# MVP Functional Requirements
 
 ## FR-001 Counter Lookup
 
@@ -198,340 +147,452 @@ User can reset all used teams.
 
 ---
 
-# 5. Use Cases
+# Current Architecture
 
-## UC-001 Find Counter
+## Front End
 
-Player sees:
+### index.html
+
+Responsible for:
+
+* App shell
+* Loading scripts
+* Loading styles
+* Registering service worker
+
+### styles.css
+
+Responsible for:
+
+* Theme
+* Layout
+* Responsive design
+* Counter card styling
+
+### app.js
+
+Responsible for:
+
+* Data loading
+* State management
+* Rendering
+* Counter lookup
+* Used team tracking
+* Availability calculation
+
+---
+
+## Back End
+
+### Google Sheets
+
+Primary data store.
+
+### Google Apps Script
+
+Provides JSON API consumed by the web app.
+
+---
+
+# Data Model
+
+## Character_Definitions
+
+Master list of all playable characters.
+
+### Columns
+
+| Column         | Description                 |
+| -------------- | --------------------------- |
+| Character_ID   | Stable internal identifier  |
+| Character_Name | Human-readable display name |
+
+### Example
+
+| Character_ID   | Character_Name |
+| -------------- | -------------- |
+| DARTH_BANE     | Darth Bane     |
+| LEIA_ORGANA    | Leia Organa    |
+| CAPTAIN_DROGAN | Captain Drogan |
+
+---
+
+## Counter_Definitions
+
+Master list of strategic counter teams.
+
+A Counter_ID represents a team identity rather than a specific squad composition.
+
+### Columns
+
+| Column          | Description                    |
+| --------------- | ------------------------------ |
+| Counter_ID      | Stable internal identifier     |
+| Counter Team    | Display name                   |
+| Required 5v5    | Required characters for 5v5    |
+| Recommended 5v5 | Recommended characters for 5v5 |
+| Required 3v3    | Required characters for 3v3    |
+| Recommended 3v3 | Recommended characters for 3v3 |
+
+### Example
+
+| Counter_ID | Counter Team |
+| ---------- | ------------ |
+| LEIA       | Leia         |
+| BANE       | Bane         |
+| STARKILLER | Starkiller   |
+
+### Design Principles
+
+Counter definitions describe:
+
+> Can the player reasonably field this counter?
+
+They do not attempt to model every matchup-specific squad variation.
+
+Example:
+
+### Counter_ID
+
+LEIA
+
+### Required 5v5
+
+* LEIA_ORGANA
+* CAPTAIN_DROGAN
+
+### Recommended 5v5
+
+* HAN_SOLO
+* CHEWBACCA
+* R2_D2
+
+---
+
+## Counters
+
+Relationship table between defence teams and counter teams.
+
+### Columns
+
+| Column       | Description             |
+| ------------ | ----------------------- |
+| Mode         | 5v5 or 3v3              |
+| Defence Team | Enemy team              |
+| Counter_ID   | Counter team identifier |
+| Counter Team | Display name            |
+| Tier         | S/A/B/C                 |
+| Banner Score | Expected banner score   |
+| Undersize    | Yes/No                  |
+| Notes        | Optional notes          |
+
+### Example
+
+| Defence Team | Counter_ID |
+| ------------ | ---------- |
+| Darth Malgus | LEIA       |
+| Darth Malgus | BANE       |
+| Darth Malgus | STARKILLER |
+
+---
+
+# Identifier Standards
+
+## Counter_ID
+
+Rules:
+
+* Uppercase
+* Underscores
+* No spaces
+* Stable once created
+
+Examples:
 
 ```text
-Darth Malgus
+LEIA
+BANE
+STARKILLER
+GREAT_MOTHERS
+BO_MANDALOR
+REX_PHOENIX
 ```
 
-Player selects:
+---
+
+## Character_ID
+
+Rules:
+
+* Uppercase
+* Underscores
+* Based on official character names
+* Stable once created
+
+Examples:
 
 ```text
-Darth Malgus
+LEIA_ORGANA
+CAPTAIN_DROGAN
+DARTH_BANE
+EMPEROR_PALPATINE
+GREAT_MOTHERS
 ```
+
+---
+
+# Current Features
+
+## Counter Lookup
+
+User selects:
+
+* Mode
+* Defence Team
 
 App displays:
 
-```text
-Bane
-JKCK
-Leia
-```
-
-ranked by tier.
+* Counter Team
+* Tier
+* Expected Banners
+* Undersize
+* Notes
 
 ---
 
-## UC-002 Mark Team Used
+## Used Team Tracking
 
-Player defeats:
+User can mark a counter as used.
 
-```text
-Darth Malgus
-```
+Used teams are stored locally.
 
-using:
-
-```text
-Bane
-```
-
-Player taps:
-
-```text
-Mark Used
-```
-
-App records usage.
+Used counters display with reduced opacity.
 
 ---
 
-## UC-003 Reset Between GAC Rounds
+## Counter Availability
 
-New GAC attack phase starts.
+Availability is based on ownership of all required characters.
 
-Player taps:
+### Available
+
+All required characters owned.
 
 ```text
-Reset GAC Round
+🟢 Available
 ```
 
-All teams become available.
+### Unavailable
 
----
+One or more required characters missing.
 
-# 6. Future Requirements
+```text
+🔴 Unavailable
+```
 
-## FR-101 Search
-
-Search defence teams.
+Missing characters are listed.
 
 Example:
 
 ```text
-Search:
-mal
-```
+🔴 Unavailable
 
-Results:
-
-```text
-Darth Malgus
+Missing:
+Mara Jade
+Starkiller
 ```
 
 ---
 
-## FR-102 Tier Sorting
+# Roster Model
 
-Automatically display:
+## Ownership
 
-```text
-S
-A
-B
-C
-```
-
-order.
-
----
-
-## FR-103 Hide Used Teams
-
-Toggle:
-
-```text
-Hide Used Teams
-```
-
-Used counters removed from results.
-
----
-
-## FR-104 Favourite Counters
-
-User can star preferred counters.
+Character-level ownership only.
 
 Example:
 
 ```text
-⭐ Bane
+Owned:
+- Darth Bane
+- Leia Organa
+- Captain Drogan
+
+Not Owned:
+- Mara Jade
+- Starkiller
 ```
+
+No relics, gear levels, zetas, omicrons, mods or GP are considered at this stage.
 
 ---
 
-## FR-105 Counter Notes
+## Availability Rules
 
-Expanded notes system.
-
-Example:
+A counter is available if:
 
 ```text
-Requires Datacron
-Watch for Reva
+All required characters are owned
+```
+
+Recommended characters are ignored for availability calculations.
+
+---
+
+# API Contract
+
+Google Apps Script returns:
+
+```json
+{
+  "counters": {},
+  "counterDefinitions": {},
+  "characterDefinitions": {}
+}
+```
+
+## counters
+
+Contains:
+
+```json
+{
+  "5v5": {},
+  "3v3": {}
+}
 ```
 
 ---
 
-# 7. Roster Integration
+## counterDefinitions
 
-## Goal
+Contains:
 
-Filter recommendations based on owned characters.
-
-### Phase 1
-
-Manual roster ownership.
-
-Example:
-
-```text
-Own Bane: Yes
-Own Bo-Katan Mand'alor: No
+```json
+{
+  "LEIA": {
+    "name": "Leia",
+    "required5v5": [],
+    "recommended5v5": [],
+    "required3v3": [],
+    "recommended3v3": []
+  }
+}
 ```
 
 ---
 
-### Phase 2
+## characterDefinitions
 
-Roster import from:
+Contains:
 
-```text
-swgoh.gg
+```json
+{
+  "LEIA_ORGANA": "Leia Organa"
+}
 ```
 
 ---
 
-### Phase 3
+# Roadmap
 
-Automatic roster synchronisation.
+## Version 1.5 - Roster Foundations
 
----
+Completed
 
-# 8. GAC Planning Engine
+### Delivered
 
-## Objective
-
-Move beyond counter lookup.
-
-The app should recommend:
-
-```text
-Best Available Counter
-```
-
-based on:
-
-* Remaining enemy teams
-* Remaining player teams
-* Banner efficiency
+* Counter_ID architecture
+* Character_Definitions sheet
+* Counter_Definitions sheet
+* Apps Script support
+* Availability engine
+* Availability indicators
+* Missing character display
 
 ---
 
-## Example
+## Version 1.6 - Manual Roster
 
-Enemy teams remaining:
+Planned
 
-```text
-Lord Vader
-Leia
-Jabba
-```
+### Objectives
 
-Available teams:
-
-```text
-JMK
-Bane
-Bo-Katan
-```
-
-App determines:
-
-```text
-Use Bane on Leia
-Use JMK on Jabba
-Use Bo-Katan on Lord Vader
-```
-
-to maximise success probability.
+* Roster screen
+* Character search
+* Character ownership toggles
+* Local storage persistence
+* Availability updates automatically
 
 ---
 
-# 9. Banner Optimisation
+## Version 1.7 - Available Counters Filter
 
-Future system to estimate:
+Planned
 
-* Expected banners
-* Undersize opportunities
-* Solo opportunities
+### Objectives
 
-Example:
-
-```text
-Bane Solo
-Expected banners: 65
-```
+* Show Available Only toggle
+* Hide unavailable counters
+* Improve decision speed during live GAC
 
 ---
 
-# 10. Advanced Features
+## Version 1.8 - Used Team Awareness
 
-## SWGOH.gg Integration
+Planned
 
-Potential integrations:
+### Objectives
 
-* Player roster
-* Omicrons
-* Datacrons
-* GAC history
-* Matchup data
+Combine:
 
----
-
-## Opponent Analysis
-
-Import opponent roster.
-
-Determine:
-
-* Likely remaining teams
-* Relative GP strength
-* Threat assessment
-
----
-
-## Battle Planner
-
-Display:
-
-```text
-North Wall
-South Wall
-Fleet Wall
-```
-
-Track progress during attack phase.
-
----
-
-# 11. Long-Term Roadmap
-
-## Version 1.x
-
-Core Counter App
-
-* Counter lookup
-* Google Sheets backend
-* Tier colours
+* Availability
 * Used team tracking
-* Search
+
+Example:
+
+```text
+🟢 Available
+🟡 Already Used
+🔴 Unavailable
+```
 
 ---
 
-## Version 2.x
+## Version 2.0 - Roster Import
 
-Personalisation
+Planned
 
-* Roster filtering
-* Favourite counters
-* Better planning tools
+### Objectives
+
+Import roster data from external sources.
+
+Potential sources:
+
+* SWGOH.gg
+* HotUtils
+* Other publicly available roster APIs
+
+Manual roster functionality should remain available as a fallback.
 
 ---
 
-## Version 3.x
+## Future Vision
 
-Roster Integration
+Long-term direction is a roster-aware GAC planning assistant.
 
-* SWGOH.gg import
-* Automatic ownership filtering
+Potential future features:
 
----
-
-## Version 4.x
-
-GAC Assistant
-
-* Team allocation engine
+* Automatic roster imports
+* Team allocation planning
+* Counter conflict detection
 * Banner optimisation
-* Attack recommendations
+* Defence strategy support
+* GAC round planning
+* Opponent roster analysis
+* Statistical counter recommendations
 
----
-
-## Version 5.x
-
-Full GAC Co-Pilot
-
-* Opponent analysis
-* Match planning
-* Dynamic recommendations
-* End-to-end GAC guidance
-
----
+The application should continue prioritising simplicity and speed over attempting to replicate the full functionality of SWGOH.gg.
 
 # Success Criteria
 
