@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "1.6";
+const APP_VERSION = "1.65";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
@@ -11,6 +11,9 @@ let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 let searchText = "";
 let ownedCharacters = JSON.parse(localStorage.getItem("ownedCharacters") || "[]");
 let rosterSearch = "";
+let bannerData = JSON.parse(
+    localStorage.getItem("bannerData") || '{"myScore":0,"oppScore":0,"remaining":0}'
+);
 
 async function loadData() {
     try {
@@ -31,14 +34,12 @@ async function loadData() {
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
-// Returns the display name for a character ID
 function getCharacterName(characterId) {
     const def = characterDefinitions[characterId];
     if (!def) return characterId;
     return def.name || characterId;
 }
 
-// Returns only CHARACTER-type entries, sorted by name
 function getCharacterList() {
     return Object.entries(characterDefinitions)
         .filter(([, def]) => def.unitType === "CHARACTER")
@@ -72,8 +73,17 @@ function setView(view) {
 function render() {
     const app = document.getElementById("app");
 
-app.innerHTML = `
-${currentView === "counters" ? renderCounters() : renderRoster()}
+    let viewHtml;
+    if (currentView === "counters") {
+        viewHtml = renderCounters();
+    } else if (currentView === "roster") {
+        viewHtml = renderRoster();
+    } else {
+        viewHtml = renderBanners();
+    }
+
+    app.innerHTML = `
+${viewHtml}
 
 <div class="footer">v${APP_VERSION}</div>
 
@@ -81,6 +91,10 @@ ${currentView === "counters" ? renderCounters() : renderRoster()}
     <button class="nav-button ${currentView === "counters" ? "active" : ""}" onclick="setView('counters')">
         <span class="nav-icon">⚔️</span>
         COUNTERS
+    </button>
+    <button class="nav-button ${currentView === "banners" ? "active" : ""}" onclick="setView('banners')">
+        <span class="nav-icon">📊</span>
+        BANNERS
     </button>
     <button class="nav-button ${currentView === "roster" ? "active" : ""}" onclick="setView('roster')">
         <span class="nav-icon">👤</span>
@@ -164,11 +178,15 @@ function markUsed(counterId) {
 }
 
 function resetRound() {
-    const confirmed = confirm("Clear all used teams?");
+    const confirmed = confirm("Reset the round? This clears used teams and banner tracking.");
     if (!confirmed) return;
 
     usedTeams = [];
     localStorage.removeItem("usedTeams");
+
+    bannerData = { myScore: 0, oppScore: 0, remaining: 0 };
+    localStorage.removeItem("bannerData");
+
     render();
 }
 
@@ -254,6 +272,82 @@ function showCounters() {
 </div>
 `;
     }).join("");
+}
+
+// ─── BANNERS VIEW ────────────────────────────────────────────────────────────
+
+function marginText(margin) {
+    if (margin > 0) return `Leading by ${margin}`;
+    if (margin < 0) return `Trailing by ${Math.abs(margin)}`;
+    return "Level";
+}
+
+function renderBanners() {
+
+    const my  = Number(bannerData.myScore)  || 0;
+    const opp = Number(bannerData.oppScore) || 0;
+    const rem = Number(bannerData.remaining) || 0;
+
+    const projected = my + rem;
+    const margin = my - opp;
+
+    return `
+<div class="round-card">
+    <div class="round-title">📊 BANNER TRACKING</div>
+    <div class="round-stat">Current round score</div>
+</div>
+
+<div class="banner-form">
+
+    <label class="banner-label" for="myScore">Your current score</label>
+    <input type="number" inputmode="numeric" min="0" id="myScore" class="banner-input"
+        value="${my}" oninput="updateBanner('myScore', this.value)">
+
+    <label class="banner-label" for="oppScore">Opponent's current score</label>
+    <input type="number" inputmode="numeric" min="0" id="oppScore" class="banner-input"
+        value="${opp}" oninput="updateBanner('oppScore', this.value)">
+
+    <label class="banner-label" for="remaining">Your remaining available banners</label>
+    <input type="number" inputmode="numeric" min="0" id="remaining" class="banner-input"
+        value="${rem}" oninput="updateBanner('remaining', this.value)">
+
+</div>
+
+<div class="banner-readout">
+    <div class="banner-readout-row">
+        <span>Projected final (max)</span>
+        <strong id="projectedFinal">${projected}</strong>
+    </div>
+    <div class="banner-readout-row">
+        <span>Margin now</span>
+        <strong id="bannerMargin" class="${margin > 0 ? "ahead" : margin < 0 ? "behind" : ""}">${marginText(margin)}</strong>
+    </div>
+</div>
+`;
+}
+
+function updateBanner(field, value) {
+    bannerData[field] = value === "" ? 0 : Number(value);
+    localStorage.setItem("bannerData", JSON.stringify(bannerData));
+    recomputeBannerReadouts();
+}
+
+function recomputeBannerReadouts() {
+    const my  = Number(bannerData.myScore)  || 0;
+    const opp = Number(bannerData.oppScore) || 0;
+    const rem = Number(bannerData.remaining) || 0;
+
+    const projected = my + rem;
+    const margin = my - opp;
+
+    const projectedEl = document.getElementById("projectedFinal");
+    const marginEl = document.getElementById("bannerMargin");
+
+    if (projectedEl) projectedEl.textContent = projected;
+    if (marginEl) {
+        marginEl.textContent = marginText(margin);
+        marginEl.className = margin > 0 ? "ahead" : margin < 0 ? "behind" : "";
+    }
 }
 
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────

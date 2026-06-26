@@ -253,3 +253,55 @@ h1 {
 .roster-status {
     font-size: 18px;
 }
+
+/* ─── BANNER TRACKING ────────────────────────────────────────────── */
+
+.banner-form {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+}
+
+.banner-label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
+.banner-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    margin-bottom: 14px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid #22324a;
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+.banner-readout {
+    background: var(--panel);
+    border: 1px solid #22324a;
+    border-radius: 14px;
+    padding: 14px;
+}
+
+.banner-readout-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 15px;
+}
+
+.banner-readout-row + .banner-readout-row {
+    border-top: 1px solid #22324a;
+}
+
+.banner-readout-row strong {
+    font-size: 18px;
+}
+
+.ahead { color: var(--s-tier); }
+.behind { color: var(--c-tier); }

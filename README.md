@@ -18,10 +18,6 @@ https://nimbrethil81.github.io/gac-helper/
 Development:
 https://nimbrethil81.github.io/gac-helper-dev/
 
-## Current Version
-
-v1.0
-
 ## Roadmap
 
 ### Phase 1 - Counter Lookup

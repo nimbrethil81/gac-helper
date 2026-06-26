@@ -1,607 +1,274 @@
-# SWGOH GAC Helper App Specification
+# SWGOH GAC Helper — Project Specification
 
-## Overview
-
-SWGOH GAC Helper is a mobile-first web application designed to support Grand Arena Championship (GAC) planning in Star Wars: Galaxy of Heroes.
-
-The app provides a fast, simplified counter lookup experience focused on practical decision-making during a live GAC round.
-
-The design philosophy is:
-
-* Fast to use during a match
-* Easy to maintain
-* Mobile friendly
-* Focused on strategic team identities rather than exact squad compositions
-* Incrementally extensible towards future planning and roster-aware functionality
+A mobile-first Progressive Web App that helps players make faster, better Grand Arena Championship (GAC) decisions in *Star Wars: Galaxy of Heroes*.
 
 ---
 
-### Purpose
+## Contents
 
-The SWGOH GAC Helper is a lightweight mobile-first companion app designed to help players of Star Wars: Galaxy of Heroes make better Grand Arena Championship (GAC) decisions.
-
-The app will evolve from a simple counter lookup tool into a personal GAC planning assistant that:
-
-* Identifies the best available counters to enemy teams.
-* Tracks which teams have already been used.
-* Considers the user's roster.
-* Optimises banner efficiency.
-* Recommends the best attack order and counter allocation.
-* Ultimately acts as a "GAC co-pilot" during attack phases.
-
-  ---
-
-# Core Objectives
-
-The app should allow a player to:
-
-1. Select the current GAC mode (5v5 or 3v3)
-2. Search for an enemy defence team
-3. View recommended counters
-4. View counter quality and expected banners
-5. Track which counters have already been used
-6. Determine whether a counter can be fielded from the player's roster
-7. Support future GAC planning functionality
+1. [Overview](#1-overview)
+   - 1.1 [Design Philosophy](#11-design-philosophy)
+   - 1.2 [Target User](#12-target-user)
+2. [Design Principles](#2-design-principles)
+3. [Architecture](#3-architecture)
+   - 3.1 [Frontend](#31-frontend)
+   - 3.2 [Backend](#32-backend)
+   - 3.3 [Data Flow](#33-data-flow)
+   - 3.4 [State & Persistence](#34-state--persistence)
+4. [Data Model](#4-data-model)
+   - 4.1 [Sheet Structure](#41-sheet-structure)
+   - 4.2 [Identifier Standards](#42-identifier-standards)
+5. [API Contract](#5-api-contract)
+6. [Current Features](#6-current-features)
+   - 6.1 [Counter Lookup](#61-counter-lookup)
+   - 6.2 [Used Team Tracking](#62-used-team-tracking)
+   - 6.3 [Banner Tracking](#63-banner-tracking)
+   - 6.4 [Roster Management](#64-roster-management)
+   - 6.5 [Counter Availability](#65-counter-availability)
+7. [Roster Model](#7-roster-model)
+8. [Roadmap](#8-roadmap)
+9. [Success Criteria](#9-success-criteria)
+10. [Future Vision](#10-future-vision)
 
 ---
 
-### Target User
+## 1. Overview
+
+SWGOH GAC Helper is a lightweight companion app for use during live GAC rounds. It provides a fast counter-lookup experience focused on practical, in-the-moment decision-making, and is evolving incrementally from a simple lookup tool into a personal GAC planning assistant.
+
+The app is designed to answer, within seconds: *which counters beat this enemy team, which are still available to me, and which have I already used?*
+
+It deliberately models **strategic team identities** rather than exact squad compositions. The guiding question is always "can the player reasonably field this counter?" — not "what is the perfect mod-and-relic squad for this specific matchup?"
+
+The long-term direction is a roster-aware GAC strategist that can recommend attack order, allocate counters efficiently, optimise banners, and avoid conflicts — while always prioritising simplicity and speed over replicating the full depth of sites like SWGOH.gg.
+
+### 1.1 Design Philosophy
+
+* **Fast** — find a counter within seconds, mid-match.
+* **Mobile-first** — built for phones and Home Screen PWA installation.
+* **Maintainable** — counter data is editable in Google Sheets without touching application code.
+* **Incremental** — features ship in stages; the app stays functional throughout.
+* **Identity over composition** — counters represent team identities, not squad variations.
+
+### 1.2 Target User
 
 * Intermediate to advanced SWGOH players.
-* Players who participate regularly in GAC.
-* Players who want to maximise banners and efficiency.
+* Regular GAC participants who want to maximise banners and efficiency.
 * Players who maintain their own counter knowledge and roster data.
 
 ---
 
+## 2. Design Principles
 
-# Design Principles
+**Mobile first.** The interface is optimised for iPhone and Android, and for installation as a standalone Home Screen PWA. Navigation between top-level views uses a fixed bottom navigation bar.
 
-### Mobile First
+**Fast.** Lookup is the critical path. A user should reach a counter list in as few taps as possible, with search and mode selection always to hand.
 
-The app must be optimised for:
+**Maintainable.** All game data lives in Google Sheets. Adding counters, adjusting tiers, or editing notes requires no code change and no redeployment of the frontend.
 
-* iPhone
-* Android
-* Home Screen PWA installation
-
-### Fast
-
-Users should be able to find a counter within seconds.
-
-### Maintainable
-
-Counter information should be editable via Google Sheets without modifying application code.
-
-### Incremental
-
-Features should be built in stages, ensuring the app remains functional throughout development.
+**Incremental.** Each version delivers a self-contained, working improvement. The app is never left in a broken intermediate state between releases.
 
 ---
 
-# MVP Functional Requirements
+## 3. Architecture
 
-## FR-001 Counter Lookup
+The app is a static frontend served from GitHub Pages, backed by a read-only JSON API built on Google Apps Script over Google Sheets. There is no server-side application code beyond the Apps Script endpoint, and no database other than the spreadsheet.
 
-User can:
+### 3.1 Frontend
 
-* Select 5v5 or 3v3
-* Select enemy defence team
-* View available counters
+Hosted on GitHub Pages.
 
-Display:
+* **index.html** — app shell; loads styles and scripts; registers the service worker.
+* **styles.css** — theme, layout, responsive design, component styling.
+* **app.js** — data loading, state management, rendering, counter lookup, used-team tracking, banner tracking, roster management, and availability calculation.
+* **service-worker.js** — PWA offline shell.
+* **manifest.json** — PWA metadata.
 
-* Counter Team
-* Tier
-* Banner Score
-* Undersize viability
-* Notes
+### 3.2 Backend
 
----
+* **Google Sheets** — primary data store and single source of truth for all game data.
+* **Google Apps Script** — a `doGet` web app that reads the sheets and returns a single consolidated JSON payload consumed by the frontend.
 
-## FR-002 Mode Selection
+### 3.3 Data Flow
 
-User can switch between:
-
-```text
-5v5
-3v3
+```
+Google Sheets
+      ↓
+Google Apps Script  (doGet → JSON)
+      ↓
+app.js  (fetch on load)
+      ↓
+Rendered views (Counters / Banners / Roster)
 ```
 
-Selected mode must be visually highlighted.
+The flow is **read-only**: the app fetches data but never writes back to Sheets. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce.
+
+### 3.4 State & Persistence
+
+All player-specific state is held client-side in `localStorage`:
+
+* **Used teams** — keyed on `Counter_ID`, persisted across app launches.
+* **Owned characters** — keyed on `Character_ID`, persisted across app launches.
+* **Banner tracking** — the current round's scores (own, opponent, remaining), persisted across app launches and cleared by Reset Round.
+
+Because state is local to the device and browser, it does not sync across devices and is lost if site data is cleared or the PWA is reinstalled. This is acceptable at the current stage; cloud-backed persistence is addressed by the Roster Import work in [§8](#8-roadmap).
 
 ---
 
-## FR-003 Tier Display
+## 4. Data Model
 
-Counter tiers displayed using colour coding.
+### 4.1 Sheet Structure
 
----
+The Google Sheet is the **schema source of truth**. Exact column names and ordering are defined in the sheet itself and are intentionally **not duplicated here**, to avoid drift between the spec and the live data. This section describes the *purpose and relationships* of each tab rather than its literal columns.
 
-## FR-004 Version Display
+**Counters** — the core relationship table. Maps an enemy defence team (per mode) to one or more counter teams, each with a tier, expected banner score, undersize flag, and optional notes. This is the data that drives the lookup screen.
 
-App version displayed.
+**Counter_Definitions** — the identity registry for counter teams. One row per counter, holding its stable `Counter_ID` and display name. Identity only; membership lives in Counter_Composition.
 
----
+**Counter_Composition** — the membership table. One row per character in a counter team, recording the `Counter_ID`, the `Character_ID`, and whether that character is `REQUIRED` or `RECOMMENDED`. This normalised structure replaced the earlier approach of packing character lists into single cells, and allows data validation on the character column to prevent invalid IDs at entry time.
 
-## FR-005 Used Team Tracking
+**Character_Definitions** — the master unit registry. One row per playable unit, holding its stable `Character_ID`, display name, and `Unit_Type` (`CHARACTER`, `SHIP`, or `CAPITAL_SHIP`). This is the source for the roster screen, for validation, and for future import matching.
 
-User can mark a counter as used.
+**Roster** — reserved for future cloud-backed, account-specific roster data (relics, omicrons, notes). Not consumed by the app at this stage.
 
-Example:
+**GAC History** — reserved for future match-result tracking.
 
-```text
-Bane
-✓ USED
-```
+**Expected Banners** — a reference table mapping banner scores to their practical meaning.
 
-Used status persists between app launches.
+> **Composition is mode-agnostic.** The required core of a counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. If a counter ever needs a genuinely different required core per mode, a `Mode` column (`5v5` / `3v3` / `BOTH`) can be added to Counter_Composition without disturbing the rest of the model.
 
-Stored locally.
+### 4.2 Identifier Standards
 
----
+Stable identifiers are central to the data model. Names can change; IDs must not.
 
-## FR-006 Round Reset
+**Counter_ID**
+* Uppercase, underscores, no spaces.
+* Stable once created.
+* Examples: `LEIA`, `BANE`, `STARKILLER`, `GREAT_MOTHERS`, `BO_KATAN_MANDALORE`.
 
-User can reset all used teams.
+**Character_ID**
+* Uppercase, underscores, no spaces.
+* Based on official character names, and aligned with SWGOH's internal naming style where practical (eases future imports from external sources).
+* Stable once created.
+* Examples: `LEIA_ORGANA`, `CAPTAIN_DROGAN`, `DARTH_BANE`, `EMPEROR_PALPATINE`.
 
----
+**Unit_Type** — enumerated: `CHARACTER`, `SHIP`, `CAPITAL_SHIP`. All-caps enum values keep them distinct from free text and make validation and filtering reliable.
 
-# Current Architecture
-
-## Front End
-
-### index.html
-
-Responsible for:
-
-* App shell
-* Loading scripts
-* Loading styles
-* Registering service worker
-
-### styles.css
-
-Responsible for:
-
-* Theme
-* Layout
-* Responsive design
-* Counter card styling
-
-### app.js
-
-Responsible for:
-
-* Data loading
-* State management
-* Rendering
-* Counter lookup
-* Used team tracking
-* Availability calculation
+**Role** — enumerated: `REQUIRED`, `RECOMMENDED`. Only `REQUIRED` characters are considered for availability.
 
 ---
 
-## Back End
+## 5. API Contract
 
-### Google Sheets
-
-Primary data store.
-
-### Google Apps Script
-
-Provides JSON API consumed by the web app.
-
----
-
-# Data Model
-
-## Character_Definitions
-
-Master list of all playable characters.
-
-### Columns
-
-| Column         | Description                 |
-| -------------- | --------------------------- |
-| Character_ID   | Stable internal identifier  |
-| Character_Name | Human-readable display name |
-
-### Example
-
-| Character_ID   | Character_Name |
-| -------------- | -------------- |
-| DARTH_BANE     | Darth Bane     |
-| LEIA_ORGANA    | Leia Organa    |
-| CAPTAIN_DROGAN | Captain Drogan |
-
----
-
-## Counter_Definitions
-
-Master list of strategic counter teams.
-
-A Counter_ID represents a team identity rather than a specific squad composition.
-
-### Columns
-
-| Column          | Description                    |
-| --------------- | ------------------------------ |
-| Counter_ID      | Stable internal identifier     |
-| Counter Team    | Display name                   |
-| Required 5v5    | Required characters for 5v5    |
-| Recommended 5v5 | Recommended characters for 5v5 |
-| Required 3v3    | Required characters for 3v3    |
-| Recommended 3v3 | Recommended characters for 3v3 |
-
-### Example
-
-| Counter_ID | Counter Team |
-| ---------- | ------------ |
-| LEIA       | Leia         |
-| BANE       | Bane         |
-| STARKILLER | Starkiller   |
-
-### Design Principles
-
-Counter definitions describe:
-
-> Can the player reasonably field this counter?
-
-They do not attempt to model every matchup-specific squad variation.
-
-Example:
-
-### Counter_ID
-
-LEIA
-
-### Required 5v5
-
-* LEIA_ORGANA
-* CAPTAIN_DROGAN
-
-### Recommended 5v5
-
-* HAN_SOLO
-* CHEWBACCA
-* R2_D2
-
----
-
-## Counters
-
-Relationship table between defence teams and counter teams.
-
-### Columns
-
-| Column       | Description             |
-| ------------ | ----------------------- |
-| Mode         | 5v5 or 3v3              |
-| Defence Team | Enemy team              |
-| Counter_ID   | Counter team identifier |
-| Counter Team | Display name            |
-| Tier         | S/A/B/C                 |
-| Banner Score | Expected banner score   |
-| Undersize    | Yes/No                  |
-| Notes        | Optional notes          |
-
-### Example
-
-| Defence Team | Counter_ID |
-| ------------ | ---------- |
-| Darth Malgus | LEIA       |
-| Darth Malgus | BANE       |
-| Darth Malgus | STARKILLER |
-
----
-
-# Identifier Standards
-
-## Counter_ID
-
-Rules:
-
-* Uppercase
-* Underscores
-* No spaces
-* Stable once created
-
-Examples:
-
-```text
-LEIA
-BANE
-STARKILLER
-GREAT_MOTHERS
-BO_MANDALOR
-REX_PHOENIX
-```
-
----
-
-## Character_ID
-
-Rules:
-
-* Uppercase
-* Underscores
-* Based on official character names
-* Stable once created
-
-Examples:
-
-```text
-LEIA_ORGANA
-CAPTAIN_DROGAN
-DARTH_BANE
-EMPEROR_PALPATINE
-GREAT_MOTHERS
-```
-
----
-
-# Current Features
-
-## Counter Lookup
-
-User selects:
-
-* Mode
-* Defence Team
-
-App displays:
-
-* Counter Team
-* Tier
-* Expected Banners
-* Undersize
-* Notes
-
----
-
-## Used Team Tracking
-
-User can mark a counter as used.
-
-Used teams are stored locally.
-
-Used counters display with reduced opacity.
-
----
-
-## Counter Availability
-
-Availability is based on ownership of all required characters.
-
-### Available
-
-All required characters owned.
-
-```text
-🟢 Available
-```
-
-### Unavailable
-
-One or more required characters missing.
-
-```text
-🔴 Unavailable
-```
-
-Missing characters are listed.
-
-Example:
-
-```text
-🔴 Unavailable
-
-Missing:
-Mara Jade
-Starkiller
-```
-
----
-
-# Roster Model
-
-## Ownership
-
-Character-level ownership only.
-
-Example:
-
-```text
-Owned:
-- Darth Bane
-- Leia Organa
-- Captain Drogan
-
-Not Owned:
-- Mara Jade
-- Starkiller
-```
-
-No relics, gear levels, zetas, omicrons, mods or GP are considered at this stage.
-
----
-
-## Availability Rules
-
-A counter is available if:
-
-```text
-All required characters are owned
-```
-
-Recommended characters are ignored for availability calculations.
-
----
-
-# API Contract
-
-Google Apps Script returns:
+The Apps Script returns a single JSON object with three top-level keys. This contract is the boundary between backend and frontend; the frontend depends on this shape rather than on sheet layout.
 
 ```json
 {
-  "counters": {},
+  "counters": { "5v5": {}, "3v3": {} },
   "counterDefinitions": {},
   "characterDefinitions": {}
 }
 ```
 
-## counters
+**counters** — keyed by mode, then by defence team name, to an array of counter entries. Each entry carries its counter ID, display name, tier, banner score, undersize flag, and notes.
 
-Contains:
-
-```json
-{
-  "5v5": {},
-  "3v3": {}
-}
-```
-
----
-
-## counterDefinitions
-
-Contains:
+**counterDefinitions** — keyed by `Counter_ID`:
 
 ```json
 {
   "LEIA": {
-    "name": "Leia",
-    "required5v5": [],
-    "recommended5v5": [],
-    "required3v3": [],
-    "recommended3v3": []
+    "name": "Leia Organa",
+    "required": ["LEIA_ORGANA"],
+    "recommended": ["CAPTAIN_DROGAN", "R2_D2"]
   }
 }
 ```
 
----
-
-## characterDefinitions
-
-Contains:
+**characterDefinitions** — keyed by `Character_ID`:
 
 ```json
 {
-  "LEIA_ORGANA": "Leia Organa"
+  "LEIA_ORGANA": { "name": "Leia Organa", "unitType": "CHARACTER" }
 }
 ```
 
 ---
 
-# Roadmap
+## 6. Current Features
 
-## Version 1.5 - Roster Foundations
+### 6.1 Counter Lookup
 
-Completed
+The user selects a mode (5v5 / 3v3) and a defence team, and sees the available counters. Each counter card displays the counter team name, tier (colour-coded), expected banners, undersize viability, and notes. A search box filters the defence-team list, and counters are sorted by tier and then by banner score.
 
-### Delivered
+### 6.2 Used Team Tracking
 
-* Counter_ID architecture
-* Character_Definitions sheet
-* Counter_Definitions sheet
-* Apps Script support
-* Availability engine
-* Availability indicators
-* Missing character display
+The user can mark a counter as used during a round. Used counters are keyed on their stable `Counter_ID`, displayed with reduced opacity and a "✓ USED" label, and counted in the current-round summary. Used status persists across app launches. A round reset clears all used teams (and banner tracking — see [§6.3](#63-banner-tracking)).
 
----
+### 6.3 Banner Tracking
 
-## Version 1.6 - Manual Roster
+A dedicated Banners view, reached from the bottom navigation bar, lets the user track the current round's score by hand: their own current score, the opponent's current score, and their remaining available banners. From these inputs the app derives a **projected final (max)** — the player's current score plus their remaining banners — and a live **margin** showing whether they are currently leading, trailing, or level.
 
-Planned
+This feature is intentionally **manual and self-contained**. It does not attempt to derive banners from the counter data, because the app models counters as a lookup tool across all possible defence teams rather than modelling a specific GAC board (its territories, team counts, and defence results). A manual tracker therefore stays accurate regardless of any future board-modelling work. The projected final is an optimistic ceiling, not a win/lose prediction, since the opponent's remaining banners are not tracked. Banner state is stored locally and cleared by Reset Round.
 
-### Objectives
+### 6.4 Roster Management
 
-* Roster screen
-* Character search
-* Character ownership toggles
-* Local storage persistence
-* Availability updates automatically
+A dedicated Roster view, reached from the bottom navigation bar, lists every `CHARACTER`-type unit (ships and capital ships are excluded). The user searches and taps to toggle ownership, with a running owned/total count. Ownership is stored locally and feeds directly into availability calculations. A clear-roster action resets all ownership.
+
+### 6.5 Counter Availability
+
+Each counter is evaluated against the player's owned characters. A counter is **available** only if every `REQUIRED` character is owned; `RECOMMENDED` characters are ignored for this calculation. Availability is shown as a 🟢 / 🔴 indicator on each counter card, and unavailable counters list their missing characters by display name.
 
 ---
 
-## Version 1.7 - Available Counters Filter
+## 7. Roster Model
 
-Planned
+Ownership is tracked at character level only. Relics, gear, zetas, omicrons, mods, and GP are **not** modelled at this stage.
 
-### Objectives
+**Availability rule.** A counter is available when all of its required characters are owned. Recommended characters do not affect availability.
 
-* Show Available Only toggle
-* Hide unavailable counters
-* Improve decision speed during live GAC
+**Persistence.** Ownership is held in `localStorage` and keyed on `Character_ID`. It persists across launches but is device- and browser-specific, with no cross-device sync. See [§3.4](#34-state--persistence).
 
 ---
 
-## Version 1.8 - Used Team Awareness
+## 8. Roadmap
 
-Planned
+Forward-looking status. Released version history is maintained separately in `changelog.md`, which is the single source of truth for what has shipped.
 
-### Objectives
+**v1.5 — Roster Foundations** · *Complete*
+Counter_ID architecture, Character_Definitions, availability engine, availability indicators, missing-character display.
 
-Combine:
+**v1.6 — Manual Roster** · *Complete*
+Normalised Counter_Composition tab, Unit_Type support, roster screen with character search and ownership toggles, local persistence, bottom-bar navigation, automatic availability updates.
 
-* Availability
-* Used team tracking
+**v1.65 — Banner Tracking** · *Complete*
+Manual tracking of own score, opponent score, and remaining banners, with a derived projected-final (max) and live margin. Self-contained, stored locally, and cleared by Reset Round.
 
-Example:
+**v1.7 — Available Counters Filter** · *Planned*
+A "show available only" toggle to hide unavailable counters and speed up decisions during a live round.
 
-```text
-🟢 Available
-🟡 Already Used
-🔴 Unavailable
-```
+**v1.8 — Used Team Awareness** · *Planned*
+Combine availability and used-team state into a single status: 🟢 Available · 🟡 Already Used · 🔴 Unavailable.
 
----
-
-## Version 2.0 - Roster Import
-
-Planned
-
-### Objectives
-
-Import roster data from external sources.
-
-Potential sources:
-
-* SWGOH.gg
-* HotUtils
-* Other publicly available roster APIs
-
-Manual roster functionality should remain available as a fallback.
+**v2.0 — Roster Import** · *Planned*
+Import roster data from external sources (e.g. SWGOH.gg, HotUtils, or other public roster APIs). Manual roster entry remains available as a fallback, and local storage becomes a cache rather than the source of truth.
 
 ---
 
-## Future Vision
-
-Long-term direction is a roster-aware GAC planning assistant.
-
-Potential future features:
-
-* Automatic roster imports
-* Team allocation planning
-* Counter conflict detection
-* Banner optimisation
-* Defence strategy support
-* GAC round planning
-* Opponent roster analysis
-* Statistical counter recommendations
-
-The application should continue prioritising simplicity and speed over attempting to replicate the full functionality of SWGOH.gg.
-
-# Success Criteria
+## 9. Success Criteria
 
 A user should be able to:
 
 1. Open the app from their Home Screen.
-2. Select an enemy team.
+2. Select an enemy defence team.
 3. Instantly view recommended counters.
-4. Track which counters have already been used.
-5. Complete an entire GAC attack phase without needing external notes, spreadsheets, or websites.
+4. See which counters they can field and which they have already used.
+5. Track the round's banner score and projected final.
+6. Complete an entire GAC attack phase without external notes, spreadsheets, or websites.
 
-The long-term vision is for the app to become a personal SWGOH Grand Arena strategist rather than merely a counter lookup tool.
+---
+
+## 10. Future Vision
+
+The long-term direction is a roster-aware GAC planning assistant. Potential future capabilities include automatic roster imports, team-allocation planning, counter-conflict detection, banner optimisation, defence-strategy support, round planning, opponent-roster analysis, and statistical counter recommendations.
+
+Throughout, the app should continue to prioritise simplicity and speed. The goal is a personal SWGOH Grand Arena strategist — not a reimplementation of SWGOH.gg.
