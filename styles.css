@@ -18,7 +18,6 @@
 body {
     margin: 0;
     padding: 20px;
-    padding-bottom: 80px;
     font-family: Arial, sans-serif;
 
     background:
@@ -41,15 +40,34 @@ h1 {
     margin-bottom: 20px;
 }
 
+/* CHANGED: added position, overflow, and ::before for panel-line strip */
 .round-card {
     background: var(--panel);
     border: 1px solid #22324a;
     border-radius: 14px;
     padding: 15px;
     margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
 
     box-shadow:
         0 0 12px rgba(79,195,247,0.15);
+}
+
+.round-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: repeating-linear-gradient(
+        90deg,
+        #2a3f5f 0,
+        #2a3f5f 3px,
+        transparent 3px,
+        transparent 10px
+    );
 }
 
 .round-title {
@@ -147,10 +165,11 @@ h1 {
     font-weight: bold;
 }
 
+/* CHANGED: border-radius from 16px to 3px — stamp not pill */
 .tier-badge {
     color: white;
     padding: 4px 12px;
-    border-radius: 16px;
+    border-radius: 3px;
     font-weight: bold;
 }
 
@@ -179,129 +198,3 @@ h1 {
     margin-top: 20px;
     font-size: 12px;
 }
-
-/* ─── BOTTOM NAV ─────────────────────────────────────────────────── */
-
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    display: flex;
-    background: var(--panel);
-    border-top: 1px solid #22324a;
-    padding-bottom: env(safe-area-inset-bottom);
-    z-index: 100;
-}
-
-.nav-button {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    padding: 10px 0;
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font-size: 11px;
-    font-weight: bold;
-    cursor: pointer;
-    letter-spacing: 0.5px;
-}
-
-.nav-button.active {
-    color: var(--jedi-blue);
-}
-
-.nav-icon {
-    font-size: 22px;
-    line-height: 1;
-}
-
-/* ─── ROSTER ─────────────────────────────────────────────────────── */
-
-.roster-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-top: 4px;
-}
-
-.roster-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--panel);
-    border: 1px solid #22324a;
-    border-radius: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: opacity 0.15s;
-}
-
-.roster-row.owned {
-    border-color: #2e5c3a;
-    background: #0d1f14;
-}
-
-.roster-name {
-    font-size: 15px;
-    color: var(--text);
-}
-
-.roster-status {
-    font-size: 18px;
-}
-
-/* ─── BANNER TRACKING ────────────────────────────────────────────── */
-
-.banner-form {
-    display: flex;
-    flex-direction: column;
-    margin-bottom: 16px;
-}
-
-.banner-label {
-    font-size: 13px;
-    color: var(--muted);
-    margin-bottom: 6px;
-}
-
-.banner-input {
-    width: 100%;
-    box-sizing: border-box;
-    padding: 12px;
-    margin-bottom: 14px;
-    background: var(--panel);
-    color: var(--text);
-    border: 1px solid #22324a;
-    border-radius: 10px;
-    font-size: 16px;
-}
-
-.banner-readout {
-    background: var(--panel);
-    border: 1px solid #22324a;
-    border-radius: 14px;
-    padding: 14px;
-}
-
-.banner-readout-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 0;
-    font-size: 15px;
-}
-
-.banner-readout-row + .banner-readout-row {
-    border-top: 1px solid #22324a;
-}
-
-.banner-readout-row strong {
-    font-size: 18px;
-}
-
-.ahead { color: var(--s-tier); }
-.behind { color: var(--c-tier); }
