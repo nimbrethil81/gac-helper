@@ -40,13 +40,14 @@ body {
     color: var(--text);
 }
 
-/* PATCH 1: added position, overflow, and ::before for panel-line strip */
+/* ─── ROUND CARD ─────────────────────────────────────────────────── */
+
 .round-card {
     background: var(--panel);
     border: 1px solid #22324a;
     border-radius: 14px;
     padding: 15px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     position: relative;
     overflow: hidden;
 
@@ -85,19 +86,41 @@ body {
     border-radius: 10px;
     padding: 12px;
 
-    background: #d32f2f;
+    background: #555;
     color: white;
     font-weight: bold;
 
     cursor: pointer;
 }
 
+.round-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.reset-button-inline {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+
+    background: #d32f2f;
+    color: white;
+    font-size: 13px;
+    font-weight: bold;
+
+    cursor: pointer;
+}
+
+/* ─── MODE TOGGLE ────────────────────────────────────────────────── */
+
 .mode-toggle {
     display: flex;
     background: var(--panel);
     padding: 4px;
     border-radius: 12px;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .mode-button {
@@ -120,6 +143,8 @@ body {
         0 0 15px rgba(79,195,247,0.5);
 }
 
+/* ─── SEARCH / SELECT ────────────────────────────────────────────── */
+
 .search-box,
 .team-select {
     width: 100%;
@@ -135,95 +160,32 @@ body {
     border-radius: 10px;
 }
 
-/* ─── AVAILABLE FILTER ───────────────────────────────────────────── */
+/* ─── COUNTER FILTER ─────────────────────────────────────────────── */
 
-.available-filter {
+.counter-filter {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-    padding: 0 2px;
-}
-
-.available-filter-label {
-    font-size: 13px;
-    color: var(--muted);
-}
-
-.filter-toggle {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: bold;
-    color: var(--muted);
-    border: none;
-    background: transparent;
-    padding: 0;
-}
-
-.filter-toggle.active {
-    color: var(--jedi-blue);
-}
-
-.filter-toggle-track {
-    width: 40px;
-    height: 22px;
-    border-radius: 11px;
-    background: #22324a;
-    position: relative;
-    transition: background 0.2s;
-    flex-shrink: 0;
-}
-
-.filter-toggle.active .filter-toggle-track {
-    background: var(--jedi-blue);
-}
-
-.filter-toggle-thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: white;
-    transition: transform 0.2s;
-}
-
-.filter-toggle.active .filter-toggle-thumb {
-    transform: translateX(18px);
-}
-
-.filter-toggle:disabled,
-.filter-toggle[disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
-}
-
-.filter-hint {
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 12px;
-    padding: 0 2px;
-}
-
-.unavailable-stub {
-    margin-top: 12px;
-    padding: 12px 14px;
     background: var(--panel);
-    border: 1px dashed #22324a;
-    border-radius: 14px;
-    color: var(--muted);
-    font-size: 13px;
-    cursor: pointer;
-    text-align: center;
+    padding: 3px;
+    border-radius: 9px;
+    margin-bottom: 12px;
 }
 
-.unavailable-stub:hover {
-    border-color: #4fc3f7;
+.counter-filter-btn {
+    flex: 1;
+    padding: 7px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+}
+
+.counter-filter-btn.active {
+    background: var(--panel-light);
     color: var(--text);
 }
 
@@ -259,13 +221,30 @@ body {
     font-weight: bold;
 }
 
-/* PATCH 2: border-radius from 16px to 3px — stamp not pill */
 .tier-badge {
     color: white;
     padding: 4px 12px;
     border-radius: 3px;
     font-weight: bold;
 }
+
+/* ─── STATUS WORDS ───────────────────────────────────────────────── */
+
+.status-available {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--s-tier);
+    white-space: nowrap;
+}
+
+.status-muted {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+/* ─── MARK USED BUTTON ───────────────────────────────────────────── */
 
 .mark-used-button {
     margin-top: 10px;
@@ -281,10 +260,15 @@ body {
     font-weight: bold;
 }
 
-.used-label {
-    color: #ff6666;
-    font-weight: bold;
+/* ─── EMPTY STATES ───────────────────────────────────────────────── */
+
+.empty-state {
+    padding: 12px;
+    color: var(--muted);
+    font-size: 14px;
 }
+
+/* ─── FOOTER ─────────────────────────────────────────────────────── */
 
 .footer {
     text-align: center;
@@ -334,6 +318,11 @@ body {
 
 /* ─── ROSTER ─────────────────────────────────────────────────────── */
 
+.roster-saved-line {
+    font-size: 12px;
+    color: var(--muted);
+}
+
 .roster-list {
     display: flex;
     flex-direction: column;
@@ -365,6 +354,136 @@ body {
 
 .roster-status {
     font-size: 18px;
+}
+
+/* ─── ROSTER DATA PANEL ──────────────────────────────────────────── */
+
+.roster-data-panel {
+    margin-bottom: 12px;
+}
+
+/* Single container: toggle + body share one bordered box. */
+.roster-data-panel {
+    margin-bottom: 12px;
+    border: 1px solid #22324a;
+    border-radius: 10px;
+    background: var(--panel);
+    overflow: hidden;
+}
+
+.roster-data-toggle {
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    padding: 10px 14px;
+    border: none;
+    background: transparent;
+
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.roster-data-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    padding: 0 14px 14px;
+    border: none;
+    background: transparent;
+}
+
+.roster-data-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    margin-top: 8px;
+    padding: 14px;
+
+    border: 1px solid #22324a;
+    border-radius: 10px;
+    background: var(--panel);
+}
+
+.roster-data-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 4px;
+}
+
+.roster-data-btn {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-radius: 8px;
+    padding: 11px;
+
+    background: var(--panel-light);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.roster-undo-btn {
+    background: var(--jedi-blue);
+    color: black;
+}
+
+.roster-clear-btn {
+    background: #555;
+    color: white;
+    margin-top: 4px;
+}
+
+.roster-import-box {
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 72px;
+    resize: vertical;
+
+    padding: 10px 12px;
+    background: var(--bg);
+    color: var(--text);
+
+    border: 1px solid #22324a;
+    border-radius: 8px;
+
+    font-family: monospace;
+    font-size: 12px;
+}
+
+/* ─── ROSTER MESSAGES ────────────────────────────────────────────── */
+
+.roster-msg {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.roster-msg-ok {
+    background: rgba(102,187,106,0.12);
+    border: 1px solid #2e5c3a;
+    color: var(--s-tier);
+}
+
+.roster-msg-warn {
+    background: rgba(255,183,77,0.12);
+    border: 1px solid #5c4a2e;
+    color: var(--b-tier);
+}
+
+.roster-msg-error {
+    background: rgba(239,83,80,0.12);
+    border: 1px solid #5c2e2e;
+    color: var(--c-tier);
 }
 
 /* ─── BANNER TRACKING ────────────────────────────────────────────── */

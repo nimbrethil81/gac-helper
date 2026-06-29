@@ -108,10 +108,17 @@ The flow is **read-only**: the app fetches data but never writes back to Sheets.
 All player-specific state is held client-side in `localStorage`:
 
 * **Used teams** — keyed on `Counter_ID`, persisted across app launches.
-* **Owned characters** — keyed on `Character_ID`, persisted across app launches.
+* **Owned characters** - versioned roster object {schema, savedAt, source, owned[]},
+  single save/load path, one-time migration from pre-v1.9 bare array.
+  Storage is localStorage; the app requests persistent storage on boot
+  (navigator.storage.persist()) as best-effort eviction resistance.
+  iOS WebKit confirmed to purge localStorage on swipe-away from the app switcher
+  regardless; manual Export and v2.0 remote import are the durable backstops.
 * **Banner tracking** — the current round's scores (own, opponent, remaining), persisted across app launches and cleared by Reset Round.
 
 Because state is local to the device and browser, it does not sync across devices and is lost if site data is cleared or the PWA is reinstalled. This is acceptable at the current stage; cloud-backed persistence is addressed by the Roster Import work in [§8](#8-roadmap).
+
+Because localStorage in an installed PWA can be evicted by the operating system, the app makes a best-effort request for persistent storage and provides manual Export/Import as a durable backup. Eviction resistance is improved but not guaranteed on all platforms; durable, cross-device persistence is the goal of the Roster Import work in §8.
 
 ---
 
@@ -202,7 +209,9 @@ The user selects a mode (5v5 / 3v3) and a defence team, and sees the available c
 
 ### 6.2 Used Team Tracking
 
-The user can mark a counter as used during a round. Used counters are keyed on their stable `Counter_ID`, displayed with reduced opacity and a "✓ USED" label, and counted in the current-round summary. Used status persists across app launches. A round reset clears all used teams (and banner tracking — see [§6.3](#63-banner-tracking)).
+The user can mark a counter as used during a round. Used counters are keyed on their stable `Counter_ID` and persist across app launches. A round reset clears all used teams (and banner tracking — see [§6.3](#63-banner-tracking)).
+
+Used status is surfaced as part of the unified tri-state counter status (see [§6.5](#65-counter-status)). Used cards are displayed at 0.5 opacity with a grey "Used" status word; the Mark Used button is suppressed on used cards. Used teams are counted in the Current Round summary card.
 
 ### 6.3 Banner Tracking
 
@@ -214,9 +223,37 @@ This feature is intentionally **manual and self-contained**. It does not attempt
 
 A dedicated Roster view, reached from the bottom navigation bar, lists every `CHARACTER`-type unit (ships and capital ships are excluded). The user searches and taps to toggle ownership, with a running owned/total count. Ownership is stored locally and feeds directly into availability calculations. A clear-roster action resets all ownership.
 
-### 6.5 Counter Availability
+Roster ownership is stored under a versioned local schema with a single save/load path, and the screen shows when the roster was last saved and from which source. A collapsible Manage roster data panel provides Export (copies the roster to the clipboard as JSON), Import (validates pasted roster data, replaces the current roster, and reports any unrecognised characters that were skipped), Undo import (restores the previous roster within the session), and Clear roster. Import and Export share the same internal format and the same apply path that the planned roster import in §8 will reuse. Clear roster lives in this panel rather than the header because a SWGOH roster rarely shrinks; clearing is a deliberate maintenance action, not part of normal use.
 
-Each counter is evaluated against the player's owned characters. A counter is **available** only if every `REQUIRED` character is owned; `RECOMMENDED` characters are ignored for this calculation. Availability is shown as a 🟢 / 🔴 indicator on each counter card, and unavailable counters list their missing characters by display name.
+### 6.5 Counter Status
+
+Each counter carries a tri-state status derived from two independent axes:
+
+**Ownership axis** (static, roster-derived) — whether the player owns all required characters for a counter. A counter is **owned** when every `REQUIRED` character is in the player's roster; `RECOMMENDED` characters are not considered. This is computed by `getOwnership()`.
+
+**Round axis** (dynamic, round-derived) — whether an owned counter has been used this round. This is tracked via `usedTeams` in `localStorage`.
+
+The two axes combine into three card states, computed by `getCounterStatus()`:
+
+| State | Condition | Status word | Opacity |
+|---|---|---|---|
+| Available | Owned and not yet used | Green "Available" | Full |
+| Used | Owned and already used this round | Grey "Used" | 0.5 |
+| Not owned | Missing one or more required characters | Grey "Not owned" | 0.5 |
+
+**Precedence:** Not owned dominates. Used state is only meaningful for owned counters — a counter missing required characters is always Not owned regardless of used state.
+
+**Missing characters** — Not owned cards list their missing required characters by display name beneath the notes line.
+
+**Filter** — a three-segment control [All] [Owned] [Available] sits below the team selector and above the results list. It is visually subordinate to the mode toggle. The three segments form a nested hierarchy (All ⊇ Owned ⊇ Available), with each a strict subset of the one before. The selected filter persists in `localStorage` and defaults to All.
+
+**Empty states** — each filter produces context-appropriate copy when no counters match:
+- **All** — "No matching defence teams found." (no counters in data for this team)
+- **Owned** — "You don't own any counters for this team."
+- **Available** — "You've used all your counters for this team." (when at least one is owned but all are used); otherwise falls through to the Owned copy.
+- **Owned / Available with no roster** — "Set up your roster to see which counters you can field."
+
+**Sort order** — counters are sorted by status group first (Available → Used → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
 
 ---
 
@@ -243,11 +280,15 @@ Normalised Counter_Composition tab, Unit_Type support, roster screen with charac
 **v1.65 — Banner Tracking** · *Complete*
 Manual tracking of own score, opponent score, and remaining banners, with a derived projected-final (max) and live margin. Self-contained, stored locally, and cleared by Reset Round.
 
-**v1.7 — Available Counters Filter** · *Planned*
-A "show available only" toggle to hide unavailable counters and speed up decisions during a live round.
+**v1.7 — Available Counters Filter** · *Complete*
+A "show available only" toggle to hide unavailable counters, with a stub reveal for hidden counters and a disabled state when no roster is set up.
 
-**v1.8 — Used Team Awareness** · *Planned*
-Combine availability and used-team state into a single status: 🟢 Available · 🟡 Already Used · 🔴 Unavailable.
+**v1.8 — Used Team Awareness** · *Complete*
+Unified tri-state counter status (Available / Used / Not owned) replacing the separate availability indicator and used-label. Three-segment filter [All] [Owned] [Available] with per-filter empty states, group-first sort order, and ownership vocabulary replacing the previous available/unavailable language.
+
+**v1.9 — Roster Persistence & Portability** · *Complete*
+
+Versioned storage schema, single save/load path, migration, last-saved indicator, clipboard export, validated import with replace semantics and undo, best-effort persistent storage, collapsible roster-data panel. Root cause of roster loss confirmed as iOS WebKit eviction on swipe-away; v2.0 remote import resolves this.
 
 **v2.0 — Roster Import** · *Planned*
 Import roster data from external sources (e.g. SWGOH.gg, HotUtils, or other public roster APIs). Manual roster entry remains available as a fallback, and local storage becomes a cache rather than the source of truth.
