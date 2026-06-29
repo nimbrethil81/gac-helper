@@ -29,16 +29,15 @@ body {
     color: var(--text);
 }
 
-h1 {
-    text-align: center;
-    letter-spacing: 2px;
-    margin-bottom: 5px;
-}
+/* ─── APP HEADER ─────────────────────────────────────────────────── */
 
-.subtitle {
+.app-header {
     text-align: center;
-    color: var(--muted);
-    margin-bottom: 20px;
+    font-size: 18px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    color: var(--text);
 }
 
 /* PATCH 1: added position, overflow, and ::before for panel-line strip */
@@ -135,6 +134,100 @@ h1 {
     border: 1px solid #22324a;
     border-radius: 10px;
 }
+
+/* ─── AVAILABLE FILTER ───────────────────────────────────────────── */
+
+.available-filter {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 2px;
+}
+
+.available-filter-label {
+    font-size: 13px;
+    color: var(--muted);
+}
+
+.filter-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--muted);
+    border: none;
+    background: transparent;
+    padding: 0;
+}
+
+.filter-toggle.active {
+    color: var(--jedi-blue);
+}
+
+.filter-toggle-track {
+    width: 40px;
+    height: 22px;
+    border-radius: 11px;
+    background: #22324a;
+    position: relative;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.filter-toggle.active .filter-toggle-track {
+    background: var(--jedi-blue);
+}
+
+.filter-toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: white;
+    transition: transform 0.2s;
+}
+
+.filter-toggle.active .filter-toggle-thumb {
+    transform: translateX(18px);
+}
+
+.filter-toggle:disabled,
+.filter-toggle[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.filter-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 12px;
+    padding: 0 2px;
+}
+
+.unavailable-stub {
+    margin-top: 12px;
+    padding: 12px 14px;
+    background: var(--panel);
+    border: 1px dashed #22324a;
+    border-radius: 14px;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.unavailable-stub:hover {
+    border-color: #4fc3f7;
+    color: var(--text);
+}
+
+/* ─── COUNTER CARDS ──────────────────────────────────────────────── */
 
 .counter-card {
     background: var(--panel);

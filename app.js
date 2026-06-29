@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "1.65";
+const APP_VERSION = "1.7";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 let gacData = {};
@@ -14,6 +14,7 @@ let rosterSearch = "";
 let bannerData = JSON.parse(
     localStorage.getItem("bannerData") || '{"myScore":0,"oppScore":0,"remaining":0}'
 );
+let showAvailableOnly = JSON.parse(localStorage.getItem("showAvailableOnly") || "false");
 
 async function loadData() {
     try {
@@ -59,6 +60,10 @@ function getTierColour(tier) {
 
 function getUsedTeamCount() {
     return usedTeams.length;
+}
+
+function hasRoster() {
+    return ownedCharacters.length > 0;
 }
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
@@ -118,6 +123,10 @@ function renderCounters() {
         )
         .sort((a, b) => a.localeCompare(b));
 
+    const rosterEmpty = !hasRoster();
+    const toggleDisabled = rosterEmpty ? "disabled" : "";
+    const toggleActive = (showAvailableOnly && !rosterEmpty) ? "active" : "";
+
     return `
 <div class="round-card">
     <div class="round-title">🏆 CURRENT ROUND</div>
@@ -143,8 +152,40 @@ function renderCounters() {
     ${teams.map(team => `<option value="${team}">${team}</option>`).join("")}
 </select>
 
+<div class="available-filter">
+    <span class="available-filter-label">Show available only</span>
+    <button
+        class="filter-toggle ${toggleActive}"
+        onclick="toggleAvailableFilter()"
+        ${toggleDisabled}
+        aria-pressed="${showAvailableOnly && !rosterEmpty}"
+    >
+        <span class="filter-toggle-track">
+            <span class="filter-toggle-thumb"></span>
+        </span>
+    </button>
+</div>
+${rosterEmpty ? `<p class="filter-hint">Add characters to your roster to use this filter.</p>` : ""}
+
 <div id="results"></div>
 `;
+}
+
+function toggleAvailableFilter() {
+    showAvailableOnly = !showAvailableOnly;
+    localStorage.setItem("showAvailableOnly", JSON.stringify(showAvailableOnly));
+    // Re-render only the toggle state and results — avoids full render flash
+    const toggleBtn = document.querySelector(".filter-toggle");
+    if (toggleBtn) {
+        if (showAvailableOnly) {
+            toggleBtn.classList.add("active");
+            toggleBtn.setAttribute("aria-pressed", "true");
+        } else {
+            toggleBtn.classList.remove("active");
+            toggleBtn.setAttribute("aria-pressed", "false");
+        }
+    }
+    showCounters();
 }
 
 function setMode(mode) {
@@ -210,36 +251,11 @@ function getAvailability(counterId) {
     };
 }
 
-function showCounters() {
+function buildCounterCardHtml(counter) {
+    const isUsed = usedTeams.includes(counter.counterId);
+    const availability = getAvailability(counter.counterId);
 
-    const teamSelect = document.getElementById("teamSelect");
-    if (!teamSelect) return;
-
-    if (teamSelect.options.length === 0) {
-        document.getElementById("results").innerHTML =
-            "<p style='padding:12px;color:var(--muted);'>No matching defence teams found.</p>";
-        return;
-    }
-
-    const team = teamSelect.value;
-    if (!team) return;
-
-    const counters = ((gacData[currentMode] && gacData[currentMode][team]) || [])
-        .sort((a, b) => {
-            const tierOrder = { "S": 1, "A": 2, "B": 3, "C": 4 };
-            const tierDiff =
-                (tierOrder[a.tier?.toUpperCase()] || 99) -
-                (tierOrder[b.tier?.toUpperCase()] || 99);
-            if (tierDiff !== 0) return tierDiff;
-            return Number(b.bannerScore || 0) - Number(a.bannerScore || 0);
-        });
-
-    document.getElementById("results").innerHTML = counters.map(counter => {
-
-        const isUsed = usedTeams.includes(counter.counterId);
-        const availability = getAvailability(counter.counterId);
-
-        return `
+    return `
 <div class="counter-card ${isUsed ? "used" : ""}">
 
     <div class="card-header">
@@ -271,7 +287,86 @@ function showCounters() {
 
 </div>
 `;
-    }).join("");
+}
+
+function revealUnavailable() {
+    const stub = document.getElementById("unavailableStub");
+    if (!stub) return;
+
+    const teamSelect = document.getElementById("teamSelect");
+    if (!teamSelect) return;
+
+    const team = teamSelect.value;
+    const counters = ((gacData[currentMode] && gacData[currentMode][team]) || [])
+        .sort((a, b) => {
+            const tierOrder = { "S": 1, "A": 2, "B": 3, "C": 4 };
+            const tierDiff =
+                (tierOrder[a.tier?.toUpperCase()] || 99) -
+                (tierOrder[b.tier?.toUpperCase()] || 99);
+            if (tierDiff !== 0) return tierDiff;
+            return Number(b.bannerScore || 0) - Number(a.bannerScore || 0);
+        });
+
+    const unavailable = counters.filter(c => !getAvailability(c.counterId).available);
+
+    stub.outerHTML = unavailable.map(buildCounterCardHtml).join("");
+}
+
+function showCounters() {
+
+    const teamSelect = document.getElementById("teamSelect");
+    if (!teamSelect) return;
+
+    if (teamSelect.options.length === 0) {
+        document.getElementById("results").innerHTML =
+            "<p style='padding:12px;color:var(--muted);'>No matching defence teams found.</p>";
+        return;
+    }
+
+    const team = teamSelect.value;
+    if (!team) return;
+
+    const counters = ((gacData[currentMode] && gacData[currentMode][team]) || [])
+        .sort((a, b) => {
+            const tierOrder = { "S": 1, "A": 2, "B": 3, "C": 4 };
+            const tierDiff =
+                (tierOrder[a.tier?.toUpperCase()] || 99) -
+                (tierOrder[b.tier?.toUpperCase()] || 99);
+            if (tierDiff !== 0) return tierDiff;
+            return Number(b.bannerScore || 0) - Number(a.bannerScore || 0);
+        });
+
+    // Filter is off or roster is empty — show everything as before
+    if (!showAvailableOnly || !hasRoster()) {
+        document.getElementById("results").innerHTML =
+            counters.map(buildCounterCardHtml).join("");
+        return;
+    }
+
+    // Filter is on — partition into available and unavailable
+    const available   = counters.filter(c =>  getAvailability(c.counterId).available);
+    const unavailable = counters.filter(c => !getAvailability(c.counterId).available);
+
+    // Zero available — show message only
+    if (available.length === 0) {
+        document.getElementById("results").innerHTML =
+            "<p style='padding:12px;color:var(--muted);'>No available counters — toggle off to see all.</p>";
+        return;
+    }
+
+    // Some available — render them, then append stub if anything is hidden
+    let html = available.map(buildCounterCardHtml).join("");
+
+    if (unavailable.length > 0) {
+        const label = unavailable.length === 1
+            ? "+ 1 unavailable counter"
+            : `+ ${unavailable.length} unavailable counters`;
+        html += `<div class="unavailable-stub" id="unavailableStub" onclick="revealUnavailable()">
+            ${label} — tap to reveal
+        </div>`;
+    }
+
+    document.getElementById("results").innerHTML = html;
 }
 
 // ─── BANNERS VIEW ────────────────────────────────────────────────────────────

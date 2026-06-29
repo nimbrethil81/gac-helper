@@ -8,14 +8,21 @@
 ## v1.2
 - Tier colour coding
 ## v1.3
-- sorting
+- Sorting
 ## v1.4
-- reset round
-- search bar
-- more colour coding
+- Reset round
+- Search bar
+- More colour coding
 ## v1.5
-- roster import foundations
+- Roster import foundations
 ## v1.6
-- manual roster
+- Manual roster
 ## v1.65
-- banner tracking (manual score, opponent score, remaining, projected final)
+- Banner tracking (manual score, opponent score, remaining, projected final)
+## v1.7
+- Slimmed header (subtitle removed, single-line)
+- Available counters filter — "Show available only" toggle above results
+- Unavailable counters collapse to a tappable count line when filter is on
+- Toggle state persists across sessions (localStorage)
+- Toggle disabled with hint when roster is empty
+- Empty-result state when no available counters exist for selected team
