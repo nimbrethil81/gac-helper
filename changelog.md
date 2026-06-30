@@ -1,5 +1,4 @@
 # Changelog
-
 ## v1.0
 - Initial PWA
 - Google Sheets integration
@@ -44,6 +43,42 @@
 - Best-effort `navigator.storage.persist()` request to reduce OS eviction
 - Collapsible "Manage roster data" panel (Export / Import / Undo / Clear roster)
 - Clear Roster moved from header into panel — destructive action, rare in SWGOH
-- Root cause confirmed: iOS WebKit purges localStorage on swipe-away from app
-  switcher; persist() mitigates on Chrome/Android; v2.0 remote import is the
-  durable fix
+- Roster loss reproduced under Safari Private Browsing (expected ephemeral-storage behaviour);
+  normal browsing retains storage; persist() remains as best-effort eviction resistance for
+  the non-private cases.
+  (Note: this supersedes an earlier provisional v1.9 attribution to iOS WebKit app-switcher
+  eviction, which was a misdiagnosis. The reproducible cause is Safari Private Browsing's
+  ephemeral storage, which persist() cannot prevent by design.)
+## v2.0
+- Roster import from SWGOH.gg: enter a 9-digit ally code to populate ownership directly
+  from your account. Manual toggling and paste-JSON import remain as fallbacks.
+- Apps Script extended with an `action` router: default `action=data` returns the unchanged
+  counter payload; `action=roster&allyCode=…` is a thin server-side proxy to the swgoh.gg
+  player endpoint, returning `{ ok, allyCode, syncedAt, ownedBaseIds }` (base_ids only).
+- `External_ID` adapter column added to `Character_Definitions`; `characterDefinitions` now
+  carries `externalId`. The client builds a base_id → Character_ID reverse index and maps
+  imported units locally, keeping `Character_ID` as the stable internal key (the sheet
+  remains the single source of truth for the mapping).
+- Roster schema bumped to v2 `{schema, savedAt, source, allyCode, syncedAt, owned}` with a
+  v1 → v2 migration. `syncedAt` (last successful API return) is tracked separately from
+  `savedAt` (last local write of any kind).
+- Cache-first architecture: localStorage is the working store and the API is a refresh
+  mechanism, not a dependency. The app renders from cache instantly on boot and is fully
+  functional on cached data alone.
+- Staleness-gated background sync: an API roster refreshes silently on boot only if `syncedAt`
+  is older than 12 hours, never while the Roster screen is open (never mid-edit), and applies
+  only if the owned set actually changed (with an Undo snapshot when it does).
+- Source-aware freshness line: API rosters show "Last synced from SWGOH.gg: …", manual
+  rosters show "Last saved: …".
+- First-run import card promoted on the Roster screen when the roster is empty; becomes a
+  "Refresh from SWGOH.gg" control once an ally code is associated.
+- Import reporting split into three buckets: characters imported, ships recognised but not yet
+  supported (silent — fleet is v2.5), and units not yet in the app's database.
+- Import pipeline written unit-type-parameterised, defaulting to characters only, so fleet
+  support (v2.5) is a flag-flip plus roster/UI work rather than a re-architecture.
+- Foreground import/refresh: ally-code validation, offline guard, 15s timeout
+  (`ROSTER_FETCH_TIMEOUT_MS`), per-case error copy (invalid code, not-found-on-swgoh.gg,
+  rate-limited, timeout, offline), confirm-before-overwrite, and Undo.
+- Import message + Undo moved to a top-level notice cluster on the Roster screen so results
+  are visible even when the data panel is collapsed.
+- Bump service-worker cache name to force fresh assets for installed users.

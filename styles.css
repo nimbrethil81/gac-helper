@@ -537,3 +537,69 @@ body {
 
 .ahead { color: var(--s-tier); }
 .behind { color: var(--c-tier); }
+
+/* ─── ROSTER: SWGOH.gg IMPORT CARD ───────────────────────────────── */
+
+.roster-import-card {
+    background: var(--panel);
+    border: 1px solid #22324a;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Prominent when the roster is empty (first-run). */
+.roster-import-card.empty {
+    border-color: var(--jedi-blue);
+    box-shadow: 0 0 12px rgba(79,195,247,0.18);
+}
+
+.roster-import-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--muted);
+}
+
+.roster-import-helper {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.roster-ally-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+
+    background: var(--bg);
+    color: var(--text);
+
+    border: 1px solid #22324a;
+    border-radius: 8px;
+
+    font-size: 16px;            /* 16px avoids iOS zoom-on-focus */
+    letter-spacing: 1px;
+}
+
+.roster-import-btn {
+    background: var(--jedi-blue);
+    color: black;
+}
+
+.roster-import-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* ─── ROSTER: NOTICE CLUSTER (message + undo) ────────────────────── */
+
+.roster-notice {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}

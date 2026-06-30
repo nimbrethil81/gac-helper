@@ -1,124 +1,18 @@
-# SWGOH GAC Helper — Project Specification
-
-A mobile-first Progressive Web App that helps players make faster, better Grand Arena Championship (GAC) decisions in *Star Wars: Galaxy of Heroes*.
-
----
-
-## Contents
-
-1. [Overview](#1-overview)
-   - 1.1 [Design Philosophy](#11-design-philosophy)
-   - 1.2 [Target User](#12-target-user)
-2. [Design Principles](#2-design-principles)
-3. [Architecture](#3-architecture)
-   - 3.1 [Frontend](#31-frontend)
-   - 3.2 [Backend](#32-backend)
-   - 3.3 [Data Flow](#33-data-flow)
-   - 3.4 [State & Persistence](#34-state--persistence)
-4. [Data Model](#4-data-model)
-   - 4.1 [Sheet Structure](#41-sheet-structure)
-   - 4.2 [Identifier Standards](#42-identifier-standards)
-5. [API Contract](#5-api-contract)
-6. [Current Features](#6-current-features)
-   - 6.1 [Counter Lookup](#61-counter-lookup)
-   - 6.2 [Used Team Tracking](#62-used-team-tracking)
-   - 6.3 [Banner Tracking](#63-banner-tracking)
-   - 6.4 [Roster Management](#64-roster-management)
-   - 6.5 [Counter Availability](#65-counter-availability)
-7. [Roster Model](#7-roster-model)
-8. [Roadmap](#8-roadmap)
-9. [Success Criteria](#9-success-criteria)
-10. [Future Vision](#10-future-vision)
-
----
-
-## 1. Overview
-
-SWGOH GAC Helper is a lightweight companion app for use during live GAC rounds. It provides a fast counter-lookup experience focused on practical, in-the-moment decision-making, and is evolving incrementally from a simple lookup tool into a personal GAC planning assistant.
-
-The app is designed to answer, within seconds: *which counters beat this enemy team, which are still available to me, and which have I already used?*
-
-It deliberately models **strategic team identities** rather than exact squad compositions. The guiding question is always "can the player reasonably field this counter?" — not "what is the perfect mod-and-relic squad for this specific matchup?"
-
-The long-term direction is a roster-aware GAC strategist that can recommend attack order, allocate counters efficiently, optimise banners, and avoid conflicts — while always prioritising simplicity and speed over replicating the full depth of sites like SWGOH.gg.
-
-### 1.1 Design Philosophy
-
-* **Fast** — find a counter within seconds, mid-match.
-* **Mobile-first** — built for phones and Home Screen PWA installation.
-* **Maintainable** — counter data is editable in Google Sheets without touching application code.
-* **Incremental** — features ship in stages; the app stays functional throughout.
-* **Identity over composition** — counters represent team identities, not squad variations.
-
-### 1.2 Target User
-
-* Intermediate to advanced SWGOH players.
-* Regular GAC participants who want to maximise banners and efficiency.
-* Players who maintain their own counter knowledge and roster data.
-
----
-
-## 2. Design Principles
-
-**Mobile first.** The interface is optimised for iPhone and Android, and for installation as a standalone Home Screen PWA. Navigation between top-level views uses a fixed bottom navigation bar.
-
-**Fast.** Lookup is the critical path. A user should reach a counter list in as few taps as possible, with search and mode selection always to hand.
-
-**Maintainable.** All game data lives in Google Sheets. Adding counters, adjusting tiers, or editing notes requires no code change and no redeployment of the frontend.
-
-**Incremental.** Each version delivers a self-contained, working improvement. The app is never left in a broken intermediate state between releases.
-
----
-
-## 3. Architecture
-
-The app is a static frontend served from GitHub Pages, backed by a read-only JSON API built on Google Apps Script over Google Sheets. There is no server-side application code beyond the Apps Script endpoint, and no database other than the spreadsheet.
-
-### 3.1 Frontend
-
-Hosted on GitHub Pages.
-
-* **index.html** — app shell; loads styles and scripts; registers the service worker.
-* **styles.css** — theme, layout, responsive design, component styling.
-* **app.js** — data loading, state management, rendering, counter lookup, used-team tracking, banner tracking, roster management, and availability calculation.
-* **service-worker.js** — PWA offline shell.
-* **manifest.json** — PWA metadata.
-
-### 3.2 Backend
-
-* **Google Sheets** — primary data store and single source of truth for all game data.
-* **Google Apps Script** — a `doGet` web app that reads the sheets and returns a single consolidated JSON payload consumed by the frontend.
-
-### 3.3 Data Flow
-
-```
-Google Sheets
-      ↓
-Google Apps Script  (doGet → JSON)
-      ↓
-app.js  (fetch on load)
-      ↓
-Rendered views (Counters / Banners / Roster)
-```
-
-The flow is **read-only**: the app fetches data but never writes back to Sheets. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce.
+The counter-data flow is **read-only**: the app fetches data but never writes back to Sheets. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce. Roster import is also read-only with respect to the game and swgoh.gg: data flows inward only.
 
 ### 3.4 State & Persistence
 
 All player-specific state is held client-side in `localStorage`:
 
 * **Used teams** — keyed on `Counter_ID`, persisted across app launches.
-* **Owned characters** - versioned roster object {schema, savedAt, source, owned[]},
-  single save/load path, one-time migration from pre-v1.9 bare array.
-  Storage is localStorage; the app requests persistent storage on boot
-  (navigator.storage.persist()) as best-effort eviction resistance.
-  iOS WebKit confirmed to purge localStorage on swipe-away from the app switcher
-  regardless; manual Export and v2.0 remote import are the durable backstops.
+* **Owned characters** — versioned roster object `{schema, savedAt, source, allyCode, syncedAt, owned[]}`, single save/load path, migration from the pre-v1.9 bare array and from the v1 schema. `Character_ID` is the persisted key. Provenance is tracked in `source` (`manual`, `import`, or `swgoh.gg`); `savedAt` records the last local write of any kind, while `syncedAt` records the last successful API return — these are distinct facts and both are meaningful for data freshness.
 * **Banner tracking** — the current round's scores (own, opponent, remaining), persisted across app launches and cleared by Reset Round.
 
-Because state is local to the device and browser, it does not sync across devices and is lost if site data is cleared or the PWA is reinstalled. This is acceptable at the current stage; cloud-backed persistence is addressed by the Roster Import work in [§8](#8-roadmap).
+**Cache-first model.** localStorage is the working store; the SWGOH.gg API is a refresh mechanism, not a dependency. On boot the app renders from cached roster data instantly (`loadRoster()` runs before any network call), then — only for API-sourced rosters, and only if `syncedAt` is older than a staleness threshold (12 hours) — fires a silent background refresh. The refresh never runs while the Roster screen is open (so it cannot disrupt a mid-edit interaction), and applies only if the owned set actually changed, with an Undo snapshot when it does. If the refresh fails or times out, the app stays silently on cached data. The app is fully functional on cached data alone.
 
-Because localStorage in an installed PWA can be evicted by the operating system, the app makes a best-effort request for persistent storage and provides manual Export/Import as a durable backup. Eviction resistance is improved but not guaranteed on all platforms; durable, cross-device persistence is the goal of the Roster Import work in §8.
+**Storage durability.** The app makes a best-effort `navigator.storage.persist()` request on boot to reduce OS eviction; this is effective on Chromium/Android and desktop. On Safari, Private Browsing uses ephemeral storage that is cleared at session end regardless of `persist()` — this is expected WebKit behaviour, not a bug, and was the reproducible cause of earlier roster-loss reports (an earlier provisional attribution to iOS app-switcher eviction was a misdiagnosis). Normal (non-private) browsing retains storage. The durable backstops against any loss are manual Export/Import and one-tap re-import from SWGOH.gg.
+
+Because state is local to the device and browser, it does not sync across devices and is lost if site data is cleared or the PWA is reinstalled in a context without durable storage. With SWGOH.gg import in place, recovery is a single tap (re-enter or reuse the stored ally code) rather than a manual rebuild.
 
 ---
 
@@ -134,7 +28,9 @@ The Google Sheet is the **schema source of truth**. Exact column names and order
 
 **Counter_Composition** — the membership table. One row per character in a counter team, recording the `Counter_ID`, the `Character_ID`, and whether that character is `REQUIRED` or `RECOMMENDED`. This normalised structure replaced the earlier approach of packing character lists into single cells, and allows data validation on the character column to prevent invalid IDs at entry time.
 
-**Character_Definitions** — the master unit registry. One row per playable unit, holding its stable `Character_ID`, display name, and `Unit_Type` (`CHARACTER`, `SHIP`, or `CAPITAL_SHIP`). This is the source for the roster screen, for validation, and for future import matching.
+**Character_Definitions** — the master unit registry. One row per playable unit, holding its stable `Character_ID`, display name, `Unit_Type` (`CHARACTER`, `SHIP`, or `CAPITAL_SHIP`), and `External_ID`. This is the source for the roster screen, for validation, and for import matching.
+
+> **`External_ID` is a translation adapter, not the primary key.** It holds the SWGOH.gg `base_id` for a unit, used only to translate imported rosters into internal `Character_ID`s. The internal key remains `Character_ID`; this keeps the data model independent of an external namespace that is controlled by Capital Games and can change. Only the units that appear as `REQUIRED` in Counter_Composition strictly need a mapping for availability to work; others can be populated opportunistically. base_ids must be taken from the SWGOH.gg character-list endpoint, not derived from display names — several are non-obvious (e.g. Jedi Master Luke, Sith Eternal Emperor) and a wrong value fails silently.
 
 **Roster** — reserved for future cloud-backed, account-specific roster data (relics, omicrons, notes). Not consumed by the app at this stage.
 
@@ -142,7 +38,7 @@ The Google Sheet is the **schema source of truth**. Exact column names and order
 
 **Expected Banners** — a reference table mapping banner scores to their practical meaning.
 
-> **Composition is mode-agnostic.** The required core of a counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. If a counter ever needs a genuinely different required core per mode, a `Mode` column (`5v5` / `3v3` / `BOTH`) can be added to Counter_Composition without disturbing the rest of the model.
+> **Composition is mode-agnostic.** The required core of a counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. If a counter ever needs a genuinely different required core per mode, a `Mode` column (`5v5` / `3v3` / `BOTH`) can be added to Counter_Composition without disturbing the rest of the model. Fleet (v2.5) is expected to be modelled as an additional `Mode` value (`FLEET`) rather than a separate format axis, since the fleet territory is present in every GAC regardless of the character format.
 
 ### 4.2 Identifier Standards
 
@@ -155,11 +51,16 @@ Stable identifiers are central to the data model. Names can change; IDs must not
 
 **Character_ID**
 * Uppercase, underscores, no spaces.
-* Based on official character names, and aligned with SWGOH's internal naming style where practical (eases future imports from external sources).
+* Based on official character names, and aligned with SWGOH's internal naming style where practical. This is the stable internal key for all ownership and composition data.
 * Stable once created.
 * Examples: `LEIA_ORGANA`, `CAPTAIN_DROGAN`, `DARTH_BANE`, `EMPEROR_PALPATINE`.
 
-**Unit_Type** — enumerated: `CHARACTER`, `SHIP`, `CAPITAL_SHIP`. All-caps enum values keep them distinct from free text and make validation and filtering reliable.
+**External_ID**
+* The SWGOH.gg `base_id` for a unit (e.g. `GLLEIA`, `GRANDMASTERLUKE`, `SITHPALPATINE`).
+* A translation adapter only — never used as an internal key.
+* Authoritative source is the SWGOH.gg character-list endpoint; not derived from display names.
+
+**Unit_Type** — enumerated: `CHARACTER`, `SHIP`, `CAPITAL_SHIP`. All-caps enum values keep them distinct from free text and make validation and filtering reliable. The roster screen and import currently consume `CHARACTER` only.
 
 **Role** — enumerated: `REQUIRED`, `RECOMMENDED`. Only `REQUIRED` characters are considered for availability.
 
@@ -167,7 +68,11 @@ Stable identifiers are central to the data model. Names can change; IDs must not
 
 ## 5. API Contract
 
-The Apps Script returns a single JSON object with three top-level keys. This contract is the boundary between backend and frontend; the frontend depends on this shape rather than on sheet layout.
+The Apps Script exposes two actions behind a single `doGet` endpoint.
+
+### `action=data` (default)
+
+Returns a single JSON object with three top-level keys. This contract is the boundary between backend and frontend; the frontend depends on this shape rather than on sheet layout.
 
 ```json
 {
@@ -195,9 +100,26 @@ The Apps Script returns a single JSON object with three top-level keys. This con
 
 ```json
 {
-  "LEIA_ORGANA": { "name": "Leia Organa", "unitType": "CHARACTER" }
+  "LEIA_ORGANA": { "name": "Leia Organa", "unitType": "CHARACTER", "externalId": "GLLEIA" }
 }
 ```
+
+`externalId` is read by header name and is optional: if the `External_ID` column is absent or a cell is blank, the field is returned empty and that unit simply won't match on import. This makes the column safe to add incrementally.
+
+### `action=roster&allyCode=…`
+
+A thin proxy to the SWGOH.gg player endpoint. Returns base_ids only; the client does all mapping.
+
+```json
+{
+  "ok": true,
+  "allyCode": "123456789",
+  "syncedAt": "2026-06-30T12:00:00.000Z",
+  "ownedBaseIds": ["GLLEIA", "GRANDMASTERLUKE", "..."]
+}
+```
+
+On failure it returns `{ "ok": false, "error": "<code>" }`, where `<code>` is one of `invalid_ally_code`, `not_found`, `rate_limited`, `fetch_failed`, or `bad_response`. The client maps each to user-facing copy.
 
 ---
 
@@ -205,7 +127,7 @@ The Apps Script returns a single JSON object with three top-level keys. This con
 
 ### 6.1 Counter Lookup
 
-The user selects a mode (5v5 / 3v3) and a defence team, and sees the available counters. Each counter card displays the counter team name, tier (colour-coded), expected banners, undersize viability, and notes. A search box filters the defence-team list, and counters are sorted by tier and then by banner score.
+The user selects a mode (5v5 / 3v3) and a defence team, and sees the available counters. Each counter card displays the counter team name, tier (colour-coded), expected banners, undersize viability, and notes. A search box filters the defence-team list, and counters are sorted by status group, then tier, then by banner score.
 
 ### 6.2 Used Team Tracking
 
@@ -223,7 +145,15 @@ This feature is intentionally **manual and self-contained**. It does not attempt
 
 A dedicated Roster view, reached from the bottom navigation bar, lists every `CHARACTER`-type unit (ships and capital ships are excluded). The user searches and taps to toggle ownership, with a running owned/total count. Ownership is stored locally and feeds directly into availability calculations. A clear-roster action resets all ownership.
 
-Roster ownership is stored under a versioned local schema with a single save/load path, and the screen shows when the roster was last saved and from which source. A collapsible Manage roster data panel provides Export (copies the roster to the clipboard as JSON), Import (validates pasted roster data, replaces the current roster, and reports any unrecognised characters that were skipped), Undo import (restores the previous roster within the session), and Clear roster. Import and Export share the same internal format and the same apply path that the planned roster import in §8 will reuse. Clear roster lives in this panel rather than the header because a SWGOH roster rarely shrinks; clearing is a deliberate maintenance action, not part of normal use.
+There are three ways to populate the roster, in order of precedence as the recommended path:
+
+1. **Import from SWGOH.gg (primary).** The user enters their 9-digit ally code and the app loads ownership directly from their account via the roster proxy. When the roster is empty this is presented as a prominent first-run card; once an ally code is associated it becomes a "Refresh from SWGOH.gg" control. Imported base_ids are mapped to internal `Character_ID`s through the `External_ID` adapter; the result replaces the current roster (with Undo). Import is reported in three buckets — characters imported, ships recognised but not yet supported (silent), and units not yet present in the app's database (informational, expected after game updates). Foreground import validates the ally code, guards against being offline, applies a 15-second timeout, and gives per-case error copy (including the common "not yet synced on SWGOH.gg" case). A confirmation is shown before overwriting an existing different roster; a routine refresh of the same ally code is not gated.
+2. **Manual toggle (existing).** Tap individual characters on/off. Always available.
+3. **Paste-JSON import (fallback).** The collapsible Manage roster data panel provides Export (copies the roster to the clipboard as JSON) and Import (validates pasted roster data, replaces the current roster, reports unrecognised characters), plus Clear roster. This operates on internal `Character_ID`s and shares the same apply path and Undo as the API import.
+
+The screen shows a **source-aware freshness line**: API-sourced rosters show "Last synced from SWGOH.gg: …" (`syncedAt`), manual rosters show "Last saved: …" (`savedAt`). The import result message and Undo control appear in a top-level notice cluster so they remain visible even when the data panel is collapsed. Clear roster lives in the data panel rather than the header because a SWGOH roster rarely shrinks; clearing is a deliberate maintenance action, not part of normal use.
+
+A staleness-gated background sync keeps API rosters current without user action — see [§3.4](#34-state--persistence) for its cache-first semantics.
 
 ### 6.5 Counter Status
 
@@ -259,9 +189,11 @@ The two axes combine into three card states, computed by `getCounterStatus()`:
 
 ## 7. Roster Model
 
-Ownership is tracked at character level only. Relics, gear, zetas, omicrons, mods, and GP are **not** modelled at this stage.
+Ownership is tracked at character level only, as a binary "owned / not owned". Relics, gear, zetas, omicrons, mods, and GP are **not** modelled at this stage, even though the import source exposes them — only unit presence is consumed. Ships and capital ships are recognised by the registry but not yet imported or shown (fleet is v2.5).
 
 **Availability rule.** A counter is available when all of its required characters are owned. Recommended characters do not affect availability.
+
+**Identity and mapping.** The internal key is `Character_ID`. Imported rosters arrive as SWGOH.gg `base_id`s and are translated to `Character_ID`s via the `External_ID` adapter column, through a base_id → Character_ID reverse index built on load. Unmapped or non-character units are not stored as ownership.
 
 **Persistence.** Ownership is held in `localStorage` and keyed on `Character_ID`. It persists across launches but is device- and browser-specific, with no cross-device sync. See [§3.4](#34-state--persistence).
 
@@ -287,11 +219,16 @@ A "show available only" toggle to hide unavailable counters, with a stub reveal 
 Unified tri-state counter status (Available / Used / Not owned) replacing the separate availability indicator and used-label. Three-segment filter [All] [Owned] [Available] with per-filter empty states, group-first sort order, and ownership vocabulary replacing the previous available/unavailable language.
 
 **v1.9 — Roster Persistence & Portability** · *Complete*
+Versioned storage schema, single save/load path, migration, last-saved indicator, clipboard export, validated import with replace semantics and undo, best-effort persistent storage, collapsible roster-data panel. Roster-loss root cause established as Safari Private Browsing ephemeral storage (correcting an earlier provisional iOS app-switcher attribution).
 
-Versioned storage schema, single save/load path, migration, last-saved indicator, clipboard export, validated import with replace semantics and undo, best-effort persistent storage, collapsible roster-data panel. Root cause of roster loss confirmed as iOS WebKit eviction on swipe-away; v2.0 remote import resolves this.
+**v2.0 — Roster Import** · *Complete*
+SWGOH.gg roster import via ally code, behind a thin Apps Script proxy (`action` router). `External_ID` adapter column and client-side base_id → Character_ID mapping. Schema v2 with `allyCode`/`syncedAt`. Cache-first architecture with staleness-gated, never-mid-edit background sync. Source-aware freshness line, first-run import card, three-bucket import reporting, full foreground error handling and Undo. Manual toggle and paste-JSON import retained as fallbacks. Character-only by design.
 
-**v2.0 — Roster Import** · *Planned*
-Import roster data from external sources (e.g. SWGOH.gg, HotUtils, or other public roster APIs). Manual roster entry remains available as a fallback, and local storage becomes a cache rather than the source of truth.
+**v2.5 — Fleet Support** · *Planned*
+Roster stores ships and capital ships; fleet counter data authored in the existing Counter_Composition model (likely via a `FLEET` mode value); fleet toggle on the Counters screen; fleet availability reusing the unchanged ownership engine. Import pipeline widened from characters-only to include ship unit types (already parameterised for this in v2.0).
+
+**Phase 3 — Distribution & Scale** · *Future / conditional*
+Considered only as usage grows from personal → closed group → potential public. Candidate change is migrating the roster proxy from Apps Script to a dedicated serverless function (e.g. Cloudflare Workers) with response caching. Explicit trigger criteria: Apps Script `UrlFetch` quota pressure, sustained import latency harming the mid-match experience, a need for multi-user response caching and per-source rate-limit handling, or wanting a custom domain. This is a proxy swap, not an architectural rewrite; the PWA and data model are unaffected. App-store presence, if ever pursued, would wrap the existing PWA rather than replace it.
 
 ---
 
@@ -300,16 +237,17 @@ Import roster data from external sources (e.g. SWGOH.gg, HotUtils, or other publ
 A user should be able to:
 
 1. Open the app from their Home Screen.
-2. Select an enemy defence team.
-3. Instantly view recommended counters.
-4. See which counters they can field and which they have already used.
-5. Track the round's banner score and projected final.
-6. Complete an entire GAC attack phase without external notes, spreadsheets, or websites.
+2. Populate their roster in one step by importing from SWGOH.gg.
+3. Select an enemy defence team.
+4. Instantly view recommended counters.
+5. See which counters they can field and which they have already used.
+6. Track the round's banner score and projected final.
+7. Complete an entire GAC character attack phase without external notes, spreadsheets, or websites.
 
 ---
 
 ## 10. Future Vision
 
-The long-term direction is a roster-aware GAC planning assistant. Potential future capabilities include automatic roster imports, team-allocation planning, counter-conflict detection, banner optimisation, defence-strategy support, round planning, opponent-roster analysis, and statistical counter recommendations.
+The long-term direction is a roster-aware GAC planning assistant. Potential future capabilities include fleet counter support, team-allocation planning, counter-conflict detection, banner optimisation, defence-strategy support, round planning, opponent-roster analysis, and statistical counter recommendations.
 
 Throughout, the app should continue to prioritise simplicity and speed. The goal is a personal SWGOH Grand Arena strategist — not a reimplementation of SWGOH.gg.
