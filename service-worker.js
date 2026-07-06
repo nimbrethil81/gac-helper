@@ -1,9 +1,9 @@
-
-const CACHE_NAME = 'swgoh-cache-v2';
+const CACHE_NAME = 'swgoh-cache-v4';
 const FILES = [
   './',
   './index.html',
   './app.js',
+  './styles.css',
   './manifest.json'
 ];
 

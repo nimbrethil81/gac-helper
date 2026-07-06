@@ -82,3 +82,44 @@
 - Import message + Undo moved to a top-level notice cluster on the Roster screen so results
   are visible even when the data panel is collapsed.
 - Bump service-worker cache name to force fresh assets for installed users.
+
+## v2.1 — Round Planning
+- Bottom-nav "Banners" replaced by a single Round screen: round summary, opponent
+  board, allocation recommendations, and banner tracking together as the live-match
+  workspace. Reset Round moves here from Counters and now clears the board alongside
+  used teams and banner tracking. A wayfinding line on the Counters screen points
+  players to Round for round tracking.
+- Opponent board (Item 1): four territories per league/mode, from the new
+  GAC_Board_Config sheet tab. League is a persisted user setting; mode is frozen
+  into the board at setup. Per-team `cleared` flag with a bulk "Clear territory"
+  shortcut; territory-cleared state is always derived from per-team flags, never
+  stored. Back Bottom locked until Front Bottom is cleared; Back Top permanently
+  locked with a "fleet support arrives in v2.5" note. Teams not in the counter
+  catalogue can be marked "Not in catalogue" and still tracked for cleared state.
+  Board is versioned (schema 1) and hydrates before first paint like the roster.
+- Allocation engine: scarcity-first ordered search with branch-and-bound pruning
+  and a 50 000-node budget (greedy-equivalent fallback beyond the budget).
+  Objective is coverage → tier → banner score, lexicographic. Character-level
+  exclusivity enforced natively — two counters that share a required character
+  never appear in the same plan, since characters used on offence are spent for
+  the round. Runs against the visible-uncleared board team set only. Live-solved
+  on every Round render; nothing persisted.
+- Overlap notice: when two or more visible-uncleared teams share at least one
+  eligible-and-owned-and-unused counter, an explicit banner announces the switch
+  to optimised recommendations.
+- Per-team recommendation cards: chosen counter, tier badge, expected banners,
+  a plain-language reason grounded in the plan's real alternatives, and a
+  Mark-used button. Empty-state reasons cover the four distinct causes — no
+  counters in the catalogue, none owned, all used, or committed elsewhere via
+  a named character clash.
+- Sheet: new GAC_Board_Config tab (40 rows across all league × mode combinations)
+  and new GAC_Scoring tab (banner economy — sourced from swgoh.wiki, to be
+  spot-checked against real battle results before Item 2 lands).
+- Backend: Apps Script `action=data` payload extended with `boardConfig` and
+  `scoring` keys, read by header with positional fallbacks and guarded against
+  missing tabs. Fully backwards-compatible.
+- Service worker: cache name bumped to `swgoh-cache-v3` in stage 2 and
+  `swgoh-cache-v4` in stage 3 to force fresh assets for installed users;
+  `styles.css` added to the precache list (a pre-existing gap).
+- Roster import: source-neutral copy pass completed — the overwrite-confirm
+  dialog no longer mentions swgoh.gg by name.

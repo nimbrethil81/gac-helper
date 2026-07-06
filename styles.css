@@ -360,11 +360,6 @@ body {
 
 .roster-data-panel {
     margin-bottom: 12px;
-}
-
-/* Single container: toggle + body share one bordered box. */
-.roster-data-panel {
-    margin-bottom: 12px;
     border: 1px solid #22324a;
     border-radius: 10px;
     background: var(--panel);
@@ -396,19 +391,6 @@ body {
     padding: 0 14px 14px;
     border: none;
     background: transparent;
-}
-
-.roster-data-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-
-    margin-top: 8px;
-    padding: 14px;
-
-    border: 1px solid #22324a;
-    border-radius: 10px;
-    background: var(--panel);
 }
 
 .roster-data-label {
@@ -538,7 +520,7 @@ body {
 .ahead { color: var(--s-tier); }
 .behind { color: var(--c-tier); }
 
-/* ─── ROSTER: SWGOH.gg IMPORT CARD ───────────────────────────────── */
+/* ─── ROSTER: IMPORT CARD ────────────────────────────────────────── */
 
 .roster-import-card {
     background: var(--panel);
@@ -552,7 +534,6 @@ body {
     gap: 8px;
 }
 
-/* Prominent when the roster is empty (first-run). */
 .roster-import-card.empty {
     border-color: var(--jedi-blue);
     box-shadow: 0 0 12px rgba(79,195,247,0.18);
@@ -602,4 +583,186 @@ body {
     flex-direction: column;
     gap: 8px;
     margin-bottom: 12px;
+}
+
+/* ─── ROUND: BOARD SETUP ─────────────────────────────────────────── */
+
+.board-setup-card {
+    background: var(--panel);
+    border: 1px solid var(--jedi-blue);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 12px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    box-shadow: 0 0 12px rgba(79,195,247,0.18);
+}
+
+.board-league-select {
+    margin-bottom: 0;
+    background: var(--bg);
+    font-size: 16px;            /* 16px avoids iOS zoom-on-focus */
+}
+
+/* ─── ROUND: OPPONENT BOARD ──────────────────────────────────────── */
+
+.board-territory {
+    background: var(--panel);
+    border: 1px solid #22324a;
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+}
+
+.board-territory.locked {
+    opacity: 0.55;
+}
+
+.board-territory-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.board-territory-title {
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.board-territory-progress {
+    font-size: 12px;
+    color: var(--muted);
+    margin-left: auto;
+}
+
+.clear-territory-btn {
+    flex-shrink: 0;
+    border: none;
+    border-radius: 8px;
+    padding: 6px 10px;
+
+    background: var(--panel-light);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.board-locked-note {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.board-team {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.board-team-select {
+    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 10px;
+
+    background: var(--bg);
+    color: var(--text);
+
+    border: 1px solid #22324a;
+    border-radius: 8px;
+
+    font-size: 16px;            /* 16px avoids iOS zoom-on-focus */
+}
+
+.board-team.cleared .board-team-select {
+    opacity: 0.5;
+}
+
+.board-cleared-btn {
+    flex-shrink: 0;
+    min-width: 92px;
+    border: 1px solid #22324a;
+    border-radius: 8px;
+    padding: 10px 8px;
+
+    background: transparent;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.board-cleared-btn.on {
+    background: rgba(102,187,106,0.15);
+    border-color: #2e5c3a;
+    color: var(--s-tier);
+}
+
+/* ─── ROUND: RECOMMENDATIONS (v2.1) ──────────────────────────────── */
+
+.board-overlap {
+    margin-bottom: 12px;
+}
+
+.board-rec {
+    margin: 6px 0 12px 12px;
+    padding: 10px 12px;
+
+    background: var(--bg);
+    border: 1px solid #1c3a58;
+    border-left: 3px solid var(--jedi-blue);
+    border-radius: 8px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.board-rec-none {
+    border-left-color: #22324a;
+}
+
+.board-rec-line {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tier-badge-small {
+    padding: 2px 8px;
+    font-size: 12px;
+}
+
+.board-rec-banners {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.board-rec-reason {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.board-rec-btn {
+    align-self: flex-start;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+
+    background: var(--jedi-blue);
+    color: black;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
 }
