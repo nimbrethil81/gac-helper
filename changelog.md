@@ -76,50 +76,107 @@
   supported (silent — fleet is v2.5), and units not yet in the app's database.
 - Import pipeline written unit-type-parameterised, defaulting to characters only, so fleet
   support (v2.5) is a flag-flip plus roster/UI work rather than a re-architecture.
-- Foreground import/refresh: ally-code validation, offline guard, 15s timeout
+- Foreground import/refresh: ally-code validation, offline guard, timeout guard
   (`ROSTER_FETCH_TIMEOUT_MS`), per-case error copy (invalid code, not-found-on-swgoh.gg,
   rate-limited, timeout, offline), confirm-before-overwrite, and Undo.
 - Import message + Undo moved to a top-level notice cluster on the Roster screen so results
   are visible even when the data panel is collapsed.
 - Bump service-worker cache name to force fresh assets for installed users.
+- Roster data source subsequently switched from swgoh.gg to a self-hosted SWGOH Comlink
+  instance (Render free tier), after swgoh.gg began returning HTTP 403 to Apps Script egress
+  IPs — a hard block, not a quota issue. The response contract (`{ ok, allyCode, syncedAt,
+  ownedBaseIds }`) is unchanged; `rosterUnit[].definitionId` uses `BASEID:RARITY` format,
+  split on the colon to recover base_ids. Import timeout extended to 60 seconds to
+  accommodate Render's cold-start latency on the first request after inactivity.
+- User-facing language made source-neutral following the migration (e.g. the roster-overwrite
+  confirmation no longer names swgoh.gg); internal sentinel values deliberately preserved
+  unchanged to avoid breaking auto-sync eligibility on existing rosters. One instance of the
+  old wording was found and corrected in v2.1 (see below).
 
 ## v2.1 — Round Planning
-- Bottom-nav "Banners" replaced by a single Round screen: round summary, opponent
-  board, allocation recommendations, and banner tracking together as the live-match
-  workspace. Reset Round moves here from Counters and now clears the board alongside
-  used teams and banner tracking. A wayfinding line on the Counters screen points
-  players to Round for round tracking.
-- Opponent board (Item 1): four territories per league/mode, from the new
-  GAC_Board_Config sheet tab. League is a persisted user setting; mode is frozen
-  into the board at setup. Per-team `cleared` flag with a bulk "Clear territory"
-  shortcut; territory-cleared state is always derived from per-team flags, never
-  stored. Back Bottom locked until Front Bottom is cleared; Back Top permanently
-  locked with a "fleet support arrives in v2.5" note. Teams not in the counter
-  catalogue can be marked "Not in catalogue" and still tracked for cleared state.
-  Board is versioned (schema 1) and hydrates before first paint like the roster.
-- Allocation engine: scarcity-first ordered search with branch-and-bound pruning
-  and a 50 000-node budget (greedy-equivalent fallback beyond the budget).
-  Objective is coverage → tier → banner score, lexicographic. Character-level
-  exclusivity enforced natively — two counters that share a required character
-  never appear in the same plan, since characters used on offence are spent for
-  the round. Runs against the visible-uncleared board team set only. Live-solved
-  on every Round render; nothing persisted.
-- Overlap notice: when two or more visible-uncleared teams share at least one
-  eligible-and-owned-and-unused counter, an explicit banner announces the switch
-  to optimised recommendations.
-- Per-team recommendation cards: chosen counter, tier badge, expected banners,
-  a plain-language reason grounded in the plan's real alternatives, and a
-  Mark-used button. Empty-state reasons cover the four distinct causes — no
-  counters in the catalogue, none owned, all used, or committed elsewhere via
-  a named character clash.
-- Sheet: new GAC_Board_Config tab (40 rows across all league × mode combinations)
-  and new GAC_Scoring tab (banner economy — sourced from swgoh.wiki, to be
-  spot-checked against real battle results before Item 2 lands).
-- Backend: Apps Script `action=data` payload extended with `boardConfig` and
-  `scoring` keys, read by header with positional fallbacks and guarded against
-  missing tabs. Fully backwards-compatible.
-- Service worker: cache name bumped to `swgoh-cache-v3` in stage 2 and
-  `swgoh-cache-v4` in stage 3 to force fresh assets for installed users;
-  `styles.css` added to the precache list (a pre-existing gap).
-- Roster import: source-neutral copy pass completed — the overwrite-confirm
-  dialog no longer mentions swgoh.gg by name.
+- Bottom-nav "Banners" replaced by a single **Round screen**: round summary, opponent board,
+  allocation recommendations, and banner tracking together as the live-match workspace.
+  Reset Round moves here from Counters and now clears the board alongside used teams and
+  banner tracking. A wayfinding line on the Counters screen points players to Round for
+  round tracking and reset.
+- **Opponent board:** four territories per league/mode, generated from the new
+  `GAC_Board_Config` sheet tab. League is a persisted user setting; mode is frozen into
+  the board at setup from the Counters screen toggle. Per-team `cleared` flag with a bulk
+  "Clear territory" shortcut; territory-cleared state is always derived from per-team flags,
+  never stored separately. Back Bottom locked until Front Bottom is cleared; Back Top
+  permanently locked with a "fleet support arrives in v2.5" note. Teams not in the counter
+  catalogue can be marked "Not in catalogue" and still tracked for cleared state. Board is
+  versioned (schema 1) and hydrates before first paint, same pattern as the roster.
+- **Allocation engine:** scarcity-first ordered search with branch-and-bound pruning and a
+  50,000-node budget (result is never worse than pure greedy, since the greedy path is
+  explored first). Objective is coverage → tier → banner score, in that order (Option A).
+  Character-level exclusivity enforced natively — two counters that share a required
+  character can never appear in the same plan, since characters used on offence are spent
+  for the round regardless of battle outcome. Runs against the visible-uncleared board
+  team set only; fleet territory excluded. Live-solved on every Round-screen render;
+  nothing about the plan is persisted.
+- **Overlap notice:** when two or more visible-uncleared teams share at least one
+  eligible-and-owned-and-unused counter, an explicit banner announces the switch to
+  optimised, cross-team-aware recommendations.
+- **Per-team recommendation cards:** chosen counter, colour-coded tier badge, expected
+  banners, a plain-language reason grounded in the plan's real alternatives (e.g. "Also
+  counters Great Mothers — SLKR covers that one instead"), and a "Mark used" button that
+  commits the counter and triggers an immediate re-solve. Four distinct empty-state reasons
+  cover no catalogue match, none owned, all used, and committed elsewhere via a named
+  character clash.
+- **Sheet:** new `GAC_Board_Config` tab (team counts per territory, for every league × mode
+  combination) and new `GAC_Scoring` tab (the full GAC banner economy — victory, attempt,
+  survival, health, protection, unused-slot, and territory-clear bonuses). Both sourced
+  from the SWGOH Wiki; scoring values are earmarked for a spot-check against real battle
+  results before the points-to-win calculator is built on top of them.
+- **Backend:** Apps Script `action=data` payload extended with `boardConfig` and `scoring`
+  keys, read by header name with positional fallbacks and guarded against missing or empty
+  tabs (empty object/array rather than an error). Fully backwards-compatible — the v2.0
+  frontend ignores unknown keys.
+- **Service worker:** cache name bumped (`swgoh-cache-v3`, then `swgoh-cache-v4`) to force
+  fresh assets for installed users across the two build stages; `styles.css` added to the
+  precache list, closing a pre-existing gap where a fully offline launch would have
+  rendered unstyled.
+- **Copy fix:** the roster-overwrite confirmation dialog no longer names swgoh.gg by name,
+  completing the source-neutral language pass that began with the Comlink migration.
+
+## v2.5 — Fleet Support
+Delivered in three phases within a single workstream; all three shipped together.
+
+- **Roster — Characters/Ships split (Phase 1):** the Roster screen now lists units in two
+  sections, **Characters** and **Ships**, with a dual owned-count ("X / Y characters ·
+  A / B ships owned"). Capital ships carry a small **Capital** badge within the Ships
+  section. A single search box filters both sections; sections with no matches are hidden
+  while searching, with a single empty line when nothing matches. If the loaded data has no
+  ship definitions (e.g. an older cached payload), the Ships section and its count are
+  omitted, so the screen is unchanged until ship data is present.
+- **Import widened to ships (Phase 1):** ally-code import, background sync, and paste import
+  now bring in `CHARACTER`, `SHIP`, and `CAPITAL_SHIP` units together (previously ships were
+  recognised but dropped). `classifyBaseIds` returns owned unit ids plus per-type counts; the
+  import summary now reads "Imported X characters and Y ships from the game," retaining the
+  "units not in the app's database yet" note. Export/clear copy generalised from
+  "characters" to "units".
+- **Counters — Fleet toggle (Phase 2):** a third **Fleet** segment joins `5v5` / `3v3`.
+  A mode with no counter data (Fleet, until fleet counters are authored) shows a plain
+  "no fleet counters yet" message instead of an empty dropdown. `lastSquadMode` is persisted
+  whenever a squad format is selected.
+- **Board setup — format safety (Phase 2, Option A):** because "Fleet" is a browsing view,
+  not a whole-board format, the board setup card shows a small `5v5` / `3v3` chooser (seeded
+  from `lastSquadMode`) when the Counters toggle is on Fleet, so the board always freezes a
+  valid squad format. On 5v5/3v3 the format is inherited silently as before. `boardMode()`
+  resolves the effective squad format; `createBoard()` freezes it into the board.
+- **Round board — fleet territory (Phase 3):** **Back Top** (fleet) now unlocks once Front
+  Top is cleared, mirroring Back Bottom behind Front Bottom; the "arrives in v2.5" note is
+  gone. The fleet territory generates its own team rows, is marked with a 🚀 icon, and its
+  pickers draw from the `FLEET` catalogue rather than the squad catalogue.
+- **Allocation engine — fleet-aware (Phase 3):** the engine now runs against every unlocked
+  territory including fleet. Each team draws candidates from its own catalogue (per-team
+  `modeKey`); the shared ownership, used-state, and exclusivity logic is unchanged. Because
+  ships and characters are disjoint unit sets, fleet and squad allocations never collide,
+  while two fleet teams contesting the same owned ship are arbitrated correctly, and the
+  overlap notice fires for fleets as for squads.
+- **Board schema bump (1 → 2):** boards now include fleet-territory team rows. Any board
+  created before this release is discarded on load and set up afresh.
+- **Backend:** no Apps Script change required — the `FLEET` counters bucket falls out of the
+  existing mode-keyed loop once `Mode = FLEET` rows exist. `APP_VERSION` → 2.5; service-worker
+  cache bumped to v5 to force fresh assets for installed users.

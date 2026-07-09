@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.5";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -11,9 +11,10 @@ const ROSTER_FETCH_TIMEOUT_MS = 60000;       // user-initiated import/refresh ti
 const ROSTER_SYNC_STALE_MS = 1000 * 60 * 60 * 12; // background sync only if older than this
 
 // Board (v2.1 Round screen)
-const BOARD_SCHEMA = 1;
+const BOARD_SCHEMA = 2;                       // v2: boards include fleet-territory team rows
 const BOARD_KEY = "boardData";               // versioned board object
 const LEAGUE_KEY = "gacLeague";              // persisted user setting
+const LAST_SQUAD_MODE_KEY = "gacLastSquadMode"; // remembers 5v5/3v3 while browsing Fleet
 const LEAGUES = ["KYBER", "AURODIUM", "CHROMIUM", "BRONZIUM", "CARBONITE"];
 const NOT_IN_CATALOGUE = "__NOT_IN_CATALOGUE__";
 const TERRITORY_LABELS = {
@@ -30,6 +31,8 @@ let boardConfig = {};                   // league -> mode -> [{territory, type, 
 let scoringRules = [];                  // GAC banner economy rows (consumed in Item 2)
 let baseIdToUnit = {};                  // base_id -> { characterId, unitType }
 let currentMode = "5v5";
+let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 5v5/3v3 chosen; used for board setup when the toggle is on Fleet
+let boardModeDraft = null;              // squad format picked on the setup card while the toggle is on Fleet
 let currentView = "counters";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 let searchText = "";
@@ -167,6 +170,7 @@ function saveBoard() {
 
 function discardBoard() {
     board = null;
+    boardModeDraft = null;
     localStorage.removeItem(BOARD_KEY);
 }
 
@@ -181,9 +185,24 @@ function setLeague(value) {
     render();
 }
 
+// The opponent board is always a squad-format board (5v5 or 3v3) plus the fleet
+// territory. "Fleet" is a browsing view on the Counters screen, never a whole-
+// board format — so when the toggle is on Fleet, the board takes the squad
+// format chosen on the setup card, falling back to the last squad format used.
+function boardMode() {
+    if (currentMode !== "FLEET") return currentMode;
+    return boardModeDraft || lastSquadMode;
+}
+
+function setBoardModeDraft(mode) {
+    boardModeDraft = mode;
+    render();
+}
+
 function createBoard() {
     const league = leagueDraft;
-    const cfg = boardConfig[league] && boardConfig[league][currentMode];
+    const mode = boardMode();
+    const cfg = boardConfig[league] && boardConfig[league][mode];
 
     if (!league || !cfg || cfg.length === 0) {
         alert("Choose a league first. If a league is selected and this still fails, the board configuration hasn't loaded — check your connection and refresh.");
@@ -192,7 +211,6 @@ function createBoard() {
 
     const teams = [];
     cfg.forEach(t => {
-        if (t.type !== "SQUAD") return;   // fleet territory generates no team rows until v2.5
         for (let i = 0; i < t.teamCount; i++) {
             teams.push({ territory: t.territory, index: i, name: "", cleared: false });
         }
@@ -201,11 +219,12 @@ function createBoard() {
     board = {
         schema:      BOARD_SCHEMA,
         league:      league,
-        mode:        currentMode,          // frozen for the round
+        mode:        mode,                 // frozen for the round (always 5v5 or 3v3)
         createdAt:   new Date().toISOString(),
         territories: cfg.map(t => ({ territory: t.territory, type: t.type, teamCount: t.teamCount })),
         teams:       teams
     };
+    boardModeDraft = null;
     saveBoard();
     render();
 }
@@ -222,14 +241,20 @@ function isTerritoryCleared(territoryKey) {
 }
 
 // A back territory unlocks when the front territory in its lane is cleared.
-// Fleet territories are locked outright until v2.5.
+// This applies to Back Top (fleet) exactly as it does to Back Bottom (squad):
+// the fleet territory reveals once Front Top is cleared.
 function isTerritoryUnlocked(tDef) {
-    if (tDef.type === "FLEET") return false;
     if (tDef.territory.indexOf("BACK_") === 0) {
         const front = "FRONT_" + tDef.territory.slice(5);
         return isTerritoryCleared(front);
     }
     return true;
+}
+
+// Which counter catalogue a territory draws from: fleet territories use the
+// FLEET catalogue; squad territories use the board's frozen squad format.
+function territoryModeKey(tDef) {
+    return tDef.type === "FLEET" ? "FLEET" : board.mode;
 }
 
 // ─── BOARD ACTIONS ────────────────────────────────────────────────────────────
@@ -289,8 +314,9 @@ function buildEligibleTeams() {
     if (!board) return eligible;
 
     board.territories.forEach(tDef => {
-        if (tDef.type === "FLEET") return;
         if (!isTerritoryUnlocked(tDef)) return;
+
+        const modeKey = territoryModeKey(tDef);
 
         teamsInTerritory(tDef.territory).forEach(team => {
             if (team.cleared) return;
@@ -300,11 +326,11 @@ function buildEligibleTeams() {
 
             if (team.name === NOT_IN_CATALOGUE) {
                 eligible.push({ key, territory: tDef.territory, index: team.index,
-                                name: null, custom: true, candidates: [] });
+                                name: null, modeKey, custom: true, candidates: [] });
                 return;
             }
 
-            const all = (gacData[board.mode] && gacData[board.mode][team.name]) || [];
+            const all = (gacData[modeKey] && gacData[modeKey][team.name]) || [];
             const seen = new Set();
             const candidates = [];
             all.forEach(c => {
@@ -314,7 +340,7 @@ function buildEligibleTeams() {
             });
 
             eligible.push({ key, territory: tDef.territory, index: team.index,
-                            name: team.name, custom: false, candidates });
+                            name: team.name, modeKey, custom: false, candidates });
         });
     });
 
@@ -446,7 +472,7 @@ function buildReasons(eligible, assign) {
         // No assignment — explain why.
         let reason;
         if (t.candidates.length === 0) {
-            const all = (gacData[board.mode] && gacData[board.mode][t.name]) || [];
+            const all = (gacData[t.modeKey] && gacData[t.modeKey][t.name]) || [];
             if (all.length === 0) {
                 reason = "No counters in the catalogue for this team yet.";
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
@@ -547,8 +573,9 @@ function buildReverseIndex() {
 
 function classifyBaseIds(baseIds, opts) {
     const wantTypes = (opts && opts.unitTypes) || ["CHARACTER"];
-    const ownedCharacterIds = [];
-    const ignoredKnown = [];   // recognised, but a type we don't import yet (ships)
+    const ownedUnitIds = [];
+    const counts = { CHARACTER: 0, SHIP: 0, CAPITAL_SHIP: 0 };
+    const ignoredKnown = [];   // recognised, but a unit type we're not importing here
     const unknown = [];        // not in the registry / no mapping yet
     const seen = new Set();
 
@@ -561,13 +588,14 @@ function classifyBaseIds(baseIds, opts) {
         if (!hit) { unknown.push(key); return; }
 
         if (wantTypes.includes(hit.unitType)) {
-            ownedCharacterIds.push(hit.characterId);
+            ownedUnitIds.push(hit.characterId);
+            if (counts[hit.unitType] !== undefined) counts[hit.unitType]++;
         } else {
             ignoredKnown.push(key);
         }
     });
 
-    return { ownedCharacterIds, ignoredKnown, unknown };
+    return { ownedUnitIds, counts, ignoredKnown, unknown };
 }
 
 function sameSet(a, b) {
@@ -604,11 +632,12 @@ function apiErrorMessage(error) {
     }
 }
 
-function buildImportSummary(n, ignored, unknown) {
-    const parts = [`Imported ${n} character${n === 1 ? "" : "s"} from the game.`];
-    if (ignored) parts.push(`${ignored} ship${ignored === 1 ? "" : "s"} ignored.`);
-    if (unknown) parts.push(`${unknown} unit${unknown === 1 ? "" : "s"} not in the app's database yet — they won't affect counters.`);
-    return parts.join(" ");
+function buildImportSummary(counts, unknown) {
+    const ch = counts.CHARACTER || 0;
+    const sh = (counts.SHIP || 0) + (counts.CAPITAL_SHIP || 0);
+    let summary = `Imported ${ch} character${ch === 1 ? "" : "s"} and ${sh} ship${sh === 1 ? "" : "s"} from the game.`;
+    if (unknown) summary += ` ${unknown} unit${unknown === 1 ? "" : "s"} not in the app's database yet — they won't affect counters.`;
+    return summary;
 }
 
 async function importFromAllyCode() {
@@ -661,12 +690,12 @@ async function importFromAllyCode() {
         return;
     }
 
-    const { ownedCharacterIds, ignoredKnown, unknown } =
-        classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER"] });
+    const { ownedUnitIds, counts, unknown } =
+        classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER", "SHIP", "CAPITAL_SHIP"] });
 
-    if (ownedCharacterIds.length === 0) {
+    if (ownedUnitIds.length === 0) {
         rosterMessage = {
-            text: "We loaded your account, but none of your characters are mapped in the app yet, so nothing was imported.",
+            text: "We loaded your account, but none of your units are mapped in the app yet, so nothing was imported.",
             kind: "error"
         };
         render();
@@ -674,14 +703,14 @@ async function importFromAllyCode() {
     }
 
     rosterBackup = { owned: ownedCharacters.slice(), meta: { ...rosterMeta } };
-    applyRoster(ownedCharacterIds, ROSTER_SOURCE_API, {
+    applyRoster(ownedUnitIds, ROSTER_SOURCE_API, {
         allyCode: data.allyCode || allyCode,
         syncedAt: data.syncedAt || new Date().toISOString()
     });
     allyCodeDraft = "";
 
     rosterMessage = {
-        text: buildImportSummary(ownedCharacterIds.length, ignoredKnown.length, unknown.length),
+        text: buildImportSummary(counts, unknown.length),
         kind: unknown.length ? "warn" : "ok"
     };
     render();
@@ -701,15 +730,15 @@ async function maybeBackgroundSync() {
         if (!data || !data.ok) return;            // silent: stay on cache
         if (currentView === "roster") return;     // user navigated in-flight: abandon
 
-        const { ownedCharacterIds } =
-            classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER"] });
-        if (ownedCharacterIds.length === 0) return; // don't wipe a good cache on a bad map
+        const { ownedUnitIds } =
+            classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER", "SHIP", "CAPITAL_SHIP"] });
+        if (ownedUnitIds.length === 0) return; // don't wipe a good cache on a bad map
 
-        const changed = !sameSet(ownedCharacterIds, ownedCharacters);
+        const changed = !sameSet(ownedUnitIds, ownedCharacters);
         if (changed) {
             rosterBackup = { owned: ownedCharacters.slice(), meta: { ...rosterMeta } };
         }
-        applyRoster(ownedCharacterIds, ROSTER_SOURCE_API, {
+        applyRoster(ownedUnitIds, ROSTER_SOURCE_API, {
             allyCode: data.allyCode || rosterMeta.allyCode,
             syncedAt: data.syncedAt || new Date().toISOString()
         });
@@ -727,12 +756,18 @@ function getCharacterName(characterId) {
     return def.name || characterId;
 }
 
-function getCharacterList() {
+// Unit lists for the roster screen. Each item carries unitType so the roster
+// row can badge capital ships. Ships and capital ships share one list, matching
+// how the game groups them; the badge is the only visual distinction.
+function getUnitList(types) {
     return Object.entries(characterDefinitions)
-        .filter(([, def]) => def.unitType === "CHARACTER")
-        .map(([id, def]) => ({ id, name: def.name }))
+        .filter(([, def]) => types.includes(def.unitType))
+        .map(([id, def]) => ({ id, name: def.name, unitType: def.unitType }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+function getCharacterUnits() { return getUnitList(["CHARACTER"]); }
+function getShipUnits()      { return getUnitList(["SHIP", "CAPITAL_SHIP"]); }
 
 function getTierColour(tier) {
     switch ((tier || "").toUpperCase()) {
@@ -834,11 +869,13 @@ ${viewHtml}
 
 function renderCounters() {
 
+    const modeHasData = Object.keys(gacData[currentMode] || {}).length > 0;
+
     const teams = Object.keys(gacData[currentMode] || {})
         .filter(team => team.toLowerCase().includes(searchText.toLowerCase()))
         .sort((a, b) => a.localeCompare(b));
 
-    return `
+    const header = `
 <div class="round-card">
     <div class="round-title">🏆 CURRENT ROUND</div>
     <div class="round-stat">Used Teams: ${getUsedTeamCount()}</div>
@@ -846,10 +883,22 @@ function renderCounters() {
 </div>
 
 <div class="mode-toggle">
-    <button class="mode-button ${currentMode === "5v5" ? "active" : ""}" onclick="setMode('5v5')">5v5</button>
-    <button class="mode-button ${currentMode === "3v3" ? "active" : ""}" onclick="setMode('3v3')">3v3</button>
+    <button class="mode-button ${currentMode === "5v5"   ? "active" : ""}" onclick="setMode('5v5')">5v5</button>
+    <button class="mode-button ${currentMode === "3v3"   ? "active" : ""}" onclick="setMode('3v3')">3v3</button>
+    <button class="mode-button ${currentMode === "FLEET" ? "active" : ""}" onclick="setMode('FLEET')">Fleet</button>
 </div>
+`;
 
+    // A mode with no counter data yet (Fleet, until fleet counters are authored)
+    // shows a plain message instead of an empty dropdown and blank results.
+    if (!modeHasData) {
+        const emptyMsg = currentMode === "FLEET"
+            ? "No fleet counters have been added yet. Once fleet data is in the sheet, your fleet counters will appear here."
+            : "No defence teams found for this mode yet.";
+        return header + `<div class="empty-state">${emptyMsg}</div>`;
+    }
+
+    return header + `
 <input
     type="text"
     id="searchBox"
@@ -886,6 +935,10 @@ function setCounterFilter(filter) {
 
 function setMode(mode) {
     currentMode = mode;
+    if (mode === "5v5" || mode === "3v3") {
+        lastSquadMode = mode;
+        localStorage.setItem(LAST_SQUAD_MODE_KEY, mode);
+    }
     render();
 }
 
@@ -893,6 +946,8 @@ function updateSearch(value) {
     searchText = value;
 
     const teamSelect = document.getElementById("teamSelect");
+    if (!teamSelect) return;
+
     const teams = Object.keys(gacData[currentMode] || {})
         .filter(team => team.toLowerCase().includes(searchText.toLowerCase()))
         .sort((a, b) => a.localeCompare(b));
@@ -1082,13 +1137,30 @@ function renderBoardSetup() {
         ? `<div class="roster-msg roster-msg-warn">Board configuration hasn't loaded yet — check your connection and refresh.</div>`
         : "";
 
+    const fmt = boardMode();
+
+    // On Fleet, "Fleet" isn't a whole-board format, so the setup card lets the
+    // player pick the squad format for this board. On 5v5/3v3 it's inherited
+    // silently from the toggle, exactly as before.
+    const formatBlock = currentMode === "FLEET"
+        ? `
+    <div class="roster-import-helper">
+        Choose your league, then pick the match format for the squad territories.
+    </div>
+    <div class="mode-toggle board-format-choice">
+        <button class="mode-button ${fmt === "5v5" ? "active" : ""}" onclick="setBoardModeDraft('5v5')">5v5</button>
+        <button class="mode-button ${fmt === "3v3" ? "active" : ""}" onclick="setBoardModeDraft('3v3')">3v3</button>
+    </div>`
+        : `
+    <div class="roster-import-helper">
+        Choose your league, then set up the opponent's defence board for this round.
+        Format is taken from the Counters screen toggle — currently <strong>${fmt}</strong>.
+    </div>`;
+
     return `
 <div class="board-setup-card">
     <div class="roster-import-title">🗺️ SET UP OPPONENT BOARD</div>
-    <div class="roster-import-helper">
-        Choose your league, then set up the opponent's defence board for this round.
-        Format is taken from the Counters screen toggle — currently <strong>${currentMode}</strong>.
-    </div>
+    ${formatBlock}
     ${warning}
     <select class="team-select board-league-select" onchange="setLeague(this.value)">
         <option value="" ${!leagueDraft ? "selected" : ""}>Select league…</option>
@@ -1120,18 +1192,9 @@ function renderBoard() {
 
 function renderTerritory(tDef) {
     const label = TERRITORY_LABELS[tDef.territory] || tDef.territory;
-
-    if (tDef.type === "FLEET") {
-        return `
-<div class="board-territory locked">
-    <div class="board-territory-header">
-        <span class="board-territory-title">🚀 ${label.toUpperCase()}</span>
-        <span class="board-territory-progress">${tDef.teamCount} fleet${tDef.teamCount === 1 ? "" : "s"}</span>
-    </div>
-    <div class="board-locked-note">Fleet territory — ship support arrives in v2.5.</div>
-</div>
-`;
-    }
+    const isFleet = tDef.type === "FLEET";
+    const icon = isFleet ? "🚀 " : "";
+    const unit = isFleet ? "fleet" : "team";
 
     if (!isTerritoryUnlocked(tDef)) {
         const frontLabel = TERRITORY_LABELS["FRONT_" + tDef.territory.slice(5)] || "the front territory";
@@ -1139,9 +1202,9 @@ function renderTerritory(tDef) {
 <div class="board-territory locked">
     <div class="board-territory-header">
         <span class="board-territory-title">🔒 ${label.toUpperCase()}</span>
-        <span class="board-territory-progress">${tDef.teamCount} team${tDef.teamCount === 1 ? "" : "s"}</span>
+        <span class="board-territory-progress">${tDef.teamCount} ${unit}${tDef.teamCount === 1 ? "" : "s"}</span>
     </div>
-    <div class="board-locked-note">Locked — clear ${frontLabel} to reveal these teams.</div>
+    <div class="board-locked-note">Locked — clear ${frontLabel} to reveal these ${unit}s.</div>
 </div>
 `;
     }
@@ -1157,20 +1220,22 @@ function renderTerritory(tDef) {
     return `
 <div class="board-territory">
     <div class="board-territory-header">
-        <span class="board-territory-title">${label.toUpperCase()}</span>
+        <span class="board-territory-title">${icon}${label.toUpperCase()}</span>
         <span class="board-territory-progress">${clearedCount}/${teams.length} cleared</span>
         ${clearBtn}
     </div>
-    ${teams.map(t => renderBoardTeamRow(tDef.territory, t)).join("")}
+    ${teams.map(t => renderBoardTeamRow(tDef, t)).join("")}
 </div>
 `;
 }
 
-function renderBoardTeamRow(territoryKey, team) {
-    const teamNames = Object.keys(gacData[board.mode] || {}).sort((a, b) => a.localeCompare(b));
+function renderBoardTeamRow(tDef, team) {
+    const territoryKey = tDef.territory;
+    const modeKey = territoryModeKey(tDef);
+    const teamNames = Object.keys(gacData[modeKey] || {}).sort((a, b) => a.localeCompare(b));
 
     const options = [
-        `<option value="" ${team.name === "" ? "selected" : ""}>Select team…</option>`,
+        `<option value="" ${team.name === "" ? "selected" : ""}>Select ${tDef.type === "FLEET" ? "fleet" : "team"}…</option>`,
         `<option value="${NOT_IN_CATALOGUE}" ${team.name === NOT_IN_CATALOGUE ? "selected" : ""}>Not in catalogue</option>`,
         ...teamNames.map(n => `<option value="${n}" ${team.name === n ? "selected" : ""}>${n}</option>`)
     ].join("");
@@ -1296,14 +1361,6 @@ function recomputeBannerReadouts() {
 
 function renderRoster() {
 
-    const allCharacters = getCharacterList();
-
-    const filtered = allCharacters.filter(c =>
-        c.name.toLowerCase().includes(rosterSearch.toLowerCase())
-    );
-
-    const ownedCount = allCharacters.filter(c => ownedCharacters.includes(c.id)).length;
-
     const isApi = rosterMeta.source === ROSTER_SOURCE_API && rosterMeta.allyCode;
     const freshLine = isApi
         ? `Last synced: ${rosterMeta.syncedAt ? formatSavedAt(rosterMeta.syncedAt) : "never"}`
@@ -1314,7 +1371,7 @@ function renderRoster() {
     return `
 <div class="round-card">
     <div class="round-title">👤 MY ROSTER</div>
-    <div class="round-stat">${ownedCount} / ${allCharacters.length} characters owned</div>
+    <div class="round-stat">${rosterOwnedStatText()}</div>
     <div class="roster-saved-line">${freshLine}</div>
 </div>
 
@@ -1324,17 +1381,57 @@ ${renderRosterNotice()}
 <input
     type="text"
     class="search-box"
-    placeholder="Search characters..."
+    placeholder="Search characters and ships..."
     value="${rosterSearch}"
     oninput="updateRosterSearch(this.value)"
 >
 
 ${renderRosterDataPanel()}
 
-<div class="roster-list">
-    ${filtered.map(renderRosterRow).join("")}
-</div>
+<div id="rosterGroups">${renderRosterGroups()}</div>
 `;
+}
+
+// The owned-count line. Ships are only mentioned once ship data is present, so
+// rosters cached before ship support look exactly as they did before.
+function rosterOwnedStatText() {
+    const characters = getCharacterUnits();
+    const ships = getShipUnits();
+    const ownedChar = characters.filter(c => ownedCharacters.includes(c.id)).length;
+    const charText = `${ownedChar} / ${characters.length} characters owned`;
+    if (ships.length === 0) return charText;
+    const ownedShip = ships.filter(s => ownedCharacters.includes(s.id)).length;
+    return `${ownedChar} / ${characters.length} characters · ${ownedShip} / ${ships.length} ships owned`;
+}
+
+// Characters and Ships as two stacked sections, both filtered by the single
+// search box. While searching, a section with no matches is hidden; if nothing
+// matches at all, a single empty line is shown.
+function renderRosterGroups() {
+    const q = rosterSearch.toLowerCase();
+    const searching = q.length > 0;
+
+    const characters = getCharacterUnits().filter(c => c.name.toLowerCase().includes(q));
+    const allShips = getShipUnits();
+    const ships = allShips.filter(s => s.name.toLowerCase().includes(q));
+
+    if (searching && characters.length === 0 && ships.length === 0) {
+        return `<div class="roster-empty">No units match your search.</div>`;
+    }
+
+    let html = "";
+
+    if (!searching || characters.length) {
+        html += `<div class="roster-section-heading">Characters</div>`;
+        html += `<div class="roster-list">${characters.map(renderRosterRow).join("")}</div>`;
+    }
+
+    if (allShips.length && (!searching || ships.length)) {
+        html += `<div class="roster-section-heading">Ships</div>`;
+        html += `<div class="roster-list">${ships.map(renderRosterRow).join("")}</div>`;
+    }
+
+    return html;
 }
 
 function renderRosterImportCard() {
@@ -1382,9 +1479,12 @@ function renderRosterNotice() {
 
 function renderRosterRow(c) {
     const owned = ownedCharacters.includes(c.id);
+    const badge = c.unitType === "CAPITAL_SHIP"
+        ? `<span class="roster-badge">Capital</span>`
+        : "";
     return `
 <div class="roster-row ${owned ? "owned" : ""}" onclick="toggleOwned('${c.id}')">
-    <span class="roster-name">${c.name}</span>
+    <span class="roster-name">${c.name}${badge}</span>
     <span class="roster-status">${owned ? "✅" : "➕"}</span>
 </div>
 `;
@@ -1429,16 +1529,9 @@ function toggleRosterPanel() {
 
 function updateRosterSearch(value) {
     rosterSearch = value;
-    const app = document.getElementById("app");
-    const rosterList = app.querySelector(".roster-list");
-    if (!rosterList) return;
-
-    const allCharacters = getCharacterList();
-    const filtered = allCharacters.filter(c =>
-        c.name.toLowerCase().includes(value.toLowerCase())
-    );
-
-    rosterList.innerHTML = filtered.map(renderRosterRow).join("");
+    const groups = document.getElementById("rosterGroups");
+    if (!groups) return;
+    groups.innerHTML = renderRosterGroups();
 }
 
 function toggleOwned(characterId) {
@@ -1456,13 +1549,11 @@ function toggleOwned(characterId) {
 function updateRosterStat() {
     const stat = document.querySelector(".round-stat");
     if (!stat) return;
-    const allCharacters = getCharacterList();
-    const ownedCount = allCharacters.filter(c => ownedCharacters.includes(c.id)).length;
-    stat.textContent = `${ownedCount} / ${allCharacters.length} characters owned`;
+    stat.textContent = rosterOwnedStatText();
 }
 
 function clearRoster() {
-    const confirmed = confirm("Clear all owned characters? In SWGOH you rarely lose characters, so this is mainly for starting over.");
+    const confirmed = confirm("Clear all owned units? In SWGOH you rarely lose characters or ships, so this is mainly for starting over.");
     if (!confirmed) return;
     ownedCharacters = [];
     rosterMeta.allyCode = null;
@@ -1498,7 +1589,7 @@ async function exportRoster() {
     try {
         await navigator.clipboard.writeText(text);
         rosterMessage = {
-            text: `Copied ${ownedCharacters.length} characters to the clipboard. Paste it somewhere safe.`,
+            text: `Copied ${ownedCharacters.length} units to the clipboard. Paste it somewhere safe.`,
             kind: "ok"
         };
         render();
@@ -1560,13 +1651,18 @@ function importRoster() {
     const known = [];
     const skipped = [];
     const seen = new Set();
+    let chCount = 0;
+    let shCount = 0;
 
     incoming.forEach(id => {
         if (typeof id !== "string") { skipped.push(String(id)); return; }
         if (seen.has(id)) return;
         seen.add(id);
-        if (characterDefinitions[id] && characterDefinitions[id].unitType === "CHARACTER") {
+        const def = characterDefinitions[id];
+        const type = def && def.unitType;
+        if (type === "CHARACTER" || type === "SHIP" || type === "CAPITAL_SHIP") {
             known.push(id);
+            if (type === "CHARACTER") chCount++; else shCount++;
         } else {
             skipped.push(id);
         }
@@ -1574,7 +1670,7 @@ function importRoster() {
 
     if (known.length === 0) {
         rosterMessage = {
-            text: "None of those characters were recognised. Nothing was imported.",
+            text: "None of those units were recognised. Nothing was imported.",
             kind: "error"
         };
         render();
@@ -1587,10 +1683,9 @@ function importRoster() {
     applyRoster(known, importSource);   // note: does not adopt a pasted allyCode
 
     importDraft = "";
+    const base = `Imported ${chCount} character${chCount === 1 ? "" : "s"} and ${shCount} ship${shCount === 1 ? "" : "s"}.`;
     rosterMessage = {
-        text: skipped.length
-            ? `Imported ${known.length} characters. Skipped ${skipped.length} unrecognised.`
-            : `Imported ${known.length} characters.`,
+        text: skipped.length ? `${base} Skipped ${skipped.length} unrecognised.` : base,
         kind: skipped.length ? "warn" : "ok"
     };
     render();
