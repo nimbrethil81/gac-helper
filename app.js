@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "2.5";
+const APP_VERSION = "2.6";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -11,7 +11,7 @@ const ROSTER_FETCH_TIMEOUT_MS = 60000;       // user-initiated import/refresh ti
 const ROSTER_SYNC_STALE_MS = 1000 * 60 * 60 * 12; // background sync only if older than this
 
 // Board (v2.1 Round screen)
-const BOARD_SCHEMA = 2;                       // v2: boards include fleet-territory team rows
+const BOARD_SCHEMA = 3;                       // v3: board teams carry an attempts count (v2.6)
 const BOARD_KEY = "boardData";               // versioned board object
 const LEAGUE_KEY = "gacLeague";              // persisted user setting
 const LAST_SQUAD_MODE_KEY = "gacLastSquadMode"; // remembers 5v5/3v3 while browsing Fleet
@@ -55,9 +55,22 @@ let board = null;
 let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 
-let bannerData = JSON.parse(
-    localStorage.getItem("bannerData") || '{"myScore":0,"oppScore":0,"remaining":0}'
-);
+// bannerData.remaining is now a MANUAL OVERRIDE, not a stored figure: null means
+// "no override — show the value calculated from the board" (the v2.6 default).
+// A number means the user has typed their own value, which persists only until
+// they dismiss it or touch the board. Older stored data kept a plain number here;
+// it is migrated to null on load so upgrading users start on the calculated
+// figure rather than being pinned to a stale hand-typed number.
+let bannerData = (function () {
+    let d;
+    try { d = JSON.parse(localStorage.getItem("bannerData") || "{}"); }
+    catch (e) { d = {}; }
+    return {
+        myScore:  Number(d.myScore)  || 0,
+        oppScore: Number(d.oppScore) || 0,
+        remaining: (typeof d.remaining === "number") ? null : (d.remaining ?? null)
+    };
+})();
 let counterFilter = localStorage.getItem("counterFilter") || "all";
 
 // ─── ROSTER PERSISTENCE ────────────────────────────────────────────────────────
@@ -153,15 +166,35 @@ function loadBoard() {
     if (!raw) { board = null; return; }
     try {
         const parsed = JSON.parse(raw);
-        if (parsed && parsed.schema === BOARD_SCHEMA &&
+        // Schema 2 and 3 are both readable. A schema-2 board simply lacks the
+        // per-team attempts count added in v2.6; rather than discard an in-progress
+        // round on upgrade, it is migrated in place by defaulting every team to
+        // zero attempts (no attempts recorded yet), which is exactly correct.
+        if (parsed && (parsed.schema === 2 || parsed.schema === 3) &&
             Array.isArray(parsed.teams) && Array.isArray(parsed.territories)) {
             board = parsed;
+            migrateBoardIfNeeded();
             return;
         }
     } catch (e) {
         console.error("Board parse failed, discarding stored board", e);
     }
     board = null;
+}
+
+// Bring an older board up to the current schema in place. Additive only:
+// backfills any missing attempts field, re-stamps the schema, and persists once
+// so the migration doesn't repeat on every load.
+function migrateBoardIfNeeded() {
+    if (!board) return;
+    let changed = false;
+
+    board.teams.forEach(t => {
+        if (typeof t.attempts !== "number") { t.attempts = 0; changed = true; }
+    });
+    if (board.schema !== BOARD_SCHEMA) { board.schema = BOARD_SCHEMA; changed = true; }
+
+    if (changed) saveBoard();
 }
 
 function saveBoard() {
@@ -212,7 +245,7 @@ function createBoard() {
     const teams = [];
     cfg.forEach(t => {
         for (let i = 0; i < t.teamCount; i++) {
-            teams.push({ territory: t.territory, index: i, name: "", cleared: false });
+            teams.push({ territory: t.territory, index: i, name: "", cleared: false, attempts: 0 });
         }
     });
 
@@ -265,6 +298,7 @@ function setBoardTeam(territoryKey, index, value) {
     if (!team) return;
     team.name = value;
     saveBoard();
+    clearRemainingOverrideOnBoardChange();
     render();
 }
 
@@ -274,6 +308,25 @@ function toggleTeamCleared(territoryKey, index) {
     if (!team) return;
     team.cleared = !team.cleared;
     saveBoard();
+    clearRemainingOverrideOnBoardChange();
+    render();
+}
+
+// Record how many battles have already been fought against a team, mirroring the
+// in-game "Battles" count beside each defence team — it climbs 0, 1, 2, 3… for
+// every attempt whether or not it cleared the team. The count is stored as-is so
+// it always matches the number shown in game; the attempt-bonus rule (first
+// attempt worth most, second less, third-or-later nothing) is applied later by
+// the points-to-win calculation, not by clamping the count here. Only meaningful
+// while the team is uncleared; once cleared, its battles no longer affect what
+// is left to win.
+function setTeamAttempts(territoryKey, index, value) {
+    if (!board) return;
+    const team = board.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (!team) return;
+    team.attempts = Math.max(0, value);
+    saveBoard();
+    clearRemainingOverrideOnBoardChange();
     render();
 }
 
@@ -283,6 +336,7 @@ function clearTerritory(territoryKey) {
     if (!confirm(`Mark every team in ${label} as cleared?`)) return;
     board.teams.forEach(t => { if (t.territory === territoryKey) t.cleared = true; });
     saveBoard();
+    clearRemainingOverrideOnBoardChange();
     render();
 }
 
@@ -294,6 +348,146 @@ function markCounterUsedFromBoard(counterId) {
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
     }
     render();
+}
+
+// ─── BANNER SCORING ENGINE (v2.6) ─────────────────────────────────────────────
+// Turns the GAC_Scoring rows into a "banners still available" figure for a board.
+// Everything reads from the scoring data through one lookup, so any correction
+// after a real-battle spot-check is a sheet edit with no code change. The board
+// walker is deliberately side-agnostic: it takes any board and returns the most
+// that could still be banked by cleanly clearing its uncleared teams. Today it is
+// called with the opponent board; a future "my board" is just a second call site.
+
+// Normalise one scoring row's field names. scoringRules has never been consumed
+// before, so we don't assume whether the Apps Script emits camelCase (ruleId),
+// snake_case (rule_id), or the raw sheet headers (Rule_ID) — we accept all three.
+function readScoringRow(r) {
+    const ruleId     = r.ruleId     ?? r.rule_id     ?? r.Rule_ID     ?? r.RuleID;
+    const battleType = r.battleType ?? r.battle_type ?? r.Battle_Type ?? r.BattleType;
+    const mode       = r.mode       ?? r.Mode;
+    const value      = r.value      ?? r.Value;
+    return {
+        ruleId:     ruleId     != null ? String(ruleId)     : "",
+        battleType: battleType != null ? String(battleType) : "ANY",
+        mode:       mode       != null ? String(mode)       : "ANY",
+        value:      Number(value) || 0
+    };
+}
+
+// Look up one banner value. battleType is SQUAD | FLEET; mode is 5v5 | 3v3 | ANY.
+// ANY in the data is a wildcard; when several rows match, the most specific wins
+// (an exact battleType and mode beats an ANY on either axis). Returns 0 if no row
+// matches — a missing rule contributes nothing rather than throwing.
+function scoreRule(ruleId, battleType, mode) {
+    let best = null, bestSpecificity = -1;
+    for (const raw of scoringRules) {
+        const row = readScoringRow(raw);
+        if (row.ruleId !== ruleId) continue;
+        if (row.battleType !== battleType && row.battleType !== "ANY") continue;
+        if (row.mode !== mode && row.mode !== "ANY") continue;
+        const specificity = (row.battleType === battleType ? 1 : 0) +
+                            (row.mode === mode ? 1 : 0);
+        if (specificity > bestSpecificity) { best = row; bestSpecificity = specificity; }
+    }
+    return best ? best.value : 0;
+}
+
+// How many of YOUR units earn per-unit survival bonuses in a clean win, and how
+// many ENEMY units you defeat. Equal for squads (5/5, 3/3); for a full fleet both
+// are 8 (capital + 3 starting + 4 reinforcements on each side). Sourced from the
+// OWN_UNITS / ENEMY_UNITS scoring rows if present; falls back to these known
+// values so the calculation is correct even before those rows are added to the
+// sheet. The fallbacks are the single place any unit count is hard-coded.
+function ownUnitCount(battleType, mode) {
+    const fromData = scoreRule("OWN_UNITS", battleType, mode);
+    if (fromData > 0) return fromData;
+    if (battleType === "FLEET") return 8;
+    return mode === "3v3" ? 3 : 5;
+}
+
+function enemyUnitCount(battleType, mode) {
+    const fromData = scoreRule("ENEMY_UNITS", battleType, mode);
+    if (fromData > 0) return fromData;
+    if (battleType === "FLEET") return 8;
+    return mode === "3v3" ? 3 : 5;
+}
+
+// Best-case banners for a single battle against a defence team, given how many
+// battles have already been fought against it (its in-game "Battles" count). A
+// clean win: every own unit survives at full health and protection, every enemy
+// is defeated. The attempt bonus is chosen from the battles-so-far count — the
+// NEXT battle is the (count+1)-th: 0 → first attempt, 1 → second, 2+ → none.
+function battleBestCase(battleType, mode, battlesSoFar) {
+    const own   = ownUnitCount(battleType, mode);
+    const enemy = enemyUnitCount(battleType, mode);
+    const nextAttempt = (battlesSoFar || 0) + 1;
+
+    let p = scoreRule("VICTORY", battleType, mode);
+    if (nextAttempt === 1)      p += scoreRule("FIRST_ATTEMPT",  battleType, mode);
+    else if (nextAttempt === 2) p += scoreRule("SECOND_ATTEMPT", battleType, mode);
+    // third-or-later: no attempt bonus.
+
+    p += own   * scoreRule("SURVIVING_UNIT",       battleType, mode);
+    p += own   * scoreRule("FULL_HEALTH_UNIT",     battleType, mode);
+    p += own   * scoreRule("FULL_PROTECTION_UNIT", battleType, mode);
+    p += enemy * scoreRule("DEFEATED_ENEMY",       battleType, mode);
+    return p;
+}
+
+// Walk a board and total the most banners still bankable from it. Side-agnostic:
+// pass the opponent board now, a future "my board" later. Counts EVERY uncleared
+// slot in an unlocked territory, named or not — banner value depends only on
+// battle type and mode, never on which team occupies the slot. A territory that
+// still has any uncleared team also yields its clear bonus (base + per-team).
+// Locked back territories contribute nothing until their front is cleared, which
+// matches the board: you cannot yet fight teams you cannot reach.
+function remainingBannersForBoard(bd, opts) {
+    opts = opts || {};
+    if (!bd) return 0;
+    let total = 0;
+
+    bd.territories.forEach(tDef => {
+        if (!isTerritoryUnlockedOn(bd, tDef)) return;
+
+        const battleType = tDef.type;                          // SQUAD | FLEET
+        const mode       = battleType === "FLEET" ? "ANY" : bd.mode;
+        const teams      = bd.teams.filter(t => t.territory === tDef.territory);
+
+        let anyUncleared = false;
+        teams.forEach(team => {
+            if (team.cleared) return;
+            anyUncleared = true;
+            total += battleBestCase(battleType, mode, team.attempts);
+        });
+
+        if (anyUncleared) {
+            total += scoreRule("TERRITORY_CLEAR_BASE", battleType, mode);
+            total += teams.length * scoreRule("TERRITORY_CLEAR_PER_TEAM", battleType, mode);
+        }
+    });
+
+    // One-off first-attack bonus for the round's opening battle, if not yet spent.
+    if (opts.firstAttackAvailable) total += scoreRule("FIRST_ATTACK", "ANY", bd.mode);
+
+    return total;
+}
+
+// Territory-unlock test that works on any board object, not just the live `board`
+// global. Mirrors isTerritoryUnlocked: a back territory opens once the front in
+// its lane is fully cleared.
+function isTerritoryUnlockedOn(bd, tDef) {
+    if (tDef.territory.indexOf("BACK_") !== 0) return true;
+    const frontKey = "FRONT_" + tDef.territory.slice(5);
+    const frontTeams = bd.teams.filter(t => t.territory === frontKey);
+    return frontTeams.length > 0 && frontTeams.every(t => t.cleared);
+}
+
+// The calculated "remaining available banners" for the live opponent board.
+// Zero when there is no board. This is what the banner tracking section shows by
+// default, and what a manual override is measured against.
+function calculatedRemaining() {
+    if (!board) return 0;
+    return remainingBannersForBoard(board);
 }
 
 // ─── ALLOCATION ENGINE (v2.1) ─────────────────────────────────────────────────
@@ -973,7 +1167,7 @@ function resetRound() {
     usedTeams = [];
     localStorage.removeItem("usedTeams");
 
-    bannerData = { myScore: 0, oppScore: 0, remaining: 0 };
+    bannerData = { myScore: 0, oppScore: 0, remaining: null };
     localStorage.removeItem("bannerData");
 
     discardBoard();
@@ -1249,7 +1443,29 @@ function renderBoardTeamRow(tDef, team) {
         ${team.cleared ? "✓ Cleared" : "Cleared"}
     </button>
 </div>
+${team.cleared ? "" : renderAttemptControl(territoryKey, team)}
 ${renderTeamRecommendation(territoryKey, team)}
+`;
+}
+
+// The per-team battles counter (v2.6). Mirrors the in-game "Battles" count beside
+// each defence team: how many battles have been fought against it so far, win or
+// lose. Shown only while the team is uncleared, since a cleared team's battles no
+// longer affect what is left to win. The count climbs freely (0, 1, 2, 3…) to
+// match the game exactly; the points-to-win calculation reads it to decide the
+// attempt bonus (first battle worth most, second less, later none).
+function renderAttemptControl(territoryKey, team) {
+    const n = Math.max(0, team.attempts || 0);
+
+    return `
+<div class="board-attempts">
+    <span class="board-attempts-label">Battles</span>
+    <div class="board-attempts-stepper">
+        <button class="board-attempts-btn" onclick="setTeamAttempts('${territoryKey}', ${team.index}, ${n - 1})" ${n === 0 ? "disabled" : ""}>&minus;</button>
+        <span class="board-attempts-count">${n}</span>
+        <button class="board-attempts-btn" onclick="setTeamAttempts('${territoryKey}', ${team.index}, ${n + 1})">+</button>
+    </div>
+</div>
 `;
 }
 
@@ -1283,14 +1499,94 @@ function renderTeamRecommendation(territoryKey, team) {
 `;
 }
 
+// The remaining figure in effect: the manual override if the user has typed one,
+// otherwise the value calculated from the board. This is the single definition of
+// "remaining" that projected-final is built on.
+function effectiveRemaining() {
+    if (typeof bannerData.remaining === "number") return bannerData.remaining;
+    return calculatedRemaining();
+}
+
+function isRemainingOverridden() {
+    return typeof bannerData.remaining === "number";
+}
+
+// ─── POINTS TO WIN (v2.6, Phase 3) ────────────────────────────────────────────
+// Turns the three tracked numbers into a plain-language verdict. "Points to win"
+// is how many more banners you must bank to pass the opponent's CURRENT score:
+//   pointsToWin = (opp + 1) − my        (0 or less means you are already past it)
+// Whether that is achievable depends on your best-case remaining: if remaining
+// covers pointsToWin, a clean finish wins; if not, even a perfect finish falls
+// short. Every phrase says "current score", never a bare "to win", because the
+// opponent keeps scoring against your defence — their number is a moving target,
+// modelled here only as what you have entered.
+function pointsToWinReadout(my, opp, rem) {
+    const need = (opp + 1) - my;   // banners still required to pull ahead
+
+    if (need <= 0) {
+        // Already past their current score.
+        const ahead = my - opp;
+        return {
+            headline: `Ahead by ${ahead}`,
+            headlineClass: "ahead",
+            support: `You've passed their current score. A clean finish adds up to ${rem} more.`
+        };
+    }
+
+    if (rem >= need) {
+        const spare = rem - need;
+        return {
+            headline: `Points to win: ${need}`,
+            headlineClass: "",
+            support: spare > 0
+                ? `Pass their current score with ${need} more. A clean finish banks up to ${rem} — enough, +${spare} spare.`
+                : `Pass their current score with ${need} more. A clean finish banks exactly ${rem} — just enough.`
+        };
+    }
+
+    // Even a perfect finish can't pass their current score from the board as entered.
+    const short = need - rem;
+    return {
+        headline: `Points to win: ${need}`,
+        headlineClass: "behind",
+        support: `${need} to pass their current score, but a clean finish banks only ${rem} — ${short} short.`
+    };
+}
+
 function renderBannerSection() {
 
     const my  = Number(bannerData.myScore)  || 0;
     const opp = Number(bannerData.oppScore) || 0;
-    const rem = Number(bannerData.remaining) || 0;
+
+    const overridden = isRemainingOverridden();
+    const calc = calculatedRemaining();
+    const rem = overridden ? bannerData.remaining : calc;
 
     const projected = my + rem;
     const margin = my - opp;
+    const ptw = pointsToWinReadout(my, opp, rem);
+
+    // The remaining field always shows the value in effect. When it is the
+    // board-calculated figure, a caption says so and the field is read-only; the
+    // moment the user types, it becomes a manual override with a dismiss link.
+    const remainingBlock = overridden ? `
+    <label class="banner-label" for="remaining">Your remaining available banners</label>
+    <input type="number" inputmode="numeric" min="0" id="remaining" class="banner-input"
+        value="${rem}" oninput="updateRemaining(this.value)">
+    <div class="banner-caption banner-caption-override">
+        <span>Manual override — the board calculates ${calc}.</span>
+        <button class="banner-link" onclick="clearRemainingOverride()">Use calculated</button>
+    </div>
+` : `
+    <label class="banner-label" for="remaining">Your remaining available banners</label>
+    <input type="number" inputmode="numeric" min="0" id="remaining" class="banner-input"
+        value="${rem}" oninput="updateRemaining(this.value)">
+    <div class="banner-caption">
+        <span>${board
+            ? "Calculated from the opponent board. Type to override."
+            : "Set up the opponent board to calculate this, or type a value."}</span>
+    </div>
+`;
 
     return `
 <div class="round-card">
@@ -1308,10 +1604,7 @@ function renderBannerSection() {
     <input type="number" inputmode="numeric" min="0" id="oppScore" class="banner-input"
         value="${opp}" oninput="updateBanner('oppScore', this.value)">
 
-    <label class="banner-label" for="remaining">Your remaining available banners</label>
-    <input type="number" inputmode="numeric" min="0" id="remaining" class="banner-input"
-        value="${rem}" oninput="updateBanner('remaining', this.value)">
-
+${remainingBlock}
 </div>
 
 <div class="banner-readout">
@@ -1324,6 +1617,12 @@ function renderBannerSection() {
         <strong id="bannerMargin" class="${margin > 0 ? "ahead" : margin < 0 ? "behind" : ""}">${marginText(margin)}</strong>
     </div>
 </div>
+
+<div class="ptw-readout">
+    <div class="ptw-headline ${ptw.headlineClass}" id="ptwHeadline">${ptw.headline}</div>
+    <div class="ptw-support" id="ptwSupport">${ptw.support}</div>
+    <div class="ptw-caveat">Their score will rise as they attack your defence.</div>
+</div>
 `;
 }
 
@@ -1335,14 +1634,45 @@ function marginText(margin) {
 
 function updateBanner(field, value) {
     bannerData[field] = value === "" ? 0 : Number(value);
-    localStorage.setItem("bannerData", JSON.stringify(bannerData));
+    persistBannerData();
     recomputeBannerReadouts();
+}
+
+// Typing in the remaining box sets a manual override. We do NOT re-render on every
+// keystroke (that would drop focus mid-typing); the override caption/link appear
+// on the next full render — a board change or a tap — which is soon enough, and
+// the projected/margin readouts update live in the meantime.
+function updateRemaining(value) {
+    bannerData.remaining = value === "" ? 0 : Number(value);
+    persistBannerData();
+    recomputeBannerReadouts();
+}
+
+// Dismiss the manual override and return to the board-calculated figure.
+function clearRemainingOverride() {
+    bannerData.remaining = null;
+    persistBannerData();
+    render();
+}
+
+// Called by board-mutating actions: touching the board discards any manual
+// override so the live calculated figure returns. No-op when nothing is
+// overridden, so it is safe to call unconditionally.
+function clearRemainingOverrideOnBoardChange() {
+    if (typeof bannerData.remaining === "number") {
+        bannerData.remaining = null;
+        persistBannerData();
+    }
+}
+
+function persistBannerData() {
+    localStorage.setItem("bannerData", JSON.stringify(bannerData));
 }
 
 function recomputeBannerReadouts() {
     const my  = Number(bannerData.myScore)  || 0;
     const opp = Number(bannerData.oppScore) || 0;
-    const rem = Number(bannerData.remaining) || 0;
+    const rem = effectiveRemaining();
 
     const projected = my + rem;
     const margin = my - opp;
@@ -1355,6 +1685,17 @@ function recomputeBannerReadouts() {
         marginEl.textContent = marginText(margin);
         marginEl.className = margin > 0 ? "ahead" : margin < 0 ? "behind" : "";
     }
+
+    // Points-to-win verdict, refreshed live so typing a score updates it in place
+    // without a full re-render (which would drop focus from the score field).
+    const ptw = pointsToWinReadout(my, opp, rem);
+    const ptwHeadEl = document.getElementById("ptwHeadline");
+    const ptwSuppEl = document.getElementById("ptwSupport");
+    if (ptwHeadEl) {
+        ptwHeadEl.textContent = ptw.headline;
+        ptwHeadEl.className = "ptw-headline " + ptw.headlineClass;
+    }
+    if (ptwSuppEl) ptwSuppEl.textContent = ptw.support;
 }
 
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────

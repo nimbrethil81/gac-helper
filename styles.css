@@ -807,3 +807,122 @@ body {
     font-weight: bold;
     cursor: pointer;
 }
+
+/* ─── ROUND: BATTLES STEPPER (v2.6) ──────────────────────────────── */
+/* The per-team "Battles" count, mirroring the in-game counter. Indented to sit
+   under its team row, above the recommendation block. */
+
+.board-attempts {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0 0 12px;
+}
+
+.board-attempts-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: bold;
+}
+
+.board-attempts-stepper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.board-attempts-btn {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: 1px solid #22324a;
+    border-radius: 8px;
+    background: var(--panel-light);
+    color: var(--text);
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.board-attempts-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.board-attempts-count {
+    min-width: 20px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+/* ─── ROUND: REMAINING CAPTION & OVERRIDE (v2.6) ─────────────────── */
+/* Sits directly beneath the "remaining" input, explaining whether the figure is
+   calculated from the board or a manual override the user has typed. */
+
+.banner-caption {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    margin: -8px 0 14px 0;   /* pull up under the input's own bottom margin */
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.banner-caption-override {
+    color: var(--b-tier);    /* amber: an override is deliberately in effect */
+}
+
+.banner-link {
+    border: none;
+    background: transparent;
+    padding: 0;
+    color: var(--jedi-blue);
+    font-size: 12px;
+    font-weight: bold;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* ─── ROUND: POINTS TO WIN (v2.6, Phase 3) ───────────────────────── */
+/* The plain-language verdict beneath the banner readout. Headline is the
+   at-a-glance number; support line carries the honest 'current score' detail;
+   caveat is a quiet one-line reminder that the opponent keeps scoring. */
+
+.ptw-readout {
+    margin-top: 12px;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid #22324a;
+    border-radius: 14px;
+}
+
+.ptw-headline {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.ptw-headline.ahead  { color: var(--s-tier); }
+.ptw-headline.behind { color: var(--c-tier); }
+
+.ptw-support {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.ptw-caveat {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #22324a;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    opacity: 0.85;
+}
