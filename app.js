@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "2.6";
+const APP_VERSION = "2.7";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -61,6 +61,12 @@ let roundPlan = null;                   // live allocation plan — recomputed e
 // they dismiss it or touch the board. Older stored data kept a plain number here;
 // it is migrated to null on load so upgrading users start on the calculated
 // figure rather than being pinned to a stale hand-typed number.
+//
+// bannerData.oppFinal (v2.7) marks whether oppScore is the opponent's FINAL score
+// (true) or just their current score, still a floor that may rise (false, the
+// default). It changes only what the "can I still win?" verdict may assert: a
+// clean yes/no needs a final; against a mere current score the verdict can prove
+// the round lost, but can only state a breakeven for the winnable case.
 let bannerData = (function () {
     let d;
     try { d = JSON.parse(localStorage.getItem("bannerData") || "{}"); }
@@ -68,7 +74,8 @@ let bannerData = (function () {
     return {
         myScore:  Number(d.myScore)  || 0,
         oppScore: Number(d.oppScore) || 0,
-        remaining: (typeof d.remaining === "number") ? null : (d.remaining ?? null)
+        remaining: (typeof d.remaining === "number") ? null : (d.remaining ?? null),
+        oppFinal: d.oppFinal === true
     };
 })();
 let counterFilter = localStorage.getItem("counterFilter") || "all";
@@ -1167,7 +1174,7 @@ function resetRound() {
     usedTeams = [];
     localStorage.removeItem("usedTeams");
 
-    bannerData = { myScore: 0, oppScore: 0, remaining: null };
+    bannerData = { myScore: 0, oppScore: 0, remaining: null, oppFinal: false };
     localStorage.removeItem("bannerData");
 
     discardBoard();
@@ -1553,6 +1560,66 @@ function pointsToWinReadout(my, opp, rem) {
     };
 }
 
+// ─── CAN I STILL WIN? (v2.7) ──────────────────────────────────────────────────
+// Answers "is this round still mathematically winnable?" so the player can decide
+// whether to try hard or treat the rest as a playground. It weighs YOUR ceiling —
+// your current score plus the best-case remaining a flawless finish could bank —
+// against the OPPONENT'S score. The subtlety is which pairing proves what:
+//
+//   • "lost" compares their score against your CEILING (my + rem), never against
+//     your current score — being behind now is not being mathematically beaten.
+//   • "already won" compares their score against your CURRENT score (my), and can
+//     only be asserted when their score is final: if it may still rise, a present
+//     lead is not yet unbeatable.
+//
+// When their score is NOT marked final it is a floor. We can still prove the round
+// lost (your ceiling can't even reach where they already are), but the winnable
+// case can only state a breakeven — the most you can reach — for the player to
+// eyeball against how much the opponent could still take off their defence, since
+// the opponent's own remaining offence is not modelled until "my board" exists.
+function canWinVerdict(my, opp, rem, oppFinal) {
+    const ceiling = my + rem;   // the most you could possibly finish on
+
+    // Mathematically lost: even a flawless finish cannot reach their score. Valid
+    // whether or not their score is final — if it is only their current score, a
+    // ceiling below it is beaten already and they can only pull further ahead.
+    if (ceiling < opp) {
+        const gap = opp - ceiling;
+        return {
+            headline: "Can't win this round",
+            headlineClass: "behind",
+            support: oppFinal
+                ? `Even a flawless finish tops out at ${ceiling}; they finished on ${opp} — ${gap} out of reach. Time to experiment.`
+                : `Even a flawless finish tops out at ${ceiling}; they're already on ${opp} — ${gap} out of reach, and their score can only rise. Time to experiment.`
+        };
+    }
+
+    if (oppFinal) {
+        // Their score is fixed, so the verdict is a clean yes/no.
+        if (my > opp) {
+            return {
+                headline: "Already won",
+                headlineClass: "ahead",
+                support: `You're on ${my}, past their final ${opp}. Nothing left to play can change it.`
+            };
+        }
+        const need = (opp + 1) - my;
+        return {
+            headline: "Winnable",
+            headlineClass: "",
+            support: `You can reach ${ceiling}, above their final ${opp}. Bank ${need} more of your ${rem} available to take it.`
+        };
+    }
+
+    // Their score is only a floor: winnable, but state the breakeven rather than
+    // claim a guaranteed win, since they may still score against your defence.
+    return {
+        headline: "Winnable",
+        headlineClass: "",
+        support: `You can reach at most ${ceiling}. You win only if they finish on ${ceiling} or below — their ${opp} so far is a floor that may rise.`
+    };
+}
+
 function renderBannerSection() {
 
     const my  = Number(bannerData.myScore)  || 0;
@@ -1565,6 +1632,8 @@ function renderBannerSection() {
     const projected = my + rem;
     const margin = my - opp;
     const ptw = pointsToWinReadout(my, opp, rem);
+    const oppFinal = bannerData.oppFinal === true;
+    const cw = canWinVerdict(my, opp, rem, oppFinal);
 
     // The remaining field always shows the value in effect. When it is the
     // board-calculated figure, a caption says so and the field is read-only; the
@@ -1588,6 +1657,22 @@ function renderBannerSection() {
     </div>
 `;
 
+    // The opponent-score field carries a marker for whether the entered number is
+    // their FINAL score or just their current one. Marking it final lets the
+    // "can I still win?" verdict give a clean yes/no; left unmarked, that number is
+    // treated as a floor that may still rise.
+    const oppLabel = oppFinal ? "Opponent's final score" : "Opponent's current score";
+    const oppMarker = oppFinal ? `
+    <div class="banner-caption banner-caption-override">
+        <span>Treated as their final score.</span>
+        <button class="banner-link" onclick="setOppFinal(false)">It's their current score</button>
+    </div>
+` : `
+    <div class="banner-caption">
+        <button class="banner-link" onclick="setOppFinal(true)">Mark as their final score</button>
+    </div>
+`;
+
     return `
 <div class="round-card">
     <div class="round-title">📊 BANNER TRACKING</div>
@@ -1600,10 +1685,10 @@ function renderBannerSection() {
     <input type="number" inputmode="numeric" min="0" id="myScore" class="banner-input"
         value="${my}" oninput="updateBanner('myScore', this.value)">
 
-    <label class="banner-label" for="oppScore">Opponent's current score</label>
+    <label class="banner-label" for="oppScore">${oppLabel}</label>
     <input type="number" inputmode="numeric" min="0" id="oppScore" class="banner-input"
         value="${opp}" oninput="updateBanner('oppScore', this.value)">
-
+${oppMarker}
 ${remainingBlock}
 </div>
 
@@ -1621,7 +1706,13 @@ ${remainingBlock}
 <div class="ptw-readout">
     <div class="ptw-headline ${ptw.headlineClass}" id="ptwHeadline">${ptw.headline}</div>
     <div class="ptw-support" id="ptwSupport">${ptw.support}</div>
-    <div class="ptw-caveat">Their score will rise as they attack your defence.</div>
+    ${oppFinal ? "" : `<div class="ptw-caveat">Their score will rise as they attack your defence.</div>`}
+</div>
+
+<div class="cw-readout">
+    <div class="cw-question">Can I still win this round?</div>
+    <div class="cw-headline ${cw.headlineClass}" id="cwHeadline">${cw.headline}</div>
+    <div class="cw-support" id="cwSupport">${cw.support}</div>
 </div>
 `;
 }
@@ -1636,6 +1727,15 @@ function updateBanner(field, value) {
     bannerData[field] = value === "" ? 0 : Number(value);
     persistBannerData();
     recomputeBannerReadouts();
+}
+
+// Toggle whether the opponent's entered score is their FINAL score. This changes
+// the opponent field's label and the wording of both readouts, so a full re-render
+// is warranted — it is a tap, not typing, so losing input focus does not matter.
+function setOppFinal(isFinal) {
+    bannerData.oppFinal = isFinal === true;
+    persistBannerData();
+    render();
 }
 
 // Typing in the remaining box sets a manual override. We do NOT re-render on every
@@ -1696,6 +1796,17 @@ function recomputeBannerReadouts() {
         ptwHeadEl.className = "ptw-headline " + ptw.headlineClass;
     }
     if (ptwSuppEl) ptwSuppEl.textContent = ptw.support;
+
+    // Can-I-still-win verdict, refreshed the same way. The final-marker itself is a
+    // tap that re-renders, so here oppFinal is read as-is for live score typing.
+    const cw = canWinVerdict(my, opp, rem, bannerData.oppFinal === true);
+    const cwHeadEl = document.getElementById("cwHeadline");
+    const cwSuppEl = document.getElementById("cwSupport");
+    if (cwHeadEl) {
+        cwHeadEl.textContent = cw.headline;
+        cwHeadEl.className = "cw-headline " + cw.headlineClass;
+    }
+    if (cwSuppEl) cwSuppEl.textContent = cw.support;
 }
 
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────

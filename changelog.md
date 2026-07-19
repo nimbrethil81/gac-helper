@@ -180,3 +180,57 @@ Delivered in three phases within a single workstream; all three shipped together
 - **Backend:** no Apps Script change required — the `FLEET` counters bucket falls out of the
   existing mode-keyed loop once `Mode = FLEET` rows exist. `APP_VERSION` → 2.5; service-worker
   cache bumped to v5 to force fresh assets for installed users.
+
+## v2.6 — Points-to-Win Calculator
+Board-aware, mode-aware "how many banners do I need to win" maths, built on the
+GAC_Scoring data shipped in v2.1. Delivered in three phases within a single
+workstream; all three shipped together.
+
+- **Per-team Battles counter (Phase 1):** each uncleared team on the opponent board
+  now carries a **Battles** count that mirrors the in-game "Battles" number beside
+  every defence team — it climbs 0, 1, 2, 3… for each attempt, win or lose, with a
+  −/+ stepper. The count is stored verbatim so it always matches what the game shows;
+  the attempt-bonus rule (first attempt worth most, second less, third-or-later none)
+  is applied by the calculation, not by clamping the display. The stepper is hidden
+  once a team is cleared, its battles no longer affecting what is left to win. Board
+  schema bumped 2 → 3; boards created before this release migrate in place, backfilling
+  every team to zero battles rather than discarding an in-progress round.
+- **Banner scoring engine (Phase 2):** a single `scoreRule` lookup over the GAC_Scoring
+  rows (Battle_Type and Mode with `ANY` as a wildcard, most-specific row wins) and a
+  side-agnostic board walker that totals the most banners still bankable from a board.
+  Every uncleared slot in an unlocked territory counts, named or not — banner value
+  depends only on battle type and mode, never on team identity, so the figure is honest
+  even on a board where positions are marked but teams not yet identified. Locked back
+  territories contribute nothing until their front is cleared. A two-count model (own
+  units earn survival/health/protection bonuses; enemy units are the defeated-enemy
+  count) lets squads (5/5, 3/3) and a full fleet (8/8) fall out of data. The walker
+  accepts any board, leaving a clean seam for a future "my board".
+- **Calculated remaining banners (Phase 2):** the "remaining available banners" field,
+  previously hand-typed, now shows a figure calculated from the opponent board by
+  default, with a caption saying so. It stays overridable — typing sets a manual override
+  shown with an amber marker and a "Use calculated" link — but any change to the board
+  discards the override and restores the live figure, so a stale typed value can never
+  silently win. Reset Round and the empty-board state both leave the field on "calculated"
+  (no override) rather than a numeric zero. Existing stored `remaining` values migrate to
+  the no-override state on load.
+- **Points-to-win readout (Phase 3):** a plain-language verdict beneath banner tracking.
+  Points-to-win is (opponent's current score + 1) − own current score, compared against
+  the best-case remaining. A crisp headline ("Points to win: X" / "Ahead by X") with an
+  honest support line phrased against the opponent's *current* score — reachable (with any
+  spare shown), just-enough, or short by a stated amount — and a one-time caveat that their
+  score rises as they attack the player's defence. Headline is green when ahead, red when
+  even a perfect finish falls short; the whole readout recomputes live as scores are typed,
+  without dropping focus from the input.
+- **Sheet:** GAC_Scoring gains `OWN_UNITS` and `ENEMY_UNITS` rows (SQUAD 5v5 → 5, 3v3 → 3;
+  FLEET → 8 on both) as the data source for the two-count model. The app carries correct
+  fallbacks for these counts, so the calculator is accurate before the rows exist; adding
+  them makes the sheet the single source of truth. No Apps Script change required — the new
+  rows flow through the existing `buildScoring` loop unchanged.
+- **Backend:** no Apps Script change. Verified the shipped `buildScoring` emits scoring rows
+  in the exact shape the engine reads (`ruleId` / `battleType` / `mode` / `value`, numeric
+  values, rule and battle-type upper-cased, mode verbatim).
+- **Frontend:** `APP_VERSION` → 2.6; service-worker cache bumped to `swgoh-cache-v7` to force
+  fresh `app.js` and `styles.css` for installed users.
+- **Data caveat:** points-to-win uses full-clean-clear best cases, consistent with the
+  69-banner single-battle maximum. Fleet per-ship values and defeated-enemy counts remain
+  earmarked for a real-battle spot-check before the efficiency calculator is built on them.

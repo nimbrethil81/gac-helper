@@ -926,3 +926,41 @@ body {
     font-style: italic;
     opacity: 0.85;
 }
+
+/* ─── ROUND: CAN I STILL WIN? (v2.7) ─────────────────────────────── */
+/* The mathematical-winnability verdict, beneath points-to-win. Styled as a
+   sibling of .ptw-readout but with a question header, so it reads as a distinct
+   "should I try hard or experiment?" decision aid. */
+
+.cw-readout {
+    margin-top: 10px;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid #22324a;
+    border-radius: 14px;
+}
+
+.cw-question {
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.cw-headline {
+    margin-top: 6px;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.cw-headline.ahead  { color: var(--s-tier); }
+.cw-headline.behind { color: var(--c-tier); }
+
+.cw-support {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+}
