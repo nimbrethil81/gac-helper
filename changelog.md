@@ -234,3 +234,80 @@ workstream; all three shipped together.
 - **Data caveat:** points-to-win uses full-clean-clear best cases, consistent with the
   69-banner single-battle maximum. Fleet per-ship values and defeated-enemy counts remain
   earmarked for a real-battle spot-check before the efficiency calculator is built on them.
+
+## v2.7 — Can-I-Win Verdict
+A mathematical-winnability readout on the Round screen, answering "can I still win
+this round?" so the player can decide whether to try hard on the remaining battles
+or treat them as a playground for testing counters. Built entirely on the v2.6
+scoring engine — no new scoring data, and no dependency on the fleet/defeated-enemy
+spot-check, since it reads the same best-case remaining total the points-to-win
+readout already uses. This is the first half of what was roadmapped as the
+efficiency calculator; the undersize-squad optimiser is the still-outstanding half.
+
+- **Can-I-win verdict:** beneath the points-to-win readout, a "Can I still win this
+  round?" panel weighs the player's ceiling — current score plus best-case remaining
+  a flawless finish could bank — against the opponent's score. Three states:
+  **Can't win this round** (a flawless finish still falls short; time to experiment),
+  **Already won** (current score alone is unbeatable), and **Winnable** (the
+  actionable middle). Headline is colour-coded — green won, red lost, neutral
+  winnable — and recomputes live as scores are typed.
+- **Opponent final-score marker:** the opponent-score field gains a "Mark as their
+  final score" link. Unmarked (the default), the number is their *current* score — a
+  floor that may still rise — and the winnable verdict states a **breakeven** ("you
+  can reach at most X; you win only if they finish on X or below") rather than
+  claiming a guaranteed win. Marked final, the field relabels to "Opponent's final
+  score", the points-to-win "their score will rise" caveat is suppressed, and the
+  verdict gives a clean yes/no. A link reverts to treating it as a current score.
+  Same override shape as the v2.6 remaining-banners field. Persisted as
+  `bannerData.oppFinal`; defaults to false and is reset by Reset Round.
+- **Verdict-pairing correctness:** "Can't win" compares the opponent against the
+  player's *ceiling* (never their current score, so being behind now never triggers
+  a false "lost"); "Already won" compares the opponent's *final* against the player's
+  *current* score, and is asserted only when the opponent score is marked final. A
+  lead over a not-yet-final score yields a breakeven, never a guaranteed win.
+- **Frontend:** `APP_VERSION` -> 2.7; service-worker cache bumped to `swgoh-cache-v8`
+  to force fresh `app.js` and `styles.css` for installed users. No Apps Script or
+  sheet change.
+
+## v2.8 — Undersize Optimiser
+Surfaces undersize opportunities on the recommendation and lookup cards, so the
+banner payoff of dropping units is visible during a round without any mid-match
+calculation. Leans entirely on hand-authored catalogue values, so it needs no new
+scoring data and does not depend on the fleet/defeated-enemy spot-check.
+
+- **Droppable-count column:** the Counters sheet's `Undersize` column changes from
+  `Yes`/`No` to a numeric **droppable-unit count** — the maximum units a counter can
+  drop from a full squad and still win cleanly (`0` = full squad). Each unit dropped
+  nets **+1 banner** over a full clean clear (the +4 unused-slot bonus minus the 3
+  forgone surviving/full-health/full-protection bonuses), so a count of N is worth up
+  to +N banners.
+- **Banner-score rebasing:** the `Banner Score` column now holds the **full-squad,
+  first-attempt, clean-clear** value with the undersize premium removed, so score and
+  count own non-overlapping parts of a counter's value and can be added without
+  double-counting. The app reconstructs the undersize total as `Banner Score` + count.
+  A companion `SCORING_REFERENCE.md` documents the per-mode ceilings (5v5 → 65,
+  3v3 → 57, fleet → 73) and meaning ladders used to author scores.
+- **Undersize display — recommendation card:** when the allocation engine recommends
+  a counter with a droppable count > 0, a new line shows the reconstructed total most
+  prominently, then the drop count and bonus — e.g. "67 banners if you undersize ·
+  drop up to 2 for +2". Counters with count 0 show no undersize line; the card is
+  unchanged from before.
+- **Undersize display — lookup card:** the counter lookup card's old "Undersize:
+  Yes/No" becomes "drop up to N -> X banners (+N)", or "full squad" when the count is
+  0. Both screens share one `undersizeInfo` helper so the payoff maths is defined once.
+- **Backend:** the Apps Script parses the `Undersize` cell to a number
+  (`parseUndersize`); any non-numeric value — a legacy `Yes`/`No` string on an
+  un-migrated row, or a blank — resolves to 0. The app applies the same fallback, so a
+  partially-migrated sheet is always safe: an un-migrated row simply carries no
+  undersize advice rather than a wrong number, and advice appears row-by-row as the
+  data is completed. A new column right of `Banner Score` needs no code change — the
+  Apps Script reads the Counters tab by header name, ignoring columns it doesn't name.
+- **Fleet unit-count correction:** the SWGOH Wiki "Fleet Max Banners" table confirmed
+  fleet is a **7**-unit format (capital + 6), not the 8 assumed when the v2.6 two-count
+  model was specced. A flawless first-attempt 7-ship win banks 73. The points-to-win
+  engine's fleet fallback (`ownUnitCount` / `enemyUnitCount`) should be corrected from
+  8 to 7, and the `GAC_Scoring` sheet's fleet `OWN_UNITS` / `ENEMY_UNITS` rows (if
+  added) set to 7. This affects the points-to-win *fleet* best-case only; the undersize
+  display and banner-score column do not depend on it.
+- **Frontend:** `APP_VERSION` -> 2.8; service-worker cache bumped to `swgoh-cache-v9`
+  to force fresh `app.js` and `styles.css` for installed users.

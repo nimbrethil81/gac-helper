@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "2.7";
+const APP_VERSION = "2.8";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -1207,7 +1207,12 @@ function buildCounterCardHtml(counter) {
     </div>
 
     <div>🎯 <strong>Expected Banners:</strong> ${counter.bannerScore || "-"}</div>
-    <div>👥 <strong>Undersize:</strong> ${counter.undersize || "-"}</div>
+    ${(() => {
+        const us = undersizeInfo(counter);
+        return us
+            ? `<div>👥 <strong>Undersize:</strong> drop up to ${us.drop} → ${us.total} banners (+${us.bonus})</div>`
+            : `<div>👥 <strong>Undersize:</strong> full squad</div>`;
+    })()}
 
     <div>
         📝 <strong>Notes:</strong> ${counter.notes || "-"}
@@ -1478,6 +1483,31 @@ function renderAttemptControl(territoryKey, team) {
 
 // Recommendation block for a single board team. Empty string when there's
 // nothing useful to say (cleared, no team selected, or no plan).
+// ─── UNDERSIZE (v2.8) ─────────────────────────────────────────────────────────
+// The Counters sheet's `undersize` column is, from v2.8, a droppable-unit count:
+// the maximum units this counter can drop from a full squad and still win cleanly
+// (0 = field the full squad). Any blank or non-numeric value is treated as 0, so a
+// sheet still mid-migration (old "Yes"/"No" strings, or unfilled rows) is always
+// safe — an un-migrated row simply shows no undersize prompt rather than a wrong
+// number. Dropping one unit nets +1 banner over a full clean clear (the +4
+// unused-slot bonus minus the 3 forgone surviving/full-health/full-protection
+// bonuses), so a droppable count of N is worth up to +N banners, and the
+// reconstructed best-case total is the full-squad banner score plus N.
+//
+// The banner score column, also from v2.8, holds the FULL-SQUAD clean-clear value
+// with the undersize premium removed, so score and count own non-overlapping parts
+// of the total and can be added without double-counting.
+function undersizeInfo(counter) {
+    const drop = Math.max(0, Math.floor(Number(counter && counter.undersize)) || 0);
+    if (drop <= 0) return null;                       // no undersize advice to show
+    const full = Number(counter.bannerScore) || 0;
+    return {
+        drop: drop,
+        bonus: drop,                                  // +1 banner net per unit dropped
+        total: full + drop                            // reconstructed best-case total
+    };
+}
+
 function renderTeamRecommendation(territoryKey, team) {
     if (!roundPlan || team.cleared || !team.name) return "";
 
@@ -1486,6 +1516,11 @@ function renderTeamRecommendation(territoryKey, team) {
 
     if (info.counter) {
         const c = info.counter;
+        const us = undersizeInfo(c);
+        const undersizeLine = us ? `
+    <div class="board-rec-undersize">
+        <strong>${us.total} banners</strong> if you undersize · drop up to ${us.drop} for +${us.bonus}
+    </div>` : "";
         return `
 <div class="board-rec">
     <div class="board-rec-line">
@@ -1493,7 +1528,7 @@ function renderTeamRecommendation(territoryKey, team) {
         <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="board-rec-reason">${info.reason}</div>
+    <div class="board-rec-reason">${info.reason}</div>${undersizeLine}
     <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
 </div>
 `;

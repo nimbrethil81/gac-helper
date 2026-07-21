@@ -964,3 +964,22 @@ body {
     color: var(--muted);
     line-height: 1.45;
 }
+
+/* ─── ROUND: UNDERSIZE ADVICE (v2.8) ─────────────────────────────── */
+/* The undersize payoff line on an allocation recommendation card, shown only
+   when the recommended counter can drop one or more units. The reconstructed
+   total is the prominent value; the drop count and bonus follow. */
+
+.board-rec-undersize {
+    margin-top: 6px;
+    padding: 6px 10px;
+    background: var(--panel-light);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+}
+
+.board-rec-undersize strong {
+    color: var(--b-tier);   /* amber: an optional upside, distinct from the base rec */
+}
