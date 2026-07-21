@@ -401,21 +401,22 @@ function scoreRule(ruleId, battleType, mode) {
 
 // How many of YOUR units earn per-unit survival bonuses in a clean win, and how
 // many ENEMY units you defeat. Equal for squads (5/5, 3/3); for a full fleet both
-// are 8 (capital + 3 starting + 4 reinforcements on each side). Sourced from the
-// OWN_UNITS / ENEMY_UNITS scoring rows if present; falls back to these known
+// are 7 (capital + 6 on each side) — confirmed against the SWGOH Wiki "Fleet Max
+// Banners" table, where a flawless first-attempt 7-ship win banks 73. Sourced from
+// the OWN_UNITS / ENEMY_UNITS scoring rows if present; falls back to these known
 // values so the calculation is correct even before those rows are added to the
 // sheet. The fallbacks are the single place any unit count is hard-coded.
 function ownUnitCount(battleType, mode) {
     const fromData = scoreRule("OWN_UNITS", battleType, mode);
     if (fromData > 0) return fromData;
-    if (battleType === "FLEET") return 8;
+    if (battleType === "FLEET") return 7;
     return mode === "3v3" ? 3 : 5;
 }
 
 function enemyUnitCount(battleType, mode) {
     const fromData = scoreRule("ENEMY_UNITS", battleType, mode);
     if (fromData > 0) return fromData;
-    if (battleType === "FLEET") return 8;
+    if (battleType === "FLEET") return 7;
     return mode === "3v3" ? 3 : 5;
 }
 
