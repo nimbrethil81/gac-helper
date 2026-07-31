@@ -311,3 +311,46 @@ scoring data and does not depend on the fleet/defeated-enemy spot-check.
   display and banner-score column do not depend on it.
 - **Frontend:** `APP_VERSION` -> 2.8; service-worker cache bumped to `swgoh-cache-v9`
   to force fresh `app.js` and `styles.css` for installed users.
+
+## v2.9 — Undersize Optimiser (engine)
+Makes the allocation engine *choose* by achievable banners, not just display the
+undersize payoff (v2.8 showed it; v2.9 acts on it). One term in the ranking
+objective changes; everything else about the engine, and every displayed number,
+is unchanged.
+
+- **Undersize-adjusted ranking:** the engine's objective was coverage -> tier ->
+  full-squad banner score; the last term becomes the **undersize-adjusted score**
+  (`bannerScore` + droppable count), the achievable best for a counter that can
+  safely shed units. So a counter worth 61 full-squad but able to drop 3 (→ 64
+  achievable) now outranks a flat 63 of the same tier. A new `adjustedScore` helper
+  feeds both the candidate ordering and the banner accumulation in the branch-and-
+  bound search.
+- **Tier stays primary — undersizing never crosses tiers.** The adjustment only
+  reorders counters *within* a tier, so a higher-tier counter is never displaced by
+  a lower-tier one chasing undersize banners. This keeps tier as an inviolable
+  safety floor (see the Tier-as-reliability clarification below).
+- **Safety tie-break at equal achievable total.** When two same-tier counters reach
+  the same adjusted score — e.g. 64 full-squad/no-drop versus 62 full-squad/drop-2 —
+  the engine prefers the one relying on *less* undersizing, since it banks the same
+  with no risk. (Surfaced during sandbox testing; the correct extension of the
+  safety-first ordering.)
+- **Display unchanged; picks explained.** The recommendation card's headline still
+  shows the **full-squad** banner score (the no-risk figure), with the v2.8 undersize
+  line beneath. Because the engine may now pick a counter whose headline is lower
+  than a same-tier rival's, the **reason line explains undersize-driven picks** —
+  e.g. "Chosen for its undersize potential (64 vs 63)." — so a lower headline never
+  looks like an error. When undersizing did not change the pick, no such note appears.
+- **Tier redefined as reliability.** Tier (S/A/B/C) is now explicitly documented as a
+  *reliability* measure — how consistently a counter wins — which is what the
+  coverage -> tier -> banners ordering has always implicitly assumed (if tier meant
+  efficiency it would duplicate banner score). An authoring rubric was added to the
+  spec. This is a documentation clarification; no code or data change.
+- **Reliability column retired.** With Tier defined as reliability, the separate
+  `Reliability` (High/Medium/Low) column is redundant — it measured the same axis at
+  coarser grain — and is retired. The Apps Script never read it, so nothing changes
+  in code; it is simply removed from the sheet's meaningful columns.
+- **No data or backend change.** The engine reads the `undersize` count already in
+  the v2.8 payload. No Apps Script, sheet schema, or CSS change (the reason line
+  reuses existing styling).
+- **Whole-board ceiling fix:** the banner walker counted only currently-*unlocked* territories, so on a fresh board (both back territories locked behind their fronts) the remaining figure read 0 and the can-I-win verdict falsely reported "can't win" — and the figure jumped upward as territories unlocked instead of falling as teams cleared. The walker now counts every uncleared team across the whole board, locked territories included, giving the true theoretical maximum (a Kyber 3v3 board tops out around 2073, matching the community soft max). The lock gate still governs the allocation engine and rendering — only the scoring walk ignores it. `isTerritoryUnlockedOn` is retained (now unused) for the future My Board.
+- **Frontend:** `APP_VERSION` -> 2.9; service-worker cache bumped to `swgoh-cache-v11`.
