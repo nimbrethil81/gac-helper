@@ -442,21 +442,26 @@ function battleBestCase(battleType, mode, battlesSoFar) {
     return p;
 }
 
-// Walk a board and total the most banners still bankable from it. Side-agnostic:
-// pass the opponent board now, a future "my board" later. Counts EVERY uncleared
-// slot in an unlocked territory, named or not — banner value depends only on
-// battle type and mode, never on which team occupies the slot. A territory that
-// still has any uncleared team also yields its clear bonus (base + per-team).
-// Locked back territories contribute nothing until their front is cleared, which
-// matches the board: you cannot yet fight teams you cannot reach.
+// Walk a board and total the theoretical maximum banners still bankable from it —
+// the ceiling if every remaining team is cleared perfectly. Side-agnostic: pass the
+// opponent board now, a future "my board" later. Counts EVERY uncleared slot in
+// EVERY territory, named or not, LOCKED OR NOT — banner value depends only on battle
+// type and mode, never on which team occupies the slot. A territory that still has
+// any uncleared team also yields its clear bonus (base + per-team).
+//
+// Locked back territories ARE included (v2.9 fix): this figure answers "what is the
+// most I could still bank, assuming I clear my way through the whole board", which
+// is what points-to-win and the can-I-still-win verdict both need. Counting only
+// currently-reachable territories understated the ceiling to zero on a fresh board
+// (both backs locked), producing a false "can't win". The lock gate still governs
+// what the allocation engine and board rendering act on — only this scoring walk
+// ignores it, because a locked territory will become reachable once its front falls.
 function remainingBannersForBoard(bd, opts) {
     opts = opts || {};
     if (!bd) return 0;
     let total = 0;
 
     bd.territories.forEach(tDef => {
-        if (!isTerritoryUnlockedOn(bd, tDef)) return;
-
         const battleType = tDef.type;                          // SQUAD | FLEET
         const mode       = battleType === "FLEET" ? "ANY" : bd.mode;
         const teams      = bd.teams.filter(t => t.territory === tDef.territory);
@@ -482,7 +487,10 @@ function remainingBannersForBoard(bd, opts) {
 
 // Territory-unlock test that works on any board object, not just the live `board`
 // global. Mirrors isTerritoryUnlocked: a back territory opens once the front in
-// its lane is fully cleared.
+// its lane is fully cleared. Currently unused — the banner walker deliberately
+// ignores locks (see remainingBannersForBoard) — but retained for the future
+// "my board" feature, which will need a board-parameterised lock test for its own
+// rendering and allocation, exactly as the live board uses isTerritoryUnlocked.
 function isTerritoryUnlockedOn(bd, tDef) {
     if (tDef.territory.indexOf("BACK_") !== 0) return true;
     const frontKey = "FRONT_" + tDef.territory.slice(5);
