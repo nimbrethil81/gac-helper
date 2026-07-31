@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "2.8";
+const APP_VERSION = "2.9";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -442,21 +442,26 @@ function battleBestCase(battleType, mode, battlesSoFar) {
     return p;
 }
 
-// Walk a board and total the most banners still bankable from it. Side-agnostic:
-// pass the opponent board now, a future "my board" later. Counts EVERY uncleared
-// slot in an unlocked territory, named or not — banner value depends only on
-// battle type and mode, never on which team occupies the slot. A territory that
-// still has any uncleared team also yields its clear bonus (base + per-team).
-// Locked back territories contribute nothing until their front is cleared, which
-// matches the board: you cannot yet fight teams you cannot reach.
+// Walk a board and total the theoretical maximum banners still bankable from it —
+// the ceiling if every remaining team is cleared perfectly. Side-agnostic: pass the
+// opponent board now, a future "my board" later. Counts EVERY uncleared slot in
+// EVERY territory, named or not, LOCKED OR NOT — banner value depends only on battle
+// type and mode, never on which team occupies the slot. A territory that still has
+// any uncleared team also yields its clear bonus (base + per-team).
+//
+// Locked back territories ARE included (v2.9 fix): this figure answers "what is the
+// most I could still bank, assuming I clear my way through the whole board", which
+// is what points-to-win and the can-I-still-win verdict both need. Counting only
+// currently-reachable territories understated the ceiling to zero on a fresh board
+// (both backs locked), producing a false "can't win". The lock gate still governs
+// what the allocation engine and board rendering act on — only this scoring walk
+// ignores it, because a locked territory will become reachable once its front falls.
 function remainingBannersForBoard(bd, opts) {
     opts = opts || {};
     if (!bd) return 0;
     let total = 0;
 
     bd.territories.forEach(tDef => {
-        if (!isTerritoryUnlockedOn(bd, tDef)) return;
-
         const battleType = tDef.type;                          // SQUAD | FLEET
         const mode       = battleType === "FLEET" ? "ANY" : bd.mode;
         const teams      = bd.teams.filter(t => t.territory === tDef.territory);
@@ -482,7 +487,10 @@ function remainingBannersForBoard(bd, opts) {
 
 // Territory-unlock test that works on any board object, not just the live `board`
 // global. Mirrors isTerritoryUnlocked: a back territory opens once the front in
-// its lane is fully cleared.
+// its lane is fully cleared. Currently unused — the banner walker deliberately
+// ignores locks (see remainingBannersForBoard) — but retained for the future
+// "my board" feature, which will need a board-parameterised lock test for its own
+// rendering and allocation, exactly as the live board uses isTerritoryUnlocked.
 function isTerritoryUnlockedOn(bd, tDef) {
     if (tDef.territory.indexOf("BACK_") !== 0) return true;
     const frontKey = "FRONT_" + tDef.territory.slice(5);
@@ -590,7 +598,11 @@ function solveAllocation(teams) {
         const cands = t.candidates.slice().sort((a, b) => {
             const d = tierSortValue(a.tier) - tierSortValue(b.tier);
             if (d !== 0) return d;
-            return Number(b.bannerScore || 0) - Number(a.bannerScore || 0);
+            const adj = adjustedScore(b) - adjustedScore(a);
+            if (adj !== 0) return adj;
+            // Equal achievable total: prefer the safer counter — the one relying on
+            // less undersizing (higher full-squad score banks the same with no risk).
+            return (Number(b.bannerScore) || 0) - (Number(a.bannerScore) || 0);
         });
 
         for (const c of cands) {
@@ -602,7 +614,7 @@ function solveAllocation(teams) {
             req.forEach(ch => usedChars.add(ch));
             assign[t.key] = c;
 
-            dfs(i + 1, cov + 1, tier + tierSortValue(c.tier), ban + Number(c.bannerScore || 0));
+            dfs(i + 1, cov + 1, tier + tierSortValue(c.tier), ban + adjustedScore(c));
 
             delete assign[t.key];
             usedCounters.delete(c.counterId);
@@ -615,6 +627,31 @@ function solveAllocation(teams) {
 
     dfs(0, 0, 0, 0);
     return best || { assign: {}, coverage: 0, tierSum: 0, bannerSum: 0 };
+}
+
+// Detect when undersizing is what won a counter its recommendation (v2.9). Returns
+// an explanatory sentence if, among the same team's other candidates, some rival in
+// the SAME tier has a higher full-squad banner score than the chosen counter yet a
+// lower-or-equal undersize-adjusted score — meaning the chosen counter only ranked
+// above it because of its droppable-unit bonus. Without this note, the card's
+// full-squad headline (kept deliberately as the no-risk figure) could sit below a
+// rival's headline with no visible reason. Returns null when the pick was not
+// undersize-driven, so the base reason is left untouched.
+function undersizeDrovePick(team, chosen) {
+    const chosenDrop = Math.max(0, Math.floor(Number(chosen.undersize)) || 0);
+    if (chosenDrop <= 0) return null;                       // chosen doesn't undersize; can't be undersize-driven
+    const chosenFull = Number(chosen.bannerScore) || 0;
+    const chosenAdj  = chosenFull + chosenDrop;
+    const chosenTier = tierSortValue(chosen.tier);
+
+    const rival = team.candidates.find(c =>
+        c.counterId !== chosen.counterId &&
+        tierSortValue(c.tier) === chosenTier &&                       // same tier
+        (Number(c.bannerScore) || 0) > chosenFull &&                 // higher at full squad
+        adjustedScore(c) <= chosenAdj);                              // but not once undersize is counted
+
+    if (!rival) return null;
+    return `Chosen for its undersize potential (${chosenAdj} vs ${Number(rival.bannerScore) || 0}).`;
 }
 
 // Plain-language reason for each team, grounded in the plan's real alternatives.
@@ -667,6 +704,14 @@ function buildReasons(eligible, assign) {
             } else {
                 reason = "Strongest available option for this team.";
             }
+
+            // v2.9: if this counter was chosen over a same-tier rival that scores
+            // higher at full squad — i.e. it only came out ahead on its undersize
+            // adjustment — say so, otherwise the card's full-squad headline can look
+            // lower than a rival's for no visible reason.
+            const undersizeNote = undersizeDrovePick(t, chosen);
+            if (undersizeNote) reason += " " + undersizeNote;
+
             reasons[t.key] = { counter: chosen, reason };
             return;
         }
@@ -1507,6 +1552,21 @@ function undersizeInfo(counter) {
         bonus: drop,                                  // +1 banner net per unit dropped
         total: full + drop                            // reconstructed best-case total
     };
+}
+
+// The score the allocation engine RANKS by (v2.9): the full-squad banner score
+// plus the safe droppable-unit count, since +1 banner is bankable per unit dropped.
+// This is the achievable best for a counter that can undersize, so ranking by it
+// makes the engine prefer the higher-scoring option when two counters are otherwise
+// comparable. It is used ONLY for ranking — the card still displays the full-squad
+// bannerScore as its headline (with the undersize upside shown on its own line), so
+// the headline never overstates what a straight, no-risk play would bank. Tier
+// remains the primary sort key, so this only ever reorders counters WITHIN a tier;
+// undersizing never promotes a lower-tier counter over a higher-tier one.
+function adjustedScore(counter) {
+    const full = Number(counter && counter.bannerScore) || 0;
+    const drop = Math.max(0, Math.floor(Number(counter && counter.undersize)) || 0);
+    return full + drop;
 }
 
 function renderTeamRecommendation(territoryKey, team) {

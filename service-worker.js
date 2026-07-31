@@ -1,4 +1,4 @@
-const CACHE_NAME = 'swgoh-cache-v9';
+const CACHE_NAME = 'swgoh-cache-v11';
 const FILES = [
   './',
   './index.html',
