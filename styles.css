@@ -983,3 +983,135 @@ body {
 .board-rec-undersize strong {
     color: var(--b-tier);   /* amber: an optional upside, distinct from the base rec */
 }
+
+/* ─── ROUND: NEXT UP (v3.0) ──────────────────────────────────────── */
+/* The Battle Order card. Sits at the very top of the Round screen so it is the
+   first thing seen on entering mid-match. One row for the next squad battle, a
+   second for the next fleet battle once Back Top unlocks. Each row is a button:
+   tapping it scrolls the board to that team and highlights it. */
+
+.nextup-card {
+    background: var(--panel);
+    border: 1px solid #2b4b6b;
+    border-left: 3px solid var(--jedi-blue);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+
+    box-shadow: 0 0 14px rgba(79,195,247,0.18);
+}
+
+.nextup-title {
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: var(--jedi-blue);
+    margin-bottom: 10px;
+}
+
+.nextup-row {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: left;
+
+    padding: 10px 12px;
+    border: 1px solid #22324a;
+    border-radius: 10px;
+
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.nextup-row + .nextup-row {
+    margin-top: 8px;
+}
+
+.nextup-row:active {
+    background: var(--panel-light);
+}
+
+.nextup-track {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 1px 7px;
+    border-radius: 6px;
+
+    background: var(--panel-light);
+    color: var(--jedi-blue);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+.nextup-target {
+    font-size: 15px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+
+.nextup-counter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 14px;
+}
+
+.nextup-banners {
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.nextup-reason {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.nextup-undersize {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--b-tier);
+    line-height: 1.4;
+}
+
+.nextup-empty {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+/* ─── ROUND: FOCUSED TEAM BLOCK (v3.0) ───────────────────────────── */
+/* Wraps a board team's picker, battles stepper and recommendation into one
+   group so the Next Up card can scroll to and highlight all three together.
+   The transparent border is always present so gaining focus changes colour
+   only, never layout. */
+
+.board-team-block {
+    margin-top: 8px;
+    padding: 2px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+}
+
+.board-team-block .board-team {
+    margin-top: 0;
+}
+
+.board-team-block.focused {
+    border-color: var(--jedi-blue);
+    background: rgba(79,195,247,0.06);
+}
+
+/* One-shot flash on arrival; the steady highlight above persists afterwards. */
+.board-team-block.focus-flash {
+    animation: nextupFlash 1.4s ease-out 1;
+}
+
+@keyframes nextupFlash {
+    0%   { background: rgba(79,195,247,0.35); }
+    100% { background: rgba(79,195,247,0.06); }
+}
