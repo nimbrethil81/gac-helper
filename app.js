@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "2.9";
+const APP_VERSION = "3.0";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -24,11 +24,22 @@ const TERRITORY_LABELS = {
     BACK_BOTTOM:  "Back Bottom"
 };
 
+// Battle Order (v3.0). Threat is an AUTHORED attribute of a defence team, held on
+// the Defence_Teams sheet tab: how hard that team is to beat, independent of how
+// many counters happen to be documented for it. It exists because catalogue depth
+// is a measure of the data, not of the enemy — a thinly-documented easy team would
+// otherwise look scarcer than a Galactic Legend with two well-known answers.
+// Everything defaults to NORMAL, so the feature behaves sensibly with no ratings
+// authored at all and improves as rows are added.
+const THREAT_RANK  = { EXTREME: 1, HIGH: 2, NORMAL: 3, LOW: 4 };
+const THREAT_LABEL = { EXTREME: "extreme", HIGH: "high", NORMAL: "normal", LOW: "low" };
+
 let gacData = {};
 let counterDefinitions = {};
 let characterDefinitions = {};
 let boardConfig = {};                   // league -> mode -> [{territory, type, teamCount}]
 let scoringRules = [];                  // GAC banner economy rows (consumed in Item 2)
+let defenceTeams = {};                  // mode -> defence team name -> { threat, notes } (v3.0)
 let baseIdToUnit = {};                  // base_id -> { characterId, unitType }
 let currentMode = "5v5";
 let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 5v5/3v3 chosen; used for board setup when the toggle is on Fleet
@@ -54,6 +65,8 @@ let rosterMessage = null;               // { text, kind: "ok" | "warn" | "error"
 let board = null;
 let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
+let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
+let focusFlash = false;                 // one-shot: true only for the render immediately after a Next Up tap
 
 // bannerData.remaining is now a MANUAL OVERRIDE, not a stored figure: null means
 // "no override — show the value calculated from the board" (the v2.6 default).
@@ -211,6 +224,7 @@ function saveBoard() {
 function discardBoard() {
     board = null;
     boardModeDraft = null;
+    focusedTeamKey = null;
     localStorage.removeItem(BOARD_KEY);
 }
 
@@ -314,6 +328,8 @@ function toggleTeamCleared(territoryKey, index) {
     const team = board.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
     team.cleared = !team.cleared;
+    // A cleared team can no longer be Next Up, so drop the highlight if it was on it.
+    if (team.cleared && focusedTeamKey === territoryKey + ":" + index) focusedTeamKey = null;
     saveBoard();
     clearRemainingOverrideOnBoardChange();
     render();
@@ -768,6 +784,226 @@ function computeRoundPlan() {
     return { eligible, overlap, assign: solved.assign, reasons };
 }
 
+// ─── BATTLE ORDER (v3.0) ──────────────────────────────────────────────────────
+// Which enemy team to attack NEXT. This is a scheduling pass over the plan the
+// allocation engine has already produced — it never changes which counter goes
+// where, only which of those battles to fight first.
+//
+// The allocation engine already guarantees you can't burn a hard team's answer on
+// an easy team, so the reason to attack the hard things first is not allocation:
+// it is FAILURE RECOVERY. A battle that goes wrong — a loss, or a messy win that
+// needs a cleanup team — spends units you hadn't planned to spend. Doing that
+// early leaves a full board and a full bench to re-plan around; doing it last
+// leaves nothing. So the ordering ranks by how likely a battle is to deviate from
+// plan, and how costly that deviation would be if it happened late.
+
+// The authored Threat rating for a defence team. A row matching the exact mode
+// wins over an ANY row, mirroring how GAC_Scoring resolves. An unrecognised or
+// missing value reads as NORMAL, so a typo in the sheet degrades to the default
+// rather than throwing or silently sorting to the top.
+function threatFor(name, modeKey) {
+    if (!name) return "NORMAL";
+    const exact = defenceTeams[modeKey] && defenceTeams[modeKey][name];
+    if (exact && exact.threat) {
+        const t = String(exact.threat).toUpperCase();
+        if (THREAT_RANK[t]) return t;
+    }
+    const any = defenceTeams["ANY"] && defenceTeams["ANY"][name];
+    if (any && any.threat) {
+        const t = String(any.threat).toUpperCase();
+        if (THREAT_RANK[t]) return t;
+    }
+    return "NORMAL";
+}
+
+function threatRank(threat) {
+    return THREAT_RANK[String(threat || "").toUpperCase()] || THREAT_RANK.NORMAL;
+}
+
+// Position of a territory in the board's own order, used only as the final
+// deterministic tiebreak so an evenly-matched board still picks the same battle
+// on every render rather than flickering between equals.
+function boardTerritoryOrder(territoryKey) {
+    if (!board) return 99;
+    const i = board.territories.findIndex(t => t.territory === territoryKey);
+    return i < 0 ? 99 : i;
+}
+
+// Fragility ordering, most fragile first. Lexicographic, mirroring the style of
+// the allocation objective:
+//   1. Threat        — the authored judgement always leads.
+//   2. Fallbacks     — fewest first; zero fallbacks is a single point of failure.
+//   3. Tier          — WORST first; Tier is reliability, so a C-tier plan is the
+//                      least certain battle and the one most worth de-risking early.
+//   4. Banners       — highest first, as a final tiebreak between equals.
+function battleOrderCompare(a, b) {
+    if (a.threatRank !== b.threatRank) return a.threatRank - b.threatRank;
+    if (a.fallbacks  !== b.fallbacks)  return a.fallbacks  - b.fallbacks;
+    if (a.tierRank   !== b.tierRank)   return b.tierRank   - a.tierRank;
+    if (a.banners    !== b.banners)    return b.banners    - a.banners;
+    return 0;
+}
+
+// The reason names the factor that ACTUALLY decided the pick, by comparing the
+// winner against the runner-up on each key in turn. That keeps the line honest —
+// it never claims a team was chosen for its threat rating when the rating was the
+// same as everything else's and something further down the list broke the tie.
+function battleOrderReason(w, r, laneActive) {
+    const lane = laneActive
+        ? "Front Bottom first — clearing it opens the rest of the board. "
+        : "";
+
+    if (!r) {
+        return lane + (laneActive
+            ? "It's the only team here with a counter ready to go."
+            : "It's the only team on the board with a counter ready to go.");
+    }
+
+    if (w.threatRank !== r.threatRank) {
+        if (w.threat === "EXTREME" || w.threat === "HIGH") {
+            return lane + `Rated ${THREAT_LABEL[w.threat]} threat — best faced while you still have room to recover.`;
+        }
+        return lane + "The toughest defence left with a counter ready — best faced while you still have room to recover.";
+    }
+
+    if (w.fallbacks !== r.fallbacks) {
+        return lane + (w.fallbacks === 0
+            ? "No fallback if this one goes wrong — best done while the board is still open."
+            : `Only ${w.fallbacks} fallback${w.fallbacks === 1 ? "" : "s"} left if this one goes wrong.`);
+    }
+
+    if (w.tierRank !== r.tierRank) {
+        const tier = String(w.counter.tier || "?").toUpperCase();
+        return lane + `${w.counter.counter} is a ${tier}-tier answer — the least certain battle on the board right now.`;
+    }
+
+    if (w.banners !== r.banners) {
+        return lane + "The highest-scoring battle available right now.";
+    }
+
+    return lane + "Evenly matched with the rest — taken in board order.";
+}
+
+function pickNextBattle(pool, laneActive) {
+    if (!pool.length) return null;
+
+    const sorted = pool.slice().sort((a, b) => {
+        const d = battleOrderCompare(a, b);
+        if (d !== 0) return d;
+        const t = boardTerritoryOrder(a.territory) - boardTerritoryOrder(b.territory);
+        if (t !== 0) return t;
+        return a.index - b.index;
+    });
+
+    const winner = sorted[0];
+    return Object.assign({}, winner, {
+        reason: battleOrderReason(winner, sorted[1] || null, laneActive)
+    });
+}
+
+// Squad and fleet are ranked as SEPARATE TRACKS. Ships and characters occupy
+// disjoint unit sets, so a fleet battle and a squad battle never compete for the
+// same units and there is no ordering interaction between them at all — forcing
+// them into one queue would invent a choice that doesn't exist.
+function computeBattleOrder(plan) {
+    const empty = { squad: null, fleet: null, laneActive: false, anyNamed: false };
+    if (!plan || !board) return empty;
+
+    const assign = plan.assign || {};
+
+    const assignedByCounter = {};
+    Object.entries(assign).forEach(([key, c]) => { assignedByCounter[c.counterId] = key; });
+
+    const anyNamed = plan.eligible.some(t => !t.custom);
+
+    // Only teams that actually have a recommendation can be Next Up — the app
+    // never sends you at something it has no answer for.
+    const records = plan.eligible
+        .filter(t => !t.custom && assign[t.key])
+        .map(t => {
+            const chosen = assign[t.key];
+
+            // Units spent by OTHER teams' assignments. A counter needing one of
+            // those isn't a real fallback for this team, because taking it would
+            // break the plan elsewhere. The chosen counter's own units are not
+            // counted, since a fallback is used INSTEAD of it, not alongside it.
+            const spentElsewhere = new Set();
+            Object.entries(assign).forEach(([key, c]) => {
+                if (key === t.key) return;
+                requiredChars(c.counterId).forEach(ch => spentElsewhere.add(ch));
+            });
+
+            const fallbacks = t.candidates.filter(c =>
+                c.counterId !== chosen.counterId &&
+                !assignedByCounter[c.counterId] &&
+                !requiredChars(c.counterId).some(ch => spentElsewhere.has(ch))
+            ).length;
+
+            const threat = threatFor(t.name, t.modeKey);
+
+            return {
+                key:        t.key,
+                territory:  t.territory,
+                index:      t.index,
+                name:       t.name,
+                isFleet:    t.modeKey === "FLEET",
+                counter:    chosen,
+                threat:     threat,
+                threatRank: threatRank(threat),
+                fallbacks:  fallbacks,
+                tierRank:   tierSortValue(chosen.tier),
+                banners:    adjustedScore(chosen)
+            };
+        });
+
+    const squadAll = records.filter(r => !r.isFleet);
+    const fleetAll = records.filter(r => r.isFleet);
+
+    // Lane rule. While Front Bottom is on the board and uncleared it owns the
+    // squad recommendation. Once it is cleared the rule switches off entirely and
+    // every remaining squad team competes flat — Back Bottom gets no automatic
+    // priority. Safety valve: if nothing in Front Bottom has a counter ready, the
+    // rule stands aside and the rest of the board is considered, rather than the
+    // card reporting nothing while workable battles exist elsewhere.
+    const frontBottomOpen =
+        board.territories.some(t => t.territory === "FRONT_BOTTOM") &&
+        !isTerritoryCleared("FRONT_BOTTOM");
+
+    const inFrontBottom = squadAll.filter(r => r.territory === "FRONT_BOTTOM");
+    const laneApplies   = frontBottomOpen && inFrontBottom.length > 0;
+    const squadPool     = laneApplies ? inFrontBottom : squadAll;
+
+    // Only SAY "Front Bottom first" when the rule actually excluded something;
+    // if every squad candidate is in Front Bottom anyway, the line adds nothing.
+    const laneActive = laneApplies && squadAll.length > inFrontBottom.length;
+
+    return {
+        squad:      pickNextBattle(squadPool, laneActive),
+        fleet:      pickNextBattle(fleetAll, false),
+        laneActive: laneActive,
+        anyNamed:   anyNamed
+    };
+}
+
+// Jump the board to the team the Next Up card points at, and leave it highlighted
+// so it is still findable after the scroll. The flash is one-shot: focusFlash is
+// consumed by the render it triggers, so re-renders (marking a counter used,
+// editing a team) keep the highlight without replaying the animation.
+function focusBoardTeam(territoryKey, index) {
+    focusedTeamKey = territoryKey + ":" + index;
+    focusFlash = true;
+    render();
+    focusFlash = false;
+
+    const el = document.getElementById("teamblock-" + territoryKey + "-" + index);
+    if (!el || !el.scrollIntoView) return;
+    try {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (e) {
+        el.scrollIntoView();
+    }
+}
+
 // ─── PERSISTENT STORAGE REQUEST ───────────────────────────────────────────────
 // Best-effort: asks the OS to exempt our storage from automatic eviction.
 
@@ -795,6 +1031,7 @@ async function loadData() {
         characterDefinitions = data.characterDefinitions;
         boardConfig = data.boardConfig || {};
         scoringRules = data.scoring || [];
+        defenceTeams = data.defenceTeams || {};   // v3.0; absent tab yields {} and everything reads NORMAL
 
         buildReverseIndex();   // base_id -> Character_ID, from the registry
 
@@ -1439,7 +1676,9 @@ function renderBoard() {
 </div>
 `;
     const territories = board.territories.map(renderTerritory).join("");
-    return header + overlapBanner + territories;
+    // Next Up sits at the very top of the board so it is the first thing seen
+    // on entering the Round screen mid-match.
+    return renderNextUp() + header + overlapBanner + territories;
 }
 
 function renderTerritory(tDef) {
@@ -1492,7 +1731,13 @@ function renderBoardTeamRow(tDef, team) {
         ...teamNames.map(n => `<option value="${n}" ${team.name === n ? "selected" : ""}>${n}</option>`)
     ].join("");
 
+    // The picker, its battles stepper and its recommendation are wrapped in one
+    // block so the Next Up card can scroll to and highlight the whole group.
+    const isFocused = focusedTeamKey === territoryKey + ":" + team.index;
+    const focusClass = isFocused ? (focusFlash ? "focused focus-flash" : "focused") : "";
+
     return `
+<div class="board-team-block ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
 <div class="board-team ${team.cleared ? "cleared" : ""}">
     <select class="board-team-select" onchange="setBoardTeam('${territoryKey}', ${team.index}, this.value)">
         ${options}
@@ -1503,6 +1748,63 @@ function renderBoardTeamRow(tDef, team) {
 </div>
 ${team.cleared ? "" : renderAttemptControl(territoryKey, team)}
 ${renderTeamRecommendation(territoryKey, team)}
+</div>
+`;
+}
+
+// ─── NEXT UP CARD (v3.0) ──────────────────────────────────────────────────────
+// One row while only squads are in play, two once the fleet territory unlocks.
+// Deliberately carries NO "Mark used" button: that action lives on the team card
+// itself, in one place, so there is never a question of which button did what.
+
+function renderNextUp() {
+    if (!board || !roundPlan) return "";
+
+    const order = computeBattleOrder(roundPlan);
+
+    const rows = [];
+    if (order.squad) rows.push(renderNextUpRow(order.squad, false));
+    if (order.fleet) rows.push(renderNextUpRow(order.fleet, true));
+
+    if (rows.length === 0) {
+        const msg = order.anyNamed
+            ? "Nothing on the board has a counter ready right now — the note under each team explains why."
+            : "Pick the opponent's defence teams below and the next battle will appear here.";
+        return `
+<div class="nextup-card">
+    <div class="nextup-title">⚡ NEXT UP</div>
+    <div class="nextup-empty">${msg}</div>
+</div>
+`;
+    }
+
+    return `
+<div class="nextup-card">
+    <div class="nextup-title">⚡ NEXT UP</div>
+    ${rows.join("")}
+</div>
+`;
+}
+
+function renderNextUpRow(pick, isFleet) {
+    const label = TERRITORY_LABELS[pick.territory] || pick.territory;
+    const c = pick.counter;
+    const track = isFleet ? `<span class="nextup-track">🚀 FLEET</span>` : "";
+    const us = undersizeInfo(c);
+    const undersizeLine = us
+        ? `<div class="nextup-undersize">${us.total} banners if you undersize · drop up to ${us.drop}</div>`
+        : "";
+
+    return `
+<button class="nextup-row" onclick="focusBoardTeam('${pick.territory}', ${pick.index})">
+    <div class="nextup-target">${track}${label} · ${pick.name}</div>
+    <div class="nextup-counter">
+        🎯 <strong>${c.counter}</strong>
+        <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
+        <span class="nextup-banners">~${c.bannerScore || "?"} banners</span>
+    </div>
+    <div class="nextup-reason">${pick.reason}</div>${undersizeLine}
+</button>
 `;
 }
 

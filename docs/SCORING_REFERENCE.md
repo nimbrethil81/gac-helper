@@ -111,11 +111,46 @@ Confirms the +1-per-drop rule end to end:
 
 ---
 
-## Note: GAC_Scoring sheet correction (fleet unit count)
+## Whole-board theoretical maximum (worked example)
 
-The points-to-win engine's two-count model was originally specced with fleet as
-**8** own / **8** enemy units. The wiki table proves fleet is a **7**-unit format.
-The `GAC_Scoring` sheet should therefore carry:
+The **can-I-win** verdict and the **points-to-win** remaining figure both use the
+*theoretical maximum* the board can still yield — every uncleared team across every
+territory, locked or not, cleared perfectly, plus each territory's clear bonus. This
+is the ceiling for "is the round still mathematically winnable". Per-territory it is:
+
+```
+squad territory  = teams × 57  + 120 + 28 × teams      (3v3)
+squad territory  = teams × 65  + 120 + 30 × teams      (5v5)
+fleet territory  = teams × 73  + 120 + 33 × teams
+```
+
+**Worked example — Kyber 3v3** (board config: three 5-team squad territories +
+one 3-team fleet territory = 18 teams):
+
+| Territory | Teams | Battles | Clear bonus | Subtotal |
+|-----------|-------|---------|-------------|----------|
+| Squad ×3  | 5 each | 3 × (5×57) = 855 | 3 × (120 + 28×5) = 780 | 1635 |
+| Fleet ×1  | 3 | 3×73 = 219 | 120 + 33×3 = 219 | 438 |
+| **Board** | **18** | | | **2073** |
+
+(2083 with the one-off first-attack bonus.) This matches the community "soft max"
+of ~2079–2080 for Kyber 3v3 to within a couple of banners — a useful sanity check
+that the config team counts and scoring values are right. The small residual
+(2073 vs ~2080) is within noise for a winnability ceiling; a single clean full-board
+run would pin it exactly if ever needed.
+
+The figure is only as correct as the **`GAC_Board_Config`** team counts: the walker
+multiplies out whatever the sheet specifies, so wrong counts there (not a code bug)
+would mis-state the ceiling.
+
+---
+
+## Note: GAC_Scoring sheet — fleet unit count (resolved in v2.8)
+
+The points-to-win two-count model was originally specced with fleet as **8** own /
+**8** enemy units. The wiki "Fleet Max Banners" table proved fleet is a **7**-unit
+format (capital + 6), and the app's fallbacks were corrected to 7 in v2.8. If the
+`GAC_Scoring` sheet carries explicit rows, they should read 7 for fleet:
 
 ```
 OWN_UNITS    FLEET  ANY  7
@@ -129,7 +164,8 @@ OWN_UNITS    SQUAD  5v5  5     ENEMY_UNITS  SQUAD  5v5  5
 OWN_UNITS    SQUAD  3v3  3     ENEMY_UNITS  SQUAD  3v3  3
 ```
 
-Until these rows exist the app uses built-in fallbacks; the fleet fallback is
-currently **8** and should be corrected to **7** (in `ownUnitCount` /
-`enemyUnitCount`). This affects the points-to-win *fleet* best-case only — the
-`Banner Score` column and undersize display do not depend on it.
+These rows are optional — the app falls back to the correct counts (7 for fleet,
+5/3 for squads) without them. If added, fleet rows must read 7, not 8, or they would
+override the correct fallback with the wrong value. This affects the points-to-win
+*fleet* best-case only — the `Banner Score` column and undersize display do not
+depend on it.
