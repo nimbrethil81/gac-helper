@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -33,6 +33,14 @@ const TERRITORY_LABELS = {
 // authored at all and improves as rows are added.
 const THREAT_RANK  = { EXTREME: 1, HIGH: 2, NORMAL: 3, LOW: 4 };
 const THREAT_LABEL = { EXTREME: "extreme", HIGH: "high", NORMAL: "normal", LOW: "low" };
+
+// First-attack rule (v3.1). How many of your own units a counter must be expected
+// to shed before the opening battle is flagged as risky. Expressed as a UNIT COUNT
+// rather than a banner threshold so it stays correct in every format: the app
+// derives the perfect-win score and the per-unit cost from GAC_Scoring, so 3 units
+// resolves to "56 or below" in 5v5, "48 or below" in 3v3, and so on. Retuning the
+// scoring rows retunes this automatically.
+const OPENER_MESSY_UNITS = 3;
 
 let gacData = {};
 let counterDefinitions = {};
@@ -514,12 +522,39 @@ function isTerritoryUnlockedOn(bd, tDef) {
     return frontTeams.length > 0 && frontTeams.every(t => t.cleared);
 }
 
+// Has the round's first battle been fought yet? (v3.1) Derived from the board and
+// used-team state, never stored — there is no "first attack spent" flag to keep in
+// sync, and no way for it to drift from reality.
+//
+// Three independent signals, any one of which means an attack has happened:
+//   • a counter has been marked used — the units are spent, so a battle was fought
+//     (or forfeited, which spends the bonus just the same);
+//   • a team's Battles count is above zero — the in-game counter has moved;
+//   • a team is marked cleared — you cannot clear a team without attacking it, and
+//     this catches the case where a team is cleared without touching its stepper.
+//
+// Deliberately LIVE rather than sticky: correcting a mis-tapped Battles count back
+// to zero restores the opening state, which is right, because no attack happened.
+// Marking a counter used has no undo anywhere in the app, so that one is effectively
+// one-way for the round — it costs an advisory line, not any state.
+function isFirstAttackAvailable() {
+    if (!board) return false;
+    if (usedTeams.length > 0) return false;
+    return board.teams.every(t => !t.cleared && !(Number(t.attempts) > 0));
+}
+
 // The calculated "remaining available banners" for the live opponent board.
 // Zero when there is no board. This is what the banner tracking section shows by
 // default, and what a manual override is measured against.
+//
+// v3.1: the one-off FIRST_ATTACK bonus is now included while the round's opening
+// battle is still unfought. The walker has always accepted this flag; nothing ever
+// passed it, so a fresh board understated its own ceiling by exactly that bonus and
+// both points-to-win and the can-I-still-win verdict read pessimistically at the
+// very moment the player is deciding how hard to fight.
 function calculatedRemaining() {
     if (!board) return 0;
-    return remainingBannersForBoard(board);
+    return remainingBannersForBoard(board, { firstAttackAvailable: isFirstAttackAvailable() });
 }
 
 // ─── ALLOCATION ENGINE (v2.1) ─────────────────────────────────────────────────
@@ -906,7 +941,7 @@ function pickNextBattle(pool, laneActive) {
 // same units and there is no ordering interaction between them at all — forcing
 // them into one queue would invent a choice that doesn't exist.
 function computeBattleOrder(plan) {
-    const empty = { squad: null, fleet: null, laneActive: false, anyNamed: false };
+    const empty = { squad: null, fleet: null, laneActive: false, anyNamed: false, firstAttack: false };
     if (!plan || !board) return empty;
 
     const assign = plan.assign || {};
@@ -952,7 +987,12 @@ function computeBattleOrder(plan) {
                 threatRank: threatRank(threat),
                 fallbacks:  fallbacks,
                 tierRank:   tierSortValue(chosen.tier),
-                banners:    adjustedScore(chosen)
+                banners:    adjustedScore(chosen),
+                // The opening battle ranks on the PLAIN full-squad score, not the
+                // undersize-adjusted one: dropping units banks more, but it is
+                // precisely the risk you do not want on the battle carrying the
+                // one-off bonus (v3.1).
+                openerBanners: Number(chosen.bannerScore) || 0
             };
         });
 
@@ -977,12 +1017,162 @@ function computeBattleOrder(plan) {
     // if every squad candidate is in Front Bottom anyway, the line adds nothing.
     const laneActive = laneApplies && squadAll.length > inFrontBottom.length;
 
+    // The opening battle of the round runs the inverted, certainty-first rule
+    // instead (v3.1). It ranks over the WHOLE squad board, not the lane-filtered
+    // pool, because for the opener the lane is a ranking key rather than a gate —
+    // if the only reliable answers sit in Front Top, that is where it sends you.
+    const firstAttack = isFirstAttackAvailable();
+
+    const squadPick = firstAttack
+        ? pickOpeningBattle(squadAll)
+        : pickNextBattle(squadPool, laneActive);
+
     return {
-        squad:      pickNextBattle(squadPool, laneActive),
-        fleet:      pickNextBattle(fleetAll, false),
-        laneActive: laneActive,
-        anyNamed:   anyNamed
+        squad:       squadPick,
+        // Fleet keeps the standard rule throughout. Back Top cannot be unlocked
+        // while the first attack is still unfought, so this branch is unreachable
+        // on a normally-configured board; it is written to degrade sensibly rather
+        // than to be relied on.
+        fleet:       pickNextBattle(fleetAll, false),
+        laneActive:  firstAttack ? false : laneActive,
+        anyNamed:    anyNamed,
+        firstAttack: firstAttack
     };
+}
+
+// ─── FIRST ATTACK (v3.1) ──────────────────────────────────────────────────────
+// The opening battle of a round is the one exception to the fragility ordering
+// above, and the objective INVERTS for it: not "which battle is most fragile" but
+// "which battle am I most certain to win cleanly".
+//
+// The reason is that a failure in the opening battle costs something the standard
+// model cannot price. Every other failed battle costs UNITS, and units are what the
+// allocation engine re-plans around — losing some is recoverable. The first battle
+// additionally carries the one-off FIRST_ATTACK bonus, which is SPENT by that battle
+// whatever its outcome: lose and forfeit, and the bonus is gone for the round. No
+// later cleverness recovers it, and in a close round it can be the difference
+// between winnable and not.
+//
+// The cost of the exception is that the most fragile battle is delayed by exactly
+// one, which is a real but tiny loss of recovery headroom — a cheap trade against a
+// bonus that can decide the round. After the opening battle the standard rule
+// resumes unchanged.
+//
+// This is permanently a SQUAD-track concern: Back Top is locked until Front Top is
+// cleared, and clearing a territory means attacking, so a fleet battle can never be
+// the round's opener.
+
+// Ordering for the opening battle only, best-first. Lexicographic:
+//   1. Tier          — BEST first, inverted from the standard rule. Certainty is
+//                      the whole objective here.
+//   2. Front Bottom  — sits immediately below tier, so the lane preference wins
+//                      whenever reliability is level. You never leave the lane for
+//                      banners, only for certainty. Note this is a RANKING KEY, not
+//                      the gate it is in the standard rule: if the only reliable
+//                      answers are elsewhere on the board, the opener goes there.
+//   3. Banners       — highest FULL-SQUAD score, as a cleanliness proxy: a low
+//                      expected score means shed units and a likely cleanup team,
+//                      which is exactly the outcome that costs the bonus.
+//   4. Threat        — LOWEST first, again inverted; the easiest defence wins.
+function openerCompare(a, b) {
+    if (a.tierRank !== b.tierRank) return a.tierRank - b.tierRank;      // best tier first
+
+    const aLane = a.territory === "FRONT_BOTTOM" ? 0 : 1;
+    const bLane = b.territory === "FRONT_BOTTOM" ? 0 : 1;
+    if (aLane !== bLane) return aLane - bLane;
+
+    if (a.openerBanners !== b.openerBanners) return b.openerBanners - a.openerBanners;
+    if (a.threatRank    !== b.threatRank)    return b.threatRank    - a.threatRank; // lowest threat first
+    return 0;
+}
+
+// What a flawless first-attempt win banks in this battle's format, and what one of
+// your own units costs you when it doesn't come through it intact. Both are read
+// from GAC_Scoring rather than hard-coded, so the risk bar tracks the sheet.
+function cleanWinCeiling(isFleet) {
+    return battleBestCase(isFleet ? "FLEET" : "SQUAD", isFleet ? "ANY" : board.mode, 0);
+}
+
+function unitLossCost(isFleet) {
+    const battleType = isFleet ? "FLEET" : "SQUAD";
+    const mode       = isFleet ? "ANY"   : board.mode;
+    return scoreRule("SURVIVING_UNIT",       battleType, mode)
+         + scoreRule("FULL_HEALTH_UNIT",     battleType, mode)
+         + scoreRule("FULL_PROTECTION_UNIT", battleType, mode);
+}
+
+// Does the recommended opener put the first-attack bonus at risk? Returns the
+// warning text, or null when the opener is a safe bet. Two independent triggers:
+//
+//   • TIER — the best available answer is only B or C. Because tier is the opening
+//     rule's FIRST key, the chosen opener always carries the best tier on the board,
+//     so a B-tier pick is a genuine board-level statement: nothing better exists.
+//
+//   • EXPECTED MESSINESS — the opener is expected to shed OPENER_MESSY_UNITS or more
+//     of your own units. Derived by comparing the counter's full-squad banner score
+//     against a flawless win for the format. This one describes the PICK rather than
+//     the whole board, since the lane preference sits above banners: a Front Bottom
+//     answer can be chosen over a cleaner same-tier answer elsewhere. The wording is
+//     kept specific to the pick for that reason.
+//
+// A counter with no authored banner score is not assumed messy — it is unknown, not
+// bad — so the messiness check is skipped and only tier can flag it.
+function openerWarning(pick) {
+    if (tierSortValue(pick.counter.tier) > tierSortValue("A")) {
+        return "No reliable opener on the board — whichever you pick, the first-attack bonus is at risk. This is the best of them.";
+    }
+
+    const ceiling = cleanWinCeiling(pick.isFleet);
+    const cost    = unitLossCost(pick.isFleet);
+    const score   = Number(pick.counter.bannerScore);
+    if (!isFinite(score) || score <= 0 || ceiling <= 0 || cost <= 0) return null;
+
+    const losses = Math.floor((ceiling - score) / cost);
+    if (losses >= OPENER_MESSY_UNITS) {
+        return `Expected to cost you around ${losses} units — a scraped win here risks the first-attack bonus.`;
+    }
+    return null;
+}
+
+// As with the standard rule, the reason names the factor that ACTUALLY decided the
+// pick, established against the runner-up rather than asserted.
+function openerReason(w, r) {
+    const tier = String(w.counter.tier || "?").toUpperCase();
+
+    if (!r) return "The only battle you can field right now.";
+
+    if (w.tierRank !== r.tierRank) {
+        return `${w.counter.counter} is your most reliable answer on the board (${tier}-tier) — the surest way to bank the one-off bonus.`;
+    }
+    if ((w.territory === "FRONT_BOTTOM") !== (r.territory === "FRONT_BOTTOM")) {
+        return "As reliable as anything else available, and in Front Bottom — so it opens your priority lane too.";
+    }
+    if (w.openerBanners !== r.openerBanners) {
+        return "The cleanest expected win among your most reliable options.";
+    }
+    if (w.threatRank !== r.threatRank) {
+        return "The easiest defence among your most reliable options.";
+    }
+    return "As safe as anything else available — taken in board order.";
+}
+
+function pickOpeningBattle(pool) {
+    if (!pool.length) return null;
+
+    const sorted = pool.slice().sort((a, b) => {
+        const d = openerCompare(a, b);
+        if (d !== 0) return d;
+        const t = boardTerritoryOrder(a.territory) - boardTerritoryOrder(b.territory);
+        if (t !== 0) return t;
+        return a.index - b.index;
+    });
+
+    const winner = sorted[0];
+    return Object.assign({}, winner, {
+        isOpener: true,
+        reason:   openerReason(winner, sorted[1] || null),
+        warning:  openerWarning(winner)
+    });
 }
 
 // Jump the board to the team the Next Up card points at, and leave it highlighted
@@ -1752,10 +1942,14 @@ ${renderTeamRecommendation(territoryKey, team)}
 `;
 }
 
-// ─── NEXT UP CARD (v3.0) ──────────────────────────────────────────────────────
+// ─── NEXT UP CARD (v3.0, first-attack mode v3.1) ──────────────────────────────
 // One row while only squads are in play, two once the fleet territory unlocks.
 // Deliberately carries NO "Mark used" button: that action lives on the team card
 // itself, in one place, so there is never a question of which button did what.
+//
+// For the round's opening battle the card retitles to FIRST ATTACK and the row
+// switches to opener framing — a different objective deserves to say so plainly
+// rather than silently changing what the same-looking card means.
 
 function renderNextUp() {
     if (!board || !roundPlan) return "";
@@ -1765,6 +1959,11 @@ function renderNextUp() {
     const rows = [];
     if (order.squad) rows.push(renderNextUpRow(order.squad, false));
     if (order.fleet) rows.push(renderNextUpRow(order.fleet, true));
+
+    // Opener framing applies only when there is actually an opening battle to
+    // recommend; the empty states keep the ordinary title.
+    const opening = order.firstAttack && !!order.squad;
+    const title = opening ? "⚡ FIRST ATTACK" : "⚡ NEXT UP";
 
     if (rows.length === 0) {
         const msg = order.anyNamed
@@ -1779,8 +1978,8 @@ function renderNextUp() {
     }
 
     return `
-<div class="nextup-card">
-    <div class="nextup-title">⚡ NEXT UP</div>
+<div class="nextup-card ${opening ? "nextup-card-opener" : ""}">
+    <div class="nextup-title">${title}</div>
     ${rows.join("")}
 </div>
 `;
@@ -1790,20 +1989,33 @@ function renderNextUpRow(pick, isFleet) {
     const label = TERRITORY_LABELS[pick.territory] || pick.territory;
     const c = pick.counter;
     const track = isFleet ? `<span class="nextup-track">🚀 FLEET</span>` : "";
-    const us = undersizeInfo(c);
+    const opener = pick.isOpener === true;
+
+    // Undersize advice is deliberately suppressed on the opening battle: dropping
+    // units banks more, but it is the one battle where the extra risk can cost the
+    // one-off bonus. The row says to field the full squad instead.
+    const us = opener ? null : undersizeInfo(c);
     const undersizeLine = us
         ? `<div class="nextup-undersize">${us.total} banners if you undersize · drop up to ${us.drop}</div>`
         : "";
 
+    const openerNote = opener
+        ? `<div class="nextup-opener-note">First attack of the round — the bonus is paid once, whatever happens. Play this one full squad.</div>`
+        : "";
+
+    const warningLine = (opener && pick.warning)
+        ? `<div class="nextup-warning">⚠ ${pick.warning}</div>`
+        : "";
+
     return `
-<button class="nextup-row" onclick="focusBoardTeam('${pick.territory}', ${pick.index})">
+<button class="nextup-row ${opener ? "nextup-row-opener" : ""}" onclick="focusBoardTeam('${pick.territory}', ${pick.index})">
     <div class="nextup-target">${track}${label} · ${pick.name}</div>
     <div class="nextup-counter">
         🎯 <strong>${c.counter}</strong>
         <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
         <span class="nextup-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="nextup-reason">${pick.reason}</div>${undersizeLine}
+    <div class="nextup-reason">${pick.reason}</div>${undersizeLine}${openerNote}${warningLine}
 </button>
 `;
 }

@@ -1115,3 +1115,41 @@ body {
     0%   { background: rgba(79,195,247,0.35); }
     100% { background: rgba(79,195,247,0.06); }
 }
+
+/* ─── ROUND: FIRST ATTACK MODE (v3.1) ────────────────────────────── */
+/* The opening battle of a round runs an inverted, certainty-first rule, so the
+   Next Up card retitles and picks up opener framing. Amber rather than the
+   usual jedi-blue, because this is a one-off state the player should notice
+   is different — not a permanent style. */
+
+.nextup-card-opener {
+    border-left-color: var(--b-tier);
+    box-shadow: 0 0 14px rgba(255,183,77,0.18);
+}
+
+.nextup-card-opener .nextup-title {
+    color: var(--b-tier);
+}
+
+.nextup-row-opener {
+    border-color: #4a3a1c;
+}
+
+.nextup-opener-note {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.4;
+}
+
+.nextup-warning {
+    margin-top: 8px;
+    padding: 7px 10px;
+    border-radius: 8px;
+
+    background: rgba(255,183,77,0.12);
+    color: var(--b-tier);
+    font-size: 12px;
+    font-weight: bold;
+    line-height: 1.4;
+}
