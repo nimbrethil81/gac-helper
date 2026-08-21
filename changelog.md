@@ -354,3 +354,89 @@ is unchanged.
   reuses existing styling).
 - **Whole-board ceiling fix:** the banner walker counted only currently-*unlocked* territories, so on a fresh board (both back territories locked behind their fronts) the remaining figure read 0 and the can-I-win verdict falsely reported "can't win" — and the figure jumped upward as territories unlocked instead of falling as teams cleared. The walker now counts every uncleared team across the whole board, locked territories included, giving the true theoretical maximum (a Kyber 3v3 board tops out around 2073, matching the community soft max). The lock gate still governs the allocation engine and rendering — only the scoring walk ignores it. `isTerritoryUnlockedOn` is retained (now unused) for the future My Board.
 - **Frontend:** `APP_VERSION` -> 2.9; service-worker cache bumped to `swgoh-cache-v11`.
+
+## v3.0 — Battle Order
+Answers "which enemy team should I attack next?" with a **Next Up** card at the top
+of the Round screen. This is a *scheduling* pass over the plan the allocation engine
+already produces — it never changes which counter goes to which team, only the order
+the resulting battles are fought in. First feature to cross from allocation into
+sequencing, and the reason for the major-version bump.
+
+- **Why ordering is about recovery, not allocation.** The obvious argument for
+  attacking hard teams first — that otherwise you burn their answer on something
+  easy — is already handled by the allocation engine, which won't allow it. The real
+  reason is **failure recovery**: a battle that goes wrong spends units that weren't
+  in the plan, and doing that early leaves a full board and a full bench to re-plan
+  around. So the order ranks by how likely a battle is to deviate from plan, and how
+  costly that deviation would be late in a round.
+- **New `Defence_Teams` sheet tab** with a hand-authored `Threat` rating
+  (`EXTREME` / `HIGH` / `NORMAL` / `LOW`) per defence team, plus `Mode` and `Notes`.
+  Keyed by the same defence-team display name the Counters tab and the opponent
+  board already use. A mode-specific row beats an `ANY` row, matching how
+  `GAC_Scoring` resolves.
+- **Threat has to be authored, not derived.** Every signal the app could infer
+  difficulty from — catalogue depth, tiers, banner scores — measures the *data*, not
+  the enemy. A thinly-documented easy team would look scarcer than a Galactic Legend
+  with two well-known answers, and a GL with one excellent S-tier counter would look
+  *easy* by every derived measure, because its difficulty is the scarcity of the
+  answer, not the fight. So Threat is a judgement, exactly as Tier is.
+- **Optional and incremental.** The tab is guarded like `GAC_Board_Config` and
+  `GAC_Scoring` (missing or empty yields `{}`), and a blank or unrecognised rating
+  resolves to `NORMAL` client-side. Battle Order works with no tab at all and
+  improves row by row; the intended pattern is to rate only the teams the automatic
+  ordering gets wrong. Sheet-level data validation on the team-name column guards
+  against a rename orphaning a rating.
+- **Ordering rule**, lexicographic: **lane** (Front Bottom owns the squad
+  recommendation while it is uncleared, then the rule switches off *entirely* —
+  Back Bottom gets no automatic priority) -> **Threat** -> **fewest fallbacks** ->
+  **worst tier** -> highest undersize-adjusted banners -> board position for
+  determinism. A safety valve lets the lane rule stand aside when nothing in Front
+  Bottom has a counter ready, rather than reporting nothing while workable battles
+  exist elsewhere.
+- **"Fallbacks" is not catalogue depth.** It counts counters for this team that are
+  owned, unused, uncommitted elsewhere in the plan, and not blocked by a unit the
+  plan has already spent — i.e. what is actually *left* if the recommended play
+  fails. It is live, shrinking as counters are marked used, so a thinning team rises
+  up the order on its own with no extra recomputation.
+- **Worst tier sorts first here** — the one place in the app it does. Tier is
+  reliability, so a C-tier recommendation is the least certain battle on the board
+  and the one most worth de-risking while there is still room to recover.
+- **Squad and fleet are separate tracks**, giving up to two recommendations at once.
+  Ships and characters occupy disjoint unit sets, so the two never compete for units
+  and there is no ordering interaction between them; a single queue would invent a
+  choice that doesn't exist.
+- **Reason line names the factor that actually decided the pick**, found by comparing
+  the winner against the runner-up on each key in turn — so it never claims a team
+  was chosen for its threat rating when the rating matched everything else and a
+  later tiebreak did the work. The "Front Bottom first" prefix appears only when the
+  lane rule genuinely excluded candidates from other territories.
+- **Tap-to-locate.** Tapping a Next Up row scrolls the board to that team, flashes it
+  once on arrival, and leaves it highlighted so it stays findable after the scroll.
+  The flash is one-shot and does not replay on later re-renders; the highlight is
+  dropped when that team is marked cleared. Each team's picker, Battles stepper, and
+  recommendation are now wrapped in one addressable block so all three highlight
+  together. Nothing about the highlight is persisted.
+- **No Mark used button on the Next Up card** — that action stays on the team card,
+  in one place, so there is never a question of which button did what.
+- **No order numbers on the other teams**, for now. On an already-dense mobile card,
+  marking only the head of the queue carries the useful signal at a fraction of the
+  visual cost. Revisit if the queue turns out to be wanted at a glance.
+- **Two empty states**, so the card never reads as broken: no teams picked yet
+  (invites board setup), versus teams picked but nothing playable (says so, and
+  points at the per-team notes that explain why).
+- **Backend:** `action=data` gains a sixth key, `defenceTeams`, keyed mode -> team
+  name -> `{ threat, notes }`. Threat is upper-cased server-side; the `ANY` wildcard
+  and the `NORMAL` default are resolved client-side. Backwards-compatible — an older
+  frontend ignores the unknown key.
+- **Phase-aware ordering deferred.** Attacking the fragile battles first is right
+  when there is time and bench to absorb a failure; late in a round, banking the
+  certain wins first may be better. The phase boundary is exactly what real matches
+  will reveal and speculation won't, so the rule stays a single consistent ordering
+  for now. All the inputs it would need are already computed on the same screen.
+- **Frontend:** `APP_VERSION` -> 3.0; service-worker cache bumped to
+  `swgoh-cache-v12` to force fresh `app.js` and `styles.css` for installed users.
+- Verified in a jsdom sandbox: 48 checks covering threat resolution and mode
+  precedence, the lane rule and its safety valve, each tiebreak in turn, the two
+  tracks, live re-ordering as counters are used, both empty states, the focus
+  highlight lifecycle, and regression checks on the existing recommendation cards,
+  Battles stepper, undersize line, banner tracking, and can-I-win verdict.
