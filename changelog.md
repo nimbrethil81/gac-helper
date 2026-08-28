@@ -1,4 +1,7 @@
 # Changelog
+
+Entries are the record of what changed and when. Reasoning that is still true of the system belongs in SPEC.md, which describes it as built; planned work is tracked as issues. From 3.3 entries are kept short — a one-line summary and bullets naming what changed and where. Earlier entries are longer, and are left as written.
+
 ## v1.0
 - Initial PWA
 - Google Sheets integration
