@@ -31,6 +31,7 @@ A mobile-first Progressive Web App that helps players make faster, better Grand 
    - 6.9 [Points to Win](#69-points-to-win)
    - 6.10 [Can I Still Win?](#610-can-i-still-win)
    - 6.11 [Battle Order](#611-battle-order)
+   - 6.12 [First Attack](#612-first-attack)
 7. [Roster Model](#7-roster-model)
 8. [Roadmap](#8-roadmap)
 9. [Success Criteria](#9-success-criteria)
@@ -144,6 +145,10 @@ As of v2.8, and refined further in v2.9, these columns own **non-overlapping** p
 
 The `Reliability` (`High` / `Medium` / `Low`) column present through v2.8 is **retired as of v2.9**: with Tier defined as reliability, it measured the same axis at coarser grain and was redundant. The Apps Script never read it, so its removal is a sheet cleanup with no code impact. The distinct concern of *manual-play effort* — orthogonal to how good a counter is — is not folded into Tier; it is a candidate future attribute (see **Pilot difficulty** in [§8](#8-roadmap)), partially served today by the free-text `Notes` column. Because the Apps Script reads the Counters tab by header name, any unread column is silently ignored by the payload.
 
+**Derived columns.** Two columns on the Counters tab are **calculated, not authored**: the counter's display name (looked up from Counter_Definitions by `Counter_ID`) and the score-meaning label (looked up from Score_Meanings by `Mode` and `Banner Score`). Each is a single open-ended `ARRAYFORMULA` living in the first data row, so both fill themselves as new counter rows are added and neither should ever be typed over — a manual entry in any cell below the first breaks the whole column with a spill error. The authored columns are `Mode`, the defence-team name, `Counter_ID`, `Tier`, `Banner Score`, `Undersize` and `Notes`; everything else on the tab derives itself. The derived columns are given a distinct fill and a warn-on-edit protected range in the sheet, so the distinction is visible at the point of authoring rather than only recorded here.
+
+A consequence of the open-ended formulas is that the tab reports a row extent far beyond the authored data, because a formula cell counts as used whether or not it produces a value. The Apps Script therefore ingests a Counters row only if it carries all three of `Counter_ID`, `Mode` and the defence-team name (see [§5](#5-api-contract)); rows failing that test are skipped silently, keeping the payload the phone downloads sized to the real catalogue rather than to the sheet's full height. The practical consequence for authoring is that a half-filled row simply will not appear in the app.
+
 **Counter_Definitions** — the identity registry for counter teams. One row per counter, holding its stable `Counter_ID` and display name. Identity only; membership lives in Counter_Composition. Fleet counters live here too, their membership being ships and capital ships rather than characters.
 
 **Counter_Composition** — the membership table. One row per unit in a counter team, recording the `Counter_ID`, the `Character_ID`, and whether that unit is `REQUIRED` or `RECOMMENDED`. This normalised structure replaced the earlier approach of packing character lists into single cells, and allows data validation on the character column to prevent invalid IDs at entry time. For a fleet counter, the `Character_ID`s reference `SHIP`/`CAPITAL_SHIP` units.
@@ -156,6 +161,8 @@ The `Reliability` (`High` / `Medium` / `Low`) column present through v2.8 is **r
 
 **GAC_Scoring** — the GAC banner economy. One row per rule, keyed by `Rule_ID` plus `Battle_Type` (`SQUAD`, `FLEET`, or `ANY`) plus `Mode` (`5v5`, `3v3`, or `ANY`). Values cover victory bonuses, first- and second-attempt bonuses, per-unit surviving/full-health/full-protection bonuses, unused-slot bonuses, defeated-enemy points, first-attack bonus, and territory-clear bonuses. This is the single source of truth for banner scoring and is the data source consumed by the Points-to-Win calculator (see [§6.9](#69-points-to-win)). As of v2.6 the tab also carries `OWN_UNITS` and `ENEMY_UNITS` rows — the count of the player's own units that earn per-unit survival bonuses in a clean win, and the count of enemy units defeated. These are equal for squad battles (5v5 → 5, 3v3 → 3) and, following the v2.8 fleet correction, for fleet as well (7 each — capital ship + 6; a flawless first-attempt 7-ship win banks 73, per the SWGOH Wiki). They are modelled as two separate values so the model stays correct for any future battle type where own and enemy counts differ. The app supplies correct fallbacks for these counts, so the calculator is accurate even before the rows are populated; adding them keeps the sheet the single source of truth. Values were initially sourced from the SWGOH Wiki. The `SCORING_REFERENCE.md` companion documents the per-mode ceilings and the meaning ladder used to author `Banner Score` values. Guarded like GAC_Board_Config.
 
+As of v3.1 this tab does more than price battles: the First Attack rule (see [§6.12](#612-first-attack)) derives its risk threshold from it. The `FIRST_ATTACK` row is now actually consumed, and the per-unit `SURVIVING_UNIT` / `FULL_HEALTH_UNIT` / `FULL_PROTECTION_UNIT` rows are read a second way — summed, they give the banner cost of one of the player's own units failing to come through a battle intact, which converts a counter's `Banner Score` into an expected unit loss. Nothing new is authored for this; it is a second reading of rows that already exist, so retuning the scoring rows retunes the risk bar with them.
+
 **Defence_Teams** — authored attributes of an **enemy** defence team, introduced in v3.0. One row per (Defence_Team, Mode) combination, holding a `Threat` rating and free-text `Notes`. `Mode` carries `5v5`, `3v3`, `FLEET`, or `ANY`; a mode-specific row beats an `ANY` row, mirroring how GAC_Scoring resolves. This is the only tab keyed on a defence team rather than a counter, and it is keyed by the **display name** used in the Counters tab's defence-team column — the same string the opponent board stores — so the board, the counter catalogue, and this tab all agree on one name.
 
 > **Why Threat has to be authored.** Battle Order needs to know how hard a defence team is. Every signal the app could derive that from — how many counters are catalogued, what tiers they carry, what they score — measures the **data**, not the enemy. A thinly-documented easy team would look scarcer than a Galactic Legend with two well-known answers, and a Galactic Legend with one excellent S-tier counter would look *easy* by every derived measure, because its difficulty lies in the scarcity of the answer rather than in the fight. `Threat` is therefore a hand-authored judgement, exactly as `Tier` is, and for the same reason: it encodes signal the app holds no data on. See [§6.11](#611-battle-order).
@@ -166,7 +173,7 @@ The tab is **optional and incremental**. It is guarded on the backend like GAC_B
 
 **GAC History** — reserved for future match-result tracking.
 
-**Expected Banners** — a reference table mapping banner scores to their practical meaning.
+**Score_Meanings** — a reference table mapping a (`Mode`, `Banner Score`) pair to that score's practical meaning. It is the source for the Counters tab's derived score-meaning column and the in-sheet companion to the meaning ladder documented in `SCORING_REFERENCE.md`. The Apps Script does not read it; it exists to keep `Banner Score` authoring consistent. (Documented as “Expected Banners” through v3.0 — the live tab has been `Score_Meanings` and the spec name was stale.)
 
 > **Composition is mode-agnostic across squad formats.** The required core of a character counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. If a counter ever needs a genuinely different required core per mode, a `Mode` column (`5v5` / `3v3` / `BOTH`) can be added to Counter_Composition without disturbing the rest of the model. Fleet is modelled as an additional `Mode` value (`FLEET`) on the Counters tab rather than a separate format axis, since the fleet territory is present in every GAC regardless of the character format; a fleet counter's required core is its ships, drawn from the same Counter_Composition table.
 
@@ -231,7 +238,7 @@ Returns a single JSON object with six top-level keys. This contract is the bound
 }
 ```
 
-**counters** — keyed by mode, then by defence team name, to an array of counter entries. Each entry carries its counter ID, display name, tier, banner score, undersize count, and notes. From v2.8 the `undersize` field is a number (the droppable-unit count) rather than a `Yes`/`No` string; the Apps Script parses the sheet cell to a number, resolving any non-numeric or blank value to `0`. The payload is seeded with the `5v5` and `3v3` keys so they always exist; a `FLEET` key is emitted automatically when the sheet contains counter rows whose `Mode` is `FLEET`. The mode string is used verbatim as the key, so a fleet counter's `Mode` cell must read exactly `FLEET`.
+**counters** — keyed by mode, then by defence team name, to an array of counter entries. Each entry carries its counter ID, display name, tier, banner score, undersize count, and notes. From v2.8 the `undersize` field is a number (the droppable-unit count) rather than a `Yes`/`No` string; the Apps Script parses the sheet cell to a number, resolving any non-numeric or blank value to `0`. The payload is seeded with the `5v5` and `3v3` keys so they always exist; a `FLEET` key is emitted automatically when the sheet contains counter rows whose `Mode` is `FLEET`. The mode string is used verbatim as the key, so a fleet counter's `Mode` cell must read exactly `FLEET`. A row is ingested only if it carries a counter ID, a mode and a defence team name; rows missing any of the three are skipped. This guards the payload against the Counters tab's open-ended derived-column formulas, which extend the sheet's reported row extent well past the authored data (see [§4.1](#41-sheet-structure)). Mode and defence-team names are trimmed before use as keys, so incidental trailing whitespace cannot create a duplicate, unreachable bucket.
 
 **counterDefinitions** — keyed by `Counter_ID`:
 
@@ -333,7 +340,7 @@ A wayfinding line on the Counters screen points the user to the Round screen for
 
 The user can mark a counter as used during a round. Used counters are keyed on their stable `Counter_ID` and persist across app launches. A round reset clears all used teams (and banner tracking and the opponent board — see [§6.6](#66-round-screen)).
 
-Used status is surfaced as part of the unified tri-state counter status (see [§6.5](#65-counter-status)). Used cards are displayed at 0.5 opacity with a grey "Used" status word; the Mark Used button is suppressed on used cards. Used teams are counted in the Current Round summary card, which appears on both the Counters and Round screens. From v2.1, counters can also be marked used directly from the Round screen's per-team recommendations (see [§6.8](#68-allocation-engine)); the state is shared. This applies to fleet counters as well as squad counters.
+Used status is surfaced as part of the unified counter status (see [§6.5](#65-counter-status)). Used cards are displayed at 0.5 opacity with a grey "Used" status word; the Mark Used button is suppressed on used cards. Marking a counter used also spends its required units for the round, which retires any *other* counter needing one of them (v3.2) — the Current Round count still tracks battles fought, not counters retired. Used teams are counted in the Current Round summary card, which appears on both the Counters and Round screens. From v2.1, counters can also be marked used directly from the Round screen's per-team recommendations (see [§6.8](#68-allocation-engine)); the state is shared. This applies to fleet counters as well as squad counters.
 
 ### 6.3 Banner Tracking
 
@@ -342,6 +349,8 @@ The user tracks the current round's score: their own current score and the oppon
 From v2.1, banner tracking lives on the Round screen alongside the opponent board (see [§6.6](#66-round-screen)), consolidating the live-match workspace into a single view.
 
 **Calculated remaining (v2.6, whole-board from v2.9).** The remaining-banners figure is derived by walking every uncleared team across the whole opponent board — including locked back territories (see [§6.9](#69-points-to-win)) — and applying the GAC_Scoring rules — victory, the attempt bonus keyed to each team's Battles count (see [§6.7](#67-opponent-board)), per-unit survival/full-health/full-protection bonuses, defeated-enemy points, and per-territory clear bonuses — to produce the theoretical maximum still bankable with a perfect finish. Because it counts the whole board, the figure starts at the full-board ceiling and only falls as teams are cleared, rather than jumping upward as back territories unlock. The field remains **overridable**: typing a value sets a manual override, shown with an amber marker and a "Use calculated" link to dismiss it. Any change to the board (clearing or un-clearing a team, adjusting a Battles count, setting a team) discards the override and restores the live calculated figure, so a stale hand-typed value can never silently persist. When no board exists the field reads zero and invites either board setup or a typed value. Reset Round and the empty-board state both leave the field on the calculated (no-override) state; earlier stored numeric `remaining` values migrate to no-override on load.
+
+**First-attack bonus included (v3.1).** While the round's opening battle is still unfought, the calculated figure now includes the one-off `FIRST_ATTACK` bonus. The board walker had always accepted a flag for this and nothing ever passed it, so from v2.6 to v3.0 a fresh board understated its own ceiling by exactly that bonus — and points-to-win and the can-I-still-win verdict both read pessimistically at the very moment the player was deciding how hard to fight. Whether the bonus is still available is derived, not stored (see [§6.12](#612-first-attack)), so it drops out of the figure automatically once the first battle is fought. Expect the number on a fresh board to be higher than it was before v3.1.
 
 **Opponent final-score marker (v2.7).** The opponent-score field carries a marker for whether the entered number is their **final** score or just their **current** one (the default). It is stored as `bannerData.oppFinal` and drives the "can I still win?" verdict (see [§6.10](#610-can-i-still-win)): a final score lets that verdict give a clean yes/no, whereas a current score is treated as a floor that may still rise. Marking the score final also relabels the field ("Opponent's final score") and suppresses the points-to-win "their score will rise" caveat, which no longer applies. The marker uses the same override shape as the remaining field — a visible state with a link to revert. It defaults to *not final* and is reset by Reset Round.
 
@@ -363,33 +372,36 @@ A staleness-gated background sync keeps API rosters current without user action 
 
 ### 6.5 Counter Status
 
-Each counter carries a tri-state status derived from two independent axes:
+Each counter carries a four-state status derived from two independent axes:
 
 **Ownership axis** (static, roster-derived) — whether the player owns all required units for a counter. A counter is **owned** when every `REQUIRED` unit is in the player's roster; `RECOMMENDED` units are not considered. This is computed by `getOwnership()`, and applies identically to fleet counters (whose required units are ships).
 
-**Round axis** (dynamic, round-derived) — whether an owned counter has been used this round. This is tracked via `usedTeams` in `localStorage`.
+**Round axis** (dynamic, round-derived) — whether an owned counter can still be fielded this round. Two things can stop it: the counter itself has been marked used (tracked via `usedTeams` in `localStorage`), or a unit it requires went out with an *earlier* counter. Offence spends units for the whole round whatever the battle's outcome, so a counter sharing a `REQUIRED` character with a used one is unfieldable even though it has never been marked used itself. From v3.2 this second case is a state of its own — **Unavailable** — computed by `spentCharacters()` / `spentClashes()` from the required units of everything in `usedTeams`. Only `REQUIRED` units are spent; `RECOMMENDED` units are advice, not a claim on a unit, and never block a second counter.
 
-The two axes combine into three card states, computed by `getCounterStatus()`:
+The two axes combine into four card states, computed by `getCounterStatus()`:
 
 | State | Condition | Status word | Opacity |
 |---|---|---|---|
-| Available | Owned and not yet used | Green "Available" | Full |
+| Available | Owned, not used, and no required unit spent | Green "Available" | Full |
 | Used | Owned and already used this round | Grey "Used" | 0.5 |
+| Unavailable | Owned and unused, but a required unit was spent by an earlier counter | Grey "Unavailable" | 0.5 |
 | Not owned | Missing one or more required units | Grey "Not owned" | 0.5 |
 
-**Precedence:** Not owned dominates. Used state is only meaningful for owned counters — a counter missing required units is always Not owned regardless of used state.
+**Precedence:** Not owned dominates, then Used, then Unavailable. Round state is only meaningful for owned counters — a counter missing required units is always Not owned regardless. A counter that is itself used never reads Unavailable: its own claim on its units is what "used" means.
 
 **Missing units** — Not owned cards list their missing required units by display name beneath the notes line.
+
+**Spent units** — Unavailable cards name the clash beneath the notes line ("🔒 Units spent: Darth Bane was used with Bane."), so a greyed card with no missing-units line can't be mistaken for a bug. The Mark Used button is suppressed, as it is on Used and Not owned cards.
 
 **Filter** — a three-segment control [All] [Owned] [Available] sits below the team selector and above the results list. It is visually subordinate to the mode toggle. The three segments form a nested hierarchy (All ⊇ Owned ⊇ Available), with each a strict subset of the one before. The selected filter persists in `localStorage` and defaults to All.
 
 **Empty states** — each filter produces context-appropriate copy when no counters match:
 - **All** — "No matching defence teams found." (no counters in data for this team)
 - **Owned** — "You don't own any counters for this team."
-- **Available** — "You've used all your counters for this team." (when at least one is owned but all are used); otherwise falls through to the Owned copy.
+- **Available** — "You've used all your counters for this team." (when at least one is owned but all are used); "Your remaining counters for this team need units you've already used this round." (when at least one owned counter is Unavailable); otherwise falls through to the Owned copy.
 - **Owned / Available with no roster** — "Set up your roster to see which counters you can field."
 
-**Sort order** — counters are sorted by status group first (Available → Used → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
+**Sort order** — counters are sorted by status group first (Available → Used → Unavailable → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
 
 ### 6.6 Round Screen
 
@@ -431,7 +443,7 @@ The allocation engine surfaces per-team counter recommendations across the whole
 **Eligibility.** For each visible-uncleared board team, the engine derives the set of counters that are:
 - Present in the counter catalogue for that team (the board's squad format for squad territories, the FLEET catalogue for the fleet territory).
 - **Owned** by the player (all required units present — reuses `getOwnership()`).
-- **Not yet used** this round (checks `usedTeams`).
+- **Still fieldable** this round — neither marked used itself, nor requiring a unit an earlier used counter has already spent (status `available`; see [§6.5](#65-counter-status)). Before v3.2 this checked `usedTeams` for the counter alone, which let a counter whose required unit had already gone out keep presenting itself as a live option.
 
 Not-in-catalogue placeholder teams contribute no candidates and receive an explanatory reason instead of a recommendation.
 
@@ -448,7 +460,7 @@ The undersize adjustment affects *ranking* only. The recommendation card's headl
 Two exclusivity constraints are enforced natively:
 
 - **Counter-level.** A counter can appear in at most one assignment in a plan.
-- **Unit-level.** Two counters that share a required unit can never both appear in the same plan, since units used on offence are spent for the round. The plan explains clashes by name in the losing team's reason. Because ships and characters occupy disjoint unit sets, a fleet counter and a squad counter never collide; the fleet allocation is effectively independent of the squad allocation, while two fleet teams contesting the same owned ship are still arbitrated correctly.
+- **Unit-level.** Two counters that share a required unit can never both appear in the same plan, since units used on offence are spent for the round. From v3.2 the same rule holds against *history* as well as within a plan: a counter sharing a required unit with one already marked used is excluded at the eligibility step above, not just from co-assignment. The plan explains clashes by name in the losing team's reason. Because ships and characters occupy disjoint unit sets, a fleet counter and a squad counter never collide; the fleet allocation is effectively independent of the squad allocation, while two fleet teams contesting the same owned ship are still arbitrated correctly.
 
 The search order (teams by ascending candidate count, candidates by tier then undersize-adjusted score) means the first complete path is the greedy scarcity-first answer. A 50 000-node budget guards against pathological cases; because the greedy path is explored first, exhausting the budget can only produce a result equal to or better than pure greedy. The branch-and-bound bound is coverage-only, so it is unaffected by the v2.9 change to the banner term.
 
@@ -460,7 +472,7 @@ The search order (teams by ascending candidate count, candidates by tier then un
 - From v2.8, an **undersize line** when the chosen counter has a droppable-unit count > 0 (see [§4.1](#41-sheet-structure)): it shows the reconstructed best-case total most prominently, then the drop count and bonus — e.g. "67 banners if you undersize · drop up to 2 for +2". Counters that cannot undersize show no such line. This annotates a recommendation the player is already reading rather than adding a screen or a decision, and the underlying `undersizeInfo` helper is shared with the lookup card (see [§6.1](#61-counter-lookup)).
 - A **Mark used** button that commits the counter to `usedTeams` immediately and triggers a re-solve. The state is shared with the Counters screen (see [§6.2](#62-used-team-tracking)).
 
-Teams with no recommendation receive one of four distinct plain-English reasons: no counters in the catalogue yet, none owned, all owned counters already used, or the only eligible counter is committed to another team.
+Teams with no recommendation receive one of five distinct plain-English reasons: no counters in the catalogue yet, none owned, all owned counters already used, an owned counter blocked by a unit already spent elsewhere ("SEE and Bane can't be fielded — Darth Bane was used with Bane."), or the only eligible counter is committed to another team.
 
 **Scope.** As of v2.5 the engine runs against every unlocked territory, squad and fleet alike. Each team draws candidates from its own catalogue, and the shared ownership, used-state, and exclusivity logic applies uniformly.
 
@@ -475,6 +487,8 @@ Introduced in v2.6, this feature answers "how many banners do I still need to wi
 **Battle best case.** A clean win: every own unit survives at full health and protection, and every enemy is defeated. The attempt bonus is chosen from the team's Battles count (see [§6.7](#67-opponent-board)) — the next battle is treated as the first, second, or third-plus attempt accordingly. Unit counts come from a **two-count model**: how many of the player's own units earn per-unit survival bonuses, and how many enemy units are defeated. These are equal for squads (5/5, 3/3) but distinct in general, and are sourced from the `OWN_UNITS` / `ENEMY_UNITS` scoring rows (see [§4.1](#41-sheet-structure)), with in-app fallbacks. **Fleet is a 7-unit format** (capital ship + 6), so both counts are 7 — a correction confirmed in v2.8 against the SWGOH Wiki "Fleet Max Banners" table, which shows a flawless first-attempt 7-ship win banking 73. (The two-count model was originally specced with fleet as 8; the fallback in `ownUnitCount` / `enemyUnitCount` is corrected to 7, and any fleet `OWN_UNITS` / `ENEMY_UNITS` rows added to the sheet should read 7.) Fleet reinforcement slots left empty at setup would earn unused-slot bonuses, but a full-clean-clear best case has none; the deliberate-undersize case is surfaced as advice by the undersize display (see [§6.8](#68-allocation-engine)) and would be optimised by the future efficiency calculator (see [§8](#8-roadmap)).
 
 **Verdict.** Points-to-win is defined as (opponent's current score + 1) − own current score: the banners needed to pull ahead of where the opponent stands now. This is compared against the calculated best-case remaining to decide reachability. The readout resolves to one of three states, each a crisp headline plus an honest support line: **already ahead** ("Ahead by X"), **reachable** ("Points to win: X", with the clean-finish total shown as enough, plus any spare, or "just enough"), or **short** ("Points to win: X", with the clean finish falling a stated amount short). The headline is colour-coded — green when ahead, red when short. Every phrasing refers to the opponent's *current* score, and a one-time caveat notes that their score rises as they attack the player's defence, since only the player's own offence is modelled. The verdict recomputes live as scores are typed, without dropping input focus.
+
+**First-attack bonus (v3.1).** The walker's `firstAttackAvailable` option — specified in v2.6 and never passed until v3.1 — is now supplied from the derived opening-battle state (see [§6.12](#612-first-attack)), so the one-off bonus is counted while it is still winnable and drops out once spent. This was a wiring gap rather than a modelling error: the rule, the data row, and the walker branch all existed and agreed; only the call site omitted the flag.
 
 **Data caveat.** Points-to-win uses full-clean-clear best cases, consistent with the documented 69-banner single-battle maximum. The fleet per-ship and defeated-enemy values remain earmarked for a real-battle spot-check before the efficiency calculator is built on them; the points-to-win figure itself is unaffected, since it uses the full-clear best case.
 
@@ -517,6 +531,49 @@ This distinction matters because it changes what "difficulty" has to mean. The o
 **Empty states.** Two, distinguished so the card never reads as broken: with no teams picked yet, it invites the player to populate the board; with teams picked but nothing playable, it says so and points at the per-team notes that explain why.
 
 **Re-solve model.** Like the allocation plan it reads, the battle order is computed live on every Round-screen render and never persisted. Marking a counter used, clearing a team, editing the board, or refreshing the roster all re-order it for free.
+
+**One exception.** The rule above governs every battle of the round except the first, for which the objective inverts — see [§6.12](#612-first-attack).
+
+### 6.12 First Attack
+
+Introduced in v3.1. The round's **opening battle** is the single exception to the fragility ordering in [§6.11](#611-battle-order), and for it the objective inverts: not "which battle is most fragile" but **"which battle am I most certain to win cleanly"**. After that battle the standard rule resumes, unchanged.
+
+**Why the exception exists.** The fragility model prices a failure in units, and units are exactly what the allocation engine re-plans around — losing some is recoverable. The first battle additionally carries the one-off `FIRST_ATTACK` bonus, and that bonus is **spent by the first battle whatever its outcome**: lose and forfeit, and it is gone for the round. It does not carry to the next battle. So a failure in the opening battle costs something the fragility model cannot price, because no later re-planning recovers it — and in a close round it can be the difference between winnable and not.
+
+The cost of the exception is that the most fragile battle is delayed by exactly one, which is a real but small loss of recovery headroom. That is a cheap trade against a bonus that can decide the round.
+
+**Squad only, permanently.** Back Top is locked until Front Top is cleared, and clearing a territory means attacking it, so a fleet battle can never be the round's opener. The fleet track keeps the standard rule throughout; no special handling is needed and none is speculatively added.
+
+**Opening ordering rule.** Lexicographic, best-first:
+
+1. **Tier** — **best** first, inverted from the standard rule. Certainty is the entire objective for this battle.
+2. **Front Bottom** — the lane preference sits immediately below tier, so it wins whenever reliability is level. The player never leaves the lane for banners, only for certainty. Note this is a **ranking key here, not the gate** it is in the standard rule: if the only reliable answers sit in Front Top, the opener goes there. This is what makes the "everything in Front Bottom is hard" case fall out of the ranking rather than needing a threshold rule of its own.
+3. **Banner score** — highest **full-squad** score, used as a cleanliness proxy: a low expected score means shed units and a likely cleanup team, which is precisely the outcome that costs the bonus.
+4. **Threat** — **lowest** first, again inverted; the easiest defence wins.
+5. Board position, for determinism.
+
+**Undersizing is suppressed.** The standard ranking prefers counters that can safely drop units, because dropping banks more (see [§6.8](#68-allocation-engine)). For the opening battle that is exactly the wrong trade: undersizing adds risk to the one battle carrying an unrecoverable bonus. The opener therefore ranks on the plain full-squad score, and the card tells the player to field the full squad rather than showing the drop advice. Undersize advice returns automatically for every subsequent battle.
+
+**Risk warning.** The card names a pick on any board, but flags when that pick puts the bonus at risk. Two independent triggers:
+
+- **Unreliable tier** — the best available answer is only B or C. Because tier is the opening rule's *first* key, the chosen opener always carries the best tier on the board, so this is a genuine board-level statement: nothing better exists.
+- **Expected messiness** — the opener is expected to shed **three or more** of the player's own units. This is derived, not hard-coded: the app computes a flawless first-attempt win for the format from GAC_Scoring, and the banner cost of one own unit as the sum of the per-unit survival bonuses. On the current data that resolves to a full-squad score of **56 or below in 5v5**, 48 or below in 3v3, and 64 or below in fleet. Retuning the scoring rows retunes the bar.
+
+A counter with no authored banner score is treated as *unknown*, not messy: the messiness check is skipped and only tier can flag it.
+
+> **A known interaction.** Because the lane preference sits above banner score, a Front Bottom answer can be chosen over a cleaner same-tier answer in another territory, and then warn for messiness even though a cleaner opener existed on the board. This follows directly from the deliberate decision to place lane below tier only. The messiness warning is therefore worded as a statement about *the pick* rather than the board, while the tier warning — which is safe to generalise — is worded about the board. Flagged here because real rounds may show whether the lane preference should sit below banners instead.
+
+**Detecting the opening state.** Derived from board and used-team state, never stored — there is no "first attack spent" flag to keep in sync and no way for one to drift from reality. Three independent signals, any one of which means an attack has happened:
+
+- a counter has been marked used — the units are spent, so a battle was fought (or forfeited, which spends the bonus just the same);
+- a team's Battles count is above zero — the in-game counter has moved;
+- a team is marked cleared — a team cannot be cleared without attacking it, and this catches the case where a team is cleared without touching its stepper.
+
+The test is deliberately **live rather than sticky**: correcting a mis-tapped Battles count back to zero restores the opening state, which is correct, because no attack happened. Marking a counter used has no undo anywhere in the app, so that signal is effectively one-way for the round — a mis-tap costs an advisory line, not any state.
+
+The same derived state supplies the first-attack bonus to the banner calculation (see [§6.3](#63-banner-tracking)), so the two can never disagree about whether the opening battle has been fought.
+
+**Display.** The Next Up card retitles to **⚡ FIRST ATTACK** and switches to amber for this one battle, then reverts. A different objective is worth saying plainly rather than silently changing what an identical-looking card means. The row adds a note explaining that the bonus is paid once and to play the battle full squad, plus the risk warning where it applies. The empty states keep the ordinary Next Up title, since with nothing to recommend there is no opener to frame.
 
 ---
 
@@ -581,8 +638,14 @@ The allocation engine now *chooses* by achievable banners: its final tiebreak be
 **v3.0 — Battle Order** · *Complete*
 A **Next Up** card at the top of the Round screen recommending which enemy team to attack next, as a scheduling pass over the allocation engine's finished plan (see [§6.11](#611-battle-order)). Ranks by fragility — Threat, then fallbacks, then worst tier — behind a Front Bottom lane rule that switches off once that territory is cleared, with squad and fleet as independent tracks. Introduces the **Defence_Teams** sheet tab and its authored `Threat` rating (see [§4.1](#41-sheet-structure)), the first tab keyed on an enemy defence team rather than a counter, added as a sixth `action=data` payload key. Optional and incremental: absent data reads as `NORMAL` throughout, so the feature ships working and improves as ratings are authored. This delivers the "recommend attack order" strand named in the original overview.
 
+**v3.1 — First Attack** · *Complete*
+Inverts the Battle Order objective for the round's opening battle only, because the one-off first-attack bonus is spent by that battle whatever its outcome and no later re-planning recovers it (see [§6.12](#612-first-attack)). Ranks by certainty — best tier, then the Front Bottom preference as a ranking key rather than a gate, then cleanest expected win — suppresses undersize advice for that battle, and warns when no safe opener exists, with the risk bar derived from GAC_Scoring rather than hard-coded. Also closes a standing wiring gap: the `FIRST_ATTACK` bonus is now included in the calculated remaining-banners figure while it is still winnable (see [§6.3](#63-banner-tracking)), correcting a fresh-board understatement that had made points-to-win and the can-I-win verdict read pessimistically since v2.6.
+
+**v3.2 — Spent Units** · *Complete*
+Closes a correctness gap in used-team tracking: a counter sharing a `REQUIRED` character with one already marked used now reads **Unavailable** instead of Available (see [§6.5](#65-counter-status)). Offence spends units for the round whatever the battle's outcome, and the allocation engine has enforced that between counters *within* a plan since v2.1 — but the underlying status never enforced it against the counters already sent, so with "Bane" used, "SEE and Bane" kept offering itself against every later team, on the Counters screen and as a board recommendation alike. No data, sheet, or Apps Script change: the `REQUIRED` roles the rule needs were already in `Counter_Composition`.
+
 **Phase-aware battle ordering** · *Deferred, pending real-play feedback*
-The v3.0 rule is deliberately a single consistent ordering: attack the most fragile battles first, because that is right when there is still time and bench to absorb a failure. Late in a round, when chasing a specific margin against a known opponent score, the opposite may be preferable — bank the certain wins first and accept that the risky battle may not get fought at all. Making the order shift as the round progresses was considered for v3.0 and deferred rather than guessed at, on the grounds that the phase boundary (what counts as "late") is exactly the thing real matches will reveal and speculation will not. The inputs it would need — remaining banners, points to win, and the winnability verdict — are all already computed on the same screen, so this is an ordering change rather than new machinery.
+The v3.0 rule is deliberately a single consistent ordering: attack the most fragile battles first, because that is right when there is still time and bench to absorb a failure. Late in a round, when chasing a specific margin against a known opponent score, the opposite may be preferable — bank the certain wins first and accept that the risky battle may not get fought at all. v3.1 establishes the shape such a rule would take — a named phase with its own inverted objective, entered and left on derived state — so this would extend an existing pattern rather than introduce one. Making the order shift as the round progresses was considered for v3.0 and deferred rather than guessed at, on the grounds that the phase boundary (what counts as "late") is exactly the thing real matches will reveal and speculation will not. The inputs it would need — remaining banners, points to win, and the winnability verdict — are all already computed on the same screen, so this is an ordering change rather than new machinery.
 
 **Threat as a board-wide display attribute** · *Candidate*
 `Threat` is currently consumed only by Battle Order and surfaced only in the Next Up reason line. A small extension would show it on the opponent board itself — a badge on each team card — so the player can see the shape of the board at a glance rather than one battle at a time. Deliberately held back from v3.0 to keep the first release of the rating focused on the decision it was introduced for, and because board cards are already dense.
@@ -621,6 +684,6 @@ A user should be able to:
 
 ## 10. Future Vision
 
-The long-term direction is a roster-aware GAC planning assistant. With v2.1 the app crossed from *catalogue lookup* into *board-aware allocation*; v2.5 brought fleet combat inside the same model, so the board and the allocation engine now cover a full GAC round; v2.6 added explicit points-to-win maths on top, modelling the player's own remaining offence; v2.7 turned that into a mathematical-winnability verdict for deciding when a round is worth fighting; v2.8 surfaced undersize payoffs on the recommendation cards; v2.9 made the engine act on them, choosing by achievable banners; and v3.0 crossed from allocation into *sequencing*, recommending not just which counter to field but which battle to fight next. The next steps build directly on that engine: **My Board** extends the same side-agnostic walker to the opponent's remaining offence for a two-sided prediction, **phase-aware battle ordering** would let the recommended order shift as a round nears its end, a **per-battle undersize advisor** would recommend an exact unit count per fight, and **pilot difficulty** would let the player filter by manual-play effort without perturbing the ranking. Beyond that, potential future capabilities include opponent-roster analysis, statistical counter recommendations, and (subject to feasibility) automated board setup from live match data.
+The long-term direction is a roster-aware GAC planning assistant. With v2.1 the app crossed from *catalogue lookup* into *board-aware allocation*; v2.5 brought fleet combat inside the same model, so the board and the allocation engine now cover a full GAC round; v2.6 added explicit points-to-win maths on top, modelling the player's own remaining offence; v2.7 turned that into a mathematical-winnability verdict for deciding when a round is worth fighting; v2.8 surfaced undersize payoffs on the recommendation cards; v2.9 made the engine act on them, choosing by achievable banners; v3.0 crossed from allocation into *sequencing*, recommending not just which counter to field but which battle to fight next; and v3.1 recognised that the opening battle plays by different rules, because the bonus riding on it cannot be won back. The next steps build directly on that engine: **My Board** extends the same side-agnostic walker to the opponent's remaining offence for a two-sided prediction, **phase-aware battle ordering** would let the recommended order shift as a round nears its end, a **per-battle undersize advisor** would recommend an exact unit count per fight, and **pilot difficulty** would let the player filter by manual-play effort without perturbing the ranking. Beyond that, potential future capabilities include opponent-roster analysis, statistical counter recommendations, and (subject to feasibility) automated board setup from live match data.
 
 Throughout, the app should continue to prioritise simplicity and speed. The goal is a personal SWGOH Grand Arena strategist — not a reimplementation of SWGOH.gg.

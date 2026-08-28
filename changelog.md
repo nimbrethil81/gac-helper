@@ -440,3 +440,130 @@ sequencing, and the reason for the major-version bump.
   tracks, live re-ordering as counters are used, both empty states, the focus
   highlight lifecycle, and regression checks on the existing recommendation cards,
   Battles stepper, undersize line, banner tracking, and can-I-win verdict.
+
+## v3.1 — First Attack
+The round's opening battle plays by different rules, so Battle Order now treats it
+as an exception. For that one battle the objective **inverts** — from "which battle
+is most fragile" to "which battle am I most certain to win cleanly" — and then the
+v3.0 rule resumes unchanged. Also closes a standing wiring gap in the banner maths.
+
+- **Why the opener is different.** Every other failed battle costs *units*, and
+  units are exactly what the allocation engine re-plans around — losing some is
+  recoverable. The first battle also carries the one-off `FIRST_ATTACK` bonus, and
+  that bonus is **spent by the first battle whatever happens**: lose and forfeit,
+  and it's gone for the round, with no carry to the next battle. So a failure there
+  costs something no later re-planning recovers, and in a close round it can decide
+  winnable versus not.
+- **Opening ranking**, best-first: **best tier** -> **Front Bottom** -> **cleanest
+  expected win** (highest full-squad score) -> **lowest Threat** -> board position.
+  Every key that runs worst-first in the standard rule runs best-first here.
+- **Front Bottom is a ranking key here, not a gate.** In the standard rule the lane
+  filters the candidate pool; for the opener it is just the second sort key, sitting
+  immediately below tier. So the lane preference wins whenever reliability is level,
+  but if the only reliable answers are in Front Top, that's where the opener goes.
+  The "all my front-bottom battles are hard" case falls out of the ranking with no
+  threshold rule needed for it.
+- **Undersize advice suppressed for the opener.** The standard ranking prefers
+  counters that can safely shed units because dropping banks more; on the battle
+  carrying an unrecoverable bonus that's the wrong trade. The opener ranks on the
+  plain full-squad score and the card says to field the full squad. Advice returns
+  automatically for every later battle.
+- **Risk warning**, on two independent triggers. **Tier:** the best available answer
+  is only B or C — a genuine board-level statement, since tier is the opening rule's
+  first key, so nothing better exists. **Messiness:** the opener expects to shed 3+
+  of your own units. The card still names a pick either way; it just says when the
+  bonus is at risk.
+- **The risk bar is derived, not hard-coded.** The app computes a flawless
+  first-attempt win for the format from `GAC_Scoring`, and the cost of one own unit
+  as the sum of the per-unit survival bonuses (3 on current data). Three units
+  therefore resolves to **56 or below in 5v5**, 48 or below in 3v3, 64 or below in
+  fleet — and retuning the scoring rows retunes the bar. A counter with no authored
+  banner score is treated as *unknown* rather than messy, so only tier can flag it.
+- **Opening state is derived, never stored.** Three signals, any one of which means
+  an attack has happened: a counter marked used, a Battles count above zero, or a
+  team marked cleared (which catches clearing a team without touching its stepper).
+  Deliberately **live rather than sticky** — correcting a mis-tapped Battles count
+  back to zero restores the opening state, because no attack happened. Marking a
+  counter used has no undo anywhere in the app, so that one is one-way for the
+  round; it costs an advisory line, not any state.
+- **Squad only, permanently.** Back Top is locked until Front Top is cleared, and
+  clearing a territory means attacking it, so a fleet battle can never be the
+  opener. The fleet track keeps the standard rule; the branch is written to degrade
+  sensibly rather than to be relied on.
+- **First-attack bonus now counted in remaining banners.** The board walker has
+  accepted a `firstAttackAvailable` flag since v2.6 and nothing ever passed it, so a
+  fresh board understated its own ceiling by exactly the bonus (10 on current data)
+  — leaving points-to-win and the can-I-still-win verdict reading pessimistically at
+  the very moment you're deciding how hard to fight. Now supplied from the same
+  derived state as the opening rule, so the two can't disagree. **Expect the number
+  on a fresh board to be higher than before.**
+- **Display:** the Next Up card retitles to **⚡ FIRST ATTACK** in amber for that one
+  battle, then reverts. A different objective deserves to say so rather than
+  silently changing what an identical-looking card means. The row adds a note that
+  the bonus is paid once and to play full squad, plus the warning where it applies.
+  Empty states keep the ordinary title.
+- **Known interaction, flagged not fixed:** because the lane preference sits above
+  banner score, a Front Bottom answer can be chosen over a cleaner same-tier answer
+  elsewhere and then warn for messiness, even though a cleaner opener existed. That
+  follows from the deliberate choice to put lane below tier *only*. The messiness
+  warning is worded as a statement about the pick rather than the board for exactly
+  this reason. Real rounds may show whether lane should sit below banners instead.
+- **No data or backend change.** No Apps Script, sheet schema, or new column — the
+  `FIRST_ATTACK` row and the per-unit bonus rows already existed; v3.1 just reads
+  them, the second of them in a new way.
+- **Frontend:** `APP_VERSION` -> 3.1; service-worker cache bumped to
+  `swgoh-cache-v13` to force fresh `app.js` and `styles.css` for installed users.
+- Verified in a jsdom sandbox: 58 checks covering the derived ceilings against the
+  live scoring table, the real Reva-over-Jabba case, tier-beats-lane and
+  lane-beats-banners, the leave-the-lane case, both warning triggers and their
+  negatives, undersize suppression and its return, all four opening-state signals
+  including the reversible one, the bonus appearing in and dropping out of the
+  remaining figure, fleet keeping the standard rule, card retitling, and regression
+  checks on the whole of v3.0 plus banner tracking and the override.
+## v3.2
+- **Bug fix — a used unit is now spent for every counter that needs it.** Marking a
+  counter used has always retired that counter; it never retired the *other*
+  counters that need one of its units. So with "Bane" used, "SEE and Bane" kept
+  showing as Available against every later team, even though `DARTH_BANE` is
+  `REQUIRED` for both and had already gone out. Reported against ROUND mode; the
+  Counters screen had the same hole.
+- **The rule already existed — it just wasn't applied to history.** Since v2.1 the
+  allocation engine has refused to put two counters sharing a required unit in the
+  same plan, because units used on offence are spent for the whole round whatever
+  the battle's outcome. That constraint only ever ran *within* a plan. It now also
+  runs against the counters already sent, which is where the round's real spending
+  is recorded.
+- **New counter state: Unavailable.** Owned, never marked used, but a required unit
+  went out with an earlier counter. Greyed and dimmed like Used, with no Mark Used
+  button, and it says which unit and with what — "🔒 Units spent: Darth Bane was
+  used with Bane." — so a greyed card with no missing-units line can't be mistaken
+  for a bug. Status precedence is Not owned → Used → Unavailable → Available; a
+  counter never reads Unavailable against itself.
+- **Only `REQUIRED` units are spent.** `RECOMMENDED` units are advice, not a claim
+  on a unit, so they never block a second counter. Ships and characters occupy
+  disjoint sets, so fleet and squad still cannot collide.
+- **Board recommendations follow.** A spent counter drops out of the allocation
+  engine's candidate set, so it can no longer be recommended or be Next Up. A team
+  left with nothing because of this gets a reason that names the cause — "SEE and
+  Bane can't be fielded — Darth Bane was used with Bane." — rather than the generic
+  "all your counters have been used".
+- **Counters screen.** The Available filter hides spent counters; the Owned filter
+  keeps them, explained. The Available empty state distinguishes "you've used all
+  your counters" from "your remaining counters need units you've already used".
+  Sort order becomes Available → Used → Unavailable → Not owned.
+- **Reset Round frees everything again**, and the Current Round count still tracks
+  battles fought, not counters retired — a retired counter is a consequence of a
+  battle, not another battle.
+- **No data or backend change.** No Apps Script, sheet schema, or new column: the
+  `REQUIRED` roles in `Counter_Composition` that the rule reads were already there
+  and already loaded.
+- **Frontend:** `APP_VERSION` -> 3.2; service-worker cache bumped to
+  `swgoh-cache-v14` to force fresh `app.js` for installed users. (The file was still
+  on `swgoh-cache-v11`: the v3.0 and v3.1 bumps to v12/v13 were recorded here but
+  never made it into `service-worker.js`, so this bump also resyncs the two.)
+- Verified in a Node/vm sandbox: 35 checks covering the reported Bane/SEE-and-Bane
+  case in both directions, unrelated counters staying available, ownership taking
+  precedence, single- and multi-unit clash wording, recommended units not spending,
+  sort grouping, the card's suppressed button and explanation line, both Counters
+  filters and the new empty state, the board's candidate set and reason line,
+  marking used from the board, and Reset Round restoring availability.
