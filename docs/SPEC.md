@@ -340,7 +340,7 @@ A wayfinding line on the Counters screen points the user to the Round screen for
 
 The user can mark a counter as used during a round. Used counters are keyed on their stable `Counter_ID` and persist across app launches. A round reset clears all used teams (and banner tracking and the opponent board — see [§6.6](#66-round-screen)).
 
-Used status is surfaced as part of the unified tri-state counter status (see [§6.5](#65-counter-status)). Used cards are displayed at 0.5 opacity with a grey "Used" status word; the Mark Used button is suppressed on used cards. Used teams are counted in the Current Round summary card, which appears on both the Counters and Round screens. From v2.1, counters can also be marked used directly from the Round screen's per-team recommendations (see [§6.8](#68-allocation-engine)); the state is shared. This applies to fleet counters as well as squad counters.
+Used status is surfaced as part of the unified counter status (see [§6.5](#65-counter-status)). Used cards are displayed at 0.5 opacity with a grey "Used" status word; the Mark Used button is suppressed on used cards. Marking a counter used also spends its required units for the round, which retires any *other* counter needing one of them (v3.2) — the Current Round count still tracks battles fought, not counters retired. Used teams are counted in the Current Round summary card, which appears on both the Counters and Round screens. From v2.1, counters can also be marked used directly from the Round screen's per-team recommendations (see [§6.8](#68-allocation-engine)); the state is shared. This applies to fleet counters as well as squad counters.
 
 ### 6.3 Banner Tracking
 
@@ -372,33 +372,36 @@ A staleness-gated background sync keeps API rosters current without user action 
 
 ### 6.5 Counter Status
 
-Each counter carries a tri-state status derived from two independent axes:
+Each counter carries a four-state status derived from two independent axes:
 
 **Ownership axis** (static, roster-derived) — whether the player owns all required units for a counter. A counter is **owned** when every `REQUIRED` unit is in the player's roster; `RECOMMENDED` units are not considered. This is computed by `getOwnership()`, and applies identically to fleet counters (whose required units are ships).
 
-**Round axis** (dynamic, round-derived) — whether an owned counter has been used this round. This is tracked via `usedTeams` in `localStorage`.
+**Round axis** (dynamic, round-derived) — whether an owned counter can still be fielded this round. Two things can stop it: the counter itself has been marked used (tracked via `usedTeams` in `localStorage`), or a unit it requires went out with an *earlier* counter. Offence spends units for the whole round whatever the battle's outcome, so a counter sharing a `REQUIRED` character with a used one is unfieldable even though it has never been marked used itself. From v3.2 this second case is a state of its own — **Unavailable** — computed by `spentCharacters()` / `spentClashes()` from the required units of everything in `usedTeams`. Only `REQUIRED` units are spent; `RECOMMENDED` units are advice, not a claim on a unit, and never block a second counter.
 
-The two axes combine into three card states, computed by `getCounterStatus()`:
+The two axes combine into four card states, computed by `getCounterStatus()`:
 
 | State | Condition | Status word | Opacity |
 |---|---|---|---|
-| Available | Owned and not yet used | Green "Available" | Full |
+| Available | Owned, not used, and no required unit spent | Green "Available" | Full |
 | Used | Owned and already used this round | Grey "Used" | 0.5 |
+| Unavailable | Owned and unused, but a required unit was spent by an earlier counter | Grey "Unavailable" | 0.5 |
 | Not owned | Missing one or more required units | Grey "Not owned" | 0.5 |
 
-**Precedence:** Not owned dominates. Used state is only meaningful for owned counters — a counter missing required units is always Not owned regardless of used state.
+**Precedence:** Not owned dominates, then Used, then Unavailable. Round state is only meaningful for owned counters — a counter missing required units is always Not owned regardless. A counter that is itself used never reads Unavailable: its own claim on its units is what "used" means.
 
 **Missing units** — Not owned cards list their missing required units by display name beneath the notes line.
+
+**Spent units** — Unavailable cards name the clash beneath the notes line ("🔒 Units spent: Darth Bane was used with Bane."), so a greyed card with no missing-units line can't be mistaken for a bug. The Mark Used button is suppressed, as it is on Used and Not owned cards.
 
 **Filter** — a three-segment control [All] [Owned] [Available] sits below the team selector and above the results list. It is visually subordinate to the mode toggle. The three segments form a nested hierarchy (All ⊇ Owned ⊇ Available), with each a strict subset of the one before. The selected filter persists in `localStorage` and defaults to All.
 
 **Empty states** — each filter produces context-appropriate copy when no counters match:
 - **All** — "No matching defence teams found." (no counters in data for this team)
 - **Owned** — "You don't own any counters for this team."
-- **Available** — "You've used all your counters for this team." (when at least one is owned but all are used); otherwise falls through to the Owned copy.
+- **Available** — "You've used all your counters for this team." (when at least one is owned but all are used); "Your remaining counters for this team need units you've already used this round." (when at least one owned counter is Unavailable); otherwise falls through to the Owned copy.
 - **Owned / Available with no roster** — "Set up your roster to see which counters you can field."
 
-**Sort order** — counters are sorted by status group first (Available → Used → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
+**Sort order** — counters are sorted by status group first (Available → Used → Unavailable → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
 
 ### 6.6 Round Screen
 
@@ -440,7 +443,7 @@ The allocation engine surfaces per-team counter recommendations across the whole
 **Eligibility.** For each visible-uncleared board team, the engine derives the set of counters that are:
 - Present in the counter catalogue for that team (the board's squad format for squad territories, the FLEET catalogue for the fleet territory).
 - **Owned** by the player (all required units present — reuses `getOwnership()`).
-- **Not yet used** this round (checks `usedTeams`).
+- **Still fieldable** this round — neither marked used itself, nor requiring a unit an earlier used counter has already spent (status `available`; see [§6.5](#65-counter-status)). Before v3.2 this checked `usedTeams` for the counter alone, which let a counter whose required unit had already gone out keep presenting itself as a live option.
 
 Not-in-catalogue placeholder teams contribute no candidates and receive an explanatory reason instead of a recommendation.
 
@@ -457,7 +460,7 @@ The undersize adjustment affects *ranking* only. The recommendation card's headl
 Two exclusivity constraints are enforced natively:
 
 - **Counter-level.** A counter can appear in at most one assignment in a plan.
-- **Unit-level.** Two counters that share a required unit can never both appear in the same plan, since units used on offence are spent for the round. The plan explains clashes by name in the losing team's reason. Because ships and characters occupy disjoint unit sets, a fleet counter and a squad counter never collide; the fleet allocation is effectively independent of the squad allocation, while two fleet teams contesting the same owned ship are still arbitrated correctly.
+- **Unit-level.** Two counters that share a required unit can never both appear in the same plan, since units used on offence are spent for the round. From v3.2 the same rule holds against *history* as well as within a plan: a counter sharing a required unit with one already marked used is excluded at the eligibility step above, not just from co-assignment. The plan explains clashes by name in the losing team's reason. Because ships and characters occupy disjoint unit sets, a fleet counter and a squad counter never collide; the fleet allocation is effectively independent of the squad allocation, while two fleet teams contesting the same owned ship are still arbitrated correctly.
 
 The search order (teams by ascending candidate count, candidates by tier then undersize-adjusted score) means the first complete path is the greedy scarcity-first answer. A 50 000-node budget guards against pathological cases; because the greedy path is explored first, exhausting the budget can only produce a result equal to or better than pure greedy. The branch-and-bound bound is coverage-only, so it is unaffected by the v2.9 change to the banner term.
 
@@ -469,7 +472,7 @@ The search order (teams by ascending candidate count, candidates by tier then un
 - From v2.8, an **undersize line** when the chosen counter has a droppable-unit count > 0 (see [§4.1](#41-sheet-structure)): it shows the reconstructed best-case total most prominently, then the drop count and bonus — e.g. "67 banners if you undersize · drop up to 2 for +2". Counters that cannot undersize show no such line. This annotates a recommendation the player is already reading rather than adding a screen or a decision, and the underlying `undersizeInfo` helper is shared with the lookup card (see [§6.1](#61-counter-lookup)).
 - A **Mark used** button that commits the counter to `usedTeams` immediately and triggers a re-solve. The state is shared with the Counters screen (see [§6.2](#62-used-team-tracking)).
 
-Teams with no recommendation receive one of four distinct plain-English reasons: no counters in the catalogue yet, none owned, all owned counters already used, or the only eligible counter is committed to another team.
+Teams with no recommendation receive one of five distinct plain-English reasons: no counters in the catalogue yet, none owned, all owned counters already used, an owned counter blocked by a unit already spent elsewhere ("SEE and Bane can't be fielded — Darth Bane was used with Bane."), or the only eligible counter is committed to another team.
 
 **Scope.** As of v2.5 the engine runs against every unlocked territory, squad and fleet alike. Each team draws candidates from its own catalogue, and the shared ownership, used-state, and exclusivity logic applies uniformly.
 
@@ -637,6 +640,9 @@ A **Next Up** card at the top of the Round screen recommending which enemy team 
 
 **v3.1 — First Attack** · *Complete*
 Inverts the Battle Order objective for the round's opening battle only, because the one-off first-attack bonus is spent by that battle whatever its outcome and no later re-planning recovers it (see [§6.12](#612-first-attack)). Ranks by certainty — best tier, then the Front Bottom preference as a ranking key rather than a gate, then cleanest expected win — suppresses undersize advice for that battle, and warns when no safe opener exists, with the risk bar derived from GAC_Scoring rather than hard-coded. Also closes a standing wiring gap: the `FIRST_ATTACK` bonus is now included in the calculated remaining-banners figure while it is still winnable (see [§6.3](#63-banner-tracking)), correcting a fresh-board understatement that had made points-to-win and the can-I-win verdict read pessimistically since v2.6.
+
+**v3.2 — Spent Units** · *Complete*
+Closes a correctness gap in used-team tracking: a counter sharing a `REQUIRED` character with one already marked used now reads **Unavailable** instead of Available (see [§6.5](#65-counter-status)). Offence spends units for the round whatever the battle's outcome, and the allocation engine has enforced that between counters *within* a plan since v2.1 — but the underlying status never enforced it against the counters already sent, so with "Bane" used, "SEE and Bane" kept offering itself against every later team, on the Counters screen and as a board recommendation alike. No data, sheet, or Apps Script change: the `REQUIRED` roles the rule needs were already in `Counter_Composition`.
 
 **Phase-aware battle ordering** · *Deferred, pending real-play feedback*
 The v3.0 rule is deliberately a single consistent ordering: attack the most fragile battles first, because that is right when there is still time and bench to absorb a failure. Late in a round, when chasing a specific margin against a known opponent score, the opposite may be preferable — bank the certain wins first and accept that the risky battle may not get fought at all. v3.1 establishes the shape such a rule would take — a named phase with its own inverted objective, entered and left on derived state — so this would extend an existing pattern rather than introduce one. Making the order shift as the round progresses was considered for v3.0 and deferred rather than guessed at, on the grounds that the phase boundary (what counts as "late") is exactly the thing real matches will reveal and speculation will not. The inputs it would need — remaining banners, points to win, and the winnability verdict — are all already computed on the same screen, so this is an ordering change rather than new machinery.

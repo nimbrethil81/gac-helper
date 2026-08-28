@@ -520,3 +520,50 @@ v3.0 rule resumes unchanged. Also closes a standing wiring gap in the banner mat
   including the reversible one, the bonus appearing in and dropping out of the
   remaining figure, fleet keeping the standard rule, card retitling, and regression
   checks on the whole of v3.0 plus banner tracking and the override.
+## v3.2
+- **Bug fix — a used unit is now spent for every counter that needs it.** Marking a
+  counter used has always retired that counter; it never retired the *other*
+  counters that need one of its units. So with "Bane" used, "SEE and Bane" kept
+  showing as Available against every later team, even though `DARTH_BANE` is
+  `REQUIRED` for both and had already gone out. Reported against ROUND mode; the
+  Counters screen had the same hole.
+- **The rule already existed — it just wasn't applied to history.** Since v2.1 the
+  allocation engine has refused to put two counters sharing a required unit in the
+  same plan, because units used on offence are spent for the whole round whatever
+  the battle's outcome. That constraint only ever ran *within* a plan. It now also
+  runs against the counters already sent, which is where the round's real spending
+  is recorded.
+- **New counter state: Unavailable.** Owned, never marked used, but a required unit
+  went out with an earlier counter. Greyed and dimmed like Used, with no Mark Used
+  button, and it says which unit and with what — "🔒 Units spent: Darth Bane was
+  used with Bane." — so a greyed card with no missing-units line can't be mistaken
+  for a bug. Status precedence is Not owned → Used → Unavailable → Available; a
+  counter never reads Unavailable against itself.
+- **Only `REQUIRED` units are spent.** `RECOMMENDED` units are advice, not a claim
+  on a unit, so they never block a second counter. Ships and characters occupy
+  disjoint sets, so fleet and squad still cannot collide.
+- **Board recommendations follow.** A spent counter drops out of the allocation
+  engine's candidate set, so it can no longer be recommended or be Next Up. A team
+  left with nothing because of this gets a reason that names the cause — "SEE and
+  Bane can't be fielded — Darth Bane was used with Bane." — rather than the generic
+  "all your counters have been used".
+- **Counters screen.** The Available filter hides spent counters; the Owned filter
+  keeps them, explained. The Available empty state distinguishes "you've used all
+  your counters" from "your remaining counters need units you've already used".
+  Sort order becomes Available → Used → Unavailable → Not owned.
+- **Reset Round frees everything again**, and the Current Round count still tracks
+  battles fought, not counters retired — a retired counter is a consequence of a
+  battle, not another battle.
+- **No data or backend change.** No Apps Script, sheet schema, or new column: the
+  `REQUIRED` roles in `Counter_Composition` that the rule reads were already there
+  and already loaded.
+- **Frontend:** `APP_VERSION` -> 3.2; service-worker cache bumped to
+  `swgoh-cache-v14` to force fresh `app.js` for installed users. (The file was still
+  on `swgoh-cache-v11`: the v3.0 and v3.1 bumps to v12/v13 were recorded here but
+  never made it into `service-worker.js`, so this bump also resyncs the two.)
+- Verified in a Node/vm sandbox: 35 checks covering the reported Bane/SEE-and-Bane
+  case in both directions, unrelated counters staying available, ownership taking
+  precedence, single- and multi-unit clash wording, recommended units not spending,
+  sort grouping, the card's suppressed button and explanation line, both Counters
+  filters and the new empty state, the board's candidate set and reason line,
+  marking used from the board, and Reset Round restoring availability.

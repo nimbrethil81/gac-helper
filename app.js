@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -54,6 +54,7 @@ let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 
 let boardModeDraft = null;              // squad format picked on the setup card while the toggle is on Fleet
 let currentView = "counters";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
+let spentCharsCache = { key: null, map: new Map() };  // derived from usedTeams + counterDefinitions (v3.2)
 let searchText = "";
 
 // Roster state. ownedCharacters stays the in-memory array the rest of the
@@ -774,7 +775,12 @@ function buildReasons(eligible, assign) {
             if (all.length === 0) {
                 reason = "No counters in the catalogue for this team yet.";
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
-                reason = "All your counters for this team have been used.";
+                // v3.2: distinguish "you sent them all" from "a unit they need went
+                // out with something else" — the second is not obvious from the board.
+                const spent = all.find(c => getCounterStatus(c.counterId) === "spent");
+                reason = spent
+                    ? `${spent.counter} can't be fielded — ${spentReason(spent.counterId)}`
+                    : "All your counters for this team have been used.";
             } else {
                 reason = "You don't own a counter for this team.";
             }
@@ -1219,6 +1225,7 @@ async function loadData() {
         gacData = data.counters;
         counterDefinitions = data.counterDefinitions;
         characterDefinitions = data.characterDefinitions;
+        spentCharsCache = { key: null, map: new Map() };   // definitions changed: required-unit lookups are stale
         boardConfig = data.boardConfig || {};
         scoringRules = data.scoring || [];
         defenceTeams = data.defenceTeams || {};   // v3.0; absent tab yields {} and everything reads NORMAL
@@ -1478,10 +1485,65 @@ function getOwnership(counterId) {
     return { owned: missing.length === 0, missing };
 }
 
+// ─── SPENT UNITS (v3.2) ───────────────────────────────────────────────────────
+// Offence spends units for the whole round whatever the battle's outcome, so a
+// counter that shares a required character with one already marked used can no
+// longer be fielded either. The allocation engine has always enforced that
+// exclusivity *within* a plan; it has to hold against history too, or "SEE and
+// Bane" keeps offering itself as available after "Bane" has been sent.
+//
+// Only REQUIRED characters are spent. Recommended ones are advice, not a claim on
+// a unit, so they never block a second counter. The lookup is memoised on the
+// used-team list and invalidated whenever the definitions behind it are replaced.
+
+// characterId -> the counterId that spent it. The first used counter to claim a
+// character owns it; nothing later can take it back this round.
+function spentCharacters() {
+    const key = usedTeams.join("|");
+    if (spentCharsCache.key !== key) {
+        const map = new Map();
+        usedTeams.forEach(counterId => {
+            requiredChars(counterId).forEach(ch => {
+                if (!map.has(ch)) map.set(ch, counterId);
+            });
+        });
+        spentCharsCache = { key, map };
+    }
+    return spentCharsCache.map;
+}
+
+// The required characters of this counter that an already-used counter has spent.
+// A used counter never clashes with itself — its own claim is what "used" means.
+function spentClashes(counterId) {
+    if (usedTeams.includes(counterId)) return [];
+    const spent = spentCharacters();
+    return requiredChars(counterId)
+        .filter(ch => spent.has(ch))
+        .map(ch => ({ character: ch, holder: spent.get(ch) }));
+}
+
+function getCounterName(counterId) {
+    const def = counterDefinitions[counterId];
+    return (def && def.name) || counterId;
+}
+
+// One line naming why a counter is spent, e.g. "Darth Bane was used with Bane."
+function spentReason(counterId) {
+    const clashes = spentClashes(counterId);
+    if (!clashes.length) return null;
+    const names = clashes.map(c => getCharacterName(c.character));
+    const holder = getCounterName(clashes[0].holder);
+    const list = names.length === 1
+        ? names[0]
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    return `${list} ${names.length === 1 ? "was" : "were"} used with ${holder}.`;
+}
+
 function getCounterStatus(counterId) {
     const { owned } = getOwnership(counterId);
     if (!owned) return "not-owned";
     if (usedTeams.includes(counterId)) return "used";
+    if (spentClashes(counterId).length) return "spent";
     return "available";
 }
 
@@ -1664,9 +1726,15 @@ function buildCounterCardHtml(counter) {
     const statusClass = status === "available" ? "status-available" : "status-muted";
     const statusText  = status === "available" ? "Available"
                       : status === "used"      ? "Used"
+                      : status === "spent"     ? "Unavailable"
                       : "Not owned";
 
     const dimClass = status === "available" ? "" : "used";
+
+    // v3.2: an owned, unused counter can still be unfieldable because a unit it
+    // requires went out with an earlier counter. Say which unit and with what,
+    // otherwise a greyed card with no missing-units line looks like a bug.
+    const spentNote = status === "spent" ? spentReason(counter.counterId) : null;
 
     return `
 <div class="counter-card ${dimClass}">
@@ -1694,13 +1762,15 @@ function buildCounterCardHtml(counter) {
             ❌ <strong>Missing:</strong>
             ${ownership.missing.map(id => getCharacterName(id)).join(", ")}
         </div>` : ""}
+        ${spentNote ? `
+        <div style="margin-top:6px;">
+            🔒 <strong>Units spent:</strong> ${spentNote}
+        </div>` : ""}
     </div>
 
-    ${status === "used"
-        ? ""
-        : status === "available"
-            ? `<button class="mark-used-button" onclick="markUsed('${counter.counterId}')">Mark Used</button>`
-            : ""
+    ${status === "available"
+        ? `<button class="mark-used-button" onclick="markUsed('${counter.counterId}')">Mark Used</button>`
+        : ""
     }
 
 </div>
@@ -1714,7 +1784,7 @@ function tierSortValue(tier) {
 }
 
 function sortCounters(counters) {
-    const groupRank = { "available": 1, "used": 2, "not-owned": 3 };
+    const groupRank = { "available": 1, "used": 2, "spent": 3, "not-owned": 4 };
 
     return [...counters].sort((a, b) => {
         const statusA = getCounterStatus(a.counterId);
@@ -1774,10 +1844,13 @@ function showCounters() {
         filtered = allCounters.filter(c => getCounterStatus(c.counterId) === "available");
 
         if (filtered.length === 0) {
-            const ownsAny = allCounters.some(c => getOwnership(c.counterId).owned);
-            resultsEl.innerHTML = ownsAny
-                ? "<p class='empty-state'>You've used all your counters for this team.</p>"
-                : "<p class='empty-state'>You don't own any counters for this team.</p>";
+            const ownsAny  = allCounters.some(c => getOwnership(c.counterId).owned);
+            const anySpent = allCounters.some(c => getCounterStatus(c.counterId) === "spent");
+            resultsEl.innerHTML = !ownsAny
+                ? "<p class='empty-state'>You don't own any counters for this team.</p>"
+                : anySpent
+                    ? "<p class='empty-state'>Your remaining counters for this team need units you've already used this round.</p>"
+                    : "<p class='empty-state'>You've used all your counters for this team.</p>";
             return;
         }
     }
