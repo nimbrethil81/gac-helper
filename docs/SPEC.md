@@ -2,6 +2,8 @@
 
 A mobile-first Progressive Web App that helps players make faster, better Grand Arena Championship (GAC) decisions in *Star Wars: Galaxy of Heroes*.
 
+**Scope.** This specification is the authoritative description of the system as it currently exists: its architecture, data model, API contract, current behaviour, and design decisions that remain true. It must not contain release history or planned, candidate, deferred, research, or other future product work. Release history belongs in [`changelog.md`](../changelog.md); future work belongs in [`ROADMAP.md`](../ROADMAP.md); detailed scoring maths and scoring-data authoring guidance belong in [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). High-level product principles and success criteria may remain here where they constrain the current design.
+
 ---
 
 ## Contents
@@ -33,9 +35,8 @@ A mobile-first Progressive Web App that helps players make faster, better Grand 
    - 6.11 [Battle Order](#611-battle-order)
    - 6.12 [First Attack](#612-first-attack)
 7. [Roster Model](#7-roster-model)
-8. [Roadmap](#8-roadmap)
-9. [Success Criteria](#9-success-criteria)
-10. [Future Vision](#10-future-vision)
+8. [Success Criteria](#8-success-criteria)
+9. [Product Direction](#9-product-direction)
 
 ---
 
@@ -47,9 +48,9 @@ The app is designed to answer, within seconds: *which counters beat this enemy t
 
 It deliberately models **strategic team identities** rather than exact squad compositions. The guiding question is always "can the player reasonably field this counter?" — not "what is the perfect mod-and-relic squad for this specific matchup?"
 
-The app models both **character counters and fleet counters**. Fleet combat is a genuine GAC feature — one of the four territories in every round is a fleet battle — and was brought inside the same model in v2.5 (see [§8](#8-roadmap)): ships and capital ships are imported and shown on the roster, fleet counters are looked up alongside squad counters, and the fleet territory participates in the Round board and the allocation engine. Where this document refers to "counters" without qualification, it means character counters unless the surrounding context is fleet.
+The app models both **character counters and fleet counters**. Fleet combat is a genuine GAC feature — one of the four territories in every round is a fleet battle — and ships and capital ships are imported and shown on the roster, fleet counters are looked up alongside squad counters, and the fleet territory participates in the Round board and the allocation engine (see [§6.7](#67-opponent-board) and [§6.8](#68-allocation-engine)). Where this document refers to "counters" without qualification, it means character counters unless the surrounding context is fleet.
 
-The long-term direction is a roster-aware GAC strategist that can recommend attack order, allocate counters efficiently, optimise banners, and avoid conflicts — while always prioritising simplicity and speed over replicating the full depth of sites like SWGOH.gg. As of v3.0 the app answers all four questions of a live round in one place: *which counter*, *for which team*, *worth how many banners*, and *in what order* (see [§6.11](#611-battle-order)).
+The app is a roster-aware GAC strategist that can recommend attack order, allocate counters efficiently, optimise banners, and avoid conflicts — while always prioritising simplicity and speed over replicating the full depth of sites like SWGOH.gg. It answers the four core questions of a live round in one place: *which counter*, *for which team*, *worth how many banners*, and *in what order* (see [§6.11](#611-battle-order)).
 
 ### 1.1 Design Philosophy
 
@@ -143,7 +144,7 @@ As of v2.8, and refined further in v2.9, these columns own **non-overlapping** p
 - **`Banner Score`** — the **full-squad, first-attempt, clean-clear** expected value, with any undersize premium removed → the engine's *tiebreak within a tier* (value second). The companion `SCORING_REFERENCE.md` documents the per-mode ceilings (5v5 → 65, 3v3 → 57, fleet → 73) and the meaning ladder used to author these scores consistently.
 - **`Undersize`** — a numeric **droppable-unit count** (previously a `Yes`/`No` flag): the maximum units the counter can drop from a full squad and still win cleanly, where `0` means field the full squad. Each unit dropped is worth **+1 banner** over the full clean clear. From v2.9 this *adjusts the banner tiebreak*: the engine ranks by the undersize-adjusted score (`Banner Score` + count), the achievable best (see [§6.8](#68-allocation-engine)). Any non-numeric value (a legacy `Yes`/`No`, or a blank) is read as `0`, so a partially-migrated sheet is always safe.
 
-The `Reliability` (`High` / `Medium` / `Low`) column present through v2.8 is **retired as of v2.9**: with Tier defined as reliability, it measured the same axis at coarser grain and was redundant. The Apps Script never read it, so its removal is a sheet cleanup with no code impact. The distinct concern of *manual-play effort* — orthogonal to how good a counter is — is not folded into Tier; it is a candidate future attribute (see **Pilot difficulty** in [§8](#8-roadmap)), partially served today by the free-text `Notes` column. Because the Apps Script reads the Counters tab by header name, any unread column is silently ignored by the payload.
+The `Reliability` (`High` / `Medium` / `Low`) column present through v2.8 is **retired as of v2.9**: with Tier defined as reliability, it measured the same axis at coarser grain and was redundant. The Apps Script never read it, so its removal is a sheet cleanup with no code impact. The distinct concern of *manual-play effort* — orthogonal to how good a counter is — is not folded into Tier; it is tracked as potential future work in [`ROADMAP.md`](../ROADMAP.md), partially served today by the free-text `Notes` column. Because the Apps Script reads the Counters tab by header name, any unread column is silently ignored by the payload.
 
 **Derived columns.** Two columns on the Counters tab are **calculated, not authored**: the counter's display name (looked up from Counter_Definitions by `Counter_ID`) and the score-meaning label (looked up from Score_Meanings by `Mode` and `Banner Score`). Each is a single open-ended `ARRAYFORMULA` living in the first data row, so both fill themselves as new counter rows are added and neither should ever be typed over — a manual entry in any cell below the first breaks the whole column with a spill error. The authored columns are `Mode`, the defence-team name, `Counter_ID`, `Tier`, `Banner Score`, `Undersize` and `Notes`; everything else on the tab derives itself. The derived columns are given a distinct fill and a warn-on-edit protected range in the sheet, so the distinction is visible at the point of authoring rather than only recorded here.
 
@@ -288,7 +289,7 @@ Territory order is preserved from the sheet. Missing or empty tab yields an empt
 ]
 ```
 
-Resolution logic is client-side. Missing or empty tab yields an empty array. The rules are consumed by the Points-to-Win Calculator (see [§8](#8-roadmap)); the current app payload is otherwise unaffected by this data.
+Resolution logic is client-side. Missing or empty tab yields an empty array. The rules are consumed by the Points-to-Win Calculator (see [§6.9](#69-points-to-win)); the current app payload is otherwise unaffected by this data.
 
 **defenceTeams** (v3.0) — keyed by `Mode`, then by defence team display name:
 
@@ -354,7 +355,7 @@ From v2.1, banner tracking lives on the Round screen alongside the opponent boar
 
 **Opponent final-score marker (v2.7).** The opponent-score field carries a marker for whether the entered number is their **final** score or just their **current** one (the default). It is stored as `bannerData.oppFinal` and drives the "can I still win?" verdict (see [§6.10](#610-can-i-still-win)): a final score lets that verdict give a clean yes/no, whereas a current score is treated as a floor that may still rise. Marking the score final also relabels the field ("Opponent's final score") and suppresses the points-to-win "their score will rise" caveat, which no longer applies. The marker uses the same override shape as the remaining field — a visible state with a link to revert. It defaults to *not final* and is reset by Reset Round.
 
-The projected final remains an optimistic ceiling, not a win/lose prediction: the opponent's remaining offence against the player's own defence is not yet modelled, so the opponent's score stays whatever the player has entered. Modelling that is the planned **My Board** feature (see [§8](#8-roadmap)); the scoring engine is written side-agnostically so it will slot in without rework. Banner state is stored locally and cleared by Reset Round.
+The projected final remains an optimistic ceiling, not a win/lose prediction: the opponent's remaining offence against the player's own defence is not yet modelled, so the opponent's score stays whatever the player has entered. The scoring engine is written side-agnostically; modelling the opponent's remaining offence is tracked in [`ROADMAP.md`](../ROADMAP.md). Banner state is stored locally and cleared by Reset Round.
 
 ### 6.4 Roster Management
 
@@ -482,9 +483,9 @@ Teams with no recommendation receive one of five distinct plain-English reasons:
 
 Introduced in v2.6, this feature answers "how many banners do I still need to win, and can I get there?" from the current match state. It sits beneath banner tracking on the Round screen and is built on two layers: a data-driven scoring engine and a plain-language verdict.
 
-**Scoring engine.** All banner values are read from GAC_Scoring through a single `scoreRule` lookup, keyed by rule, battle type, and mode, with `ANY` as a wildcard and the most specific matching row winning. A **side-agnostic board walker** totals the theoretical maximum banners still bankable from a board — the ceiling if every remaining team is cleared perfectly: for every uncleared team in every territory it adds the clean-win best case, and for every territory still holding an uncleared team it adds the clear bonus (base plus per-team). Every uncleared slot counts, named or not — banner value depends only on battle type and mode, never on which team occupies the slot, so the total is honest even on a board where positions are marked but teams not yet identified. **Locked back territories are included** (corrected in v2.9): the walker deliberately ignores the lock gate, because a locked territory becomes reachable once its front is cleared, and this figure answers "the most I could still bank if I clear my way through the whole board" — which is what both points-to-win and the can-I-win verdict need. Counting only currently-reachable territories understated the ceiling to zero on a fresh board (both backs locked behind their fronts), producing a false "can't win" and a remaining figure that jumped upward as territories unlocked instead of falling as teams were cleared. The lock gate still governs what the **allocation engine** and board rendering act on (see [§6.8](#68-allocation-engine)) — you still cannot be recommended a counter for a territory you cannot yet reach — so only this scoring walk ignores locks. Because the walker takes any board object, the same code will serve a future **My Board** (see [§8](#8-roadmap)) with no rework; today it is called only with the opponent board.
+**Scoring engine.** All banner values are read from GAC_Scoring through a single `scoreRule` lookup, keyed by rule, battle type, and mode, with `ANY` as a wildcard and the most specific matching row winning. A **side-agnostic board walker** totals the theoretical maximum banners still bankable from a board — the ceiling if every remaining team is cleared perfectly: for every uncleared team in every territory it adds the clean-win best case, and for every territory still holding an uncleared team it adds the clear bonus (base plus per-team). Every uncleared slot counts, named or not — banner value depends only on battle type and mode, never on which team occupies the slot, so the total is honest even on a board where positions are marked but teams not yet identified. **Locked back territories are included** (corrected in v2.9): the walker deliberately ignores the lock gate, because a locked territory becomes reachable once its front is cleared, and this figure answers "the most I could still bank if I clear my way through the whole board" — which is what both points-to-win and the can-I-win verdict need. Counting only currently-reachable territories understated the ceiling to zero on a fresh board (both backs locked behind their fronts), producing a false "can't win" and a remaining figure that jumped upward as territories unlocked instead of falling as teams were cleared. The lock gate still governs what the **allocation engine** and board rendering act on (see [§6.8](#68-allocation-engine)) — you still cannot be recommended a counter for a territory you cannot yet reach — so only this scoring walk ignores locks. Because the walker takes any board object, it can be reused for other boards; extending this to the opponent's remaining offence is tracked in [`ROADMAP.md`](../ROADMAP.md). Today it is called only with the opponent board.
 
-**Battle best case.** A clean win: every own unit survives at full health and protection, and every enemy is defeated. The attempt bonus is chosen from the team's Battles count (see [§6.7](#67-opponent-board)) — the next battle is treated as the first, second, or third-plus attempt accordingly. Unit counts come from a **two-count model**: how many of the player's own units earn per-unit survival bonuses, and how many enemy units are defeated. These are equal for squads (5/5, 3/3) but distinct in general, and are sourced from the `OWN_UNITS` / `ENEMY_UNITS` scoring rows (see [§4.1](#41-sheet-structure)), with in-app fallbacks. **Fleet is a 7-unit format** (capital ship + 6), so both counts are 7 — a correction confirmed in v2.8 against the SWGOH Wiki "Fleet Max Banners" table, which shows a flawless first-attempt 7-ship win banking 73. (The two-count model was originally specced with fleet as 8; the fallback in `ownUnitCount` / `enemyUnitCount` is corrected to 7, and any fleet `OWN_UNITS` / `ENEMY_UNITS` rows added to the sheet should read 7.) Fleet reinforcement slots left empty at setup would earn unused-slot bonuses, but a full-clean-clear best case has none; the deliberate-undersize case is surfaced as advice by the undersize display (see [§6.8](#68-allocation-engine)) and would be optimised by the future efficiency calculator (see [§8](#8-roadmap)).
+**Battle best case.** A clean win: every own unit survives at full health and protection, and every enemy is defeated. The attempt bonus is chosen from the team's Battles count (see [§6.7](#67-opponent-board)) — the next battle is treated as the first, second, or third-plus attempt accordingly. Unit counts come from a **two-count model**: how many of the player's own units earn per-unit survival bonuses, and how many enemy units are defeated. These are equal for squads (5/5, 3/3) but distinct in general, and are sourced from the `OWN_UNITS` / `ENEMY_UNITS` scoring rows (see [§4.1](#41-sheet-structure)), with in-app fallbacks. **Fleet is a 7-unit format** (capital ship + 6), so both counts are 7 — a correction confirmed in v2.8 against the SWGOH Wiki "Fleet Max Banners" table, which shows a flawless first-attempt 7-ship win banking 73. (The two-count model was originally specced with fleet as 8; the fallback in `ownUnitCount` / `enemyUnitCount` is corrected to 7, and any fleet `OWN_UNITS` / `ENEMY_UNITS` rows added to the sheet should read 7.) Fleet reinforcement slots left empty at setup would earn unused-slot bonuses, but a full-clean-clear best case has none; the deliberate-undersize case is surfaced as advice by the undersize display (see [§6.8](#68-allocation-engine)). Further per-battle undersize optimisation is tracked in [`ROADMAP.md`](../ROADMAP.md).
 
 **Verdict.** Points-to-win is defined as (opponent's current score + 1) − own current score: the banners needed to pull ahead of where the opponent stands now. This is compared against the calculated best-case remaining to decide reachability. The readout resolves to one of three states, each a crisp headline plus an honest support line: **already ahead** ("Ahead by X"), **reachable** ("Points to win: X", with the clean-finish total shown as enough, plus any spare, or "just enough"), or **short** ("Points to win: X", with the clean finish falling a stated amount short). The headline is colour-coded — green when ahead, red when short. Every phrasing refers to the opponent's *current* score, and a one-time caveat notes that their score rises as they attack the player's defence, since only the player's own offence is modelled. The verdict recomputes live as scores are typed, without dropping input focus.
 
@@ -502,7 +503,7 @@ Introduced in v2.7, this verdict answers whether the round is still mathematical
 
 **The three states.** **Can't win this round** (the flawless-finish ceiling still falls short — time to experiment), **Already won** (current score alone is past their final), and **Winnable** (the actionable middle). The headline is colour-coded: green won, red lost, neutral winnable. The verdict recomputes live as scores are typed.
 
-**Honesty without My Board.** Because the opponent's own remaining offence is not modelled until My Board exists (see [§8](#8-roadmap)), the verdict cannot turn "winnable" into a guaranteed yes when the opponent's score is only their current total. In that case it states a **breakeven** — "you can reach at most X; you win only if they finish on X or below" — handing the player the number to judge against how much the opponent could still take off their defence. When the opponent's score is marked final, this uncertainty is gone and the verdict is a clean yes/no.
+**Honesty without opponent-board projection.** Because the opponent's own remaining offence is not modelled, the verdict cannot turn "winnable" into a guaranteed yes when the opponent's score is only their current total. In that case it states a **breakeven** — "you can reach at most X; you win only if they finish on X or below" — handing the player the number to judge against how much the opponent could still take off their defence. When the opponent's score is marked final, this uncertainty is gone and the verdict is a clean yes/no. Modelling the opponent's remaining offence is tracked in [`ROADMAP.md`](../ROADMAP.md).
 
 ### 6.11 Battle Order
 
@@ -589,13 +590,7 @@ Ownership is tracked at unit level only, as a binary "owned / not owned". Relics
 
 ---
 
-## 8. Roadmap
-
-Forward-looking product work is maintained in [`ROADMAP.md`](../ROADMAP.md). This specification documents the system as it currently exists; release history is maintained in [`changelog.md`](../changelog.md).
-
----
-
-## 9. Success Criteria
+## 8. Success Criteria
 
 A user should be able to:
 
@@ -610,8 +605,8 @@ A user should be able to:
 
 ---
 
-## 10. Future Vision
+## 9. Product Direction
 
-The long-term direction is a roster-aware GAC planning assistant. With v2.1 the app crossed from *catalogue lookup* into *board-aware allocation*; v2.5 brought fleet combat inside the same model, so the board and the allocation engine now cover a full GAC round; v2.6 added explicit points-to-win maths on top, modelling the player's own remaining offence; v2.7 turned that into a mathematical-winnability verdict for deciding when a round is worth fighting; v2.8 surfaced undersize payoffs on the recommendation cards; v2.9 made the engine act on them, choosing by achievable banners; v3.0 crossed from allocation into *sequencing*, recommending not just which counter to field but which battle to fight next; and v3.1 recognised that the opening battle plays by different rules, because the bonus riding on it cannot be won back. The next steps build directly on that engine: **My Board** extends the same side-agnostic walker to the opponent's remaining offence for a two-sided prediction, **phase-aware battle ordering** would let the recommended order shift as a round nears its end, a **per-battle undersize advisor** would recommend an exact unit count per fight, and **pilot difficulty** would let the player filter by manual-play effort without perturbing the ranking. Beyond that, potential future capabilities include opponent-roster analysis, statistical counter recommendations, and (subject to feasibility) automated board setup from live match data.
+SWGOH GAC Helper should remain a roster-aware GAC planning assistant focused on fast, practical decisions during a live round. It should integrate counter selection, cross-team allocation, banner awareness, mathematical winnability, and battle sequencing without attempting to reproduce the full depth of SWGOH.gg.
 
-Throughout, the app should continue to prioritise simplicity and speed. The goal is a personal SWGOH Grand Arena strategist — not a reimplementation of SWGOH.gg.
+The product should continue to prioritise simplicity, speed, maintainability, and useful decision support over feature breadth. Forward-looking product ideas and planned work are tracked in [`ROADMAP.md`](../ROADMAP.md).
