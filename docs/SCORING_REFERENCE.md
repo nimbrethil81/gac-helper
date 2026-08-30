@@ -2,6 +2,8 @@
 
 **Scope.** This document is the specialist reference for scoring maths and for authoring the `Banner Score` and `Undersize` fields used by the app. It owns scoring rules, ceilings, score-meaning tables, worked examples, and scoring-data guidance. It must not document general application behaviour, release history, or future product work. Current system behaviour belongs in `SPEC.md`; release history belongs in `../changelog.md`; future work belongs in `../ROADMAP.md`.
 
+**Update this document when** GAC scoring rules or constants, score-meaning tables, worked examples, or `Banner Score` / `Undersize` authoring guidance changes. Application behaviour that merely consumes those values belongs in `SPEC.md` instead.
+
 It captures how many banners a battle is worth, so a hand-authored expected score can be placed consistently against a shared meaning.
 
 The two counter fields own **non-overlapping** parts of a counter's value:
