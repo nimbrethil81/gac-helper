@@ -32,6 +32,12 @@ v2.9 makes the engine *choose* undersized counters when they bank more; the rema
 
 An orthogonal attribute capturing how much manual effort a counter needs (e.g. auto-able vs must-play-manually), for the "I need to get my battles done" moment. It is deliberately **not a ranking input** — folding effort into the engine's objective would corrupt the win/banner goal by silently down-ranking strong-but-fiddly counters. Instead it would be *displayed* (a card indicator) and/or drive a *filter* ("auto-able only", reusing the existing available-counters filter idiom), narrowing the candidate pool by the player's effort budget while leaving the ranking untouched. It is a structured, machine-usable layer that *complements* rather than replaces the free-text `Notes` column, which already carries specific manual-play instructions (e.g. "play Jabba manually so auto doesn't waste the insta-kill on Leia"). A small, self-contained future feature: one sheet column, one Apps Script field, a display line and/or a filter toggle.
 
+### First Attack lane-priority review
+
+*Candidate*
+
+The current First Attack ordering places the Front Bottom preference above banner cleanliness once tier is equal. This can select a messier opener over a cleaner same-tier battle elsewhere and then warn that the selected opener is messy. Review real-round behaviour to decide whether lane preference should remain above banner score or move below it.
+
 ## Deferred
 
 ### Phase-aware battle ordering
@@ -54,7 +60,31 @@ The v2.1 allocation engine uses coverage → tier → banner score as its lexico
 
 Whether Comlink or any accessible read-only endpoint exposes live GAC board/match state, at no ongoing cost, so that the opponent board could be populated automatically rather than by hand. A short spike using the existing Comlink instance can establish feasibility without commitment. Only pursued if feasible under the zero-cost constraint.
 
+### Real-battle scoring validation
+
+*Research*
+
+Validate the fleet per-ship and defeated-enemy scoring values against a real GAC battle before relying on them for finer-grained efficiency modelling. The current points-to-win calculation uses the full-clean-clear best case and does not depend on this validation. If the values are confirmed, consider whether a more detailed battle-efficiency calculator is useful.
+
 ## Future / conditional
+
+### Cloud-backed roster data
+
+*Future / conditional*
+
+Consider account-specific cloud roster data — such as relics, omicrons and notes — only if the current local, binary owned/not-owned model becomes too limiting. The existing `Roster` sheet tab is not consumed by the app today.
+
+### GAC match history
+
+*Future / conditional*
+
+Consider storing match results and historical GAC data if retrospective analysis becomes useful. The existing `GAC History` sheet tab is not consumed by the app today.
+
+### Mode-specific counter composition
+
+*Future / conditional*
+
+Counter composition is currently shared between 5v5 and 3v3. If a counter needs a genuinely different required core by squad format, extend `Counter_Composition` with a mode dimension rather than duplicating the wider counter model.
 
 ### Distribution & Scale
 
