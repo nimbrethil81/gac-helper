@@ -2,6 +2,8 @@
 
 **Scope.** This file records notable changes by release, with the newest release first. Entries must stay concise and describe **what changed**, not how the current system works in detail. Current behaviour belongs in `docs/SPEC.md`; scoring methodology and authoring guidance belong in `docs/SCORING_REFERENCE.md`; future work belongs in `ROADMAP.md`.
 
+**Update this file when** a release ships with a notable user-facing, data-model, API, persistence, scoring, or implementation change worth recording. Do not add unreleased work; keep prospective changes in `ROADMAP.md` until they ship.
+
 ## v3.2
 
 ### Fixed
