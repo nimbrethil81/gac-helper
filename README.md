@@ -4,6 +4,8 @@ A lightweight mobile-first GAC assistant for Star Wars Galaxy of Heroes.
 
 **Scope.** This README is the project entry point only: a short product summary, current headline capabilities, the live-app link, and links to the authoritative documentation. It must not contain detailed system behaviour, release history, roadmap items, or scoring methodology.
 
+**Update this document when** the headline capabilities, live-app link, or authoritative documentation set changes. Do not add implementation detail that belongs in the specialist documents below.
+
 ## Current Features
 
 - Counter lookup for 5v5, 3v3, and Fleet
