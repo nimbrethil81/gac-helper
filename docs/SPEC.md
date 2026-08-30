@@ -42,7 +42,7 @@ A mobile-first Progressive Web App that helps players make faster, better Grand 
 
 ## 1. Overview
 
-SWGOH GAC Helper is a lightweight companion app for use during live GAC rounds. It provides a fast counter-lookup experience focused on practical, in-the-moment decision-making, and is evolving incrementally from a simple lookup tool into a personal GAC planning assistant.
+SWGOH GAC Helper is a lightweight companion app for use during live GAC rounds. It provides a fast counter-lookup experience and personal GAC planning support focused on practical, in-the-moment decision-making.
 
 The app is designed to answer, within seconds: *which counters beat this enemy team, which are still available to me, and which have I already used?*
 
@@ -160,7 +160,7 @@ A consequence of the open-ended formulas is that the tab reports a row extent fa
 
 **GAC_Board_Config** — the per-league board layout. One row per (League, Mode, Territory) combination, holding the `Territory_Type` (`SQUAD` or `FLEET`) and the `Team_Count` — how many defence teams that territory holds in that league and format. This feeds the Round screen's board setup: choosing a league and mode pre-generates exactly the right number of team pickers per territory. Territory order within a league/mode is preserved from the sheet (Front Top, Front Bottom, Back Top, Back Bottom). The tab is guarded on the backend: if it is missing or empty the payload carries an empty object, so the sheet can be edited or rearranged without breaking the endpoint.
 
-**GAC_Scoring** — the GAC banner economy. One row per rule, keyed by `Rule_ID` plus `Battle_Type` (`SQUAD`, `FLEET`, or `ANY`) plus `Mode` (`5v5`, `3v3`, or `ANY`). Values cover victory bonuses, first- and second-attempt bonuses, per-unit surviving/full-health/full-protection bonuses, unused-slot bonuses, defeated-enemy points, first-attack bonus, and territory-clear bonuses. This is the single source of truth for banner scoring and is the data source consumed by the Points-to-Win calculator (see [§6.9](#69-points-to-win)). The tab also carries `OWN_UNITS` and `ENEMY_UNITS` rows — the count of the player's own units that earn per-unit survival bonuses in a clean win, and the count of enemy units defeated. These are equal for squad battles (5v5 → 5, 3v3 → 3) and for fleet (7 each — capital ship + 6; a flawless first-attempt 7-ship win banks 73, per the SWGOH Wiki). They are modelled as two separate values so the model stays correct for any future battle type where own and enemy counts differ. The app supplies correct fallbacks for these counts, so the calculator is accurate even before the rows are populated; adding them keeps the sheet the single source of truth. The `SCORING_REFERENCE.md` companion documents the per-mode ceilings and the meaning ladder used to author `Banner Score` values. Guarded like GAC_Board_Config.
+**GAC_Scoring** — the GAC banner economy. One row per rule, keyed by `Rule_ID` plus `Battle_Type` (`SQUAD`, `FLEET`, or `ANY`) plus `Mode` (`5v5`, `3v3`, or `ANY`). Values cover victory bonuses, first- and second-attempt bonuses, per-unit surviving/full-health/full-protection bonuses, unused-slot bonuses, defeated-enemy points, first-attack bonus, and territory-clear bonuses. This is the single source of truth for banner scoring and is the data source consumed by the Points-to-Win calculator (see [§6.9](#69-points-to-win)). The tab also carries `OWN_UNITS` and `ENEMY_UNITS` rows — the count of the player's own units that earn per-unit survival bonuses in a clean win, and the count of enemy units defeated. These are equal for squad battles (5v5 → 5, 3v3 → 3) and for fleet (7 each — capital ship + 6; a flawless first-attempt 7-ship win banks 73, per the SWGOH Wiki). They are modelled as two separate values so the model does not assume that own and enemy unit counts must always match. The app supplies correct fallbacks for these counts, so the calculator is accurate even before the rows are populated; adding them keeps the sheet the single source of truth. The `SCORING_REFERENCE.md` companion documents the per-mode ceilings and the meaning ladder used to author `Banner Score` values. Guarded like GAC_Board_Config.
 
 The tab also supports the First Attack rule (see [§6.12](#612-first-attack)). The `FIRST_ATTACK` row is consumed directly, and the per-unit `SURVIVING_UNIT` / `FULL_HEALTH_UNIT` / `FULL_PROTECTION_UNIT` rows are also summed to give the banner cost of one of the player's own units failing to come through a battle intact, which converts a counter's `Banner Score` into an expected unit loss. Nothing additional is authored for this; retuning the scoring rows retunes the risk bar with them.
 
@@ -170,13 +170,13 @@ The tab also supports the First Attack rule (see [§6.12](#612-first-attack)). T
 
 The tab is **optional and incremental**. It is guarded on the backend like GAC_Board_Config and GAC_Scoring — a missing or empty tab yields an empty object — and a blank or unrecognised `Threat` resolves to `NORMAL` client-side. So Battle Order works with the tab absent entirely, and improves row by row as ratings are added. The intended authoring pattern is to rate only the teams the automatic ordering gets wrong (in practice, Galactic Legends and any thinly-documented easy team), leaving everything else on the default. Data validation on the `Defence_Team` column, sourced from the distinct defence-team names on the Counters tab, guards the one real fragility of name-keying: renaming a defence team would otherwise silently orphan its rating.
 
-**Roster** — reserved for future cloud-backed, account-specific roster data (relics, omicrons, notes). Not consumed by the app at this stage.
+**Roster** — present in the spreadsheet but not consumed by the app.
 
-**GAC History** — reserved for future match-result tracking.
+**GAC History** — present in the spreadsheet but not consumed by the app.
 
 **Score_Meanings** — a reference table mapping a (`Mode`, `Banner Score`) pair to that score's practical meaning. It is the source for the Counters tab's derived score-meaning column and the in-sheet companion to the meaning ladder documented in `SCORING_REFERENCE.md`. The Apps Script does not read it; it exists to keep `Banner Score` authoring consistent.
 
-> **Composition is mode-agnostic across squad formats.** The required core of a character counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. If a counter ever needs a genuinely different required core per mode, a `Mode` column (`5v5` / `3v3` / `BOTH`) can be added to Counter_Composition without disturbing the rest of the model. Fleet is modelled as an additional `Mode` value (`FLEET`) on the Counters tab rather than a separate format axis, since the fleet territory is present in every GAC regardless of the character format; a fleet counter's required core is its ships, drawn from the same Counter_Composition table.
+> **Composition is mode-agnostic across squad formats.** The required core of a character counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. Fleet is modelled as an additional `Mode` value (`FLEET`) on the Counters tab rather than a separate format axis, since the fleet territory is present in every GAC regardless of the character format; a fleet counter's required core is its ships, drawn from the same Counter_Composition table.
 
 ### 4.2 Identifier Standards
 
@@ -491,7 +491,7 @@ This feature answers "how many banners do I still need to win, and can I get the
 
 **First-attack bonus.** The walker's `firstAttackAvailable` option is supplied from the derived opening-battle state (see [§6.12](#612-first-attack)), so the one-off bonus is counted while it is still winnable and drops out once spent.
 
-**Data caveat.** Points-to-win uses full-clean-clear best cases, consistent with the documented 69-banner single-battle maximum. The fleet per-ship and defeated-enemy values remain earmarked for a real-battle spot-check before the efficiency calculator is built on them; the points-to-win figure itself is unaffected, since it uses the full-clear best case.
+**Data caveat.** Points-to-win uses full-clean-clear best cases, consistent with the documented 69-banner single-battle maximum. It therefore does not depend on validation of finer-grained fleet per-ship and defeated-enemy scoring values; that validation is tracked in [`ROADMAP.md`](../ROADMAP.md).
 
 ### 6.10 Can I Still Win?
 
@@ -543,7 +543,7 @@ The round's **opening battle** is the single exception to the fragility ordering
 
 The cost of the exception is that the most fragile battle is delayed by exactly one, which is a real but small loss of recovery headroom. That is a cheap trade against a bonus that can decide the round.
 
-**Squad only, permanently.** Back Top is locked until Front Top is cleared, and clearing a territory means attacking it, so a fleet battle can never be the round's opener. The fleet track keeps the standard rule throughout; no special handling is needed and none is speculatively added.
+**Squad only.** Back Top is locked until Front Top is cleared, and clearing a territory means attacking it, so a fleet battle can never be the round's opener. The fleet track keeps the standard rule throughout.
 
 **Opening ordering rule.** Lexicographic, best-first:
 
@@ -562,7 +562,7 @@ The cost of the exception is that the most fragile battle is delayed by exactly 
 
 A counter with no authored banner score is treated as *unknown*, not messy: the messiness check is skipped and only tier can flag it.
 
-> **A known interaction.** Because the lane preference sits above banner score, a Front Bottom answer can be chosen over a cleaner same-tier answer in another territory, and then warn for messiness even though a cleaner opener existed on the board. This follows directly from the deliberate decision to place lane below tier only. The messiness warning is therefore worded as a statement about *the pick* rather than the board, while the tier warning — which is safe to generalise — is worded about the board. Flagged here because real rounds may show whether the lane preference should sit below banners instead.
+> **A known interaction.** Because the lane preference sits above banner score, a Front Bottom answer can be chosen over a cleaner same-tier answer in another territory, and then warn for messiness even though a cleaner opener existed on the board. This follows directly from the deliberate decision to place lane below tier only. The messiness warning is therefore worded as a statement about *the pick* rather than the board, while the tier warning — which is safe to generalise — is worded about the board.
 
 **Detecting the opening state.** Derived from board and used-team state, never stored — there is no "first attack spent" flag to keep in sync and no way for one to drift from reality. Three independent signals, any one of which means an attack has happened:
 
@@ -580,7 +580,7 @@ The same derived state supplies the first-attack bonus to the banner calculation
 
 ## 7. Roster Model
 
-Ownership is tracked at unit level only, as a binary "owned / not owned". Relics, gear, zetas, omicrons, mods, and GP are **not** modelled at this stage, even though the import source exposes them — only unit presence is consumed. Characters, ships, and capital ships are all imported and shown; capital ships are visually distinguished by a badge on the roster.
+Ownership is tracked at unit level only, as a binary "owned / not owned". Relics, gear, zetas, omicrons, mods, and GP are **not** modelled, even though the import source exposes them — only unit presence is consumed. Characters, ships, and capital ships are all imported and shown; capital ships are visually distinguished by a badge on the roster.
 
 **Availability rule.** A counter is available when all of its required units are owned. Recommended units do not affect availability. This holds identically for fleet counters, whose required units are ships.
 
