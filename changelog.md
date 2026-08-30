@@ -1,8 +1,6 @@
 # Changelog
 
-This file records notable changes by release, with the newest release first.
-
-Keep entries concise and focused on **what changed**. Current system behaviour belongs in `docs/SPEC.md`; scoring methodology and authoring guidance belong in `docs/SCORING_REFERENCE.md`; future work should not be recorded here.
+**Scope.** This file records notable changes by release, with the newest release first. Entries must stay concise and describe **what changed**, not how the current system works in detail. Current behaviour belongs in `docs/SPEC.md`; scoring methodology and authoring guidance belong in `docs/SCORING_REFERENCE.md`; future work belongs in `ROADMAP.md`.
 
 ## v3.2
 
