@@ -75,7 +75,7 @@ The app is a roster-aware GAC strategist that can recommend attack order, alloca
 
 **Fast.** Lookup is the critical path. A user should reach a counter list in as few taps as possible, with search and mode selection always to hand.
 
-**Maintainable.** All game data lives in Google Sheets. Adding counters, adjusting tiers, or editing notes requires no code change and no redeployment of the frontend.
+**Maintainable.** All authored app data lives in Google Sheets. Adding counters, adjusting tiers, or editing notes requires no code change and no redeployment of the frontend.
 
 **Incremental.** Each version delivers a self-contained, working improvement. The app is never left in a broken intermediate state between releases.
 
@@ -85,7 +85,7 @@ The app is a roster-aware GAC strategist that can recommend attack order, alloca
 
 ## 3. Architecture
 
-The app is a static frontend served from GitHub Pages, backed by a read-only JSON API built on Google Apps Script over Google Sheets. There is no server-side application code beyond the Apps Script endpoint, and no database other than the spreadsheet.
+The app is a static frontend served from GitHub Pages. Its authored game and configuration data is exposed through a read-only JSON API built on Google Apps Script over Google Sheets. Roster import follows a separate read-only path: Apps Script proxies requests to a self-hosted SWGOH Comlink service, which talks directly to the game's read-only APIs. There is no application database beyond the spreadsheet; player-specific state is stored client-side.
 
 ### 3.1 Frontend
 
@@ -99,16 +99,19 @@ Hosted on GitHub Pages.
 
 ### 3.2 Backend
 
-* **Google Sheets** — primary data store and single source of truth for all game data, including the `External_ID` (swgoh.gg base_id) mapping column, the per-league board configuration, and the GAC banner scoring rules.
+* **Google Sheets** — primary data store and source of truth for authored app data, including counters and definitions, the `External_ID` game-base-ID mapping, per-league board configuration, GAC banner scoring rules, and defence-team attributes.
 * **Google Apps Script** — a `doGet` web app with a lightweight `action` router:
   * `action=data` (default) — reads the sheets and returns the consolidated counter/definition payload consumed by the frontend, including the board configuration and scoring rules.
-  * `action=roster&allyCode=…` — a thin server-side proxy that calls the roster provider and returns base_ids only. This exists solely to clear the browser CORS barrier; it performs no mapping or business logic of its own.
+  * `action=roster&allyCode=…` — posts the ally code server-side to the Comlink roster provider, normalises its response, and returns deduplicated unit base IDs. This keeps the Comlink endpoint server-side and avoids browser CORS constraints; it performs no `Character_ID` mapping or roster classification.
+* **SWGOH Comlink** — a self-hosted service on Render that talks directly to the game's read-only APIs. Its `/player` response supplies `rosterUnit[].definitionId`; the Apps Script takes the base-ID portion before the rarity suffix and returns that compact list to the client.
 
-The roster proxy is deliberately "dumb": it returns the player's owned `base_id`s and a sync timestamp, and the client performs all mapping and classification. This keeps the payload small (important for the poor-wifi scenario), keeps the sheet as the single source of truth for the ID mapping, and avoids re-reading the sheet on every sync.
+The roster path is deliberately thin: Apps Script validates the request and provider response, returns the player's owned base IDs and a sync timestamp, and leaves all mapping and classification to the client. This keeps the payload small (important for the poor-wifi scenario), keeps the sheet as the source of truth for the ID mapping, and avoids re-reading the sheet on every sync.
 
 ### 3.3 Data Flow
 
-The counter-data flow is **read-only**: the app fetches data but never writes back to Sheets. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce. Roster import is also read-only with respect to the game: data flows inward only.
+The counter-data flow is **read-only**: the app fetches data but never writes back to Sheets. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce.
+
+Roster import is also read-only. The request path is **PWA → Apps Script → Comlink → game API**; the response returns through Apps Script as a compact list of owned unit base IDs plus a sync timestamp. No roster data is written back to the game or to Google Sheets.
 
 ### 3.4 State & Persistence
 
@@ -117,7 +120,7 @@ All player-specific state is held client-side in `localStorage`:
 * **Used teams** — keyed on `Counter_ID`, persisted across app launches.
 * **Owned units** — versioned roster object `{schema, savedAt, source, allyCode, syncedAt, owned[]}`, with a single save/load path and compatibility handling for legacy roster formats. `Character_ID` is the persisted key (ships and capital ships are stored under the same key space as characters, since all units share the `Character_ID` namespace). Provenance is tracked in `source` (`manual`, `import`, or the API sentinel); `savedAt` records the last local write of any kind, while `syncedAt` records the last successful API return — these are distinct facts and both are meaningful for data freshness.
 * **Banner tracking** — the current round's scores (own, opponent, remaining), persisted across app launches and cleared by Reset Round.
-* **Opponent board** — versioned board object `{schema, league, mode, createdAt, territories[], teams[]}`, hydrated before first paint via the same defensive load pattern as the roster. The board is present only for the current round and is cleared by Reset Round together with used teams and banner tracking. Per-team `cleared` flags are the source of truth; territory-cleared state is always derived, never stored. The territory layout (which territories exist, their type, and how many teams each holds) is snapshotted into the board at setup, so an in-progress round renders identically even if the underlying configuration data changes later. Legacy pre-fleet board data that cannot represent the current territory model is discarded on load. `mode` is always a **squad format** (`5v5` or `3v3`) frozen at setup — "Fleet" is a browsing view on the Counters screen, never a whole-board format (see [§6.7](#67-opponent-board)).
+* **Opponent board** — current schema **3**, stored as a versioned board object `{schema, league, mode, createdAt, territories[], teams[]}` and hydrated before first paint via the same defensive load pattern as the roster. The board is present only for the current round and is cleared by Reset Round together with used teams and banner tracking. Per-team `cleared` flags are the source of truth; territory-cleared state is always derived, never stored. The territory layout (which territories exist, their type, and how many teams each holds) is snapshotted into the board at setup, so an in-progress round renders identically even if the underlying configuration data changes later. Schema-2 boards are migrated in place by backfilling missing Battles counts to zero and re-saving as schema 3; older unsupported board formats are discarded. `mode` is always a **squad format** (`5v5` or `3v3`) frozen at setup — "Fleet" is a browsing view on the Counters screen, never a whole-board format (see [§6.7](#67-opponent-board)).
 * **League setting** — persisted user preference (`Kyber`, `Aurodium`, `Chromium`, `Bronzium`, or `Carbonite`), remembered across rounds and used to pre-fill the board setup card.
 * **Last squad format** — persisted `5v5`/`3v3` preference (`lastSquadMode`). It records the most recent squad format selected on the Counters toggle, and is used to seed the board's format when the toggle is on Fleet at setup time (see [§6.7](#67-opponent-board)).
 
@@ -127,7 +130,7 @@ All player-specific state is held client-side in `localStorage`:
 
 Because state is local to the device and browser, it does not sync across devices and is lost if site data is cleared or the PWA is reinstalled in a context without durable storage. With ally-code import in place, recovery is a single tap (re-enter or reuse the stored ally code) rather than a manual rebuild.
 
-**Roster import timeout.** User-initiated import and refresh use a 60-second timeout to accommodate cold starts on the roster proxy's Render free-tier hosting. Background refreshes inherit the same timeout but fail silently.
+**Roster import timeout.** User-initiated import and refresh use a 60-second timeout to accommodate cold starts of the self-hosted Comlink service on Render's free tier. Background refreshes inherit the same timeout but fail silently.
 
 ---
 
@@ -156,7 +159,7 @@ A consequence of the open-ended formulas is that the tab reports a row extent fa
 
 **Character_Definitions** — the master unit registry. One row per playable unit, holding its stable `Character_ID`, display name, `Unit_Type` (`CHARACTER`, `SHIP`, or `CAPITAL_SHIP`), and `External_ID`. This is the source for the roster screen, for validation, and for import matching.
 
-> **`External_ID` is a translation adapter, not the primary key.** It holds the SWGOH.gg `base_id` for a unit, used only to translate imported rosters into internal `Character_ID`s. The internal key remains `Character_ID`; this keeps the data model independent of an external namespace that is controlled by Capital Games and can change. Only the units that appear as `REQUIRED` in Counter_Composition strictly need a mapping for availability to work; others can be populated opportunistically. base_ids must be taken from the SWGOH.gg character-list endpoint, not derived from display names — several are non-obvious (e.g. Jedi Master Luke, Sith Eternal Emperor) and a wrong value fails silently.
+> **`External_ID` is a translation adapter, not the primary key.** It holds the SWGOH unit base ID returned by the game data (the portion of Comlink's `definitionId` before the rarity suffix), used only to translate imported rosters into internal `Character_ID`s. The internal key remains `Character_ID`; this keeps the data model independent of the game's external namespace. Only the units that appear as `REQUIRED` in Counter_Composition strictly need a mapping for availability to work; others can be populated opportunistically. Base IDs must be sourced from game/Comlink data, not derived from display names — several are non-obvious (e.g. Jedi Master Luke, Sith Eternal Emperor) and a wrong value fails silently.
 
 **GAC_Board_Config** — the per-league board layout. One row per (League, Mode, Territory) combination, holding the `Territory_Type` (`SQUAD` or `FLEET`) and the `Team_Count` — how many defence teams that territory holds in that league and format. This feeds the Round screen's board setup: choosing a league and mode pre-generates exactly the right number of team pickers per territory. Territory order within a league/mode is preserved from the sheet (Front Top, Front Bottom, Back Top, Back Bottom). The tab is guarded on the backend: if it is missing or empty the payload carries an empty object, so the sheet can be edited or rearranged without breaking the endpoint.
 
@@ -194,9 +197,9 @@ Stable identifiers are central to the data model. Names can change; IDs must not
 * Examples: `LEIA_ORGANA`, `CAPTAIN_DROGAN`, `DARTH_BANE`, `EMPEROR_PALPATINE`.
 
 **External_ID**
-* The SWGOH.gg `base_id` for a unit (e.g. `GLLEIA`, `GRANDMASTERLUKE`, `SITHPALPATINE`).
+* The SWGOH unit base ID for a unit (e.g. `GLLEIA`, `GRANDMASTERLUKE`, `SITHPALPATINE`).
 * A translation adapter only — never used as an internal key.
-* Authoritative source is the SWGOH.gg character-list endpoint; not derived from display names.
+* Corresponds to the base-ID portion of Comlink's `definitionId` before the `:` rarity suffix; source it from game/Comlink data rather than deriving it from display names.
 
 **League**
 * Uppercase, no spaces. Enumerated: `KYBER`, `AURODIUM`, `CHROMIUM`, `BRONZIUM`, `CARBONITE`.
@@ -310,7 +313,7 @@ The optional payload sections are backwards-compatible: missing source tabs yiel
 
 ### `action=roster&allyCode=…`
 
-A thin proxy to the roster provider (a self-hosted SWGOH Comlink instance). Returns base_ids only; the client does all mapping and classification.
+A thin proxy to the self-hosted SWGOH Comlink service. Apps Script posts the ally code to Comlink's `/player` endpoint, reads each `rosterUnit[].definitionId`, strips the rarity suffix after `:`, deduplicates the resulting unit base IDs, and returns those IDs to the client. The client performs all `Character_ID` mapping and character/ship classification.
 
 ```json
 {
@@ -363,7 +366,7 @@ A dedicated Roster view, reached from the bottom navigation bar, lists the playe
 
 There are three ways to populate the roster, in order of precedence as the recommended path:
 
-1. **Import via ally code (primary).** The user enters their 9-digit ally code and the app loads ownership directly from their account via the roster proxy. When the roster is empty this is presented as a prominent first-run card; once an ally code is associated it becomes a "Refresh roster" control. Imported base_ids are mapped to internal `Character_ID`s through the `External_ID` adapter; the result replaces the current roster (with Undo). Import brings in characters, ships, and capital ships together, and is reported as "Imported X characters and Y ships from the game," with a further count of units not yet present in the app's database (informational, expected after game updates). Foreground import validates the ally code, guards against being offline, applies a 60-second timeout (accommodating Render cold starts), and gives per-case error copy (including the common "not yet synced" case). A confirmation is shown before overwriting an existing different roster; a routine refresh of the same ally code is not gated.
+1. **Import via ally code (primary).** The user enters their 9-digit ally code and the app loads ownership directly from their account via the roster proxy. When the roster is empty this is presented as a prominent first-run card; once an ally code is associated it becomes a "Refresh roster" control. Imported game base IDs are mapped to internal `Character_ID`s through the `External_ID` adapter; the result replaces the current roster (with Undo). Import brings in characters, ships, and capital ships together, and is reported as "Imported X characters and Y ships from the game," with a further count of units not yet present in the app's database (informational, expected after game updates). Foreground import validates the ally code, guards against being offline, applies a 60-second timeout (accommodating Comlink's Render cold starts), and gives per-case error copy (including the common "not yet synced" case). A confirmation is shown before overwriting an existing different roster; a routine refresh of the same ally code is not gated.
 2. **Manual toggle.** Tap individual units on/off. Always available.
 3. **Paste-JSON import (fallback).** The collapsible Manage roster data panel provides Export (copies the roster to the clipboard as JSON) and Import (validates pasted roster data, replaces the current roster, reports unrecognised units), plus Clear roster. This operates on internal `Character_ID`s, accepts characters and ships alike, and shares the same apply path and Undo as the API import.
 
@@ -584,7 +587,7 @@ Ownership is tracked at unit level only, as a binary "owned / not owned". Relics
 
 **Availability rule.** A counter is available when all of its required units are owned. Recommended units do not affect availability. This holds identically for fleet counters, whose required units are ships.
 
-**Identity and mapping.** The internal key is `Character_ID`. Imported rosters arrive as SWGOH.gg `base_id`s and are translated to `Character_ID`s via the `External_ID` adapter column, through a base_id → Character_ID reverse index built on load. The index carries each unit's `unitType`, so import can classify characters, ships, and capital ships and count them separately. Unmapped units are reported as "not in the app's database yet" and not stored.
+**Identity and mapping.** The internal key is `Character_ID`. Imported rosters arrive as SWGOH unit base IDs returned through Comlink and are translated to `Character_ID`s via the `External_ID` adapter column, through a base-ID → Character_ID reverse index built on load. The index carries each unit's `unitType`, so import can classify characters, ships, and capital ships and count them separately. Unmapped units are reported as "not in the app's database yet" and not stored.
 
 **Persistence.** Ownership is held in `localStorage` and keyed on `Character_ID` for all unit types. It persists across launches but is device- and browser-specific, with no cross-device sync. See [§3.4](#34-state--persistence).
 
