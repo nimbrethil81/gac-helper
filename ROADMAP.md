@@ -1,6 +1,6 @@
 # SWGOH GAC Helper — Roadmap
 
-This document contains forward-looking product ideas and planned work only. It must not document functionality that has already shipped. Current system behaviour belongs in `docs/SPEC.md`; release history belongs in `changelog.md`.
+**Scope.** This document contains forward-looking product ideas and planned work only. It must not document functionality that has already shipped, current system behaviour in detail, release history, or scoring methodology. Current system behaviour belongs in `docs/SPEC.md`; release history belongs in `changelog.md`; scoring authoring guidance belongs in `docs/SCORING_REFERENCE.md`.
 
 Items may be **Planned**, **Candidate**, **Deferred**, **Research**, or **Future / conditional**. When an item ships, remove it from this roadmap: document the resulting current behaviour in `docs/SPEC.md` and record the release in `changelog.md`.
 
