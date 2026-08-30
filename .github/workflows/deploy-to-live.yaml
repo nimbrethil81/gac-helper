@@ -1,7 +1,6 @@
 name: Deploy to Live
 
 on:
- 
   workflow_dispatch:
 
 jobs:
@@ -9,13 +8,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Download all files from this (dev) repo
+      # Step 1: Check out the dev repository
       - name: Checkout dev repo
         uses: actions/checkout@v4
         with:
           path: dev
 
-      # Step 2: Download the live repo
+      # Step 2: Check out the public live repository
       - name: Checkout live repo
         uses: actions/checkout@v4
         with:
@@ -23,16 +22,27 @@ jobs:
           token: ${{ secrets.LIVE_REPO_PAT }}
           path: live
 
-      # Step 3: Copy all dev files into the live repo folder
-      #         The .github folder is excluded so the live repo keeps its own settings
-      - name: Copy files from dev to live
+      # Step 3: Sync only the files required by the live PWA.
+      #
+      # Everything not explicitly included is removed from the live repo.
+      # Protect the live checkout's .git directory so rsync does not delete
+      # the repository metadata when --delete-excluded is used.
+      - name: Sync allow-listed app files to live
         run: |
-          rsync -av --delete \
-            --exclude='.git' \
-            --exclude='.github' \
+          rsync -av --delete --delete-excluded \
+            --filter='P /.git' \
+            --filter='P /.git/**' \
+            --include='/index.html' \
+            --include='/app.js' \
+            --include='/styles.css' \
+            --include='/manifest.json' \
+            --include='/service-worker.js' \
+            --include='/icon-192.png' \
+            --include='/icon-512.png' \
+            --exclude='*' \
             dev/ live/
 
-      # Step 4: Commit and push the changes to the live repo
+      # Step 4: Commit and push any resulting changes
       - name: Commit and push to live repo
         run: |
           cd live
