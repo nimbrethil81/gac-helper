@@ -4,6 +4,8 @@ A mobile-first Progressive Web App that helps players make faster, better Grand 
 
 **Scope.** This specification is the authoritative description of the system as it currently exists: its architecture, data model, API contract, current behaviour, and design decisions that remain true. It must not contain release history or planned, candidate, deferred, research, or other future product work. Release history belongs in [`changelog.md`](../changelog.md); future work belongs in [`ROADMAP.md`](../ROADMAP.md); detailed scoring maths and scoring-data authoring guidance belong in [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). High-level product principles and success criteria may remain here where they constrain the current design.
 
+**Update this document when** shipped code or data-model changes alter the current architecture, API contract, persistence model, data relationships, user-visible behaviour, or design decisions. Describe the resulting current state, not the history of how it changed.
+
 ---
 
 ## Contents
