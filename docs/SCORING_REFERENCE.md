@@ -1,8 +1,8 @@
 # GAC Scoring Reference
 
-An authoring aid for the `Banner Score` and `Undersize` columns in the **Counters**
-tab. It captures how many banners a battle is worth, so a hand-authored expected
-score can be placed consistently against a shared meaning.
+**Scope.** This document is the specialist reference for scoring maths and for authoring the `Banner Score` and `Undersize` fields used by the app. It owns scoring rules, ceilings, score-meaning tables, worked examples, and scoring-data guidance. It must not document general application behaviour, release history, or future product work. Current system behaviour belongs in `SPEC.md`; release history belongs in `../changelog.md`; future work belongs in `../ROADMAP.md`.
+
+It captures how many banners a battle is worth, so a hand-authored expected score can be placed consistently against a shared meaning.
 
 From v2.8, the two columns own **non-overlapping** parts of a counter's value:
 
