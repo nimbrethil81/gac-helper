@@ -2,7 +2,7 @@
 
 **Scope.** This document contains forward-looking product ideas and planned work only. It must not document functionality that has already shipped, current system behaviour in detail, release history, or scoring methodology. Current system behaviour belongs in `docs/SPEC.md`; release history belongs in `changelog.md`; scoring authoring guidance belongs in `docs/SCORING_REFERENCE.md`.
 
-Items may be **Planned**, **Candidate**, **Deferred**, **Research**, or **Future / conditional**. When an item ships, remove it from this roadmap: document the resulting current behaviour in `docs/SPEC.md` and record the release in `changelog.md`.
+**Update this document when** future work is added, reprioritised, deferred, abandoned, or ships. Items may be **Planned**, **Candidate**, **Deferred**, **Research**, or **Future / conditional**. When an item ships, remove it from this roadmap: document the resulting current behaviour in `docs/SPEC.md` and record the release in `changelog.md`.
 
 ## Planned
 
@@ -10,13 +10,13 @@ Items may be **Planned**, **Candidate**, **Deferred**, **Research**, or **Future
 
 *Planned, seam-ready*
 
-Points-to-win currently models only the player's own remaining offence; the opponent's score is hand-entered and static. My Board adds a second board representing the player's own defence, so the same side-agnostic walker can project the opponent's best-case remaining banners against it and turn points-to-win into a full two-sided prediction. The v2.6 engine was built for this: the walker takes any board, the Battles/attempts count lives generically on a board team, and the banner model reserves room for an opponent-remaining figure — so this is additive, not a rework. Would also add a **Setting Defence** scoring row (banked at round start against the player's own defence).
+Points-to-win currently models only the player's own remaining offence; the opponent's score is hand-entered and static. My Board adds a second board representing the player's own defence, so the same side-agnostic walker can project the opponent's best-case remaining banners against it and turn points-to-win into a full two-sided prediction. The current scoring engine is already seam-ready for this: the walker takes any board, the Battles/attempts count lives generically on a board team, and the banner model reserves room for an opponent-remaining figure — so this is additive, not a rework. Would also add a **Setting Defence** scoring row (banked at round start against the player's own defence).
 
 ### Per-battle undersize advisor
 
 *Planned*
 
-v2.9 makes the engine *choose* undersized counters when they bank more; the remaining piece is a per-battle "field exactly N units for maximum banners" recommendation that accounts for what the player can safely win with in a *specific* battle, rather than the per-counter safe-drop count the catalogue holds today. The banner arithmetic is settled (the wiki fleet ladder confirmed +1 per unit dropped end to end); what remains is a per-situation winnability judgement finer than the single `Undersize` number per counter — likely dependent on opponent-roster or outcome data the app does not yet hold.
+The current allocation engine can choose undersized counters when they bank more; the remaining piece is a per-battle "field exactly N units for maximum banners" recommendation that accounts for what the player can safely win with in a *specific* battle, rather than the per-counter safe-drop count the catalogue holds today. The banner arithmetic is settled (the wiki fleet ladder confirms +1 per unit dropped end to end); what remains is a per-situation winnability judgement finer than the single `Undersize` number per counter — likely dependent on opponent-roster or outcome data the app does not yet hold.
 
 ## Candidates
 
@@ -24,7 +24,7 @@ v2.9 makes the engine *choose* undersized counters when they bank more; the rema
 
 *Candidate*
 
-`Threat` is currently consumed only by Battle Order and surfaced only in the Next Up reason line. A small extension would show it on the opponent board itself — a badge on each team card — so the player can see the shape of the board at a glance rather than one battle at a time. Deliberately held back from v3.0 to keep the first release of the rating focused on the decision it was introduced for, and because board cards are already dense.
+`Threat` is currently consumed only by Battle Order and surfaced only in the Next Up reason line. A small extension would show it on the opponent board itself — a badge on each team card — so the player can see the shape of the board at a glance rather than one battle at a time. The current rating is intentionally focused on the decision it supports, and board cards are already dense, so broader display should remain an explicit follow-on rather than an incidental expansion.
 
 ### Pilot difficulty — manual-play effort
 
@@ -44,13 +44,13 @@ The current First Attack ordering places the Front Bottom preference above banne
 
 *Deferred, pending real-play feedback*
 
-The v3.0 rule is deliberately a single consistent ordering: attack the most fragile battles first, because that is right when there is still time and bench to absorb a failure. Late in a round, when chasing a specific margin against a known opponent score, the opposite may be preferable — bank the certain wins first and accept that the risky battle may not get fought at all. v3.1 establishes the shape such a rule would take — a named phase with its own inverted objective, entered and left on derived state — so this would extend an existing pattern rather than introduce one. Making the order shift as the round progresses was considered for v3.0 and deferred rather than guessed at, on the grounds that the phase boundary (what counts as "late") is exactly the thing real matches will reveal and speculation will not. The inputs it would need — remaining banners, points to win, and the winnability verdict — are all already computed on the same screen, so this is an ordering change rather than new machinery.
+The current Battle Order rule deliberately uses one consistent objective after the opening battle: attack the most fragile battles first, because that is appropriate while there is still time and bench depth to absorb a failure. Late in a round, when chasing a specific margin against a known opponent score, the opposite may be preferable — bank the certain wins first and accept that the risky battle may not get fought at all. First Attack already demonstrates the shape such a rule could take: a named phase with its own objective, entered and left from derived state. The unresolved question is the phase boundary — what counts as "late" — and that should be informed by real matches rather than guessed at. The inputs it would need — remaining banners, points to win, and the winnability verdict — are already computed on the same screen, so this is an ordering change rather than new machinery.
 
 ### Option B — Banners-first allocation scoring
 
 *Deferred alternative*
 
-The v2.1 allocation engine uses coverage → tier → banner score as its lexicographic objective (Option A). A possible iteration is Option B: maximise total expected banners across the plan directly, letting coverage fall out naturally (an uncovered team contributes zero). This would produce subtler assignments — e.g. accepting a slightly weaker cover on one team to leave a stronger counter free for a harder one — at the cost of the current explicit "cover as many teams as possible" behaviour. Deferred until real-play feedback indicates whether the coverage-first heuristic produces visibly wasteful assignments; if it does, this is the intended iteration.
+The current allocation engine uses coverage → tier → banner score as its lexicographic objective (Option A). A possible iteration is Option B: maximise total expected banners across the plan directly, letting coverage fall out naturally (an uncovered team contributes zero). This would produce subtler assignments — e.g. accepting a slightly weaker cover on one team to leave a stronger counter free for a harder one — at the cost of the current explicit "cover as many teams as possible" behaviour. Deferred until real-play feedback indicates whether the coverage-first heuristic produces visibly wasteful assignments; if it does, this is the intended iteration.
 
 ## Research
 
