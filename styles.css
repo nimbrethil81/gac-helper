@@ -150,6 +150,10 @@ body {
     margin-bottom: 0;
 }
 
+.round-board-switch {
+    border: 1px solid #22324a;
+}
+
 /* ─── SEARCH / SELECT ────────────────────────────────────────────── */
 
 .search-box,
@@ -727,6 +731,18 @@ body {
     opacity: 0.5;
 }
 
+.board-custom-name {
+    width: calc(100% - 12px);
+    box-sizing: border-box;
+    margin: 6px 0 0 12px;
+    padding: 10px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid #22324a;
+    border-radius: 8px;
+    font-size: 16px;
+}
+
 .board-cleared-btn {
     flex-shrink: 0;
     min-width: 92px;
@@ -817,6 +833,18 @@ body {
     align-items: center;
     gap: 10px;
     margin: 6px 0 0 12px;
+}
+
+.template-clear-btn {
+    flex-shrink: 0;
+    border: 1px solid #5c2e2e;
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: transparent;
+    color: var(--c-tier);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 .board-attempts-label {

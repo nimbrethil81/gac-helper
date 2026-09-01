@@ -11,9 +11,9 @@ A lightweight mobile-first GAC assistant for Star Wars Galaxy of Heroes.
 - Counter lookup for 5v5, 3v3, and Fleet
 - Roster import and ownership-aware counter availability
 - Used-team and spent-unit tracking
-- Opponent board setup and cross-team counter allocation
-- Banner tracking, points-to-win, and mathematical winnability
-- Battle-order recommendations
+- Paired Opponent Board and My Board tracking with reusable defence templates
+- Cross-team counter allocation and battle-order recommendations
+- Two-sided banner ranges, points-to-win, and mathematical round outcomes
 - Google Sheets-backed game data
 - Installable PWA with cache-first operation
 

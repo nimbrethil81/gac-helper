@@ -4,6 +4,17 @@
 
 **Update this file when** a release ships with a notable user-facing, data-model, API, persistence, scoring, or implementation change worth recording. Do not add unreleased work; keep prospective changes in `ROADMAP.md` until they ship.
 
+## v3.3 — My Board
+
+### Added
+- Added paired Opponent Board and My Board views with unified setup, defence identity tracking, opponent Battles/Cleared state, and per-format defence templates.
+- Added two-sided current-to-maximum score ranges and guaranteed/dependent/impossible outcome verdicts.
+- Added and validated the `SETTING_DEFENCE` scoring rule for one-time starting-score prefills.
+
+### Changed
+- Reset Round now clears both live boards while preserving 5v5 and 3v3 defence templates.
+- Opponent-board persistence moved to schema 4 with additive schema-2/3 migration that preserves existing live scores.
+
 ## v3.2
 
 ### Fixed

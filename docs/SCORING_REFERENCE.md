@@ -15,6 +15,24 @@ Author `Banner Score` using the full-squad, first-attempt tables below; let `Und
 
 ---
 
+## Starting score — setting defence
+
+The authored scoring row is:
+
+```
+SETTING_DEFENCE  ANY  ANY  90
+```
+
+The value is **90 banners per defence team set**. A new round's starting score is therefore:
+
+```
+starting score = total configured defence slots × 90
+```
+
+All squad and fleet slots on the player's board count. This is a banked starting total, not remaining offence, so the whole-board ceiling below does not add it. The app reads this row rather than carrying a code fallback and validates that exactly one positive, finite `ANY / ANY` rule exists before creating a new round.
+
+---
+
 ## How a battle is scored
 
 A single clean **first-attempt** win banks:
@@ -98,7 +116,7 @@ The fleet scoring table confirms the +1-per-drop rule end to end:
 
 ## Whole-board theoretical maximum
 
-A theoretical board ceiling sums the perfect-clear value of every uncleared team plus the clear bonus for every territory that still contains an uncleared team. Locked territories are included because the ceiling represents the banners available from clearing the whole remaining board. The application behaviour that consumes this ceiling is specified in `SPEC.md`.
+A theoretical board ceiling sums the perfect-clear value of every uncleared team plus the clear bonus for every territory that still contains an uncleared team. Locked territories are included because the ceiling represents the banners available from clearing the whole remaining board. It excludes the already-banked `SETTING_DEFENCE` starting score. The application behaviour that consumes this ceiling is specified in `SPEC.md`.
 
 Per-territory, for a fresh board, the calculation is:
 

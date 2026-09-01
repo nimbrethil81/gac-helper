@@ -6,12 +6,6 @@
 
 ## Planned
 
-### My Board — opponent's remaining offence
-
-*Planned, seam-ready*
-
-Points-to-win currently models only the player's own remaining offence; the opponent's score is hand-entered and static. My Board adds a second board representing the player's own defence, so the same side-agnostic walker can project the opponent's best-case remaining banners against it and turn points-to-win into a full two-sided prediction. The current scoring engine is already seam-ready for this: the walker takes any board, the Battles/attempts count lives generically on a board team, and the banner model reserves room for an opponent-remaining figure — so this is additive, not a rework. Would also add a **Setting Defence** scoring row (banked at round start against the player's own defence).
-
 ### Per-battle undersize advisor
 
 *Planned*
