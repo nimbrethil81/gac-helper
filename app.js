@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "3.2";
+const APP_VERSION = "3.3";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -11,8 +11,11 @@ const ROSTER_FETCH_TIMEOUT_MS = 60000;       // user-initiated import/refresh ti
 const ROSTER_SYNC_STALE_MS = 1000 * 60 * 60 * 12; // background sync only if older than this
 
 // Board (v2.1 Round screen)
-const BOARD_SCHEMA = 3;                       // v3: board teams carry an attempts count (v2.6)
-const BOARD_KEY = "boardData";               // versioned board object
+const BOARD_SCHEMA = 4;                       // v4: paired boards + optional custom team names
+const BOARD_KEY = "boardData";               // opponent board (legacy-compatible key)
+const MY_BOARD_KEY = "myBoardData";           // player's defence for the current round
+const DEFENCE_TEMPLATE_SCHEMA = 1;
+const DEFENCE_TEMPLATE_KEY_PREFIX = "defenceTemplate:";
 const LEAGUE_KEY = "gacLeague";              // persisted user setting
 const LAST_SQUAD_MODE_KEY = "gacLastSquadMode"; // remembers 5v5/3v3 while browsing Fleet
 const LEAGUES = ["KYBER", "AURODIUM", "CHROMIUM", "BRONZIUM", "CARBONITE"];
@@ -72,6 +75,8 @@ let rosterMessage = null;               // { text, kind: "ok" | "warn" | "error"
 
 // Board state. board is null until set up; league persists across rounds.
 let board = null;
+let myBoard = null;
+let activeBoardSide = "opponent";      // Opponent Board is always the entry default
 let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
@@ -97,7 +102,8 @@ let bannerData = (function () {
         myScore:  Number(d.myScore)  || 0,
         oppScore: Number(d.oppScore) || 0,
         remaining: (typeof d.remaining === "number") ? null : (d.remaining ?? null),
-        oppFinal: d.oppFinal === true
+        oppFinal: d.oppFinal === true,
+        scoresPrefilled: d.scoresPrefilled === true
     };
 })();
 let counterFilter = localStorage.getItem("counterFilter") || "all";
@@ -190,56 +196,144 @@ function formatSavedAt(iso) {
 // identically even if the config data changes later. Territory-cleared state is
 // always derived from per-team flags, never stored.
 
-function loadBoard() {
-    const raw = localStorage.getItem(BOARD_KEY);
-    if (!raw) { board = null; return; }
+function readStoredBoard(key) {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
     try {
         const parsed = JSON.parse(raw);
-        // Schema 2 and 3 are both readable. A schema-2 board simply lacks the
-        // per-team attempts count added in v2.6; rather than discard an in-progress
-        // round on upgrade, it is migrated in place by defaulting every team to
-        // zero attempts (no attempts recorded yet), which is exactly correct.
-        if (parsed && (parsed.schema === 2 || parsed.schema === 3) &&
+        if (parsed && [2, 3, 4].includes(parsed.schema) &&
             Array.isArray(parsed.teams) && Array.isArray(parsed.territories)) {
-            board = parsed;
-            migrateBoardIfNeeded();
-            return;
+            return parsed;
         }
     } catch (e) {
-        console.error("Board parse failed, discarding stored board", e);
+        console.error(`Board parse failed for ${key}`, e);
     }
-    board = null;
+    return null;
 }
 
-// Bring an older board up to the current schema in place. Additive only:
-// backfills any missing attempts field, re-stamps the schema, and persists once
-// so the migration doesn't repeat on every load.
-function migrateBoardIfNeeded() {
-    if (!board) return;
+// Schema-2/3 opponent boards remain the source of truth for an in-progress round.
+// Migration is additive: attempts and custom names are backfilled, a stable round
+// id is derived from the existing creation timestamp, and the live banner scores
+// are deliberately left untouched. A missing companion My Board is created from
+// the legacy board's frozen layout, without running new-round score prefilling.
+function normaliseBoard(bd, side) {
+    if (!bd) return false;
     let changed = false;
-
-    board.teams.forEach(t => {
+    bd.teams.forEach(t => {
         if (typeof t.attempts !== "number") { t.attempts = 0; changed = true; }
+        if (typeof t.customName !== "string") { t.customName = ""; changed = true; }
     });
-    if (board.schema !== BOARD_SCHEMA) { board.schema = BOARD_SCHEMA; changed = true; }
-
-    if (changed) saveBoard();
+    if (!bd.roundId) { bd.roundId = bd.createdAt || `legacy-${bd.league}-${bd.mode}`; changed = true; }
+    if (bd.side !== side) { bd.side = side; changed = true; }
+    if (bd.schema !== BOARD_SCHEMA) { bd.schema = BOARD_SCHEMA; changed = true; }
+    return changed;
 }
 
-function saveBoard() {
+function loadBoard() {
+    board = readStoredBoard(BOARD_KEY);
+    if (!board) {
+        myBoard = null;
+        activeBoardSide = "opponent";
+        return;
+    }
+
+    if (normaliseBoard(board, "opponent")) saveBoard("opponent");
+
+    myBoard = readStoredBoard(MY_BOARD_KEY);
+    const paired = myBoard && myBoard.roundId === board.roundId &&
+        myBoard.league === board.league && myBoard.mode === board.mode;
+    if (!paired) {
+        myBoard = createCompanionMyBoard(board);
+        saveBoard("my");
+    } else if (normaliseBoard(myBoard, "my")) {
+        saveBoard("my");
+    }
+}
+
+function saveBoard(side) {
+    if (side === "my") {
+        if (myBoard) localStorage.setItem(MY_BOARD_KEY, JSON.stringify(myBoard));
+        return;
+    }
     if (board) localStorage.setItem(BOARD_KEY, JSON.stringify(board));
 }
 
 function discardBoard() {
     board = null;
+    myBoard = null;
+    activeBoardSide = "opponent";
     boardModeDraft = null;
     focusedTeamKey = null;
     localStorage.removeItem(BOARD_KEY);
+    localStorage.removeItem(MY_BOARD_KEY);
+}
+
+function templateKey(mode) {
+    return DEFENCE_TEMPLATE_KEY_PREFIX + mode;
+}
+
+function loadDefenceTemplate(mode) {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(templateKey(mode)) || "null");
+        if (parsed && parsed.schema === DEFENCE_TEMPLATE_SCHEMA &&
+            parsed.mode === mode && Array.isArray(parsed.teams)) return parsed;
+    } catch (e) {
+        console.error(`Defence template parse failed for ${mode}`, e);
+    }
+    return null;
+}
+
+function applyDefenceTemplate(bd) {
+    const template = loadDefenceTemplate(bd.mode);
+    if (!template) return bd;
+    const identities = new Map(template.teams.map(t => [`${t.territory}:${t.index}`, t]));
+    bd.teams.forEach(team => {
+        const saved = identities.get(`${team.territory}:${team.index}`);
+        if (!saved) return;
+        team.name = typeof saved.name === "string" ? saved.name : "";
+        team.customName = typeof saved.customName === "string" ? saved.customName : "";
+    });
+    return bd;
+}
+
+function saveDefenceTemplateFromMyBoard() {
+    if (!myBoard) return;
+    const template = {
+        schema: DEFENCE_TEMPLATE_SCHEMA,
+        mode: myBoard.mode,
+        league: myBoard.league,
+        updatedAt: new Date().toISOString(),
+        territories: myBoard.territories.map(t => ({ ...t })),
+        // Identity only: attempts and cleared state must never leak into a template.
+        teams: myBoard.teams.map(t => ({
+            territory: t.territory,
+            index: t.index,
+            name: t.name || "",
+            customName: t.customName || ""
+        }))
+    };
+    localStorage.setItem(templateKey(myBoard.mode), JSON.stringify(template));
+}
+
+function clearDefenceTemplate(mode) {
+    const label = mode || (board && board.mode) || boardMode();
+    if (!confirm(`Clear your saved ${label} defence template? Your current round board will not change.`)) return;
+    localStorage.removeItem(templateKey(label));
+    render();
 }
 
 function leagueLabel(league) {
     if (!league) return "";
     return league.charAt(0) + league.slice(1).toLowerCase();
+}
+
+function escapeHtml(value) {
+    return String(value == null ? "" : value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
 }
 
 function setLeague(value) {
@@ -262,85 +356,160 @@ function setBoardModeDraft(mode) {
     render();
 }
 
+function createRoundBoard(league, mode, cfg, side, roundId, createdAt) {
+    const teams = [];
+    cfg.forEach(t => {
+        for (let i = 0; i < t.teamCount; i++) {
+            teams.push({
+                territory: t.territory,
+                index: i,
+                name: "",
+                customName: "",
+                cleared: false,
+                attempts: 0
+            });
+        }
+    });
+    return {
+        schema: BOARD_SCHEMA,
+        side: side,
+        roundId: roundId,
+        league: league,
+        mode: mode,
+        createdAt: createdAt,
+        territories: cfg.map(t => ({ territory: t.territory, type: t.type, teamCount: t.teamCount })),
+        teams: teams
+    };
+}
+
+function createCompanionMyBoard(opponentBoard) {
+    const cfg = opponentBoard.territories.map(t => ({ ...t }));
+    const mine = createRoundBoard(
+        opponentBoard.league,
+        opponentBoard.mode,
+        cfg,
+        "my",
+        opponentBoard.roundId || opponentBoard.createdAt,
+        opponentBoard.createdAt || new Date().toISOString()
+    );
+    return applyDefenceTemplate(mine);
+}
+
 function createBoard() {
     const league = leagueDraft;
     const mode = boardMode();
     const cfg = boardConfig[league] && boardConfig[league][mode];
+    const settingDefence = settingDefenceRule();
 
     if (!league || !cfg || cfg.length === 0) {
         alert("Choose a league first. If a league is selected and this still fails, the board configuration hasn't loaded — check your connection and refresh.");
         return;
     }
+    if (!settingDefence.ok) {
+        alert(settingDefence.message);
+        return;
+    }
 
-    const teams = [];
-    cfg.forEach(t => {
-        for (let i = 0; i < t.teamCount; i++) {
-            teams.push({ territory: t.territory, index: i, name: "", cleared: false, attempts: 0 });
-        }
-    });
-
-    board = {
-        schema:      BOARD_SCHEMA,
-        league:      league,
-        mode:        mode,                 // frozen for the round (always 5v5 or 3v3)
-        createdAt:   new Date().toISOString(),
-        territories: cfg.map(t => ({ territory: t.territory, type: t.type, teamCount: t.teamCount })),
-        teams:       teams
-    };
+    const createdAt = new Date().toISOString();
+    const roundId = createdAt;
+    board = createRoundBoard(league, mode, cfg, "opponent", roundId, createdAt);
+    myBoard = applyDefenceTemplate(createRoundBoard(league, mode, cfg, "my", roundId, createdAt));
+    activeBoardSide = "opponent";
     boardModeDraft = null;
-    saveBoard();
+    saveBoard("opponent");
+    saveBoard("my");
+    saveDefenceTemplateFromMyBoard();
+
+    // The game banks the authored setting-defence award before attacks begin.
+    // This happens exactly once, here, for genuinely new rounds. loadBoard() never
+    // calls it, so upgrading an in-progress schema-2/3 board cannot overwrite live
+    // hand-entered scores.
+    bannerData = {
+        myScore: myBoard.teams.length * settingDefence.value,
+        oppScore: board.teams.length * settingDefence.value,
+        remaining: null,
+        oppFinal: false,
+        scoresPrefilled: true
+    };
+    persistBannerData();
     render();
 }
 
 // ─── BOARD DERIVED STATE ──────────────────────────────────────────────────────
 
-function teamsInTerritory(territoryKey) {
-    return board ? board.teams.filter(t => t.territory === territoryKey) : [];
+function teamsInTerritory(territoryKey, bd) {
+    const target = bd || board;
+    return target ? target.teams.filter(t => t.territory === territoryKey) : [];
 }
 
-function isTerritoryCleared(territoryKey) {
-    const teams = teamsInTerritory(territoryKey);
+function isTerritoryCleared(territoryKey, bd) {
+    const teams = teamsInTerritory(territoryKey, bd);
     return teams.length > 0 && teams.every(t => t.cleared);
 }
 
 // A back territory unlocks when the front territory in its lane is cleared.
 // This applies to Back Top (fleet) exactly as it does to Back Bottom (squad):
 // the fleet territory reveals once Front Top is cleared.
-function isTerritoryUnlocked(tDef) {
+function isTerritoryUnlocked(tDef, bd) {
     if (tDef.territory.indexOf("BACK_") === 0) {
         const front = "FRONT_" + tDef.territory.slice(5);
-        return isTerritoryCleared(front);
+        return isTerritoryCleared(front, bd || board);
     }
     return true;
 }
 
 // Which counter catalogue a territory draws from: fleet territories use the
 // FLEET catalogue; squad territories use the board's frozen squad format.
-function territoryModeKey(tDef) {
-    return tDef.type === "FLEET" ? "FLEET" : board.mode;
+function territoryModeKey(tDef, bd) {
+    const target = bd || board;
+    return tDef.type === "FLEET" ? "FLEET" : target.mode;
 }
 
 // ─── BOARD ACTIONS ────────────────────────────────────────────────────────────
 
-function setBoardTeam(territoryKey, index, value) {
-    if (!board) return;
-    const team = board.teams.find(t => t.territory === territoryKey && t.index === index);
-    if (!team) return;
-    team.name = value;
-    saveBoard();
-    clearRemainingOverrideOnBoardChange();
+function boardForSide(side) {
+    return side === "my" ? myBoard : board;
+}
+
+function setBoardSide(side) {
+    activeBoardSide = side === "my" ? "my" : "opponent";
+    focusedTeamKey = null;
     render();
 }
 
-function toggleTeamCleared(territoryKey, index) {
-    if (!board) return;
-    const team = board.teams.find(t => t.territory === territoryKey && t.index === index);
+function setBoardTeam(side, territoryKey, index, value) {
+    const target = boardForSide(side);
+    if (!target) return;
+    const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (!team) return;
+    team.name = value;
+    if (value !== NOT_IN_CATALOGUE) team.customName = "";
+    saveBoard(side);
+    if (side === "my") saveDefenceTemplateFromMyBoard();
+    else clearRemainingOverrideOnBoardChange();
+    render();
+}
+
+function setCustomTeamName(side, territoryKey, index, value) {
+    const target = boardForSide(side);
+    if (!target) return;
+    const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (!team || team.name !== NOT_IN_CATALOGUE) return;
+    team.customName = value;
+    saveBoard(side);
+    if (side === "my") saveDefenceTemplateFromMyBoard();
+}
+
+function toggleTeamCleared(side, territoryKey, index) {
+    const target = boardForSide(side);
+    if (!target) return;
+    const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
     team.cleared = !team.cleared;
     // A cleared team can no longer be Next Up, so drop the highlight if it was on it.
-    if (team.cleared && focusedTeamKey === territoryKey + ":" + index) focusedTeamKey = null;
-    saveBoard();
-    clearRemainingOverrideOnBoardChange();
+    if (side !== "my" && team.cleared && focusedTeamKey === territoryKey + ":" + index) focusedTeamKey = null;
+    saveBoard(side);
+    if (side !== "my") clearRemainingOverrideOnBoardChange();
     render();
 }
 
@@ -352,23 +521,25 @@ function toggleTeamCleared(territoryKey, index) {
 // the points-to-win calculation, not by clamping the count here. Only meaningful
 // while the team is uncleared; once cleared, its battles no longer affect what
 // is left to win.
-function setTeamAttempts(territoryKey, index, value) {
-    if (!board) return;
-    const team = board.teams.find(t => t.territory === territoryKey && t.index === index);
+function setTeamAttempts(side, territoryKey, index, value) {
+    const target = boardForSide(side);
+    if (!target) return;
+    const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
     team.attempts = Math.max(0, value);
-    saveBoard();
-    clearRemainingOverrideOnBoardChange();
+    saveBoard(side);
+    if (side !== "my") clearRemainingOverrideOnBoardChange();
     render();
 }
 
-function clearTerritory(territoryKey) {
-    if (!board) return;
+function clearTerritory(side, territoryKey) {
+    const target = boardForSide(side);
+    if (!target) return;
     const label = TERRITORY_LABELS[territoryKey] || territoryKey;
     if (!confirm(`Mark every team in ${label} as cleared?`)) return;
-    board.teams.forEach(t => { if (t.territory === territoryKey) t.cleared = true; });
-    saveBoard();
-    clearRemainingOverrideOnBoardChange();
+    target.teams.forEach(t => { if (t.territory === territoryKey) t.cleared = true; });
+    saveBoard(side);
+    if (side !== "my") clearRemainingOverrideOnBoardChange();
     render();
 }
 
@@ -386,9 +557,8 @@ function markCounterUsedFromBoard(counterId) {
 // Turns the GAC_Scoring rows into a "banners still available" figure for a board.
 // Everything reads from the scoring data through one lookup, so any correction
 // after a real-battle spot-check is a sheet edit with no code change. The board
-// walker is deliberately side-agnostic: it takes any board and returns the most
-// that could still be banked by cleanly clearing its uncleared teams. Today it is
-// called with the opponent board; a future "my board" is just a second call site.
+// walker is deliberately side-agnostic: Opponent Board yields the player's
+// remaining offence and My Board yields the opponent's remaining offence.
 
 // Normalise one scoring row's field names. scoringRules has never been consumed
 // before, so we don't assume whether the Apps Script emits camelCase (ruleId),
@@ -422,6 +592,24 @@ function scoreRule(ruleId, battleType, mode) {
         if (specificity > bestSpecificity) { best = row; bestSpecificity = specificity; }
     }
     return best ? best.value : 0;
+}
+
+// New-round score prefilling is intentionally stricter than ordinary scoring
+// lookup. A missing battle rule can safely contribute zero to a projection, but
+// silently treating SETTING_DEFENCE as zero would write wrong live scores. Require
+// exactly one globally applicable, finite, positive authored row before setup.
+function settingDefenceRule() {
+    const matches = scoringRules.map(readScoringRow).filter(r =>
+        r.ruleId === "SETTING_DEFENCE" && r.battleType === "ANY" && r.mode === "ANY"
+    );
+    if (matches.length !== 1 || !Number.isFinite(matches[0].value) || matches[0].value <= 0) {
+        return {
+            ok: false,
+            value: 0,
+            message: "The SETTING_DEFENCE scoring rule is missing or invalid. Refresh the scoring data before setting up a new round."
+        };
+    }
+    return { ok: true, value: matches[0].value, message: "" };
 }
 
 // How many of YOUR units earn per-unit survival bonuses in a clean win, and how
@@ -468,8 +656,7 @@ function battleBestCase(battleType, mode, battlesSoFar) {
 }
 
 // Walk a board and total the theoretical maximum banners still bankable from it —
-// the ceiling if every remaining team is cleared perfectly. Side-agnostic: pass the
-// opponent board now, a future "my board" later. Counts EVERY uncleared slot in
+// the ceiling if every remaining team is cleared perfectly. Counts EVERY uncleared slot in
 // EVERY territory, named or not, LOCKED OR NOT — banner value depends only on battle
 // type and mode, never on which team occupies the slot. A territory that still has
 // any uncleared team also yields its clear bonus (base + per-team).
@@ -510,19 +697,6 @@ function remainingBannersForBoard(bd, opts) {
     return total;
 }
 
-// Territory-unlock test that works on any board object, not just the live `board`
-// global. Mirrors isTerritoryUnlocked: a back territory opens once the front in
-// its lane is fully cleared. Currently unused — the banner walker deliberately
-// ignores locks (see remainingBannersForBoard) — but retained for the future
-// "my board" feature, which will need a board-parameterised lock test for its own
-// rendering and allocation, exactly as the live board uses isTerritoryUnlocked.
-function isTerritoryUnlockedOn(bd, tDef) {
-    if (tDef.territory.indexOf("BACK_") !== 0) return true;
-    const frontKey = "FRONT_" + tDef.territory.slice(5);
-    const frontTeams = bd.teams.filter(t => t.territory === frontKey);
-    return frontTeams.length > 0 && frontTeams.every(t => t.cleared);
-}
-
 // Has the round's first battle been fought yet? (v3.1) Derived from the board and
 // used-team state, never stored — there is no "first attack spent" flag to keep in
 // sync, and no way for it to drift from reality.
@@ -544,6 +718,11 @@ function isFirstAttackAvailable() {
     return board.teams.every(t => !t.cleared && !(Number(t.attempts) > 0));
 }
 
+function isOpponentFirstAttackAvailable() {
+    if (!myBoard || bannerData.oppFinal === true) return false;
+    return myBoard.teams.every(t => !t.cleared && !(Number(t.attempts) > 0));
+}
+
 // The calculated "remaining available banners" for the live opponent board.
 // Zero when there is no board. This is what the banner tracking section shows by
 // default, and what a manual override is measured against.
@@ -556,6 +735,11 @@ function isFirstAttackAvailable() {
 function calculatedRemaining() {
     if (!board) return 0;
     return remainingBannersForBoard(board, { firstAttackAvailable: isFirstAttackAvailable() });
+}
+
+function calculatedOpponentRemaining() {
+    if (!myBoard || bannerData.oppFinal === true) return 0;
+    return remainingBannersForBoard(myBoard, { firstAttackAvailable: isOpponentFirstAttackAvailable() });
 }
 
 // ─── ALLOCATION ENGINE (v2.1) ─────────────────────────────────────────────────
@@ -1703,13 +1887,13 @@ function markUsed(counterId) {
 }
 
 function resetRound() {
-    const confirmed = confirm("Reset the round? This clears used teams, banner tracking, and the opponent board.");
+    const confirmed = confirm("Reset the round? This clears used teams, banner tracking, Opponent Board, and My Board. Your saved defence templates are kept.");
     if (!confirmed) return;
 
     usedTeams = [];
     localStorage.removeItem("usedTeams");
 
-    bannerData = { myScore: 0, oppScore: 0, remaining: null, oppFinal: false };
+    bannerData = { myScore: 0, oppScore: 0, remaining: null, oppFinal: false, scoresPrefilled: false };
     localStorage.removeItem("bannerData");
 
     discardBoard();
@@ -1873,9 +2057,20 @@ function renderRound() {
 </div>
 `;
 
-    const boardHtml = board ? renderBoard() : renderBoardSetup();
+    const boardHtml = board
+        ? renderBoardSwitch() + (activeBoardSide === "my" ? renderMyBoard() : renderBoard())
+        : renderBoardSetup();
 
     return summary + boardHtml + renderBannerSection();
+}
+
+function renderBoardSwitch() {
+    return `
+<div class="mode-toggle round-board-switch" aria-label="Round board">
+    <button class="mode-button ${activeBoardSide === "opponent" ? "active" : ""}" onclick="setBoardSide('opponent')">Opponent Board</button>
+    <button class="mode-button ${activeBoardSide === "my" ? "active" : ""}" onclick="setBoardSide('my')">My Board</button>
+</div>
+`;
 }
 
 function renderBoardSetup() {
@@ -1885,9 +2080,12 @@ function renderBoardSetup() {
         `<option value="${l}" ${leagueDraft === l ? "selected" : ""}>${leagueLabel(l)}</option>`
     ).join("");
 
+    const settingDefence = settingDefenceRule();
     const warning = !configLoaded
         ? `<div class="roster-msg roster-msg-warn">Board configuration hasn't loaded yet — check your connection and refresh.</div>`
-        : "";
+        : !settingDefence.ok
+            ? `<div class="roster-msg roster-msg-warn">${settingDefence.message}</div>`
+            : "";
 
     const fmt = boardMode();
 
@@ -1905,22 +2103,28 @@ function renderBoardSetup() {
     </div>`
         : `
     <div class="roster-import-helper">
-        Choose your league, then set up the opponent's defence board for this round.
+        Choose your league, then set up both current-round boards. Opponent Board starts empty; My Board is filled from your saved ${fmt} defence template.
         Format is taken from the Counters screen toggle — currently <strong>${fmt}</strong>.
     </div>`;
 
+    const savedTemplate = loadDefenceTemplate(fmt);
+    const templateControl = savedTemplate
+        ? `<button class="template-clear-btn" onclick="clearDefenceTemplate('${fmt}')">Clear saved ${fmt} template</button>`
+        : `<div class="roster-saved-line">No saved ${fmt} defence template yet.</div>`;
+
     return `
 <div class="board-setup-card">
-    <div class="roster-import-title">🗺️ SET UP OPPONENT BOARD</div>
+    <div class="roster-import-title">🗺️ SET UP ROUND</div>
     ${formatBlock}
     ${warning}
     <select class="team-select board-league-select" onchange="setLeague(this.value)">
         <option value="" ${!leagueDraft ? "selected" : ""}>Select league…</option>
         ${options}
     </select>
-    <button class="roster-data-btn roster-import-btn" onclick="createBoard()" ${(!leagueDraft || !configLoaded) ? "disabled" : ""}>
-        Set up board
+    <button class="roster-data-btn roster-import-btn" onclick="createBoard()" ${(!leagueDraft || !configLoaded || !settingDefence.ok) ? "disabled" : ""}>
+        Set up both boards
     </button>
+    ${templateControl}
 </div>
 `;
 }
@@ -1938,19 +2142,37 @@ function renderBoard() {
     <div class="round-stat">${leagueLabel(board.league)} · ${board.mode}</div>
 </div>
 `;
-    const territories = board.territories.map(renderTerritory).join("");
+    const territories = board.territories.map(t => renderTerritory(t, board, "opponent")).join("");
     // Next Up sits at the very top of the board so it is the first thing seen
     // on entering the Round screen mid-match.
     return renderNextUp() + header + overlapBanner + territories;
 }
 
-function renderTerritory(tDef) {
+function renderMyBoard() {
+    const header = `
+<div class="round-card">
+    <div class="round-card-row">
+        <div>
+            <div class="round-title">🛡️ MY BOARD</div>
+            <div class="round-stat">${leagueLabel(myBoard.league)} · ${myBoard.mode}</div>
+            <div class="roster-saved-line">Team identities autosave to your ${myBoard.mode} defence template. Battles and Cleared apply only to this round.</div>
+        </div>
+        <button class="template-clear-btn" onclick="clearDefenceTemplate('${myBoard.mode}')">Clear template</button>
+    </div>
+</div>
+`;
+    // The opponent can eventually reach every territory, so My Board always shows
+    // all four, including back territories that are not yet unlocked in game.
+    return header + myBoard.territories.map(t => renderTerritory(t, myBoard, "my")).join("");
+}
+
+function renderTerritory(tDef, bd, side) {
     const label = TERRITORY_LABELS[tDef.territory] || tDef.territory;
     const isFleet = tDef.type === "FLEET";
     const icon = isFleet ? "🚀 " : "";
     const unit = isFleet ? "fleet" : "team";
 
-    if (!isTerritoryUnlocked(tDef)) {
+    if (side !== "my" && !isTerritoryUnlocked(tDef, bd)) {
         const frontLabel = TERRITORY_LABELS["FRONT_" + tDef.territory.slice(5)] || "the front territory";
         return `
 <div class="board-territory locked">
@@ -1963,13 +2185,13 @@ function renderTerritory(tDef) {
 `;
     }
 
-    const teams = teamsInTerritory(tDef.territory);
+    const teams = teamsInTerritory(tDef.territory, bd);
     const clearedCount = teams.filter(t => t.cleared).length;
     const allCleared = clearedCount === teams.length && teams.length > 0;
 
     const clearBtn = allCleared
         ? `<span class="status-available">Cleared ✓</span>`
-        : `<button class="clear-territory-btn" onclick="clearTerritory('${tDef.territory}')">Clear territory</button>`;
+        : `<button class="clear-territory-btn" onclick="clearTerritory('${side}', '${tDef.territory}')">Clear territory</button>`;
 
     return `
 <div class="board-territory">
@@ -1978,39 +2200,48 @@ function renderTerritory(tDef) {
         <span class="board-territory-progress">${clearedCount}/${teams.length} cleared</span>
         ${clearBtn}
     </div>
-    ${teams.map(t => renderBoardTeamRow(tDef, t)).join("")}
+    ${teams.map(t => renderBoardTeamRow(tDef, t, bd, side)).join("")}
 </div>
 `;
 }
 
-function renderBoardTeamRow(tDef, team) {
+function renderBoardTeamRow(tDef, team, bd, side) {
     const territoryKey = tDef.territory;
-    const modeKey = territoryModeKey(tDef);
+    const modeKey = territoryModeKey(tDef, bd);
     const teamNames = Object.keys(gacData[modeKey] || {}).sort((a, b) => a.localeCompare(b));
+    const savedOutsideCatalogue = team.name && team.name !== NOT_IN_CATALOGUE && !teamNames.includes(team.name)
+        ? `<option value="${escapeHtml(team.name)}" selected>${escapeHtml(team.name)} (saved; not in current catalogue)</option>`
+        : "";
 
     const options = [
         `<option value="" ${team.name === "" ? "selected" : ""}>Select ${tDef.type === "FLEET" ? "fleet" : "team"}…</option>`,
         `<option value="${NOT_IN_CATALOGUE}" ${team.name === NOT_IN_CATALOGUE ? "selected" : ""}>Not in catalogue</option>`,
-        ...teamNames.map(n => `<option value="${n}" ${team.name === n ? "selected" : ""}>${n}</option>`)
-    ].join("");
+        savedOutsideCatalogue,
+        ...teamNames.map(n => `<option value="${escapeHtml(n)}" ${team.name === n ? "selected" : ""}>${escapeHtml(n)}</option>`)
+    ].filter(Boolean).join("");
 
     // The picker, its battles stepper and its recommendation are wrapped in one
     // block so the Next Up card can scroll to and highlight the whole group.
-    const isFocused = focusedTeamKey === territoryKey + ":" + team.index;
+    const isFocused = side !== "my" && focusedTeamKey === territoryKey + ":" + team.index;
     const focusClass = isFocused ? (focusFlash ? "focused focus-flash" : "focused") : "";
+    const customName = team.name === NOT_IN_CATALOGUE ? `
+<input class="board-custom-name" type="text" maxlength="80" placeholder="Optional team name"
+    value="${escapeHtml(team.customName || "")}" oninput="setCustomTeamName('${side}', '${territoryKey}', ${team.index}, this.value)">
+` : "";
 
     return `
 <div class="board-team-block ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
 <div class="board-team ${team.cleared ? "cleared" : ""}">
-    <select class="board-team-select" onchange="setBoardTeam('${territoryKey}', ${team.index}, this.value)">
+    <select class="board-team-select" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">
         ${options}
     </select>
-    <button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${territoryKey}', ${team.index})">
+    <button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${side}', '${territoryKey}', ${team.index})">
         ${team.cleared ? "✓ Cleared" : "Cleared"}
     </button>
 </div>
-${team.cleared ? "" : renderAttemptControl(territoryKey, team)}
-${renderTeamRecommendation(territoryKey, team)}
+${customName}
+${team.cleared ? "" : renderAttemptControl(side, territoryKey, team)}
+${side === "my" ? "" : renderTeamRecommendation(territoryKey, team)}
 </div>
 `;
 }
@@ -2099,16 +2330,16 @@ function renderNextUpRow(pick, isFleet) {
 // longer affect what is left to win. The count climbs freely (0, 1, 2, 3…) to
 // match the game exactly; the points-to-win calculation reads it to decide the
 // attempt bonus (first battle worth most, second less, later none).
-function renderAttemptControl(territoryKey, team) {
+function renderAttemptControl(side, territoryKey, team) {
     const n = Math.max(0, team.attempts || 0);
 
     return `
 <div class="board-attempts">
     <span class="board-attempts-label">Battles</span>
     <div class="board-attempts-stepper">
-        <button class="board-attempts-btn" onclick="setTeamAttempts('${territoryKey}', ${team.index}, ${n - 1})" ${n === 0 ? "disabled" : ""}>&minus;</button>
+        <button class="board-attempts-btn" onclick="setTeamAttempts('${side}', '${territoryKey}', ${team.index}, ${n - 1})" ${n === 0 ? "disabled" : ""}>&minus;</button>
         <span class="board-attempts-count">${n}</span>
-        <button class="board-attempts-btn" onclick="setTeamAttempts('${territoryKey}', ${team.index}, ${n + 1})">+</button>
+        <button class="board-attempts-btn" onclick="setTeamAttempts('${side}', '${territoryKey}', ${team.index}, ${n + 1})">+</button>
     </div>
 </div>
 `;
@@ -2243,63 +2474,32 @@ function pointsToWinReadout(my, opp, rem) {
     };
 }
 
-// ─── CAN I STILL WIN? (v2.7) ──────────────────────────────────────────────────
-// Answers "is this round still mathematically winnable?" so the player can decide
-// whether to try hard or treat the rest as a playground. It weighs YOUR ceiling —
-// your current score plus the best-case remaining a flawless finish could bank —
-// against the OPPONENT'S score. The subtlety is which pairing proves what:
-//
-//   • "lost" compares their score against your CEILING (my + rem), never against
-//     your current score — being behind now is not being mathematically beaten.
-//   • "already won" compares their score against your CURRENT score (my), and can
-//     only be asserted when their score is final: if it may still rise, a present
-//     lead is not yet unbeatable.
-//
-// When their score is NOT marked final it is a floor. We can still prove the round
-// lost (your ceiling can't even reach where they already are), but the winnable
-// case can only state a breakeven — the most you can reach — for the player to
-// eyeball against how much the opponent could still take off their defence, since
-// the opponent's own remaining offence is not modelled until "my board" exists.
-function canWinVerdict(my, opp, rem, oppFinal) {
-    const ceiling = my + rem;   // the most you could possibly finish on
+// Two-sided round outcome. A win requires finishing strictly ahead: a reachable
+// tie is not classified as a win because tie-breaking is outside this app's model.
+function canWinVerdict(my, opp, myRemaining, oppRemaining) {
+    const myMax = my + myRemaining;
+    const oppMax = opp + oppRemaining;
 
-    // Mathematically lost: even a flawless finish cannot reach their score. Valid
-    // whether or not their score is final — if it is only their current score, a
-    // ceiling below it is beaten already and they can only pull further ahead.
-    if (ceiling < opp) {
-        const gap = opp - ceiling;
+    if (my > oppMax) {
         return {
-            headline: "Can't win this round",
+            headline: "Guaranteed win",
+            headlineClass: "ahead",
+            support: `You're already on ${my}; even a perfect opponent finish reaches only ${oppMax}.`
+        };
+    }
+
+    if (myMax <= opp) {
+        return {
+            headline: "Impossible win",
             headlineClass: "behind",
-            support: oppFinal
-                ? `Even a flawless finish tops out at ${ceiling}; they finished on ${opp} — ${gap} out of reach. Time to experiment.`
-                : `Even a flawless finish tops out at ${ceiling}; they're already on ${opp} — ${gap} out of reach, and their score can only rise. Time to experiment.`
+            support: `Your best finish is ${myMax}; they already have ${opp}. You cannot finish strictly ahead.`
         };
     }
 
-    if (oppFinal) {
-        // Their score is fixed, so the verdict is a clean yes/no.
-        if (my > opp) {
-            return {
-                headline: "Already won",
-                headlineClass: "ahead",
-                support: `You're on ${my}, past their final ${opp}. Nothing left to play can change it.`
-            };
-        }
-        const need = (opp + 1) - my;
-        return {
-            headline: "Winnable",
-            headlineClass: "",
-            support: `You can reach ${ceiling}, above their final ${opp}. Bank ${need} more of your ${rem} available to take it.`
-        };
-    }
-
-    // Their score is only a floor: winnable, but state the breakeven rather than
-    // claim a guaranteed win, since they may still score against your defence.
     return {
-        headline: "Winnable",
+        headline: "Outcome depends on play",
         headlineClass: "",
-        support: `You can reach at most ${ceiling}. You win only if they finish on ${ceiling} or below — their ${opp} so far is a floor that may rise.`
+        support: `You can finish from ${my} to ${myMax}; they can finish from ${opp} to ${oppMax}. The ranges overlap.`
     };
 }
 
@@ -2311,12 +2511,14 @@ function renderBannerSection() {
     const overridden = isRemainingOverridden();
     const calc = calculatedRemaining();
     const rem = overridden ? bannerData.remaining : calc;
+    const oppRem = calculatedOpponentRemaining();
 
-    const projected = my + rem;
+    const myMax = my + rem;
+    const oppMax = opp + oppRem;
     const margin = my - opp;
     const ptw = pointsToWinReadout(my, opp, rem);
     const oppFinal = bannerData.oppFinal === true;
-    const cw = canWinVerdict(my, opp, rem, oppFinal);
+    const cw = canWinVerdict(my, opp, rem, oppRem);
 
     // The remaining field always shows the value in effect. When it is the
     // board-calculated figure, a caption says so and the field is read-only; the
@@ -2341,9 +2543,8 @@ function renderBannerSection() {
 `;
 
     // The opponent-score field carries a marker for whether the entered number is
-    // their FINAL score or just their current one. Marking it final lets the
-    // "can I still win?" verdict give a clean yes/no; left unmarked, that number is
-    // treated as a floor that may still rise.
+    // their FINAL score or just their current one. Marking it final collapses the
+    // opponent range to that score without touching My Board.
     const oppLabel = oppFinal ? "Opponent's final score" : "Opponent's current score";
     const oppMarker = oppFinal ? `
     <div class="banner-caption banner-caption-override">
@@ -2377,8 +2578,12 @@ ${remainingBlock}
 
 <div class="banner-readout">
     <div class="banner-readout-row">
-        <span>Projected final (max)</span>
-        <strong id="projectedFinal">${projected}</strong>
+        <span>Your current → maximum</span>
+        <strong id="myScoreRange">${my}–${myMax}</strong>
+    </div>
+    <div class="banner-readout-row">
+        <span>Opponent current → maximum</span>
+        <strong id="oppScoreRange">${opp}–${oppMax}</strong>
     </div>
     <div class="banner-readout-row">
         <span>Margin now</span>
@@ -2389,7 +2594,9 @@ ${remainingBlock}
 <div class="ptw-readout">
     <div class="ptw-headline ${ptw.headlineClass}" id="ptwHeadline">${ptw.headline}</div>
     <div class="ptw-support" id="ptwSupport">${ptw.support}</div>
-    ${oppFinal ? "" : `<div class="ptw-caveat">Their score will rise as they attack your defence.</div>`}
+    ${oppFinal
+        ? `<div class="ptw-caveat">Their score is final; My Board remains recorded but adds no remaining banners.</div>`
+        : `<div class="ptw-caveat">Their maximum includes ${oppRem} banners still available against My Board.</div>`}
 </div>
 
 <div class="cw-readout">
@@ -2424,7 +2631,7 @@ function setOppFinal(isFinal) {
 // Typing in the remaining box sets a manual override. We do NOT re-render on every
 // keystroke (that would drop focus mid-typing); the override caption/link appear
 // on the next full render — a board change or a tap — which is soon enough, and
-// the projected/margin readouts update live in the meantime.
+// the range/margin readouts update live in the meantime.
 function updateRemaining(value) {
     bannerData.remaining = value === "" ? 0 : Number(value);
     persistBannerData();
@@ -2456,14 +2663,16 @@ function recomputeBannerReadouts() {
     const my  = Number(bannerData.myScore)  || 0;
     const opp = Number(bannerData.oppScore) || 0;
     const rem = effectiveRemaining();
+    const oppRem = calculatedOpponentRemaining();
 
-    const projected = my + rem;
     const margin = my - opp;
 
-    const projectedEl = document.getElementById("projectedFinal");
+    const myRangeEl = document.getElementById("myScoreRange");
+    const oppRangeEl = document.getElementById("oppScoreRange");
     const marginEl = document.getElementById("bannerMargin");
 
-    if (projectedEl) projectedEl.textContent = projected;
+    if (myRangeEl) myRangeEl.textContent = `${my}–${my + rem}`;
+    if (oppRangeEl) oppRangeEl.textContent = `${opp}–${opp + oppRem}`;
     if (marginEl) {
         marginEl.textContent = marginText(margin);
         marginEl.className = margin > 0 ? "ahead" : margin < 0 ? "behind" : "";
@@ -2480,9 +2689,8 @@ function recomputeBannerReadouts() {
     }
     if (ptwSuppEl) ptwSuppEl.textContent = ptw.support;
 
-    // Can-I-still-win verdict, refreshed the same way. The final-marker itself is a
-    // tap that re-renders, so here oppFinal is read as-is for live score typing.
-    const cw = canWinVerdict(my, opp, rem, bannerData.oppFinal === true);
+    // Can-I-still-win verdict, refreshed the same way from both live ranges.
+    const cw = canWinVerdict(my, opp, rem, oppRem);
     const cwHeadEl = document.getElementById("cwHeadline");
     const cwSuppEl = document.getElementById("cwSupport");
     if (cwHeadEl) {
@@ -2843,7 +3051,9 @@ function undoImport() {
 
 // ─── BOOT ───────────────────────────────────────────────────────────────────
 
-requestPersistentStorage();  // best-effort eviction resistance
-loadRoster();                // hydrate roster (with migration) before first paint
-loadBoard();                 // hydrate any in-progress board
-loadData();                  // counters/defs/board config, then a staleness-gated background sync
+if (!(typeof globalThis !== "undefined" && globalThis.__GAC_HELPER_TEST__)) {
+    requestPersistentStorage();  // best-effort eviction resistance
+    loadRoster();                // hydrate roster (with migration) before first paint
+    loadBoard();                 // hydrate both boards; migrates a legacy opponent board additively
+    loadData();                  // counters/defs/board config, then a staleness-gated background sync
+}
