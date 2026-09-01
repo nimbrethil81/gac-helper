@@ -32,6 +32,12 @@ In particular:
 
 When roadmap work ships, remove it from ROADMAP, describe the resulting behaviour in SPEC, and record the release in the changelog.
 
+## Repository workflow
+
+This is a single-developer development repository. Agents may commit and push approved task changes directly to `main`; a feature branch or pull request is not required unless explicitly requested.
+
+Pushing to `main` in this repository does **not** deploy the public application. Production deployment is a separate, manually triggered GitHub Action that syncs an allow-listed set of files to the live repository. Do not trigger that deployment or modify the live repository unless explicitly asked.
+
 ## Development rules
 
 - Keep changes small and task-focused.
