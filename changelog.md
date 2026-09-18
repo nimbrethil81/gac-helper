@@ -4,6 +4,15 @@
 
 **Update this file when** a release ships with a notable user-facing, data-model, API, persistence, scoring, or implementation change worth recording. Do not add unreleased work; keep prospective changes in `ROADMAP.md` until they ship.
 
+## v3.4
+
+### Added
+- Added a **Used + Cleared** action on Opponent Board recommendations that marks the recommended counter used and the defensive team cleared in one tap, alongside the existing independent Mark used and Cleared controls.
+- Added a temporary Undo (~6s) after Cleared and after Used + Cleared, restoring exactly the prior state (including, for Used + Cleared, leaving an already-used attacker used).
+
+### Changed
+- Service-worker cache version was resynchronised with the application release.
+
 ## v3.3 — My Board
 
 ### Added

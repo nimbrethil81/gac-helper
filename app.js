@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "3.3";
+const APP_VERSION = "3.4";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -81,6 +81,14 @@ let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
 let focusFlash = false;                 // one-shot: true only for the render immediately after a Next Up tap
+
+// Temporary Undo for Cleared and Used + Cleared (v3.4). One in-memory slot, not
+// persisted: a page reload naturally drops the offer while the underlying
+// cleared/used state it may restore continues to persist normally. A later
+// action of either kind replaces whatever offer is pending rather than
+// stacking a history, matching the "no general undo stack" decision.
+const PENDING_UNDO_WINDOW_MS = 6000;    // ~6s: midpoint of the requested 5-8s temporary-undo window
+let pendingUndo = null;                 // { kind, side, territoryKey, index, counterId, prevCleared, wasUsed, message, timeoutId }
 
 // bannerData.remaining is now a MANUAL OVERRIDE, not a stored figure: null means
 // "no override — show the value calculated from the board" (the v2.6 default).
@@ -264,6 +272,7 @@ function discardBoard() {
     activeBoardSide = "opponent";
     boardModeDraft = null;
     focusedTeamKey = null;
+    clearPendingUndo();
     localStorage.removeItem(BOARD_KEY);
     localStorage.removeItem(MY_BOARD_KEY);
 }
@@ -505,11 +514,113 @@ function toggleTeamCleared(side, territoryKey, index) {
     if (!target) return;
     const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
+
+    dismissPendingUndoFor(side, territoryKey, index);
+
+    const wasCleared = team.cleared;
     team.cleared = !team.cleared;
     // A cleared team can no longer be Next Up, so drop the highlight if it was on it.
     if (side !== "my" && team.cleared && focusedTeamKey === territoryKey + ":" + index) focusedTeamKey = null;
     saveBoard(side);
     if (side !== "my") clearRemainingOverrideOnBoardChange();
+
+    // Only the Cleared action itself (unset → set) offers a temporary Undo; the
+    // same button un-clearing a team is the existing direct toggle, not a new
+    // "Unclear" affordance, so it gets none.
+    if (team.cleared && !wasCleared) {
+        setPendingUndo({
+            kind: "cleared",
+            side, territoryKey, index,
+            prevCleared: wasCleared,
+            message: "Defence cleared."
+        });
+    }
+    render();
+}
+
+// Combined successful-battle action (v3.4): marks the recommended counter used
+// and the defensive team cleared as one operation, so the normal counter path
+// takes one tap instead of two. Reuses the same used/cleared writes as the
+// individual actions rather than introducing new state.
+function markUsedAndCleared(side, territoryKey, index, counterId) {
+    const target = boardForSide(side);
+    if (!target) return;
+    const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (!team) return;
+
+    dismissPendingUndoFor(side, territoryKey, index);
+
+    const prevCleared = team.cleared;
+    const wasUsed = usedTeams.includes(counterId);
+
+    if (!wasUsed) {
+        usedTeams.push(counterId);
+        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+    }
+    team.cleared = true;
+    if (side !== "my" && focusedTeamKey === territoryKey + ":" + index) focusedTeamKey = null;
+    saveBoard(side);
+    if (side !== "my") clearRemainingOverrideOnBoardChange();
+
+    setPendingUndo({
+        kind: "usedCleared",
+        side, territoryKey, index, counterId,
+        prevCleared, wasUsed,
+        message: "Used + Cleared recorded."
+    });
+    render();
+}
+
+// Replaces whatever Undo offer is pending (if any) with a new one and arms its
+// expiry timer. Deliberately a single slot rather than a stack (out of scope).
+function setPendingUndo(entry) {
+    clearPendingUndo();
+    entry.timeoutId = setTimeout(() => {
+        pendingUndo = null;
+        render();
+    }, PENDING_UNDO_WINDOW_MS);
+    pendingUndo = entry;
+}
+
+// Cancels any pending Undo offer without acting on it, e.g. because its window
+// expired or a later action superseded it.
+function clearPendingUndo() {
+    if (pendingUndo && pendingUndo.timeoutId) clearTimeout(pendingUndo.timeoutId);
+    pendingUndo = null;
+}
+
+// Dismisses a pending Undo offer if it belongs to the exact team a new action
+// is about to change, so a stale offer never outlives the state it describes.
+function dismissPendingUndoFor(side, territoryKey, index) {
+    if (pendingUndo && pendingUndo.side === side && pendingUndo.territoryKey === territoryKey && pendingUndo.index === index) {
+        clearPendingUndo();
+    }
+}
+
+// Restores exactly the state captured immediately before the Cleared or
+// Used + Cleared action that offered this Undo — never a blind toggle, so an
+// attacker that was already used before a combined action stays used.
+function undoPendingAction() {
+    if (!pendingUndo) return;
+    const { side, territoryKey, index, counterId, prevCleared, wasUsed, kind } = pendingUndo;
+
+    const target = boardForSide(side);
+    const team = target && target.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (team) {
+        team.cleared = prevCleared;
+        saveBoard(side);
+        if (side !== "my") clearRemainingOverrideOnBoardChange();
+    }
+
+    if (kind === "usedCleared" && !wasUsed) {
+        const i = usedTeams.indexOf(counterId);
+        if (i !== -1) {
+            usedTeams.splice(i, 1);
+            localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+        }
+    }
+
+    clearPendingUndo();
     render();
 }
 
@@ -2145,7 +2256,7 @@ function renderBoard() {
     const territories = board.territories.map(t => renderTerritory(t, board, "opponent")).join("");
     // Next Up sits at the very top of the board so it is the first thing seen
     // on entering the Round screen mid-match.
-    return renderNextUp() + header + overlapBanner + territories;
+    return renderNextUp() + header + renderPendingUndo("opponent") + overlapBanner + territories;
 }
 
 function renderMyBoard() {
@@ -2163,7 +2274,20 @@ function renderMyBoard() {
 `;
     // The opponent can eventually reach every territory, so My Board always shows
     // all four, including back territories that are not yet unlocked in game.
-    return header + myBoard.territories.map(t => renderTerritory(t, myBoard, "my")).join("");
+    return header + renderPendingUndo("my") + myBoard.territories.map(t => renderTerritory(t, myBoard, "my")).join("");
+}
+
+// Temporary Undo toast for the Cleared / Used + Cleared action that produced it
+// (v3.4). Only ever shows on the board it actually changed, and disappears on
+// its own once PENDING_UNDO_WINDOW_MS elapses — see setPendingUndo.
+function renderPendingUndo(side) {
+    if (!pendingUndo || pendingUndo.side !== side) return "";
+    return `
+<div class="roster-msg roster-msg-ok board-undo-notice">
+    <span>${pendingUndo.message}</span>
+    <button class="board-undo-btn" onclick="undoPendingAction()">Undo</button>
+</div>
+`;
 }
 
 function renderTerritory(tDef, bd, side) {
@@ -2241,7 +2365,7 @@ function renderBoardTeamRow(tDef, team, bd, side) {
 </div>
 ${customName}
 ${team.cleared ? "" : renderAttemptControl(side, territoryKey, team)}
-${side === "my" ? "" : renderTeamRecommendation(territoryKey, team)}
+${side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team)}
 </div>
 `;
 }
@@ -2387,7 +2511,7 @@ function adjustedScore(counter) {
     return full + drop;
 }
 
-function renderTeamRecommendation(territoryKey, team) {
+function renderTeamRecommendation(side, territoryKey, team) {
     if (!roundPlan || team.cleared || !team.name) return "";
 
     const info = roundPlan.reasons[territoryKey + ":" + team.index];
@@ -2400,6 +2524,10 @@ function renderTeamRecommendation(territoryKey, team) {
     <div class="board-rec-undersize">
         <strong>${us.total} banners</strong> if you undersize · drop up to ${us.drop} for +${us.bonus}
     </div>` : "";
+        // Used + Cleared is the normal successful-counter path, so it leads and is
+        // visually primary; Mark used alone stays for when the two states genuinely
+        // don't change together (e.g. recording a used counter before the defence
+        // actually falls).
         return `
 <div class="board-rec">
     <div class="board-rec-line">
@@ -2408,7 +2536,10 @@ function renderTeamRecommendation(territoryKey, team) {
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
     <div class="board-rec-reason">${info.reason}</div>${undersizeLine}
-    <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
+    <div class="board-rec-actions">
+        <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
+        <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
+    </div>
 </div>
 `;
     }
