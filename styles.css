@@ -811,8 +811,46 @@ body {
     line-height: 1.4;
 }
 
+.board-rec-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
 .board-rec-btn {
     align-self: flex-start;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+
+    background: var(--jedi-blue);
+    color: black;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Used + Cleared is the normal successful-battle path, so it gets the most
+   prominent treatment of the three record-a-battle actions while staying
+   within the app's existing button language. */
+.board-rec-btn-primary {
+    background: var(--s-tier);
+    padding: 10px 16px;
+    font-size: 14px;
+}
+
+/* ─── ROUND: TEMPORARY UNDO (v3.4) ────────────────────────────────── */
+
+.board-undo-notice {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.board-undo-btn {
+    flex-shrink: 0;
     border: none;
     border-radius: 8px;
     padding: 8px 14px;
