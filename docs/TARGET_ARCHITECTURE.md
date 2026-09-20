@@ -1,10 +1,10 @@
 # SWGOH GAC Helper — Target Architecture
 
-**Status:** Proposed design v0.1, ready for peer review. Not yet implemented.
+**Status:** Proposed design v0.2, revised after independent peer review. Not yet implemented.
 
-**Scope.** This document defines the proposed target architecture for modernising GAC Helper's canonical data platform, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
+**Scope.** This document defines the proposed target architecture for modernising GAC Helper's canonical data platform, authoring model, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
 
-**Update this document when** an architectural decision below is accepted, revised, or rejected during review or implementation. Once the target architecture ships, move enduring current-state facts into `SPEC.md` and either retire this document or reduce it to decisions not captured elsewhere.
+**Update this document when** an architectural decision below is accepted, revised or rejected during review or implementation. Once the target architecture ships, move enduring current-state facts into `SPEC.md` and either retire this document or reduce it to decisions not captured elsewhere.
 
 This design intentionally optimises for:
 
@@ -12,7 +12,9 @@ This design intentionally optimises for:
 - minimal or zero additional running cost;
 - low ongoing human administration;
 - a compact, useful counter catalogue rather than exhaustive squad permutations;
-- autonomous maintenance with conservative, auditable safeguards;
+- a first-class human authoring path alongside bounded autonomous maintenance;
+- conservative, enforceable and auditable automation;
+- strong offline behaviour during live GAC rounds;
 - simple rollback and recovery rather than enterprise-scale migration choreography;
 - the fewest sensible implementation stages, with manual cloud configuration concentrated into one session.
 
@@ -20,21 +22,25 @@ This design intentionally optimises for:
 
 ## 1. Context and problem
 
-The current PWA is static and cache-first. Authored counter data lives in Google Sheets, Google Apps Script converts it to JSON, and separate development and live repositories are used with a manually triggered promotion workflow.
+The current PWA is static. Authored counter data lives in Google Sheets, which is both the canonical data store and the owner's authoring surface. Google Apps Script converts the Sheet to JSON and separately proxies roster requests to Comlink. Development and live code are held in separate repositories with a manually triggered, allow-listed promotion workflow.
 
-That arrangement has served the product well, but it creates limits for autonomous counter maintenance:
+The current app renders player state from local storage, but the catalogue itself is not currently cache-first: a failed catalogue fetch prevents normal startup. Correcting that is part of the target architecture, not an existing capability.
+
+The current arrangement has served the product well, but it limits safe autonomous maintenance:
 
 - identity and duplicate rules are not enforced relationally;
+- defence teams lack stable identities;
 - a statistical observation can too easily be confused with a canonical team identity;
-- updates overwrite current judgements without retaining evidence or assessment history;
-- Sheet formulas, protected ranges, Apps Script and surgical edits add administration;
+- updates overwrite judgements without retaining evidence or assessment history;
 - publication is not naturally atomic;
-- separate development and live repositories complicate conventional environment promotion;
-- giving an autonomous process broad Sheet access would make its authority difficult to bound.
+- an autonomous process would need authority that is difficult to bound safely in a spreadsheet;
+- replacing the Sheet without replacing its authoring capability would make routine maintenance harder.
 
-The target architecture replaces the runtime use of Google Sheets with a Postgres-compatible canonical store and an immutable published catalogue. It also introduces a separate evidence and assessment pipeline so observations cannot become live product knowledge without canonicalisation, policy decisions and whole-catalogue validation.
+The target architecture replaces Google Sheets as the runtime data platform with a Postgres-compatible canonical store, a version-controlled human-change path and an immutable static catalogue artifact. Evidence, assessment, canonical mutation and publication are separate steps so observations cannot become live product knowledge without policy enforcement and whole-catalogue validation.
 
-This is not an implementation instruction. Repository consolidation, database creation, migration and autonomous publishing require their own approved implementation work.
+Repository consolidation remains a desired target, but it is not a prerequisite for the data-platform migration. It must preserve the current fail-closed public deployment boundary and may proceed only after automated checks exist.
+
+This document does not itself authorise database creation, repository consolidation, migration, deployment or autonomous publication. Each requires approved implementation work.
 
 ---
 
@@ -46,7 +52,7 @@ The canonical catalogue stores strategic team identities, not every squad permut
 
 > Prefer the smallest set of canonical identities that preserves strategically meaningful differences.
 
-Observed compositions may justify a new identity only when the variation materially changes at least one of:
+Observed compositions may justify a new identity only when variation materially changes at least one of:
 
 - leader or defining core;
 - roster-resource contention;
@@ -58,33 +64,35 @@ A different flex unit alone does not justify a new identity.
 
 ### 2.2 One team registry
 
-Attacking counters and defensive teams are both strategic team archetypes. The target model uses one `team_archetypes` registry rather than separate counter and defence registries.
+Attacking counters and defensive teams are both strategic team archetypes. One `team_archetypes` registry replaces separate counter and defence registries.
 
 A matchup assigns one archetype the defence role and another the attack role for a particular GAC mode.
 
-### 2.3 Evidence is not publication
+### 2.3 Evidence, judgement and publication are separate
 
-Raw or aggregated source evidence, semantic assessment, and the published catalogue are separate domains.
+An observation or source win rate does not become live knowledge directly. The pipeline is:
 
-An observed squad or win rate does not become live knowledge directly. It must pass through:
+1. ingest immutable source evidence;
+2. map it to existing canonical identities where possible;
+3. calculate mechanical measures and confidence;
+4. create assessments and findings;
+5. make a policy decision;
+6. have a deterministic applier re-check policy and create canonical mutations;
+7. generate and validate a complete candidate catalogue;
+8. publish an immutable artifact atomically.
 
-1. source ingestion;
-2. canonical mapping;
-3. deterministic assessment;
-4. policy decision;
-5. candidate-catalogue generation;
-6. whole-catalogue validation;
-7. atomic publication.
+The semantic analyst proposes. It never writes canonical catalogue tables or the live-release pointer.
 
 ### 2.4 Consolidation over proliferation
 
-Creating a matchup is cheaper than creating a new team identity. Before proposing a new archetype, the system must attempt to interpret the observation as:
+Before proposing a new archetype, the system must attempt:
 
-1. an exact existing identity;
-2. an existing identity with a different flex unit;
-3. an existing identity with different recommended units;
-4. an existing identity whose profile needs adjustment;
-5. only then, a genuinely new archetype.
+1. exact existing identity;
+2. existing identity with different flex members;
+3. existing identity with different recommended members;
+4. undersized or expanded observation of an existing profile;
+5. existing identity requiring a profile update;
+6. only then, a genuinely new archetype.
 
 The maintenance objective is:
 
@@ -94,100 +102,116 @@ The maintenance objective is:
 
 Where evidence is insufficient, the safe result is normally `OBSERVE`, not a speculative catalogue change or a question for the user.
 
-### 2.6 Atomic, reversible publication
+Uncertainty becomes a human task only when it is materially relevant, sufficiently evidenced to require a decision now, and not safely resolvable by policy.
 
-A publication either succeeds as one validated catalogue release or changes nothing. Rollback changes the current-release pointer to a prior immutable release; it does not reverse hundreds of individual mutations.
+### 2.6 Human authoring remains first-class
 
-### 2.7 Cache-first live application
+Autonomy complements rather than replaces the owner.
 
-The live-round PWA should remain operationally simple. It consumes one compact published JSON catalogue and continues to work from cached data. Maintenance complexity remains behind the publication boundary.
+Routine additions and corrections must not require hand-written SQL. Human-authored changes use version-controlled change files or an equivalent validated interface, pass through the same deterministic validator, and create the same immutable release type as automated changes.
 
-### 2.8 Cost restraint and provider neutrality
+Human authority is explicit per field:
 
-The logical data model is Postgres-compatible and must not depend on a proprietary Supabase-only feature without a justified need. Supabase is a likely host, but hosting is an implementation decision.
+- `AUTHORED_LOCKED` — automation may propose a change but cannot apply it;
+- `AUTHORED_BASELINE` — automation may change it only with high confidence and full policy compliance;
+- `ASSESSED` — routine autonomous maintenance is permitted.
 
-The first operating model should avoid requiring a paid AI API. A ChatGPT Plus scheduled workflow is the preferred semantic-analysis option only if its available scheduling, network and authenticated database capabilities are proven sufficient. The deterministic pipeline and database design must remain independent of that assumption so another runner can be substituted later.
+Migrated Sheet values begin as `AUTHORED_BASELINE` unless deliberately locked. Tactical notes are always human-authored in the initial design.
+
+### 2.7 Atomic, reversible publication
+
+A publication either succeeds as one validated release or changes nothing. Candidate generation is based on an identified base release. Publication refuses to proceed if the current release has moved.
+
+Rollback selects a prior compatible immutable artifact; it does not reverse individual mutations.
+
+### 2.8 Static, cache-first live application
+
+The PWA must not depend on a running database during a live GAC round.
+
+The live app consumes a versioned static catalogue artifact and a small current-version pointer from the same reliable static-delivery path as the app. It renders a validated cached catalogue first and refreshes in the background. A failed refresh never overwrites a known-good cache or blocks an offline round.
+
+The database is the maintenance and authoring store, not the live app's runtime dependency.
+
+### 2.9 Cost restraint and provider neutrality
+
+The logical model is Postgres-compatible and must not depend on a proprietary hosting feature without a justified need.
+
+The target avoids requiring a paid AI API. Exact matching, thresholds, confidence bounds, policy checks and publication are deterministic. AI is used only for genuinely semantic work such as ambiguous identity mapping, strategic-distinction assessment and explanations.
+
+Evidence availability may prove a larger cost or feasibility constraint than the AI runner. No maintenance engine is committed until the evidence source, permitted retrieval method, useful granularity and recurring cost are verified.
 
 ---
 
-## 3. Target system topology
+## 3. Target topology
 
-The target is one product repository with explicit environments and conventional promotion:
+The desired eventual repository shape is illustrative:
 
 ```text
 gac-helper/
   app/                 PWA
-  maintenance/         evidence, analysis, policy and publication code
-  supabase/            portable SQL schema, migrations and database functions
+  maintenance/         ingestion, mapping, assessment and publication code
+  db/                  portable schema, migrations and database functions
+  data/                reviewed human-authored change files and migration seeds
+  catalogue/           generated static catalogue artifacts or manifests
   docs/                product, architecture and operational authorities
-  tests/               contract, migration and end-to-end tests
+  tests/               contract, migration, policy and end-to-end tests
 ```
 
-The exact directory layout is illustrative and should be confirmed against the implementation toolchain.
+The database remains canonical after approved changes are applied. Files under `data/` are auditable inputs or change requests, not a second mutable catalogue.
 
-The logical runtime flow is:
+The target data flow is:
 
 ```text
-External GAC statistics
-        |
-        v
-Evidence observations
-        |
-        v
-Canonical mapping
-        |
-        +--> Existing team archetype
-        |
-        +--> Finding: possible new archetype
-        |
-        v
-Matchup and defence assessments
-        |
-        v
-Maintenance findings
-  PUBLISH | OBSERVE | ESCALATE | REJECT
-        |
-        v
-Deterministic policy and anomaly gates
-        |
-        v
-Candidate catalogue JSON
-        |
-        v
-Whole-catalogue validation
-        |
-        v
-Immutable catalogue release
-        |
-        v
-Current-release pointer
-        |
-        v
-GAC Helper PWA
+Human change request          External GAC evidence
+        |                              |
+        v                              v
+Validated authoring loader     Immutable observations
+        |                              |
+        |                    Deterministic mapping first
+        |                              |
+        |                    Semantic proposal if ambiguous
+        |                              |
+        +-----------> Findings and assessments
+                               |
+                    Deterministic policy applier
+                               |
+                      Canonical catalogue state
+                               |
+                 Candidate built from base release
+                               |
+                Whole-catalogue validation and lock
+                               |
+                 Immutable versioned static artifact
+                               |
+                  Current-version pointer updated
+                               |
+                    PWA cache then background refresh
 ```
 
 Target components:
 
-- **GitHub:** application source, SQL migrations, versioned policy, tests and deployment workflows.
-- **Postgres-compatible database:** canonical catalogue, evidence, assessments, findings and releases.
-- **Static hosting:** the cache-first PWA.
-- **Maintenance runner:** scheduled retrieval and semantic analysis. Initially this may be ChatGPT Plus if capability validation succeeds.
+- **GitHub:** source, change files, schema migrations, policy, tests and deployment workflows.
+- **Postgres-compatible database:** canonical catalogue, evidence, assessments, findings, authoring records and release metadata.
+- **Static hosting:** the PWA plus immutable catalogue artifacts.
+- **Deterministic maintenance runner:** scheduled ingestion and rule-based analysis, with AI invoked only for bounded semantic cases.
+- **Google Apps Script:** retained initially only as the roster proxy to Comlink; its `action=data` route is retired after a proved fallback period.
 - **Comlink:** existing read-only roster source unless separately replaced.
-- **Google Sheets:** archived migration source and fallback snapshot, not part of the target runtime path.
+- **Google Sheets:** migration source and temporary cutover fallback, not part of the target steady-state runtime.
 
 ---
 
 ## 4. Data domains
 
-The schema is divided into four main domains plus deterministic application configuration:
+The schema has six domains:
 
-1. **Canonical catalogue** — stable units, strategic team identities, profiles and matchup relationships.
-2. **Evidence** — source observations and their mappings to canonical identities.
-3. **Assessment and maintenance** — historical judgements, run records and policy outcomes.
-4. **Publication** — immutable catalogue snapshots and the active-release pointer.
-5. **Application configuration** — board and scoring rules outside autonomous counter authority.
+1. **Canonical catalogue** — units, strategic identities, profiles and matchups.
+2. **Accepted catalogue values** — the current tier, banner, undersize, threat and notes used to generate releases.
+3. **Human authoring** — idempotent reviewed changes and their application history.
+4. **Evidence and assessment** — source observations, mappings, assessments and findings.
+5. **Publication** — immutable release metadata, provenance and current-release state.
+6. **Application configuration** — board and scoring rules outside autonomous counter authority.
 
-All timestamps should be timezone-aware. Stable public codes should be immutable after publication. Internal relational keys may use UUIDs.
+All timestamps are timezone-aware. Stable public codes are immutable after publication. Internal relational keys may use UUIDs.
 
 ---
 
@@ -199,24 +223,24 @@ One row per playable character, ship or capital ship.
 
 | Field | Purpose |
 |---|---|
-| `unit_id` | Stable internal readable key, equivalent to today's `Character_ID` |
+| `unit_id` | Stable internal readable key, preserving today's `Character_ID` |
 | `display_name` | Current user-facing name |
-| `external_id` | Game/Comlink base ID used as a translation adapter |
-| `unit_type` | `CHARACTER`, `SHIP`, or `CAPITAL_SHIP` |
-| `active` | Whether the unit remains active |
+| `external_id` | Game/Comlink base ID used only as a translation adapter |
+| `unit_type` | `CHARACTER`, `SHIP` or `CAPITAL_SHIP` |
+| `active` | Unit lifecycle state |
 | `created_at`, `updated_at` | Audit timestamps |
 
 Constraints:
 
 - `unit_id` is unique and immutable.
 - `external_id` is unique when present.
-- display names may change without breaking relationships.
-
-Trusted game metadata may create a missing unit automatically when external ID, official name and unit type are unambiguous.
+- every required member of a published profile has a non-empty `external_id`;
+- automation may identify a missing unit but may not create or alter `external_id` without a trusted, human-approved source;
+- display-name changes do not change identity.
 
 ### 5.2 `team_archetypes`
 
-One row per canonical strategic team identity, regardless of whether it is used on attack or defence.
+One row per strategic team identity, regardless of attack or defence use.
 
 | Field | Purpose |
 |---|---|
@@ -224,9 +248,10 @@ One row per canonical strategic team identity, regardless of whether it is used 
 | `archetype_code` | Stable readable unique code |
 | `display_name` | User-facing identity |
 | `battle_type` | `SQUAD` or `FLEET` |
-| `status` | `ACTIVE`, `RETIRED`, or `MERGED` |
-| `merged_into_id` | Successor identity where status is `MERGED` |
-| `identity_reason` | Controlled reason this identity exists |
+| `status` | `ACTIVE`, `RETIRED` or `MERGED` |
+| `merged_into_id` | Successor identity for a merged row |
+| `identity_reason` | Controlled reason the identity exists |
+| `identity_reason_detail` | Required explanation for `OTHER_APPROVED` |
 | `created_by` | `HUMAN` or `AUTOMATION` |
 | `created_at`, `updated_at` | Audit timestamps |
 
@@ -240,61 +265,60 @@ Initial `identity_reason` values:
 - `LEGACY_MIGRATION`
 - `OTHER_APPROVED`
 
-`OTHER_APPROVED` should require a recorded explanation.
+At migration, every attack archetype preserves today's `Counter_ID` exactly as `archetype_code`. Existing display names and public mode strings remain byte-identical during cutover so persisted client state is not orphaned.
 
 ### 5.3 `team_profiles`
 
-An archetype answers “what strategic team is this?” A profile answers “what does this team require in this format and usage?”
+An archetype answers “what strategic team is this?” A profile answers “what does this team require in this role and format?”
 
 | Field | Purpose |
 |---|---|
 | `profile_id` | Internal key |
-| `archetype_id` | Parent strategic identity |
-| `mode` | `3V3`, `5V5`, or `FLEET` |
+| `archetype_id` | Parent identity |
+| `mode` | `ANY`, `3V3`, `5V5` or `FLEET` internally |
 | `usage_role` | `ATTACK` or `DEFENCE` |
 | `flex_slots` | Number of canonical flex positions |
-| `status` | Profile lifecycle state |
+| `members_complete` | Whether membership is exhaustive for availability filtering |
+| `status` | `ACTIVE` or `RETIRED` |
+| `created_at`, `updated_at` | Audit timestamps |
 
-Initial uniqueness:
+Unique on `(archetype_id, mode, usage_role)`.
 
-```text
-(archetype_id, mode, usage_role)
-```
+A mode-specific profile overrides `ANY`. Existing squad counter compositions migrate once as `ANY` attack profiles because they are currently shared across 3v3 and 5v5. A mode-specific row is introduced only where evidence or authoring proves the required core differs.
 
-This deliberately starts with at most one canonical profile for a team in each mode and role.
+`REQUIRED`, `RECOMMENDED` and `flex_slots` intentionally reproduce the current model. They do not express faction-constrained flex slots or alternative-member groups; those remain notes/recommended-member guidance until real cases justify a more complex schema.
 
-Example: Emperor Palpatine with Darth Vader (Duel's End) in 3v3 defence can require those two units and carry one flex slot. Thrawn, Mara Jade, Royal Guard and other observed third units remain evidence variants unless they prove strategically distinct.
+The app-facing payload continues to use the exact existing mode strings `3v3`, `5v5` and `FLEET`. Internal enum casing must never leak into persisted client keys.
 
 ### 5.4 `team_profile_members`
-
-Normalised unit membership for a team profile.
 
 | Field | Purpose |
 |---|---|
 | `profile_id` | Parent profile |
 | `unit_id` | Member unit |
 | `member_role` | `REQUIRED` or `RECOMMENDED` |
-| `is_leader` | Whether the member is the canonical leader |
+| `is_leader` | Canonical leader flag |
 | `sort_order` | Stable display order |
 
 Unique on `(profile_id, unit_id)`.
 
-The initial model intentionally uses only required members, recommended members and flex slots. Alternative groups or more expressive composition rules should be added only when real cases demonstrate that this model is insufficient.
-
-Required-member changes receive stronger scrutiny than recommended-member changes because required membership affects roster and round availability.
+Required-member changes receive stronger scrutiny because they affect ownership, resource conflicts and characters committed to defence.
 
 ### 5.5 `matchups`
 
-One canonical relationship between a defence archetype and counter archetype in a mode.
+One canonical relationship between a defence archetype and a counter archetype in a mode.
 
 | Field | Purpose |
 |---|---|
 | `matchup_id` | Internal key |
-| `mode` | `3V3`, `5V5`, or `FLEET` |
-| `defence_archetype_id` | Defending team |
-| `counter_archetype_id` | Attacking team |
+| `mode` | `3V3`, `5V5` or `FLEET` |
+| `defence_archetype_id` | Defending identity |
+| `counter_archetype_id` | Attacking identity |
 | `status` | `ACTIVE` or `RETIRED` |
-| `created_at` | Creation timestamp |
+| `created_at`, `updated_at` | Audit timestamps |
+| `retired_at` | Retirement timestamp |
+| `retired_reason` | Evidence-backed reason |
+| `retired_by_run_id` | Maintenance run where applicable |
 
 Hard uniqueness:
 
@@ -302,129 +326,201 @@ Hard uniqueness:
 (mode, defence_archetype_id, counter_archetype_id)
 ```
 
-This prevents duplicate canonical rows for the same strategic matchup even when many exact compositions are observed.
+### 5.6 `matchup_catalogue_values`
+
+The current accepted player-facing values for a matchup.
+
+| Field | Purpose |
+|---|---|
+| `matchup_id` | One-to-one parent |
+| `tier` | `S`, `A`, `B` or `C` |
+| `banner_score` | Full-squad, first-attempt, clean-clear expected value |
+| `undersize` | Safe droppable-unit count |
+| `notes` | Human-authored tactical advice |
+| `tier_authority` | `AUTHORED_LOCKED`, `AUTHORED_BASELINE` or `ASSESSED` |
+| `banner_authority` | Same authority states |
+| `undersize_authority` | Same authority states |
+| `source_assessment_id` | Assessment supporting an assessed value |
+| `source_finding_id` | Applied finding where relevant |
+| `updated_at` | Audit timestamp |
+
+Notes are human-authored only in v0.2 and have no autonomous authority state.
+
+A high-confidence assessment may update `AUTHORED_BASELINE` tier values through the deterministic applier. `AUTHORED_LOCKED` values can produce findings but cannot be changed autonomously.
+
+Banner and undersize remain human-authored during the initial autonomous implementation because the proposed aggregate evidence cannot reliably derive their current product meanings. Automation may create `OBSERVE` or `ESCALATE` findings about them but may not publish changes until a later evidence contract proves that first-attempt, team-size and clean-win semantics are available.
+
+### 5.7 `defence_catalogue_values`
+
+One current value row per defence archetype and applicable mode.
+
+| Field | Purpose |
+|---|---|
+| `archetype_id`, `mode` | Defence identity and format |
+| `threat` | `LOW`, `NORMAL`, `HIGH` or `EXTREME` |
+| `notes` | Human-authored defence guidance |
+| `threat_authority` | `AUTHORED_LOCKED`, `AUTHORED_BASELINE` or `ASSESSED` |
+| `source_assessment_id`, `source_finding_id` | Provenance |
+| `updated_at` | Audit timestamp |
+
+A mode-specific row overrides `ANY`.
+
+### 5.8 Counter-less defence identities
+
+A defence archetype may exist without a published counter. The app-facing catalogue includes it so the user can place it on a board, receive its threat classification, and see an explicit “no counters in the catalogue yet” result.
+
+Allocation and Battle Order must handle a zero-candidate defence safely.
 
 ---
 
-## 6. Evidence model
+## 6. Human authoring model
 
-The initial evidence model stores aggregated source observations rather than every individual battle, keeping storage and complexity small. Individual battles may be introduced later only if a demonstrated analysis need justifies them.
+Human authoring uses reviewed, version-controlled change files or an equivalent agent-generated interface. It must be usable without direct SQL.
 
-### 6.1 `evidence_sources`
+A change contains:
+
+- stable change ID;
+- author and timestamp;
+- intended entity and operation;
+- expected current/base release;
+- structured values;
+- authority state for judgement fields;
+- concise reason.
+
+The loader is idempotent and records applied changes in `authoring_changes`. It validates identifiers, relationships, enums, banner bounds and required external IDs before mutating canonical state.
+
+Human publication uses the same candidate generator and validator as maintenance publication, with:
+
+- `maintenance_run_id = NULL`;
+- `release_reason = AUTHORING`;
+- full provenance back to the authoring change.
+
+Initial migration seeds may contain the complete legacy catalogue. After cutover, routine files should describe discrete changes rather than duplicate the full database.
+
+`Score_Meanings` is not migrated as runtime data. Its enduring guidance remains in `SCORING_REFERENCE.md`.
+
+---
+
+## 7. Evidence model
+
+### 7.1 Evidence-source entry gate
+
+Stage 2 may not begin until a short spike identifies:
+
+1. the exact provider and dataset;
+2. a stable retrieval method;
+3. evidence that automated retrieval is permitted;
+4. the available dimensions and aggregation semantics;
+5. representative sample sizes by matchup and mode;
+6. recurring cost;
+7. retry, rate-limit and source-outage behaviour.
+
+If no lawful, sufficiently useful and acceptably priced source exists, the programme stops after Stage 1. The canonical platform and improved authoring/publication model remain independently valuable.
+
+### 7.2 `evidence_sources`
 
 | Field | Purpose |
 |---|---|
 | `source_id` | Internal key |
-| `source_code` | Stable code such as `SWGOH_GG` |
+| `source_code` | Stable provider code |
 | `name` | Display name |
 | `active` | Ingestion state |
-| `priority` | Deterministic source precedence where needed |
+| `priority` | Deterministic precedence |
+| `terms_checked_at` | Date retrieval permission was last confirmed |
+| `retrieval_contract_version` | Parser/source contract version |
 
-### 6.2 `evidence_observations`
+### 7.3 `evidence_observations`
 
-One immutable retrieved statistical observation for an exact source grouping.
+One immutable retrieved source grouping.
 
 | Field | Purpose |
 |---|---|
 | `observation_id` | Internal key |
-| `source_id` | Evidence provider |
+| `source_id` | Provider |
 | `maintenance_run_id` | Ingestion run |
-| `source_cycle_key` | Source season/round/cycle identifier |
+| `source_cycle_key` | Provider's exact cycle identifier |
 | `mode` | Relevant GAC mode |
-| `observed_defence_signature` | Exact observed defending composition signature |
-| `observed_attack_signature` | Exact observed attacking composition signature |
-| `battle_count`, `wins`, `win_rate` | Source performance measures |
-| `average_banners` | Source banner measure, with semantics retained |
-| `source_url` | Traceable source location |
-| `source_data` | Original useful source fields as JSONB |
-| `content_hash` | Idempotency/deduplication key |
+| `observed_defence_signature` | Deterministic external-unit-ID signature |
+| `observed_attack_signature` | Deterministic external-unit-ID signature |
+| `source_url` | Traceable location |
+| `source_data` | Original useful fields as JSONB |
+| `content_hash` | Idempotency key |
 | `retrieved_at` | Retrieval timestamp |
 
-Composition signatures should be deterministic and based on trusted external unit IDs, not display-name parsing. Source-specific JSONB is retained so ingestion need not prematurely flatten every provider field.
+Do not freeze guessed provider measures into the Stage 1 schema. Normalised battle counts, wins and other measures are added in Stage 2 only after the provider contract is known. Raw source semantics remain preserved in `source_data`.
 
-A uniqueness or idempotency rule should prevent the same source observation from being ingested twice. Its exact key must be decided from the chosen provider's semantics.
+Individual battles or distribution buckets are added only if the selected source supplies them and a supported assessment needs them.
 
-### 6.3 `evidence_mappings`
-
-Records the semantic decision that observed compositions correspond to canonical archetypes.
+### 7.4 `evidence_mappings`
 
 | Field | Purpose |
 |---|---|
 | `observation_id` | Source observation |
-| `defence_archetype_id` | Mapped defence identity |
-| `counter_archetype_id` | Mapped counter identity |
-| `mapping_confidence` | Mechanically bounded confidence |
-| `mapping_method` | `EXACT`, `RULE`, or `AI` |
-| `mapping_notes` | Concise rationale or ambiguity |
+| `defence_archetype_id` | Mapped defence |
+| `counter_archetype_id` | Mapped counter |
+| `mapping_confidence` | Numeric mechanical bound from 0 to 1 |
+| `mapping_method` | `EXACT`, `RULE` or `AI` |
+| `mapping_outcome` | `CANONICAL`, `FLEX_VARIANT`, `UNDERSIZED_VARIANT`, `EXPANDED_VARIANT` or `UNRESOLVED` |
+| `observed_attack_unit_count` | Supports safe interpretation of team size |
+| `mapping_notes` | Concise rationale |
 
-This is the primary anti-permutation layer. Exact observed squads remain queryable without forcing equivalent canonical identities into the live catalogue.
+A strict subset of an existing profile maps as `UNDERSIZED_VARIANT` and cannot justify a new archetype or required-core change. Added members consume flex slots first and map as `EXPANDED_VARIANT` where appropriate.
+
+AI may lower mapping confidence because of semantic ambiguity but may not raise it above the mechanical bound.
 
 ---
 
-## 7. Assessment and maintenance model
+## 8. Assessment and maintenance model
 
-### 7.1 `matchup_assessments`
+### 8.1 `matchup_assessments`
 
-Append-only historical assessment of a matchup.
+Append-only assessment of a matchup.
 
 | Field | Purpose |
 |---|---|
 | `assessment_id` | Internal key |
-| `matchup_id` | Assessed canonical relationship |
+| `matchup_id` | Assessed relationship |
 | `maintenance_run_id` | Producing run |
-| `battle_count`, `win_rate`, `average_banners` | Normalised supporting measures |
-| `tier` | Proposed `S`, `A`, `B`, or `C` |
-| `banner_score` | Proposed full-squad, first-attempt clean-clear score |
-| `undersize` | Proposed safe droppable-unit count |
-| `confidence_score` | Mechanically derived score |
-| `confidence_level` | `LOW`, `MEDIUM`, or `HIGH` |
+| `normalised_measures` | Provider-independent measures as JSONB |
+| `proposed_tier` | Proposed `S`, `A`, `B` or `C` |
+| `proposed_banner_score` | Advisory only until evidence eligibility is proven |
+| `proposed_undersize` | Advisory only until evidence eligibility is proven |
+| `confidence_score` | Numeric mechanical confidence from 0 to 1 |
 | `evidence_summary` | Concise evidence explanation |
 | `reasoning_summary` | Policy/semantic reasoning |
-| `method_version` | Assessment algorithm version |
+| `method_version` | Algorithm version |
 | `created_at` | Timestamp |
 
-Assessments are not overwritten. The published release selects the accepted current judgement while preserving history.
+Confidence bands are derived for display rather than stored independently.
 
-### 7.2 `defence_assessments`
+### 8.2 `defence_assessments`
 
-Append-only assessment of a defence archetype's threat.
+Append-only assessment of a defence archetype and mode, containing provider-supported measures, proposed threat, confidence, reasoning, method version and run provenance.
 
-| Field | Purpose |
-|---|---|
-| `defence_assessment_id` | Internal key |
-| `archetype_id`, `mode` | Assessed defence identity and format |
-| `maintenance_run_id` | Producing run |
-| `appearance_count`, `hold_rate` | Supporting measures |
-| `average_banners_conceded`, `cleanup_rate` | Optional supporting measures |
-| `threat` | `LOW`, `NORMAL`, `HIGH`, or `EXTREME` |
-| `confidence_level` | Assessment confidence |
-| `reasoning_summary` | Explanation |
-| `created_at` | Timestamp |
+Threat remains deliberately coarse and serves battle ordering rather than a general meta ranking.
 
-Threat remains coarse and exists to support battle ordering, not to create a detailed meta leaderboard.
-
-### 7.3 `maintenance_runs`
-
-Every logical autonomous cycle is recorded.
+### 8.3 `maintenance_runs`
 
 | Field | Purpose |
 |---|---|
 | `run_id` | Internal key |
-| `cycle_key` | GAC season/round or equivalent logical key |
-| `mode` | `3V3` or `5V5`; fleet inclusion recorded separately |
-| `fleet_included` | Whether fleet evidence is included |
+| `cycle_key` | One completed three-round GAC event identifier |
+| `mode` | `3V3`, `5V5` or `FLEET` |
+| `attempt` | Retry/supersession number |
 | `triggered_at`, `evidence_ready_at`, `completed_at` | Lifecycle timestamps |
-| `status` | Run lifecycle/result |
-| `policy_version` | Exact policy revision |
-| `analyst_version` | Semantic analyst/model version |
-| `source_snapshot` | Source retrieval metadata |
-| `published_release_id` | Resulting release when published |
+| `status` | Run state/result |
+| `policy_version` | Enforced policy revision |
+| `analyst_version` | Semantic component version, if used |
+| `source_snapshot` | Retrieval metadata |
+| `published_release_id` | Resulting release where applicable |
 
-The logical run should be unique on `(cycle_key, mode)`. Retries update or resume the same logical run safely rather than creating parallel publications.
+`cycle_key` uses a documented stable form such as `S{season}-E{event}` and represents a completed GAC event, not one battle round. Source round data may be aggregated into the event.
 
-### 7.4 `maintenance_findings`
+A partial unique constraint permits only one active attempt for `(cycle_key, mode)` while retaining failed and superseded attempts.
 
-The working and audit inbox for proposed changes.
+Fleet is a peer mode, not a boolean attached to squad runs.
+
+### 8.4 `maintenance_findings`
 
 Initial finding types:
 
@@ -435,516 +531,598 @@ Initial finding types:
 - `UNDERSIZE_CHANGE`
 - `THREAT_CHANGE`
 - `COMPOSITION_CHANGE`
+- `NOTE_CHANGE`
 - `POSSIBLE_DUPLICATE`
 - `STALE_MATCHUP`
 - `RETIREMENT_CANDIDATE`
 - `MISSING_UNIT`
 
-Core fields:
-
-| Field | Purpose |
-|---|---|
-| `finding_id`, `run_id` | Identity and producing run |
-| `finding_type` | Controlled finding type |
-| `subject_type`, `subject_id` | Affected entity |
-| `proposed_change` | Structured JSONB delta |
-| `confidence` | Mechanically bounded confidence |
-| `decision` | `PUBLISH`, `OBSERVE`, `ESCALATE`, or `REJECT` |
-| `reasoning_summary` | Evidence-backed explanation |
-| `created_at` | Timestamp |
+Core fields include run, type, subject, structured proposed change, mechanical confidence, decision, reasoning, proposed policy version, enforced policy version and application result.
 
 Decision meanings:
 
 | Decision | Meaning | Human action |
 |---|---|---|
-| `PUBLISH` | Policy supports inclusion in the next validated release | None |
-| `OBSERVE` | Potentially meaningful but evidence is insufficient | None |
-| `ESCALATE` | Material decision is required and no safe policy resolves it | User decision |
-| `REJECT` | Noise, duplication, invalid evidence or disproven hypothesis | None |
+| `PUBLISH` | Eligible for deterministic application and candidate validation | None |
+| `OBSERVE` | Potentially meaningful but insufficient | None |
+| `ESCALATE` | Material decision cannot safely be resolved by policy | User decision |
+| `REJECT` | Noise, invalid evidence, duplication or disproven hypothesis | None |
 
-The existence of uncertainty does not create a human task. Escalation requires material relevance, enough evidence to require a decision now, and no safe policy resolution.
+A `PUBLISH` decision is a proposal, not permission to write canonical state. The deterministic applier re-evaluates policy.
 
 ---
 
-## 8. Publication model
+## 9. Publication model
 
-### 8.1 `catalogue_releases`
+### 9.1 `catalogue_releases`
 
-Each candidate or published catalogue is an immutable JSON snapshot.
+Each release records:
 
 | Field | Purpose |
 |---|---|
 | `release_id` | Internal key |
 | `version` | Monotonic public version |
-| `maintenance_run_id` | Producing run, nullable for migration/manual release |
-| `scope` | Release scope/format metadata |
-| `status` | `CANDIDATE`, `PUBLISHED`, `SUPERSEDED`, or `REJECTED` |
-| `payload` | Complete app-facing JSON catalogue |
-| `checksum` | Payload integrity and idempotency |
+| `payload_schema_version` | App compatibility contract |
+| `base_release_id` | Release used to construct the candidate |
+| `previous_release_id` | Explicit published chain |
+| `maintenance_run_id` | Producing run, nullable for migration/authoring |
+| `release_reason` | `MIGRATION`, `AUTHORING`, `MAINTENANCE` or `APPROVED_OVERRIDE` |
+| `scope` | Release metadata |
+| `status` | `CANDIDATE`, `PUBLISHED`, `SUPERSEDED` or `REJECTED` |
+| `payload` | Complete generated JSON |
+| `checksum` | Integrity/idempotency |
 | `created_at`, `published_at` | Lifecycle timestamps |
 
-The payload should preserve the app-facing concepts required by the PWA, including units, team definitions, compositions, matchups, tiers, banner scores, undersize, threat, board configuration and scoring.
+The payload includes:
 
-The implementation may initially provide a compatibility payload matching today's Apps Script contract to reduce frontend migration risk.
+- payload schema and catalogue versions;
+- units and external-ID mapping;
+- attack and defence identities;
+- resolved profiles and compositions;
+- matchups;
+- tier, banner, undersize and notes;
+- threat and defence notes;
+- board configuration and scoring;
+- provenance references ignored by the PWA but retained for audit.
 
-### 8.2 `catalogue_state`
+### 9.2 `catalogue_state` and concurrency
 
 A singleton row holds `current_release_id`.
 
-Publication is one transaction:
+Publication:
 
-1. materialise the candidate model;
-2. generate the complete payload;
-3. validate schema, referential integrity and product rules;
-4. insert the immutable release;
-5. atomically update `current_release_id`.
+1. takes a transaction-scoped advisory lock shared by all publication paths;
+2. reads and records the current release as the base;
+3. materialises the candidate from one consistent canonical snapshot;
+4. re-checks policy for every proposed automated mutation;
+5. generates and validates the complete payload;
+6. refuses publication if the current release no longer equals the base;
+7. allocates the monotonic version inside the lock;
+8. inserts the immutable release;
+9. marks it published and updates `current_release_id` atomically;
+10. writes the versioned static artifact;
+11. updates the static current-version pointer only after the artifact is available.
 
-Rollback atomically points `current_release_id` to a prior valid release.
+A failed artifact write does not advertise the new release. A failed pointer write leaves clients on the prior artifact.
 
-No client should read mutable working tables as its live catalogue. The app reads only the current published snapshot through a read-only endpoint.
+### 9.3 Static artifact and client contract
+
+The storage mechanism for static artifacts is an implementation decision, but it must provide:
+
+- immutable versioned URLs;
+- a tiny current-version pointer;
+- atomic or safely ordered publication;
+- compatibility with the existing static host;
+- retention of prior compatible releases;
+- no database dependency for ordinary PWA reads.
+
+The PWA:
+
+- validates `payload_schema_version` and required fields before use;
+- renders a cached known-good payload first;
+- refreshes in the background;
+- never overwrites the cache with an invalid response;
+- keeps the cached payload when the pointer, artifact or network is unavailable;
+- refuses an incompatible major schema version cleanly;
+- checks HTTP status and never treats an error body as a catalogue.
+
+Rollback may select only a release compatible with the deployed app.
 
 ---
 
-## 9. Deterministic application configuration
+## 10. Deterministic application configuration
 
-Counter maintenance must not control game rules or application configuration.
-
-### 9.1 `gac_board_config`
+### 10.1 `gac_board_config`
 
 Stores league, mode, territory, territory type, team count and ordering.
 
-### 9.2 `gac_scoring_rules`
+### 10.2 `gac_scoring_rules`
 
-Stores the deterministic scoring rules currently represented by the Sheet's `GAC_Scoring` tab.
+Stores the deterministic scoring rules currently represented by `GAC_Scoring`.
 
-The autonomous maintenance role has no permission to change either configuration domain.
+The maintenance system has no authority over either domain. Changes use the human authoring path.
 
-Existing tactical notes are also outside initial statistical automation. The system may preserve and publish migrated notes, but must not rewrite tactical instructions merely from win-rate statistics.
+### 10.3 Tactical notes
+
+Matchup and defence notes are human-authored only in the initial design. Statistical evidence may produce a `NOTE_CHANGE` finding, but it cannot mutate notes or publish generated tactical advice.
 
 ---
 
-## 10. Autonomous decision policy
+## 11. Autonomous decision policy
 
-The policy is the maintenance system's safety and editorial constitution. Its machine-readable values should live in version control, for example `maintenance/policy.yaml`, with explanatory operational documentation alongside it.
+The machine-readable policy lives in version control, for example `maintenance/policy.yaml`. Automation may apply it but cannot change it.
 
-The maintenance process may apply policy but may not change policy.
+The initial engine's primary value is maintenance of existing knowledge: tier drift, threat calibration, duplicate detection, staleness and coverage gaps. Rapid discovery after a new character release remains primarily served by human authoring because strong population evidence will not yet exist.
 
-### 10.1 Evidence eligibility and weighting
+### 11.1 Eligibility and weighting
 
-Evidence must remain mode-specific:
+Evidence remains mode-specific. Provisional recency weighting:
 
-- 3v3 evidence informs 3v3 squad knowledge;
-- 5v5 evidence informs 5v5 squad knowledge;
-- fleet evidence informs fleet knowledge.
-
-A provisional recency weighting is:
-
-- current completed same-format cycle: 60%;
-- previous same-format cycle: 25%;
+- current completed same-format event: 60%;
+- previous same-format event: 25%;
 - earlier same-format evidence: 15%.
 
-Both raw and effective weighted sample sizes must be recorded. These values are initial parameters, not permanent product truths.
+Both raw and effective sample sizes are recorded. Exact weights remain tunable after report-only runs.
 
-### 10.2 Confidence
+### 11.2 Confidence
 
-Confidence is calculated mechanically from:
+Mechanical confidence considers volume, consistency, recency, mapping certainty, source quality and stability.
 
-- volume;
-- consistency;
-- recency;
-- identity/mapping certainty;
-- source quality;
-- stability under reasonable filtering.
+Only one numeric score from 0 to 1 is canonical per assessment or mapping. Display bands are derived. AI can lower the bound, never raise it.
 
-The semantic analyst may lower confidence because of ambiguity but may not increase it beyond the mechanical bound.
+### 11.3 New archetypes
 
-### 10.3 New archetypes
+The system tries every existing-identity interpretation first.
 
-New identities carry the highest burden of proof.
+Initial parameters:
 
-Initial policy:
-
-- fewer than 25 relevant observations: reject/ignore as identity evidence;
+- fewer than 25 relevant observations: reject/ignore;
 - 25–99: observe;
-- 100 or more plus a permitted strategic distinction: eligible for autonomous publication;
-- maximum five automatically created archetypes per run.
+- 100 or more plus a permitted strategic distinction: eligible for proposal;
+- maximum five proposed new archetypes per run.
 
-A clearly new official leader or structurally new faction team may establish identity with less performance evidence, but its matchups still require their own performance evidence.
+An official new leader may establish identity earlier, but its matchups still require performance evidence. Creation occurs only through the deterministic applier.
 
-Exceeding the run limit is an anomaly, not a queue of additional automatic identities.
+### 11.4 New matchups and usefulness
 
-### 10.4 New matchups and usefulness
-
-Initial evidence thresholds:
+Initial evidence guidance:
 
 | Relevant attempts | Default outcome |
 |---:|---|
-| Fewer than 20 | Reject/ignore as catalogue evidence |
+| Fewer than 20 | Reject/ignore |
 | 20–49 | Observe |
 | 50–99 | Observe unless exceptionally strong and stable |
-| 100+ | Eligible for publication |
-| 250+ | Strong evidence |
-| 1,000+ | Very strong evidence |
+| 100+ | Eligible for proposal |
+| 250+ | Strong |
+| 1,000+ | Very strong |
 
-An ordinary published counter should initially require approximately 80% weighted win rate. An automatic S-tier candidate should normally require approximately 90%.
+An ordinary matchup initially requires about 80% weighted win rate. An S-tier candidate normally requires about 90%.
 
-Evidence alone is not enough. A new counter must add useful choice through at least one of:
+A new matchup must improve reliability, resource diversity, accessibility, banners, safe undersize or coverage. Redundant statistically valid matchups remain evidence rather than cluttering the catalogue.
 
-- greater reliability;
-- materially different roster resources;
-- non-GL or otherwise useful accessibility;
-- meaningfully better banners;
-- safe undersize;
-- coverage for a defence with few viable answers.
-
-Strategically redundant counters may remain in evidence without entering the published catalogue.
-
-### 10.5 Tier and tier movement
+### 11.5 Tier and authority
 
 Tier continues to mean reliability, not banner efficiency.
 
+Population evidence is a proxy for the product's personal reliability judgement, not an identical concept.
+
 Initial candidate bands:
 
-- S: about 90% or better weighted wins;
+- S: about 90% or better;
 - A: about 80–89.9%;
 - B: about 65–79.9%;
-- C: below that only when still strategically useful.
+- C: below that only when strategically useful.
 
-Context may downgrade a mechanically suggested tier when success depends on a narrow composition, datacron or other caveat. It may not arbitrarily upgrade it.
+`AUTHORED_LOCKED` tier cannot change autonomously. `AUTHORED_BASELINE` may change only with high confidence, mechanical support and no material caveat. `ASSESSED` may change routinely within policy.
 
-Hysteresis prevents oscillation. Normally a matchup may move by at most one tier per maintenance run. A proposed S-to-C jump should be staged or escalated unless correcting a demonstrable data error.
+Hysteresis limits normal movement to one tier per run. Larger movement stages or escalates.
 
-### 10.6 Banner score
+### 11.6 Banner and undersize
 
-Banner score remains the expected full-squad, first-attempt, clean-clear value. Source averages must not be copied until losses, cleanup attempts and undersized attempts are normalised to that meaning.
+Banner score retains its current product meaning: full-squad, first-attempt, clean-clear expected value. Undersize remains the safe recommended drop count, not the largest observed stunt clear.
 
-A published value changes only when:
+Neither value is autonomously publishable in the initial engine because aggregate win-rate and average-banner evidence cannot reliably remove cleanup attempts, losses, team-size effects or non-clean wins.
 
-- the rounded practical expectation changes by at least one banner; and
-- confidence is sufficient.
+Automation may create evidence-backed `OBSERVE` or `ESCALATE` findings. Autonomous publication becomes eligible only after a later, reviewed evidence contract supplies the necessary attempt-number, fielded-unit and clean-win semantics.
 
-### 10.7 Undersize
+Any future banner change that crosses the mode's First Attack messiness threshold requires high confidence and explicit validation.
 
-Undersize means the safe recommended drop count, not the largest stunt clear observed.
+### 11.7 Threat
 
-Initial policy:
+Threat uses `LOW`, `NORMAL`, `HIGH` and `EXTREME`. It may draw on provider-supported hold rate, attacking strength, banners conceded, cleanup rate and failed first attempts.
 
-- at least 50 observations at the proposed undersize;
-- about 90% or better weighted win rate;
-- no dependence on an obscure or exceptional composition.
+`AUTHORED_LOCKED` threat remains fixed. Other threat values move slowly and never follow popularity alone.
 
-A 0-to-1 change may publish at high confidence. Larger jumps require stronger evidence and may be staged.
+### 11.8 Composition mapping and change
 
-### 10.8 Threat
+A strict subset of a known attack profile is an undersized variant. An expanded composition consumes flex slots before suggesting a profile change. Ordinary member variation is presumed to be flex or recommended-member variation first.
 
-Threat uses `LOW`, `NORMAL`, `HIGH`, and `EXTREME`, drawing on hold rate, attacking strength required, banners conceded, cleanup rate and failed first attempts where available.
+Required-core changes need high confidence because they affect roster availability and committed-defence filtering.
 
-Threat changes slowly and should not follow popularity alone.
+### 11.9 Duplicate detection and merging
 
-### 10.9 Composition changes
+Duplicate detection is proactive. Automatic merging is initially limited to provably equivalent migration duplicates. Other merge proposals escalate because they alter stable identities and dependent relationships.
 
-Observed member variation is presumed to be flex variation first.
+### 11.10 Staleness and retirement
 
-Changing a recommended member is relatively cheap. Changing the required core needs high confidence because it changes ownership checks, round availability and resource conflicts.
+Absence is not immediate invalidity.
 
-### 10.10 Duplicate detection and merging
+Initial same-format-event guidance:
 
-Potential duplicates share signals such as the same leader, substantial required-core overlap, the same mode and similar matchup behaviour.
+- one to two events: no action;
+- about three: mark stale internally;
+- four to five: review candidate;
+- longer: retirement eligibility only with supporting meta evidence.
 
-The system should identify duplicates proactively. Obvious migration duplicates may be merged automatically with redirect history. Ambiguous merges escalate because they alter stable identity and dependent relationships.
+Retirement preserves history. It is stricter than addition.
 
-### 10.11 Staleness and retirement
+### 11.11 Conflicting sources
 
-Absence of evidence is not immediate evidence of invalidity.
+Sources remain separate and are not averaged blindly. Policy records priority, reliability and semantic compatibility.
 
-Initial same-format-cycle guidance:
+Immature disagreement becomes `OBSERVE`. It escalates only if it blocks an important decision that cannot wait.
 
-- one to two cycles without support: no action;
-- about three cycles: mark stale internally;
-- four to five cycles: review candidate;
-- longer absence: retirement eligibility only when usage or meta evidence also supports obsolescence.
+### 11.12 Run-level anomalies and override
 
-Retirement is `ACTIVE -> RETIRED`, not deletion. Automatic retirement should initially be stricter than addition and require sustained evidence across multiple same-format cycles.
+Publication stops when the run resembles a parser or mapping failure.
 
-### 10.12 Conflicting sources
+Initial examples use both percentages and absolute floors, such as:
 
-Source evidence is retained separately and not averaged blindly. Policy records source priority, reliability and semantic compatibility.
-
-Material immature disagreement becomes `OBSERVE`. It becomes `ESCALATE` only when it blocks an important decision that cannot safely wait.
-
-### 10.13 Run-level anomaly protection
-
-The entire candidate release is stopped when a run resembles a parser or mapping failure rather than ordinary meta change.
-
-Initial anomaly examples:
-
-- more than five new archetypes;
-- more than 25% of current matchups changing tier;
-- more than 10% of the catalogue proposed for retirement;
+- more than five proposed new archetypes;
+- tier changes exceeding the greater of 25% or a configured absolute count;
+- retirements exceeding the greater of 10% or a configured absolute count;
 - widespread banner movement in one direction;
 - unusually high mapping failure;
-- an implausible source-volume change.
+- implausible source-volume change.
 
-Evidence and findings remain available for diagnosis, but nothing publishes.
+An anomaly preserves evidence and blocks routine publication. A human may deliberately publish through `APPROVED_OVERRIDE` only after the waived anomaly, approver and reason are recorded.
 
 ---
 
-## 11. Publication validation
+## 12. Publication validation
 
-Before publication, deterministic validation must prove at least:
+### 12.1 Structural validation
 
-- no orphan IDs;
-- no duplicate matchup keys;
-- every required member references an existing compatible unit;
-- profile and matchup modes are valid;
-- tiers and threats use legal values;
-- banner scores fall within mode-specific limits;
-- undersize values fall within format limits;
-- active records do not point incorrectly to retired or merged identities;
-- every required PWA contract can be generated;
-- payload schema validation passes;
-- checksum/version rules pass;
-- run-level anomaly limits pass.
+The validator proves:
+
+- no orphan IDs or duplicate matchup keys;
+- valid lifecycle transitions;
+- every required member references a compatible unit with a unique non-empty external ID;
+- valid profiles, roles, modes, tiers and threats;
+- banner and undersize values within mode limits;
+- no invalid active reference to a retired or merged identity;
+- payload schema and checksum validity;
+- release/base/version consistency;
+- run-level anomaly gates.
+
+### 12.2 Product-contract validation
+
+The validator also proves:
+
+- app-facing mode keys are exactly `5v5`, `3v3` and `FLEET`;
+- exactly one positive finite `SETTING_DEFENCE / ANY / ANY` rule exists;
+- every league/mode has the required territories in canonical order and exactly one Fleet territory;
+- banner ceilings and undersize limits match `SCORING_REFERENCE.md`;
+- required counter IDs and defence display names do not disappear without an explicit compatible rename migration;
+- counter-less defence identities are handled deliberately;
+- board and scoring configuration can produce the current app contract;
+- the complete PWA payload can be generated;
+- provenance exists for each assessed value;
+- the candidate remains compatible with persisted client state.
 
 If any validation fails, publish nothing.
 
 ---
 
-## 12. Security and authority boundaries
+## 13. Security and authority boundaries
 
-Use separate least-privilege roles or equivalent credentials:
+Use least-privilege roles or equivalent narrow operations:
 
-- **App reader:** may read only the current published catalogue endpoint.
-- **Evidence ingester:** may insert source observations and run metadata; cannot publish.
-- **Maintenance analyst:** may create mappings, assessments and findings; cannot change policy, schema or application configuration.
-- **Publisher function:** may build a release only through deterministic validation and atomically update the current pointer.
-- **Migration/admin role:** held outside routine automation and used only for approved schema/configuration work.
+- **Authoring loader:** applies reviewed human changes through validation; cannot change schema or policy.
+- **Evidence ingester:** inserts observations and run metadata only.
+- **Maintenance analyst:** inserts mappings, assessments and findings only.
+- **Deterministic applier:** re-evaluates policy and performs permitted canonical mutations.
+- **Publisher:** generates, validates and records releases; changes the current pointer only through the publication transaction.
+- **Migration/admin:** used only for approved schema and migration work.
 
-The AI may autonomously:
+The live PWA needs no database role because it reads static public catalogue artifacts.
 
-- map observations to existing archetypes;
-- propose or create qualifying archetypes;
-- propose or create qualifying matchups;
-- assess tier, banner, undersize and threat;
-- identify composition change or duplication;
-- decide `PUBLISH`, `OBSERVE`, `ESCALATE` or `REJECT` within policy;
-- explain anomalies.
+The analyst and maintenance runner cannot write:
 
-The AI may not autonomously:
+- units or external IDs;
+- archetypes, profiles or matchups;
+- accepted catalogue values;
+- board or scoring configuration;
+- policy or schema;
+- releases or current-release state;
+- notes;
+- credentials or permissions.
 
-- alter maintenance policy;
-- change scoring or board configuration;
-- alter database schema or migrations;
-- weaken validation;
-- change authentication, secrets or permissions;
-- deploy application code;
-- broaden its own authority.
+The deterministic applier demotes a finding to `OBSERVE` when enforced policy fails and records why. It checks the policy version itself rather than trusting the analyst's claim.
 
-Database credentials used by automation must not provide a path around the publishing function.
+Retrieved third-party content is untrusted data. Instructions embedded in it are never followed, and no retrieval path can alter schema, policy, credentials, permissions, application code or the release pointer.
 
 ---
 
-## 13. Repository and environments
+## 14. Repository and environments
 
-The target is a single authoritative repository rather than separate development and live code repositories.
+The desired endpoint remains one authoritative repository with explicit development and production environments.
 
-Desired model:
+Prerequisites for consolidation:
 
-- `main` is the authoritative source;
-- automated checks protect promotion;
-- development/staging and production use explicit environment-specific configuration;
-- production deployment is an explicit promotion of a tested commit;
-- secrets remain outside source control;
-- schema changes are migrations reviewed with application changes;
-- maintenance code, policy and tests live with the product while retaining separate runtime permissions.
+- CI runs the complete test and validation suite;
+- public deployment remains fail-closed and allow-listed;
+- private docs, tests, database code, personal identifiers and secrets cannot enter the public artifact;
+- environment configuration and secrets are external to source;
+- production remains an explicit promotion of a tested commit or artifact;
+- the current live repository remains recoverable until the consolidated route is proved.
 
-The final hosting and branch/environment mechanics must be designed during implementation from the capabilities actually available. This document does not authorise repository deletion or consolidation.
-
----
-
-## 14. Migration and cutover
-
-Because the app has one primary user, optimise for recoverability and validation rather than prolonged dual-write.
-
-Preferred cutover:
-
-1. export and retain a timestamped backup of the current Google Sheet;
-2. apply the complete canonical schema in the target database;
-3. migrate units, team identities, profiles, matchups, notes, board configuration and scoring;
-4. explicitly detect and resolve duplicate or ambiguous identities;
-5. validate counts, relationships and app-facing payload parity;
-6. create the first immutable catalogue release as a legacy migration;
-7. point the development environment at the new read endpoint;
-8. validate real use, cache/offline behaviour and rollback;
-9. promote the tested version to production;
-10. archive the Sheet as a fallback and remove it from the runtime path.
-
-Avoid a long-lived autonomous-AI-to-Sheets transition and avoid dual-write unless implementation evidence reveals a need.
-
-Migration must preserve stable current IDs where practical. Where defence names become stable archetype codes, maintain a deterministic mapping and report unresolved cases rather than guessing.
+Repository consolidation is not required before database migration and must not be combined atomically with catalogue cutover. It may be completed within Stage 1 through a later internal checkpoint so manual configuration remains concentrated without removing the fallback prematurely.
 
 ---
 
-## 15. Minimal implementation sequence
+## 15. Migration and cutover
 
-The programme should use three stages, with nearly all manual GitHub/database setup concentrated in Stage 1.
+Migration optimises for recoverability rather than prolonged dual-write.
 
-### Stage 1 — Foundation and one-time infrastructure session
+### 15.1 Required artifacts
 
-In one coordinated setup session:
+Before mutation:
 
-- confirm the one-repository/environment design;
-- create and configure the target database project and access roles;
-- configure required repository environments and secrets;
-- apply the complete canonical schema;
-- check in the maintenance policy and architectural authorities;
-- migrate and validate the full existing catalogue;
-- implement the current-catalogue read endpoint;
-- adapt the existing PWA to the compatibility payload;
-- prove release creation, current-pointer rollback and cache-first operation.
+- commit a timestamped export of every relevant Sheet tab as a private migration artifact;
+- capture the current Apps Script `action=data` response as a golden payload;
+- record current counts, identifiers, names, modes and required-member external-ID coverage;
+- retain the current Sheet and `action=data` route unchanged through at least one complete GAC event after production cutover.
+
+### 15.2 Identity preservation
+
+At cutover:
+
+- every attack `archetype_code` equals today's `Counter_ID`;
+- defence display names remain byte-identical;
+- app-facing modes remain exactly `5v5`, `3v3` and `FLEET`;
+- no rename occurs without a versioned client-state migration.
+
+This protects persisted `usedTeams`, `defenceTemplate:5v5`, `defenceTemplate:3v3`, `boardData` and `myBoardData` state.
+
+### 15.3 Mandatory reconciliation and acceptance
+
+Stage 1 must prove:
+
+1. new payload equals the captured Apps Script payload in all current product semantics, allowing only documented ordering or additive provenance fields;
+2. entity counts reconcile to the Sheet export, with every discrepancy explained;
+3. every current `Counter_ID` survives;
+4. every defence display name survives;
+5. every defence identity maps to exactly one archetype or is explicitly unresolved;
+6. fixture-roster ownership and availability results are identical;
+7. required-unit external-ID coverage is not reduced;
+8. board territory order, type and count are identical;
+9. scoring preconditions and documented worked examples remain correct;
+10. current tests plus payload, caching and compatibility tests pass in CI;
+11. an offline cold PWA launch can complete a representative round from cache;
+12. a deliberately rejected candidate changes nothing;
+13. a published test release can be rolled back successfully;
+14. the owner can add one counter through the human authoring path and publish it without SQL.
+
+### 15.4 Cutover sequence
+
+1. apply the complete reviewed schema;
+2. load the migration seed;
+3. resolve reported duplicates and ambiguous identities;
+4. generate the legacy-migration candidate;
+5. pass the reconciliation suite;
+6. publish a static development artifact;
+7. adapt the PWA to separate catalogue and roster-proxy URLs;
+8. validate cache-first and offline behaviour;
+9. validate production promotion and rollback;
+10. cut production to the static catalogue;
+11. retain Sheet/`action=data` fallback for at least one complete GAC event;
+12. archive the Sheet and retire only `action=data` after acceptance;
+13. retain Apps Script `action=roster`.
+
+A long-lived dual-write system is not required.
+
+---
+
+## 16. Minimal implementation sequence
+
+The programme uses three stages. A small evidence gate sits before Stage 2; it is not a fourth build stage and requires no infrastructure programme.
+
+### Stage 1 — Canonical platform, authoring and publication
+
+Manual configuration is concentrated into one coordinated session:
+
+- create the database project and least-privilege roles;
+- configure repository secrets and environments;
+- configure the static catalogue publication target;
+- confirm the guarded route toward one repository.
+
+Agent implementation then:
+
+- adds CI first;
+- applies the complete schema;
+- creates the authoring loader and authority states;
+- migrates and reconciles the current catalogue;
+- builds the deterministic validator and locked publisher;
+- creates versioned static artifacts and the current pointer;
+- adds cache-first catalogue loading and schema validation to the PWA;
+- splits catalogue and roster-proxy URLs;
+- retains Apps Script for `action=roster` only;
+- completes repository consolidation only after CI and fail-closed publication are proved;
+- executes every `15.3 acceptance check.
 
 Exit criterion:
 
-> The existing GAC Helper runs correctly against the new canonical database, and Google Sheets is no longer in the runtime path.
+> GAC Helper runs from a validated static catalogue, works from cache offline, supports safe human authoring without SQL, preserves all current IDs/names/notes/state, and can roll back to both the prior release and the former Sheet-backed path.
 
-### Stage 2 — Autonomous maintenance engine
+Rollback:
+
+- repoint to the previous static release; or
+- restore the unchanged Apps Script `action=data` URL during the fallback window.
+
+### Evidence and runner entry gate
+
+Before Stage 2, perform the `7.1 spike with one representative real cycle. Prefer a deterministic scheduled runner such as an existing CI platform. Prove any required authenticated access rather than assuming a ChatGPT scheduled task can provide it.
+
+If the gate fails, stop after Stage 1.
+
+### Stage 2 — Maintenance engine in report-only mode
 
 Implement:
 
-- evidence ingestion;
-- idempotent source snapshots;
-- canonical mapping;
-- assessment generation;
-- maintenance findings;
-- policy decisions;
-- candidate catalogue construction;
-- deterministic validation;
-- release publication machinery.
+- idempotent evidence ingestion;
+- deterministic canonical mapping first;
+- bounded semantic review for ambiguous cases;
+- append-only assessments and findings;
+- deterministic policy application against a non-current candidate;
+- anomaly and failure injection;
+- full provenance.
 
-Run against real evidence in report-only mode first. Report-only is a bounded validation period, not a permanent manual workflow. It must use the production-shaped schema and permissions.
+No Stage 2 release becomes current.
 
 Exit criterion:
 
-> The system's proposed decisions are credible across representative completed cycles, and failure/anomaly cases prevent publication correctly.
+> Across at least two representative completed same-format events, findings are explainable and credible, authored locks are respected, and injected source/parser/policy failures block candidate acceptance.
 
-### Stage 3 — Scheduling and operational hardening
+Rollback:
 
-Connect the engine to the real cadence:
+> Disable the engine. Stage 1 authoring and publication remain unaffected.
 
-- detect a completed GAC cycle and evidence readiness;
-- execute or resume one idempotent maintenance run;
-- publish when all gates pass;
-- produce a concise run report;
-- alert only on escalation or failure;
-- prove retries, source outages, anomaly stops, rollback and release restoration;
-- enable bounded autonomous publication.
+### Stage 3 — Scheduling and bounded autonomous publication
+
+Implement:
+
+- event completion and evidence-readiness detection;
+- idempotent execution and safe retry;
+- static artifact publication;
+- concise success reporting;
+- alerts only for failure or `ESCALATE`;
+- `APPROVED_OVERRIDE` handling;
+- proved source-outage, concurrency, rollback and restoration behaviour.
 
 Exit criterion:
 
-> Routine counter maintenance operates without human approval, while policy exceptions and failures remain visible and recoverable.
+> Two consecutive unattended eligible cycles complete correctly, a forced mid-publication failure leaves the previous artifact current, and rollback succeeds without database availability.
 
-Stages 2 and 3 should require little or no new infrastructure configuration beyond the foundation established in Stage 1.
+Rollback:
 
----
-
-## 16. Cost model
-
-The target should be viable with no new recurring paid service under normal personal use.
-
-Expected low-cost components:
-
-- existing GitHub repository and static hosting;
-- a free or already-paid Postgres-compatible host if its current limits are sufficient;
-- existing self-hosted Comlink arrangement;
-- ChatGPT Plus for scheduled semantic work if capability validation succeeds.
-
-Cost must be checked against current provider limits during implementation. The design must not assume that a free tier, scheduled-task capability or external database access remains unchanged.
-
-Before adding a paid AI API or worker, demonstrate that the no-new-cost runner cannot meet reliability, scheduling or authenticated-access needs. If a paid component becomes necessary, it requires an explicit decision with expected monthly cost and a cheaper alternative.
+> Disable scheduling and repoint to the last human-approved compatible release.
 
 ---
 
-## 17. Observability and operational outputs
+## 17. Cost model
 
-Each run should leave enough information to answer:
+Stage 1 should be viable with no new recurring paid service under normal personal use, subject to current provider limits verified at implementation.
+
+Potential cost areas:
+
+- database storage, inactivity and project limits;
+- static artifact storage and deployment;
+- scheduled compute;
+- evidence-provider subscription or API access;
+- AI API usage, if ever needed;
+- backups and retention.
+
+The database is removed from the live PWA path so host pausing does not block a round. A documented wake/recovery procedure is still required for authoring and maintenance.
+
+No paid evidence source, AI API or worker is introduced without an explicit decision stating:
+
+- expected monthly cost;
+- what capability it unlocks;
+- why existing paid/free tools are insufficient;
+- the cheaper fallback.
+
+Provider prices, limits, task capabilities and access terms are time-sensitive and must be rechecked during the evidence gate.
+
+---
+
+## 18. Observability and reproducibility
+
+Each run and release must answer:
 
 - what source snapshot was used;
-- which policy and analyst versions ran;
+- which retrieval, method, analyst and policy versions ran;
 - how many observations mapped, failed or remained ambiguous;
-- what findings were published, observed, escalated or rejected;
+- what findings were proposed, observed, escalated, rejected or applied;
+- what policy the applier actually enforced;
 - which anomaly and validation gates ran;
-- whether a release was created and made current;
-- how to restore the previous release.
+- which assessment and finding produced each assessed published value;
+- what base release was used;
+- whether the static artifact and pointer were published;
+- how to restore the previous compatible release.
 
-Routine successful output should be concise. `OBSERVE` findings stay silent unless included in an optional summary. Only failures and genuine `ESCALATE` decisions should demand user attention.
+Routine successful output remains concise. `OBSERVE` is silent by default. Only failures and genuine `ESCALATE` cases demand attention.
 
-Retention periods for raw source JSON, observations and historical releases should be set after measuring actual volume. Do not add premature archival infrastructure.
-
----
-
-## 18. Initial decisions proposed for lock
-
-1. Postgres-compatible relational storage is the target canonical store.
-2. Google Sheets is not part of the target runtime architecture.
-3. A single `team_archetypes` registry covers attacking and defensive strategic identities.
-4. 3v3, 5v5 and Fleet differences live in profiles and matchups, not duplicated identities by default.
-5. Exact observed squads belong in evidence, not automatically in the catalogue.
-6. New team identities carry a deliberately high burden of proof.
-7. Matchups are unique by mode, defence archetype and counter archetype.
-8. Evidence and assessments are append-only historical records.
-9. Published catalogues are immutable JSON snapshots.
-10. Publication is atomic and rollback is pointer-based.
-11. Maintenance policy is version-controlled and outside AI write authority.
-12. Routine autonomous operation should require no human approval.
-13. `OBSERVE` is silent; only genuine `ESCALATE` cases ask the user.
-14. The first implementation should not require a paid AI API.
-15. The live PWA remains cache-first and consumes only a validated published catalogue.
-16. The implementation uses three stages with manual infrastructure work concentrated in Stage 1.
+Retention periods are set after measuring real volume. Do not add premature archival infrastructure.
 
 ---
 
-## 19. Open implementation decisions
+## 19. Decisions proposed for lock
 
-These are intentionally not settled by v0.1:
+1. Postgres-compatible relational storage is the canonical maintenance and authoring store.
+2. Google Sheets is not part of the target steady-state runtime.
+3. Human authoring remains first-class and does not require SQL.
+4. Human judgement uses explicit `AUTHORED_LOCKED`, `AUTHORED_BASELINE` and `ASSESSED` authority states.
+5. Tactical notes are stored explicitly and remain human-authored initially.
+6. One `team_archetypes` registry covers attacking and defensive identities.
+7. Shared squad composition uses an `ANY` profile with mode-specific override.
+8. Exact observed squads belong in evidence, not automatically in the catalogue.
+9. New team identities carry a deliberately high burden of proof.
+10. Matchups are unique by mode, defence archetype and counter archetype.
+11. Evidence and assessments are append-only.
+12. The analyst proposes; a deterministic applier enforces policy and writes canonical changes.
+13. Banner and undersize are not autonomously published until suitable evidence semantics are proved.
+14. Published catalogues are immutable, schema-versioned static JSON artifacts.
+15. Publication is single-writer, base-release-aware and pointer-based.
+16. The live PWA renders a validated cached catalogue first and has no database dependency.
+17. Maintenance policy is version-controlled and outside AI write authority.
+18. `OBSERVE` is silent; only genuine `ESCALATE` cases ask the user.
+19. The first implementation requires no paid AI API.
+20. Evidence-provider feasibility and cost are a Stage 2 entry gate.
+21. Apps Script remains initially for roster proxying only.
+22. One repository remains the desired target, but consolidation requires CI, fail-closed public output and a recoverable fallback.
+23. The programme has three implementation stages with manual configuration concentrated in Stage 1.
+
+---
+
+## 20. Decisions deferred to implementation evidence
 
 - final database host and region;
-- exact repository consolidation mechanics and production hosting;
-- evidence provider availability, licence/terms and stable retrieval interface;
-- exact evidence observation idempotency key;
-- whether ChatGPT Plus can reliably perform the required scheduled authenticated workflow;
-- whether fleet should share a maintenance run with squad mode or have its own cycle key;
+- exact static artifact storage and pointer mechanism;
+- exact one-repository consolidation and production-hosting mechanics;
+- evidence provider, retrieval contract and recurring cost;
+- exact observation idempotency key;
+- final deterministic runner;
 - exact confidence formula and source-quality weights;
-- final threshold tuning after report-only runs;
-- retention periods for evidence and releases;
-- whether the compatibility payload is permanent or later replaced by a versioned API contract;
-- authentication method for the read endpoint and maintenance runner;
-- recovery procedure if the database host pauses or becomes unavailable.
+- threshold tuning after report-only runs;
+- retention periods;
+- later payload-schema evolution;
+- whether future evidence can safely support autonomous banner or undersize updates;
+- whether more expressive composition alternatives are ever needed.
 
-These should be resolved from fresh implementation evidence rather than guessed in architecture.
+These are deferred because current evidence is insufficient, not because they may be silently improvised during implementation.
 
 ---
 
-## 20. Peer-review brief
+## 21. Peer-review resolution
 
-A reviewer should challenge this design specifically for:
+v0.2 accepts the peer review's central findings:
 
-- unnecessary complexity for a single-user hobby app;
-- missing entities, constraints or lifecycle states;
-- whether archetype/profile separation is correct;
-- whether one attack/defence profile per archetype and mode is too restrictive;
-- whether exact observed compositions can be mapped without information loss;
-- data provenance, idempotency and reproducibility gaps;
-- thresholds that invite catalogue bloat, oscillation or stale advice;
-- unsafe AI permissions or paths around deterministic publication;
-- publication race conditions and rollback weaknesses;
-- migration risks from the current Sheet model;
-- assumptions that would introduce recurring cost;
-- feasibility of a ChatGPT Plus scheduled runner;
-- ways to simplify the three-stage build while retaining a safe checkpoint;
-- any current product behaviour or API concept that the target payload fails to preserve.
+- added human authoring and authority states;
+- added explicit notes storage;
+- removed the database from the live PWA path;
+- separated semantic proposal from deterministic application;
+- deferred autonomous banner and undersize mutation;
+- added evidence-provider and runner gating;
+- added release locking, base-release checks and payload schema versions;
+- preserved current identifiers and client-state contracts;
+- strengthened product validation and migration acceptance;
+- retained Apps Script only for roster proxying.
 
-The review should distinguish:
+It modifies three recommendations:
 
-- architectural flaws that must be corrected before implementation;
-- implementation details that can safely be deferred;
-- optional enhancements that should not expand the first build.
+- human-authored values are not all permanently immutable; only `AUTHORED_LOCKED` values are;
+- version-controlled authoring files are change inputs, not a second canonical catalogue;
+- repository consolidation remains the desired target, but is guarded and sequenced rather than coupled atomically to database cutover.
+
+It also keeps AI available for genuinely semantic ambiguity while making ordinary ingestion, mapping, policy enforcement and publication deterministic.
