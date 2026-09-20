@@ -50,7 +50,8 @@ function buildDataPayload() {
     characterDefinitions: {},
     boardConfig: {},
     scoring: [],
-    defenceTeams: {}
+    defenceTeams: {},
+    defenceCompositions: {}
   };
 
   //
@@ -182,6 +183,11 @@ function buildDataPayload() {
   // NORMAL, so the feature works before a single rating is authored.
   //
   output.defenceTeams = buildDefenceTeams(ss);
+
+  // Optional canonical unit membership for saved My Board identities. This is
+  // separate from Counter_Composition because a defensive team and an attacking
+  // counter are distinct catalogue concepts even when their names coincide.
+  output.defenceCompositions = buildDefenceCompositions(ss);
 
   return output;
 }
@@ -327,6 +333,36 @@ function buildDefenceTeams(ss) {
   }
 
   return teams;
+}
+
+// ─── DEFENCE COMPOSITION (optional Defence_Composition tab, v3.5) ───────────
+// Columns: Defence_Team, Mode, Character_ID. Every row is a unit actually placed
+// with that saved defensive identity. Missing tab/data is safe and yields {}.
+function buildDefenceCompositions(ss) {
+  const sheet = ss.getSheetByName("Defence_Composition");
+  if (!sheet) return {};
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length < 2) return {};
+
+  const headers = data[0];
+  const cTeam = col(headers, "Defence_Team", 0);
+  const cMode = col(headers, "Mode", 1);
+  const cChar = col(headers, "Character_ID", 2);
+  const compositions = {};
+
+  for (let i = 1; i < data.length; i++) {
+    const team = String(data[i][cTeam] || "").trim();
+    const mode = String(data[i][cMode] || "ANY").trim() || "ANY";
+    const characterId = String(data[i][cChar] || "").trim();
+    if (!team || !characterId) continue;
+    if (!compositions[mode]) compositions[mode] = {};
+    if (!compositions[mode][team]) compositions[mode][team] = [];
+    if (compositions[mode][team].indexOf(characterId) < 0) {
+      compositions[mode][team].push(characterId);
+    }
+  }
+  return compositions;
 }
 
 // ─── ROSTER FETCH (action=roster) ────────────────────────────────────────────

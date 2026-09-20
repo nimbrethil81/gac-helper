@@ -769,6 +769,10 @@ body {
     margin-bottom: 12px;
 }
 
+.round-defence-status {
+    margin-top: 8px;
+}
+
 .board-rec {
     margin: 6px 0 12px 12px;
     padding: 10px 12px;
@@ -785,6 +789,20 @@ body {
 
 .board-rec-none {
     border-left-color: #22324a;
+}
+
+.board-rec-blocked {
+    margin-top: 4px;
+    padding-top: 7px;
+    border-top: 1px solid #22324a;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.board-rec-blocked span {
+    margin-right: 6px;
+    color: var(--b-tier);
+    font-weight: bold;
 }
 
 .board-rec-line {

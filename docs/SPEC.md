@@ -122,7 +122,7 @@ All player-specific state is held client-side in `localStorage`:
 * **Used teams** — keyed on `Counter_ID`, persisted across app launches.
 * **Owned units** — versioned roster object `{schema, savedAt, source, allyCode, syncedAt, owned[]}`, with a single save/load path and compatibility handling for legacy roster formats. `Character_ID` is the persisted key (ships and capital ships are stored under the same key space as characters, since all units share the `Character_ID` namespace). Provenance is tracked in `source` (`manual`, `import`, or the API sentinel); `savedAt` records the last local write of any kind, while `syncedAt` records the last successful API return — these are distinct facts and both are meaningful for data freshness.
 * **Banner tracking** — the current round's editable own and opponent scores, the player's optional remaining-banner override, and the opponent-final marker. New-round setup prefills both scores once from the configured `SETTING_DEFENCE` rule; later board loads and migrations never recalculate or overwrite live totals. Banner state persists across launches and is cleared by Reset Round.
-* **Round boards** — schema **4** uses two paired versioned board objects with the same frozen `{league, mode, createdAt, roundId, territories[], teams[]}` layout. `boardData` remains the opponent-board key for compatibility; `myBoardData` holds the player's defence. Team rows add optional `customName` alongside identity, `attempts`, and `cleared`. Both live boards are cleared by Reset Round. Schema-2 and schema-3 opponent boards migrate additively: missing Battles and custom-name fields are backfilled, a paired My Board is created from the saved layout, and existing banner scores are left unchanged. Older unsupported formats are ignored. `mode` is always a squad format (`5v5` or `3v3`); Fleet remains a territory/catalogue mode rather than a whole-board format (see [§6.7](#67-round-boards)).
+* **Round boards** — schema **5** uses two paired versioned board objects with the same frozen `{league, mode, createdAt, roundId, territories[], teams[]}` layout. `boardData` remains the opponent-board key for compatibility; `myBoardData` holds the player's defence. The opponent-board object also owns the round's immutable `defenceSnapshot`, containing the selected format and canonical unit IDs committed to defence when the round began. Team rows add optional `customName` alongside identity, `attempts`, and `cleared`. Both live boards are cleared by Reset Round. Schema-2/3/4 boards migrate additively; a schema-4 round freezes its paired My Board once after catalogue data loads. Existing banner scores remain unchanged. Older unsupported formats are ignored. `mode` is always a squad format (`5v5` or `3v3`); Fleet remains a territory/catalogue mode rather than a whole-board format (see [§6.7](#67-round-boards)).
 * **Defence templates** — one identity-only template per squad format, stored separately under `defenceTemplate:5v5` and `defenceTemplate:3v3`. Each snapshots every territory, including its fleet slots. Template team rows contain only territory/index, catalogue identity and optional custom name; Battles and Cleared state are never copied. Identity edits on My Board autosave the matching template. Reset Round preserves both templates; clearing a template is a separate confirmed action.
 * **League setting** — persisted user preference (`Kyber`, `Aurodium`, `Chromium`, `Bronzium`, or `Carbonite`), remembered across rounds and used to pre-fill the board setup card.
 * **Last squad format** — persisted `5v5`/`3v3` preference (`lastSquadMode`). It records the most recent squad format selected on the Counters toggle, and is used to seed the round's format when the toggle is on Fleet at setup time (see [§6.7](#67-round-boards)).
@@ -175,6 +175,8 @@ The tab also supports the First Attack rule (see [§6.12](#612-first-attack)). T
 > **Why Threat has to be authored.** Battle Order needs to know how hard a defence team is. Every signal the app could derive that from — how many counters are catalogued, what tiers they carry, what they score — measures the **data**, not the enemy. A thinly-documented easy team would look scarcer than a Galactic Legend with two well-known answers, and a Galactic Legend with one excellent S-tier counter would look *easy* by every derived measure, because its difficulty lies in the scarcity of the answer rather than in the fight. `Threat` is therefore a hand-authored judgement, exactly as `Tier` is, and for the same reason: it encodes signal the app holds no data on. See [§6.11](#611-battle-order).
 
 The tab is **optional and incremental**. It is guarded on the backend like GAC_Board_Config and GAC_Scoring — a missing or empty tab yields an empty object — and a blank or unrecognised `Threat` resolves to `NORMAL` client-side. So Battle Order works with the tab absent entirely, and improves row by row as ratings are added. The intended authoring pattern is to rate only the teams the automatic ordering gets wrong (in practice, Galactic Legends and any thinly-documented easy team), leaving everything else on the default. Data validation on the `Defence_Team` column, sourced from the distinct defence-team names on the Counters tab, guards the one real fragility of name-keying: renaming a defence team would otherwise silently orphan its rating.
+
+**Defence_Composition** — optional canonical unit membership for saved My Board identities, with one row per (`Defence_Team`, `Mode`, `Character_ID`). It exists only to turn a saved defence identity into the exact character/ship IDs that must be unavailable on attack. A mode-specific composition beats `ANY`. When no explicit row exists, the client may reuse `Counter_Composition` only where the defence name exactly and uniquely matches a counter-team name; those known required IDs are blocked, but the identity remains marked partial because an attacking core may omit defensive members. It never parses names or guesses flex members. Ambiguous, custom, or otherwise unresolved identities are recorded in the round snapshot and surfaced as a partial-filter warning.
 
 **Roster** — present in the spreadsheet but not consumed by the app.
 
@@ -232,7 +234,7 @@ The Apps Script exposes two actions behind a single `doGet` endpoint.
 
 ### `action=data` (default)
 
-Returns a single JSON object with six top-level keys. This contract is the boundary between backend and frontend; the frontend depends on this shape rather than on sheet layout.
+Returns a single JSON object with seven top-level keys. This contract is the boundary between backend and frontend; the frontend depends on this shape rather than on sheet layout.
 
 ```json
 {
@@ -241,7 +243,8 @@ Returns a single JSON object with six top-level keys. This contract is the bound
   "characterDefinitions": {},
   "boardConfig": {},
   "scoring": [],
-  "defenceTeams": {}
+  "defenceTeams": {},
+  "defenceCompositions": {}
 }
 ```
 
@@ -268,6 +271,8 @@ Returns a single JSON object with six top-level keys. This contract is the bound
 ```
 
 `externalId` is read by header name and is optional: if the `External_ID` column is absent or a cell is blank, the field is returned empty and that unit simply won't match on import. This makes the column safe to add incrementally. `unitType` carries `CHARACTER`, `SHIP`, or `CAPITAL_SHIP`.
+
+**defenceCompositions** — keyed by mode and then defence-team display name, with arrays of canonical `Character_ID` values. A missing `Defence_Composition` tab yields `{}`; the client then uses only its exact unique counter-identity fallback as a partial lower bound and reports that identity unresolved.
 
 **boardConfig** — keyed by `League`, then by `Mode`, to an ordered array of territory descriptors:
 
@@ -379,42 +384,45 @@ A staleness-gated background sync keeps API rosters current without user action 
 
 ### 6.5 Counter Status
 
-Each counter carries a four-state status derived from two independent axes:
+Each counter carries a five-state status derived from two independent axes:
 
 **Ownership axis** (static, roster-derived) — whether the player owns all required units for a counter. A counter is **owned** when every `REQUIRED` unit is in the player's roster; `RECOMMENDED` units are not considered. This is computed by `getOwnership()`, and applies identically to fleet counters (whose required units are ships).
 
-**Round axis** (dynamic, round-derived) — whether an owned counter can still be fielded this round. Two things can stop it: the counter itself has been marked used (tracked via `usedTeams` in `localStorage`), or a unit it requires went out with an *earlier* counter. Offence spends units for the whole round whatever the battle's outcome, so a counter sharing a `REQUIRED` character with a used one is unfieldable even though it has never been marked used itself. This second case is **Unavailable**, computed by `spentCharacters()` / `spentClashes()` from the required units of everything in `usedTeams`. Only `REQUIRED` units are spent; `RECOMMENDED` units are advice, not a claim on a unit, and never block a second counter.
+**Round axis** (dynamic, round-derived) — whether an owned counter can still be fielded this round. Three things can stop it: the counter itself was marked used, one of its required units is in the active round's defence snapshot, or a required unit went out with an earlier attacking counter. Defence and offensive use remain distinct reasons. Partial overlap is sufficient to block a composition. Offence spends units for the whole round whatever the battle's outcome, so a counter sharing a `REQUIRED` character with a used one is unfieldable even though it has never been marked used itself. Only `REQUIRED` units participate; `RECOMMENDED` units are advice, not a claim.
 
 The two axes combine into four card states, computed by `getCounterStatus()`:
 
 | State | Condition | Status word | Opacity |
 |---|---|---|---|
-| Available | Owned, not used, and no required unit spent | Green "Available" | Full |
+| Available | Owned, not used, no required unit on defence, and no required unit spent | Green "Available" | Full |
 | Used | Owned and already used this round | Grey "Used" | 0.5 |
+| On defence | Owned and unused, but at least one required unit is in the round's defence snapshot | Grey "On defence" | 0.5 |
 | Unavailable | Owned and unused, but a required unit was spent by an earlier counter | Grey "Unavailable" | 0.5 |
 | Not owned | Missing one or more required units | Grey "Not owned" | 0.5 |
 
-**Precedence:** Not owned dominates, then Used, then Unavailable. Round state is only meaningful for owned counters — a counter missing required units is always Not owned regardless. A counter that is itself used never reads Unavailable: its own claim on its units is what "used" means.
+**Precedence:** Not owned dominates, then Used, On defence, and Unavailable. Round state is only meaningful for owned counters. Used and On defence are not conflated.
 
 **Missing units** — Not owned cards list their missing required units by display name beneath the notes line.
 
 **Spent units** — Unavailable cards name the clash beneath the notes line ("🔒 Units spent: Darth Bane was used with Bane."), so a greyed card with no missing-units line can't be mistaken for a bug. The Mark Used button is suppressed, as it is on Used and Not owned cards.
+
+**Defence units** — On defence cards name the overlapping required unit(s). They remain visible for reference but cannot be marked used.
 
 **Filter** — a three-segment control [All] [Owned] [Available] sits below the team selector and above the results list. It is visually subordinate to the mode toggle. The three segments form a nested hierarchy (All ⊇ Owned ⊇ Available), with each a strict subset of the one before. The selected filter persists in `localStorage` and defaults to All.
 
 **Empty states** — each filter produces context-appropriate copy when no counters match:
 - **All** — "No matching defence teams found." (no counters in data for this team)
 - **Owned** — "You don't own any counters for this team."
-- **Available** — "You've used all your counters for this team." (when at least one is owned but all are used); "Your remaining counters for this team need units you've already used this round." (when at least one owned counter is Unavailable); otherwise falls through to the Owned copy.
+- **Available** — explains whether the owned counters are all used, committed to defence, or require units already spent this round; otherwise falls through to the Owned copy.
 - **Owned / Available with no roster** — "Set up your roster to see which counters you can field."
 
-**Sort order** — counters are sorted by status group first (Available → Used → Unavailable → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
+**Sort order** — counters are sorted by status group first (Available → Used → On defence → Unavailable → Not owned), then by tier (S → A → B → C), then by banner score descending. This ensures fieldable counters surface at the top regardless of tier.
 
 ### 6.6 Round Screen
 
 The Round screen is the live-match workspace, reached from the middle position of the bottom navigation bar. It consolidates three related concerns in a single scrolling view:
 
-1. A **round summary card** with the used-team count and the confirmed Reset Round action. Reset clears used teams, banner tracking, Opponent Board and My Board together; saved 5v5/3v3 defence templates are deliberately preserved.
+1. A **round summary card** with the used-team count, defence-filtering status, and the confirmed Reset Round action. It reports the number of canonical units frozen as unavailable. If no saved defence existed for the selected format, it warns that defence availability is not being filtered; unresolved legacy/custom identities produce a partial-filter warning. Reset clears used teams, banner tracking, Opponent Board and My Board together; saved 5v5/3v3 defence templates are deliberately preserved.
 2. An **Opponent Board / My Board** switch, defaulting to Opponent Board, above the paired current-round boards (see [§6.7](#67-round-boards)). Opponent Board retains allocation and Battle Order; My Board records the opponent's progress against the player's defence.
 3. **Banner tracking** (see [§6.3](#63-banner-tracking)) beneath the board, and the **points-to-win** verdict it drives (see [§6.9](#69-points-to-win)).
 
@@ -424,7 +432,7 @@ One setup action creates both boards from the same frozen league/format layout. 
 
 The round owns two paired boards with the same league, squad format, territory order and team counts. **Opponent Board** records the opponent's defence and drives the player's counter plan. **My Board** records the player's defence and the opponent's attacks against it.
 
-**Unified setup.** When no round exists, the setup card selects league and squad format exactly as before (including the 5v5/3v3 chooser while browsing Fleet) and creates both boards from `GAC_Board_Config`. Opponent Board starts empty. My Board is populated by the saved template matching the frozen squad format, mapping identities by territory and slot index. Setup also performs the one-time score prefill described in [§6.3](#63-banner-tracking) and is blocked when `SETTING_DEFENCE` is missing or invalid.
+**Unified setup.** When no round exists, the setup card selects league and squad format exactly as before (including the 5v5/3v3 chooser while browsing Fleet) and creates both boards from `GAC_Board_Config`. Opponent Board starts empty. My Board is populated by the saved template matching the frozen squad format, mapping identities by territory and slot index. At the same moment, the app resolves that template to canonical unit IDs and stores an immutable defence snapshot on the round. Later My Board/template edits never change it. A new round takes a fresh snapshot from the matching 3v3 or 5v5 template. Setup also performs the one-time score prefill described in [§6.3](#63-banner-tracking) and is blocked when `SETTING_DEFENCE` is missing or invalid.
 
 **Territories.** Both boards hold Front Top, Front Bottom, Back Top and Back Bottom, with progress and a bulk Clear territory action. Fleet slots draw from the fleet catalogue. Opponent Board applies normal lane unlocking. My Board deliberately renders all four territories at all times, including back territories the opponent has not yet unlocked, so the full defence and full remaining ceiling are inspectable.
 
@@ -439,7 +447,7 @@ Only Opponent Board has counter recommendations, Battle Order and Next Up highli
 
 **Templates.** The complete 5v5 and 3v3 templates are independent and each includes its own fleet setup. Saving is identity-only; current Battles and Cleared flags never enter a template. A confirmed clear action removes the saved template for the current format without altering the current My Board.
 
-**Persistence and compatibility.** Both live boards use schema 4 and are hydrated before paint and on Round entry. Reset Round clears both. Existing schema-2/3 `boardData` remains readable and is migrated rather than discarded; its saved layout and live team state become Opponent Board, a paired My Board is created from that layout, and existing scores are explicitly preserved. The opponent-board key remains unchanged so compatibility is deliberate rather than a silent contract break.
+**Persistence and compatibility.** Both live boards use schema 5 and are hydrated before paint and on Round entry. The opponent-board object persists the defence snapshot. Reset Round clears both. Existing schema-2/3 `boardData` remains readable and is migrated rather than discarded; its saved layout and live team state become Opponent Board, a paired My Board is created from that layout, and existing scores are explicitly preserved. A schema-4 active round freezes its paired My Board once after catalogue data loads, then follows the normal immutable-snapshot rule. The opponent-board key remains unchanged so compatibility is deliberate rather than a silent contract break.
 
 ### 6.8 Allocation Engine
 
@@ -450,7 +458,7 @@ The allocation engine surfaces per-team counter recommendations across the whole
 **Eligibility.** For each visible-uncleared board team, the engine derives the set of counters that are:
 - Present in the counter catalogue for that team (the board's squad format for squad territories, the FLEET catalogue for the fleet territory).
 - **Owned** by the player (all required units present — reuses `getOwnership()`).
-- **Still fieldable** this round — neither marked used itself, nor requiring a unit an earlier used counter has already spent (status `available`; see [§6.5](#65-counter-status)).
+- **Still fieldable** this round — neither marked used itself, requiring a unit committed to defence, nor requiring a unit an earlier used counter has already spent (status `available`; see [§6.5](#65-counter-status)).
 
 Not-in-catalogue placeholder teams contribute no candidates and receive an explanatory reason instead of a recommendation.
 
@@ -479,8 +487,9 @@ The search order (teams by ascending candidate count, candidates by tier then un
 - An **undersize line** when the chosen counter has a droppable-unit count > 0 (see [§4.1](#41-sheet-structure)): it shows the reconstructed best-case total most prominently, then the drop count and bonus — e.g. "67 banners if you undersize · drop up to 2 for +2". Counters that cannot undersize show no such line. This annotates a recommendation the player is already reading rather than adding a screen or a decision, and the underlying `undersizeInfo` helper is shared with the lookup card (see [§6.1](#61-counter-lookup)).
 - A **Used + Cleared** button — the normal successful-counter action and the most prominent of the three — that commits the recommended counter to `usedTeams` and marks the team cleared in one operation, then triggers a re-solve. Its temporary Undo (same ~6-second window as Cleared) restores both to their exact prior values: if the counter was already used before the tap, Undo leaves it used and restores only the team to uncleared, rather than blindly toggling either flag.
 - A **Mark used** button, kept alongside it, that commits only the counter to `usedTeams` immediately and triggers a re-solve, for when used-state and cleared-state don't change together. The state is shared with the Counters screen (see [§6.2](#62-used-team-tracking)).
+- Compact **On defence** reference rows for otherwise relevant counters blocked by the snapshot. These appear below the usable recommendation (or beneath the no-recommendation reason), so blocked counters remain visible without appearing actionable.
 
-Teams with no recommendation receive one of five distinct plain-English reasons: no counters in the catalogue yet, none owned, all owned counters already used, an owned counter blocked by a unit already spent elsewhere ("SEE and Bane can't be fielded — Darth Bane was used with Bane."), or the only eligible counter is committed to another team.
+Teams with no recommendation receive a distinct plain-English reason for catalogue, ownership, used, On defence, spent-unit, or allocation conflicts.
 
 **Scope.** The engine runs against every unlocked territory, squad and fleet alike. Each team draws candidates from its own catalogue, and the shared ownership, used-state, and exclusivity logic applies uniformly.
 

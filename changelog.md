@@ -4,6 +4,17 @@
 
 **Update this file when** a release ships with a notable user-facing, data-model, API, persistence, scoring, or implementation change worth recording. Do not add unreleased work; keep prospective changes in `ROADMAP.md` until they ship.
 
+## v3.5 — Defence-aware availability
+
+### Added
+- New rounds snapshot the matching saved 3v3/5v5 defence as canonical unit IDs and exclude overlapping attacking compositions without hiding them.
+- Added distinct **On defence** status/reasons, defence-filtering status and missing/partial-defence warnings.
+- Added optional `Defence_Composition` API data for defensive identities that cannot reuse an exact unique counter composition.
+
+### Changed
+- Round-board persistence moved to schema 5; active schema-4 rounds receive a one-time frozen defence snapshot.
+- Service-worker cache version was resynchronised with the application release.
+
 ## v3.4
 
 ### Added

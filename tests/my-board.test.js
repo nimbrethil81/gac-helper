@@ -70,7 +70,7 @@ test("legacy opponent board migration creates My Board without overwriting live 
 
     h.run("loadBoard()");
 
-    assert.equal(h.run("JSON.stringify([board.schema, board.side, myBoard.schema, myBoard.side])"), JSON.stringify([4, "opponent", 4, "my"]));
+    assert.equal(h.run("JSON.stringify([board.schema, board.side, myBoard.schema, myBoard.side])"), JSON.stringify([5, "opponent", 5, "my"]));
     assert.equal(h.run("JSON.stringify([bannerData.myScore, bannerData.oppScore])"), JSON.stringify([777, 888]));
     assert.equal(h.run("myBoard.teams.every(t => !t.cleared && t.attempts === 0)"), true);
     assert.ok(h.values.has("myBoardData"));
@@ -428,4 +428,200 @@ test("renderBoard shows the temporary Undo toast only while an Undo is pending f
 
     t.mock.timers.tick(6000);
     assert.doesNotMatch(h.run("renderBoard()"), />Undo</);
+});
+
+// ─── DEFENCE AVAILABILITY SNAPSHOT (v3.5) ──────────────────────────────────
+
+function defenceTemplate(mode, name) {
+    return {
+        schema: 1,
+        mode,
+        teams: [{ territory: "FRONT_TOP", index: 0, name, customName: "" }]
+    };
+}
+
+function roundSetup(h, mode, template, definitions, compositions = {}) {
+    if (template) h.values.set(`defenceTemplate:${mode}`, JSON.stringify(template));
+    h.run(`
+        boardConfig = { KYBER: { "${mode}": ${JSON.stringify(basicConfig())} } };
+        leagueDraft = "KYBER";
+        currentMode = "${mode}";
+        counterDefinitions = ${JSON.stringify(definitions)};
+        defenceCompositions = ${JSON.stringify(compositions)};
+        scoringRules = [{ ruleId: "SETTING_DEFENCE", battleType: "ANY", mode: "ANY", value: 90 }];
+        createBoard();
+    `);
+}
+
+test("starting 3v3 and 5v5 rounds snapshot only the matching saved defence", () => {
+    const definitions = {
+        THREE: { name: "Three Wall", required: ["THREE_LEAD", "THREE_MEMBER"] },
+        FIVE: { name: "Five Wall", required: ["FIVE_LEAD", "FIVE_MEMBER"] }
+    };
+    const h3 = harness({
+        "defenceTemplate:3v3": JSON.stringify(defenceTemplate("3v3", "Three Wall")),
+        "defenceTemplate:5v5": JSON.stringify(defenceTemplate("5v5", "Five Wall"))
+    });
+    roundSetup(h3, "3v3", null, definitions);
+    assert.equal(h3.run("JSON.stringify(board.defenceSnapshot.characterIds.sort())"), JSON.stringify(["THREE_LEAD", "THREE_MEMBER"]));
+    assert.equal(h3.run("board.defenceSnapshot.unresolvedTeams[0]"), "Three Wall");
+
+    const h5 = harness({
+        "defenceTemplate:3v3": JSON.stringify(defenceTemplate("3v3", "Three Wall")),
+        "defenceTemplate:5v5": JSON.stringify(defenceTemplate("5v5", "Five Wall"))
+    });
+    roundSetup(h5, "5v5", null, definitions);
+    assert.equal(h5.run("JSON.stringify(board.defenceSnapshot.characterIds.sort())"), JSON.stringify(["FIVE_LEAD", "FIVE_MEMBER"]));
+});
+
+test("lead or non-lead defence overlap blocks a composition while no overlap stays available", () => {
+    const h = harness();
+    h.run(`
+        board = createRoundBoard("KYBER", "3v3", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.defenceSnapshot = { schema: 1, mode: "3v3", characterIds: ["QA", "MQG"], unresolvedTeams: [], missingSavedDefence: false };
+        counterDefinitions = {
+            QA_COUNTER: { name: "Queen Amidala", required: ["QA", "MQG", "POW"] },
+            MEMBER_COUNTER: { name: "Member test", required: ["OTHER", "MQG"] },
+            FREE_COUNTER: { name: "Free team", required: ["FREE"] }
+        };
+        ownedCharacters = ["QA", "MQG", "POW", "OTHER", "FREE"];
+    `);
+    assert.equal(h.run("getCounterStatus('QA_COUNTER')"), "on-defence");
+    assert.equal(h.run("getCounterStatus('MEMBER_COUNTER')"), "on-defence");
+    assert.equal(h.run("getCounterStatus('FREE_COUNTER')"), "available");
+    assert.match(h.run("defenceReason('MEMBER_COUNTER')"), /MQG|on defence/);
+});
+
+test("defence-blocked counters remain visible, sort below usable counters, and expose On defence", () => {
+    const h = harness();
+    h.run(`
+        board = createRoundBoard("KYBER", "3v3", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.defenceSnapshot = { schema: 1, mode: "3v3", characterIds: ["QA"], unresolvedTeams: [], missingSavedDefence: false };
+        counterDefinitions = {
+            BLOCKED: { name: "Queen Amidala", required: ["QA"] },
+            USABLE: { name: "GAS", required: ["GAS"] }
+        };
+        characterDefinitions = { QA: { name: "Queen Amidala" }, GAS: { name: "General Skywalker" } };
+        ownedCharacters = ["QA", "GAS"];
+    `);
+    const order = h.run("sortCounters([{counterId:'BLOCKED',tier:'S',bannerScore:60},{counterId:'USABLE',tier:'A',bannerScore:50}]).map(c => c.counterId).join(',')");
+    assert.equal(order, "USABLE,BLOCKED");
+    const html = h.run("buildCounterCardHtml({counterId:'BLOCKED',counter:'Queen Amidala',tier:'S',bannerScore:60,undersize:0,notes:''})");
+    assert.match(html, /On defence/);
+    assert.doesNotMatch(html, /Mark Used/);
+});
+
+test("Round recommendation keeps defence-blocked reference below the usable recommendation", () => {
+    const h = harness();
+    const html = h.run(`
+        board = createRoundBoard("KYBER", "3v3", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.teams.find(t => t.territory === "FRONT_BOTTOM").name = "Enemy";
+        board.defenceSnapshot = { schema: 1, mode: "3v3", characterIds: ["QA"], unresolvedTeams: [], missingSavedDefence: false };
+        gacData = { "3v3": { Enemy: [
+            { counterId: "BLOCKED", counter: "Queen Amidala", tier: "S", bannerScore: 56, undersize: 0 },
+            { counterId: "USABLE", counter: "GAS", tier: "A", bannerScore: 54, undersize: 0 }
+        ] } };
+        counterDefinitions = {
+            BLOCKED: { name: "Queen Amidala", required: ["QA"] },
+            USABLE: { name: "GAS", required: ["GAS"] }
+        };
+        ownedCharacters = ["QA", "GAS"];
+        roundPlan = computeRoundPlan();
+        renderTeamRecommendation("opponent", "FRONT_BOTTOM", board.teams.find(t => t.territory === "FRONT_BOTTOM"));
+    `);
+    assert.match(html, /GAS/);
+    assert.match(html, /On defence/);
+    assert.ok(html.indexOf("GAS") < html.indexOf("On defence"));
+});
+
+test("editing My Board after round start does not mutate the persisted snapshot", () => {
+    const h = harness();
+    roundSetup(h, "3v3", defenceTemplate("3v3", "Queen Amidala"), {
+        QA: { name: "Queen Amidala", required: ["QA", "MQG", "POW"] },
+        GAS: { name: "GAS", required: ["GAS"] }
+    });
+    const before = h.run("JSON.stringify(board.defenceSnapshot)");
+    h.run(`
+        myBoard.teams[0].name = "GAS";
+        saveDefenceTemplateFromMyBoard();
+        saveBoard("my");
+    `);
+    assert.equal(h.run("JSON.stringify(board.defenceSnapshot)"), before);
+    assert.equal(JSON.parse(h.values.get("boardData")).defenceSnapshot.characterIds.includes("QA"), true);
+});
+
+test("the next round takes a fresh defence snapshot after reset", () => {
+    const h = harness();
+    const definitions = {
+        QA: { name: "Queen Amidala", required: ["QA"] },
+        GAS: { name: "GAS", required: ["GAS"] }
+    };
+    roundSetup(h, "3v3", defenceTemplate("3v3", "Queen Amidala"), definitions);
+    assert.equal(h.run("board.defenceSnapshot.characterIds.includes('QA')"), true);
+    h.values.set("defenceTemplate:3v3", JSON.stringify(defenceTemplate("3v3", "GAS")));
+    h.run("resetRound(); createBoard();");
+    assert.equal(h.run("board.defenceSnapshot.characterIds.includes('GAS')"), true);
+    assert.equal(h.run("board.defenceSnapshot.characterIds.includes('QA')"), false);
+});
+
+test("no saved defence still starts Round Mode and shows the filtering warning", () => {
+    const h = harness();
+    roundSetup(h, "3v3", null, { QA: { name: "Queen Amidala", required: ["QA"] } });
+    assert.notEqual(h.run("board"), null);
+    assert.equal(h.run("board.defenceSnapshot.missingSavedDefence"), true);
+    assert.match(h.run("renderDefenceSnapshotStatus()"), /No saved 3v3 defence/);
+});
+
+test("Mark Used remains independent from On defence", () => {
+    const h = harness();
+    h.run(`
+        board = createRoundBoard("KYBER", "3v3", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.defenceSnapshot = { schema: 1, mode: "3v3", characterIds: ["QA"], unresolvedTeams: [], missingSavedDefence: false };
+        counterDefinitions = { QA: { name: "Queen Amidala", required: ["QA"] }, GAS: { name: "GAS", required: ["GAS"] } };
+        ownedCharacters = ["QA", "GAS"];
+        markUsed("GAS");
+    `);
+    assert.equal(h.run("getCounterStatus('QA')"), "on-defence");
+    assert.equal(h.run("getCounterStatus('GAS')"), "used");
+});
+
+test("persisted round state restores its defence snapshot", () => {
+    const h1 = harness();
+    roundSetup(h1, "3v3", defenceTemplate("3v3", "Queen Amidala"), {
+        QA: { name: "Queen Amidala", required: ["QA", "MQG", "POW"] }
+    });
+    const h2 = harness({
+        boardData: h1.values.get("boardData"),
+        myBoardData: h1.values.get("myBoardData")
+    });
+    h2.run("loadBoard()");
+    assert.equal(h2.run("JSON.stringify(board.defenceSnapshot.characterIds)"), JSON.stringify(["QA", "MQG", "POW"]));
+});
+
+test("ambiguous legacy defence identity is not guessed and is surfaced as unresolved", () => {
+    const h = harness();
+    h.run(`
+        counterDefinitions = {
+            A: { name: "Legacy Wall", required: ["A"] },
+            B: { name: "Legacy Wall", required: ["B"] }
+        };
+        defenceCompositions = {};
+    `);
+    const snapshot = h.run(`captureDefenceSnapshot("3v3", ${JSON.stringify(defenceTemplate("3v3", "Legacy Wall"))})`);
+    assert.equal(snapshot.characterIds.length, 0);
+    assert.equal(snapshot.unresolvedTeams[0], "Legacy Wall");
+});
+
+test("explicit mode-specific defence composition supplies every defensive member", () => {
+    const h = harness();
+    h.run(`
+        counterDefinitions = {};
+        defenceCompositions = {
+            "3v3": { "Custom Queen Wall": ["QA", "MQG", "POW"] },
+            "5v5": { "Custom Queen Wall": ["OTHER"] }
+        };
+    `);
+    const snapshot = h.run(`captureDefenceSnapshot("3v3", ${JSON.stringify(defenceTemplate("3v3", "Custom Queen Wall"))})`);
+    assert.equal(JSON.stringify(snapshot.characterIds), JSON.stringify(["QA", "MQG", "POW"]));
+    assert.equal(snapshot.unresolvedTeams.length, 0);
 });
