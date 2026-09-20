@@ -1,5 +1,5 @@
 // app.js
-const APP_VERSION = "3.4";
+const APP_VERSION = "3.5";
 const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 const ROSTER_SCHEMA = 2;
@@ -11,7 +11,7 @@ const ROSTER_FETCH_TIMEOUT_MS = 60000;       // user-initiated import/refresh ti
 const ROSTER_SYNC_STALE_MS = 1000 * 60 * 60 * 12; // background sync only if older than this
 
 // Board (v2.1 Round screen)
-const BOARD_SCHEMA = 4;                       // v4: paired boards + optional custom team names
+const BOARD_SCHEMA = 5;                       // v5: persisted defence-availability snapshot
 const BOARD_KEY = "boardData";               // opponent board (legacy-compatible key)
 const MY_BOARD_KEY = "myBoardData";           // player's defence for the current round
 const DEFENCE_TEMPLATE_SCHEMA = 1;
@@ -51,6 +51,7 @@ let characterDefinitions = {};
 let boardConfig = {};                   // league -> mode -> [{territory, type, teamCount}]
 let scoringRules = [];                  // GAC banner economy rows (consumed in Item 2)
 let defenceTeams = {};                  // mode -> defence team name -> { threat, notes } (v3.0)
+let defenceCompositions = {};           // mode -> defence team name -> canonical unit IDs (v3.5)
 let baseIdToUnit = {};                  // base_id -> { characterId, unitType }
 let currentMode = "5v5";
 let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 5v5/3v3 chosen; used for board setup when the toggle is on Fleet
@@ -209,7 +210,7 @@ function readStoredBoard(key) {
     if (!raw) return null;
     try {
         const parsed = JSON.parse(raw);
-        if (parsed && [2, 3, 4].includes(parsed.schema) &&
+        if (parsed && [2, 3, 4, 5].includes(parsed.schema) &&
             Array.isArray(parsed.teams) && Array.isArray(parsed.territories)) {
             return parsed;
         }
@@ -235,6 +236,11 @@ function normaliseBoard(bd, side) {
     if (bd.side !== side) { bd.side = side; changed = true; }
     if (bd.schema !== BOARD_SCHEMA) { bd.schema = BOARD_SCHEMA; changed = true; }
     return changed;
+}
+
+function validDefenceSnapshot(snapshot, mode) {
+    return snapshot && snapshot.schema === 1 && snapshot.mode === mode &&
+        Array.isArray(snapshot.characterIds) && Array.isArray(snapshot.unresolvedTeams);
 }
 
 function loadBoard() {
@@ -303,6 +309,70 @@ function applyDefenceTemplate(bd) {
         team.customName = typeof saved.customName === "string" ? saved.customName : "";
     });
     return bd;
+}
+
+// Resolve a saved defensive team to canonical Character_IDs without parsing its
+// display name. Explicit Defence_Composition data wins. Existing catalogues get
+// a backwards-compatible path when the defence identity exactly and uniquely
+// matches a Counter_Definitions team name; the stable Counter_ID then supplies
+// its REQUIRED composition. Ambiguous/custom identities stay unresolved.
+function resolveDefenceTeamCharacters(teamName, mode) {
+    if (!teamName || teamName === NOT_IN_CATALOGUE) return null;
+
+    const explicit = (defenceCompositions[mode] && defenceCompositions[mode][teamName]) ||
+        (defenceCompositions.ANY && defenceCompositions.ANY[teamName]);
+    if (Array.isArray(explicit) && explicit.length) {
+        return { characterIds: [...new Set(explicit)], complete: true };
+    }
+
+    const matches = Object.entries(counterDefinitions)
+        .filter(([, def]) => def && def.name === teamName && Array.isArray(def.required) && def.required.length);
+    if (matches.length !== 1) return null;
+    // Counter_Composition models a strategic attacking core, not necessarily
+    // every unit fielded on defence. It is useful as a safe lower bound, but the
+    // snapshot must remain visibly partial until Defence_Composition is authored.
+    return { characterIds: [...new Set(matches[0][1].required)], complete: false };
+}
+
+function captureDefenceSnapshot(mode, source) {
+    const namedTeams = source && Array.isArray(source.teams)
+        ? source.teams.filter(t => t && t.name)
+        : [];
+    const characterIds = new Set();
+    const unresolvedTeams = [];
+
+    namedTeams.forEach(team => {
+        const resolved = resolveDefenceTeamCharacters(team.name, mode);
+        if (!resolved || !resolved.characterIds.length) {
+            unresolvedTeams.push(team.customName || team.name);
+            return;
+        }
+        resolved.characterIds.forEach(id => characterIds.add(id));
+        if (!resolved.complete) unresolvedTeams.push(team.customName || team.name);
+    });
+
+    return {
+        schema: 1,
+        mode: mode,
+        capturedAt: new Date().toISOString(),
+        sourceTeamCount: namedTeams.length,
+        characterIds: [...characterIds],
+        unresolvedTeams: [...new Set(unresolvedTeams)],
+        missingSavedDefence: namedTeams.length === 0
+    };
+}
+
+// Schema-4 rounds predate defence snapshots. On first load after the catalogue is
+// available, freeze the paired My Board as a best-effort migration and never
+// derive it again. New rounds always snapshot the saved template in createBoard.
+function ensureDefenceSnapshotForActiveRound() {
+    if (!board || validDefenceSnapshot(board.defenceSnapshot, board.mode)) return;
+    if (!myBoard || (!Object.keys(counterDefinitions).length && !Object.keys(defenceCompositions).length)) return;
+    board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard);
+    board.schema = BOARD_SCHEMA;
+    myBoard.schema = BOARD_SCHEMA;
+    saveBoard("opponent");
+    saveBoard("my");
 }
 
 function saveDefenceTemplateFromMyBoard() {
@@ -421,13 +491,14 @@ function createBoard() {
 
     const createdAt = new Date().toISOString();
     const roundId = createdAt;
+    const savedDefence = loadDefenceTemplate(mode);
     board = createRoundBoard(league, mode, cfg, "opponent", roundId, createdAt);
     myBoard = applyDefenceTemplate(createRoundBoard(league, mode, cfg, "my", roundId, createdAt));
+    board.defenceSnapshot = captureDefenceSnapshot(mode, savedDefence);
     activeBoardSide = "opponent";
     boardModeDraft = null;
     saveBoard("opponent");
     saveBoard("my");
-    saveDefenceTemplateFromMyBoard();
 
     // The game banks the authored setting-defence award before attacks begin.
     // This happens exactly once, here, for genuinely new rounds. loadBoard() never
@@ -890,14 +961,17 @@ function buildEligibleTeams() {
             const all = (gacData[modeKey] && gacData[modeKey][team.name]) || [];
             const seen = new Set();
             const candidates = [];
+            const defenceBlocked = [];
             all.forEach(c => {
                 if (seen.has(c.counterId)) return;
                 seen.add(c.counterId);
-                if (getCounterStatus(c.counterId) === "available") candidates.push(c);
+                const status = getCounterStatus(c.counterId);
+                if (status === "available") candidates.push(c);
+                if (status === "on-defence") defenceBlocked.push(c);
             });
 
             eligible.push({ key, territory: tDef.territory, index: team.index,
-                            name: team.name, modeKey, custom: false, candidates });
+                            name: team.name, modeKey, custom: false, candidates, defenceBlocked });
         });
     });
 
@@ -1021,7 +1095,7 @@ function buildReasons(eligible, assign) {
 
     eligible.forEach(t => {
         if (t.custom) {
-            reasons[t.key] = { counter: null, reason: "Not in the catalogue — no recommendations for this team." };
+            reasons[t.key] = { counter: null, reason: "Not in the catalogue — no recommendations for this team.", defenceBlocked: [] };
             return;
         }
 
@@ -1059,7 +1133,7 @@ function buildReasons(eligible, assign) {
             const undersizeNote = undersizeDrovePick(t, chosen);
             if (undersizeNote) reason += " " + undersizeNote;
 
-            reasons[t.key] = { counter: chosen, reason };
+            reasons[t.key] = { counter: chosen, reason, defenceBlocked: t.defenceBlocked || [] };
             return;
         }
 
@@ -1072,10 +1146,13 @@ function buildReasons(eligible, assign) {
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
                 // v3.2: distinguish "you sent them all" from "a unit they need went
                 // out with something else" — the second is not obvious from the board.
+                const onDefence = all.find(c => getCounterStatus(c.counterId) === "on-defence");
                 const spent = all.find(c => getCounterStatus(c.counterId) === "spent");
-                reason = spent
-                    ? `${spent.counter} can't be fielded — ${spentReason(spent.counterId)}`
-                    : "All your counters for this team have been used.";
+                reason = onDefence
+                    ? `${onDefence.counter} can't be fielded — ${defenceReason(onDefence.counterId)}`
+                    : spent
+                        ? `${spent.counter} can't be fielded — ${spentReason(spent.counterId)}`
+                        : "All your counters for this team have been used.";
             } else {
                 reason = "You don't own a counter for this team.";
             }
@@ -1096,7 +1173,7 @@ function buildReasons(eligible, assign) {
                 reason = clashText || "No workable assignment without weakening another team.";
             }
         }
-        reasons[t.key] = { counter: null, reason };
+        reasons[t.key] = { counter: null, reason, defenceBlocked: t.defenceBlocked || [] };
     });
 
     return reasons;
@@ -1524,6 +1601,9 @@ async function loadData() {
         boardConfig = data.boardConfig || {};
         scoringRules = data.scoring || [];
         defenceTeams = data.defenceTeams || {};   // v3.0; absent tab yields {} and everything reads NORMAL
+        defenceCompositions = data.defenceCompositions || {};
+
+        ensureDefenceSnapshotForActiveRound();
 
         buildReverseIndex();   // base_id -> Character_ID, from the registry
 
@@ -1834,10 +1914,28 @@ function spentReason(counterId) {
     return `${list} ${names.length === 1 ? "was" : "were"} used with ${holder}.`;
 }
 
+function defenceClashes(counterId) {
+    const snapshot = board && board.defenceSnapshot;
+    if (!validDefenceSnapshot(snapshot, board && board.mode)) return [];
+    const onDefence = new Set(snapshot.characterIds);
+    return requiredChars(counterId).filter(ch => onDefence.has(ch));
+}
+
+function defenceReason(counterId) {
+    const clashes = defenceClashes(counterId);
+    if (!clashes.length) return null;
+    const names = clashes.map(getCharacterName);
+    const list = names.length === 1
+        ? names[0]
+        : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    return `${list} ${names.length === 1 ? "is" : "are"} on defence.`;
+}
+
 function getCounterStatus(counterId) {
     const { owned } = getOwnership(counterId);
     if (!owned) return "not-owned";
     if (usedTeams.includes(counterId)) return "used";
+    if (defenceClashes(counterId).length) return "on-defence";
     if (spentClashes(counterId).length) return "spent";
     return "available";
 }
@@ -2021,6 +2119,7 @@ function buildCounterCardHtml(counter) {
     const statusClass = status === "available" ? "status-available" : "status-muted";
     const statusText  = status === "available" ? "Available"
                       : status === "used"      ? "Used"
+                      : status === "on-defence" ? "On defence"
                       : status === "spent"     ? "Unavailable"
                       : "Not owned";
 
@@ -2030,6 +2129,7 @@ function buildCounterCardHtml(counter) {
     // requires went out with an earlier counter. Say which unit and with what,
     // otherwise a greyed card with no missing-units line looks like a bug.
     const spentNote = status === "spent" ? spentReason(counter.counterId) : null;
+    const defenceNote = status === "on-defence" ? defenceReason(counter.counterId) : null;
 
     return `
 <div class="counter-card ${dimClass}">
@@ -2061,6 +2161,10 @@ function buildCounterCardHtml(counter) {
         <div style="margin-top:6px;">
             🔒 <strong>Units spent:</strong> ${spentNote}
         </div>` : ""}
+        ${defenceNote ? `
+        <div style="margin-top:6px;">
+            🛡️ <strong>On defence:</strong> ${defenceNote}
+        </div>` : ""}
     </div>
 
     ${status === "available"
@@ -2079,7 +2183,7 @@ function tierSortValue(tier) {
 }
 
 function sortCounters(counters) {
-    const groupRank = { "available": 1, "used": 2, "spent": 3, "not-owned": 4 };
+    const groupRank = { "available": 1, "used": 2, "on-defence": 3, "spent": 4, "not-owned": 5 };
 
     return [...counters].sort((a, b) => {
         const statusA = getCounterStatus(a.counterId);
@@ -2140,9 +2244,12 @@ function showCounters() {
 
         if (filtered.length === 0) {
             const ownsAny  = allCounters.some(c => getOwnership(c.counterId).owned);
+            const anyOnDefence = allCounters.some(c => getCounterStatus(c.counterId) === "on-defence");
             const anySpent = allCounters.some(c => getCounterStatus(c.counterId) === "spent");
             resultsEl.innerHTML = !ownsAny
                 ? "<p class='empty-state'>You don't own any counters for this team.</p>"
+                : anyOnDefence
+                    ? "<p class='empty-state'>Your remaining counters for this team are committed to defence.</p>"
                 : anySpent
                     ? "<p class='empty-state'>Your remaining counters for this team need units you've already used this round.</p>"
                     : "<p class='empty-state'>You've used all your counters for this team.</p>";
@@ -2156,12 +2263,14 @@ function showCounters() {
 // ─── ROUND VIEW (v2.1) ────────────────────────────────────────────────────────
 
 function renderRound() {
+    const defenceStatus = renderDefenceSnapshotStatus();
     const summary = `
 <div class="round-card">
     <div class="round-card-row">
         <div>
             <div class="round-title">🏆 CURRENT ROUND</div>
             <div class="round-stat">Used Teams: ${getUsedTeamCount()}</div>
+            ${defenceStatus}
         </div>
         <button class="reset-button-inline" onclick="resetRound()">Reset Round</button>
     </div>
@@ -2173,6 +2282,19 @@ function renderRound() {
         : renderBoardSetup();
 
     return summary + boardHtml + renderBannerSection();
+}
+
+function renderDefenceSnapshotStatus() {
+    if (!board || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return "";
+    const snapshot = board.defenceSnapshot;
+    if (snapshot.missingSavedDefence) {
+        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence — defence availability is not being filtered.</div>`;
+    }
+    const count = snapshot.characterIds.length;
+    const summary = `<div class="round-stat">Defence: ${count} unit${count === 1 ? "" : "s"} unavailable</div>`;
+    if (!snapshot.unresolvedTeams.length) return summary;
+    const n = snapshot.unresolvedTeams.length;
+    return summary + `<div class="roster-msg roster-msg-warn round-defence-status">${n} saved defence team${n === 1 ? "" : "s"} could not be fully resolved; unknown members are not filtered.</div>`;
 }
 
 function renderBoardSwitch() {
@@ -2516,6 +2638,8 @@ function renderTeamRecommendation(side, territoryKey, team) {
 
     const info = roundPlan.reasons[territoryKey + ":" + team.index];
     if (!info) return "";
+    const blocked = (info.defenceBlocked || []).map(c => `
+    <div class="board-rec-blocked"><span>On defence</span> ${escapeHtml(c.counter)}</div>`).join("");
 
     if (info.counter) {
         const c = info.counter;
@@ -2539,14 +2663,14 @@ function renderTeamRecommendation(side, territoryKey, team) {
     <div class="board-rec-actions">
         <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
         <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
-    </div>
+    </div>${blocked}
 </div>
 `;
     }
 
     return `
 <div class="board-rec board-rec-none">
-    <div class="board-rec-reason">${info.reason}</div>
+    <div class="board-rec-reason">${info.reason}</div>${blocked}
 </div>
 `;
 }
