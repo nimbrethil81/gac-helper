@@ -465,6 +465,7 @@ test("starting 3v3 and 5v5 rounds snapshot only the matching saved defence", () 
     roundSetup(h3, "3v3", null, definitions);
     assert.equal(h3.run("JSON.stringify(board.defenceSnapshot.characterIds.sort())"), JSON.stringify(["THREE_LEAD", "THREE_MEMBER"]));
     assert.equal(h3.run("board.defenceSnapshot.unresolvedTeams[0]"), "Three Wall");
+    assert.match(h3.run("renderDefenceSnapshotStatus()"), /1 defence team needs lineup details\. Some characters may still appear available for attack\./);
 
     const h5 = harness({
         "defenceTemplate:3v3": JSON.stringify(defenceTemplate("3v3", "Three Wall")),

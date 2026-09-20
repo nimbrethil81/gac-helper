@@ -2294,7 +2294,7 @@ function renderDefenceSnapshotStatus() {
     const summary = `<div class="round-stat">Defence: ${count} unit${count === 1 ? "" : "s"} unavailable</div>`;
     if (!snapshot.unresolvedTeams.length) return summary;
     const n = snapshot.unresolvedTeams.length;
-    return summary + `<div class="roster-msg roster-msg-warn round-defence-status">${n} saved defence team${n === 1 ? "" : "s"} could not be fully resolved; unknown members are not filtered.</div>`;
+    return summary + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. Some characters may still appear available for attack.</div>`;
 }
 
 function renderBoardSwitch() {
