@@ -6,6 +6,12 @@
 
 ## Planned
 
+### Target architecture modernisation
+
+*Planned — implementation authority: [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md)*
+
+Replace the Sheet-backed catalogue runtime with the reviewed target architecture in three stages: canonical platform, human authoring and static publication; evidence-driven maintenance in report-only mode; then scheduled bounded autonomous publication. Manual database, GitHub and hosting configuration is concentrated into Stage 1. Stage 2 is gated on proving that a lawful, sufficiently useful and acceptably priced evidence source exists. The implementation plan owns work-package order, acceptance gates and rollback; [`docs/TARGET_ARCHITECTURE.md`](docs/TARGET_ARCHITECTURE.md) owns the future-state design.
+
 ### Per-battle undersize advisor
 
 *Planned*
