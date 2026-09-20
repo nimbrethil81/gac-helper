@@ -439,14 +439,3 @@ function fetchRoster(allyCodeRaw) {
     ownedBaseIds: ownedBaseIds
   };
 }
-
-function authorise() {
-  // One-off: triggers the external-request consent prompt if not already granted.
-  // Safe to delete. (Your existing UrlFetchApp scope already covers this.)
-  UrlFetchApp.fetch(COMLINK_URL + "/player", {
-    method: "post",
-    contentType: "application/json",
-    payload: '{"payload":{"allyCode":"124246291"},"enums":false}',
-    muteHttpExceptions: true
-  });
-}

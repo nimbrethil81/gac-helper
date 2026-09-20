@@ -91,6 +91,21 @@ At Stage 1 completion:
 
 **Purpose:** Establish automated protection before changing architecture.
 
+**Baseline and completion evidence:**
+
+- Starting full `main` SHA: `71ee5eb7453859dd61bfdbb841af0669f23a603f` (2026-09-20; newer than the SHA quoted when this work package was handed off — fresh evidence was obtained before editing).
+- Initial test command and result: `node --test tests/*.test.js` — 31/31 passing; no `package.json` existed yet.
+- Final repository commands: `npm run check` (runs `node --check` over `app.js`, `service-worker.js` and `tests/*.test.js`) and `npm test` (runs `node --test`, which discovers all `*.test.js` files under `tests/` with no file named explicitly).
+- Final test/check results: `npm run check` — clean, no output; `npm test` — 31/31 passing. A temporary intentionally-failing test file was added under `tests/`, confirmed to make `npm test` exit non-zero (32 run, 1 failed), then removed; the suite returned to 31/31 passing.
+- CI workflow added: `.github/workflows/ci.yml` — runs on push to `main` and on pull requests targeting `main`, using Node 22, running `npm run check` then `npm test`. No install step, since the project has no dependencies. No secrets and no deployment step.
+- No `package-lock.json` was added: the project has zero dependencies, so a lockfile would document nothing and was deliberately omitted.
+- The disposable `authorise()` helper and its hard-coded personal ally code were removed from `apps-script/Code.gs`. It was not called by any application code, its own comment already marked it "Safe to delete", and removing it leaves `doGet`, `action=data`, `action=roster` and the roster proxy (`fetchRoster`) unchanged.
+- `apps-script/Code.gs` is not covered by the syntax-check script: Node's `node --check` rejects the `.gs` extension outright (`ERR_UNKNOWN_FILE_EXTENSION`), and Apps Script's runtime globals (`SpreadsheetApp`, `ContentService`, `UrlFetchApp`) are not something a plain Node syntax check should pretend to validate. No workaround (renaming, wrapping, or stubbing globals) was introduced; this is a known boundary of the current tooling.
+- `.github/workflows/deploy-to-live.yaml` was not modified and was not triggered.
+- Resulting completion commit SHA: reported in the coding-agent handoff to the control thread (recording it here would create a self-reference against the commit that carries this update).
+
+**Status: Complete.** Every acceptance criterion below passed.
+
 **Repository work:**
 
 - add the smallest suitable Node project manifest and deterministic test commands;
@@ -1007,7 +1022,7 @@ Initial status:
 
 | Item | Status |
 |---|---|
-| ARCH-101 | Ready |
+| ARCH-101 | Complete |
 | ARCH-102 | Not started |
 | ARCH-103 | Not started |
 | ARCH-104 | Not started |
