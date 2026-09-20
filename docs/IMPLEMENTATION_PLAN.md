@@ -923,6 +923,7 @@ Each coding session receives a self-contained prompt for one work package or an 
 Every coding prompt must include:
 
 - repository and branch;
+- a recommended coding-agent reasoning effort level, with a one-sentence justification;
 - requirement to report the fresh full `main` SHA;
 - instruction to read `AGENTS.md`, this plan and all task-relevant authorities;
 - objective, deliverables and precise exclusions;
@@ -933,6 +934,8 @@ Every coding prompt must include:
 - permission to commit directly to `main` where appropriate;
 - an explicit prohibition on production deployment unless that work package authorises it;
 - required final report: resulting SHA, files changed, tests run, validation evidence, decisions and blockers.
+
+The control thread also states the recommended effort level outside the prompt when handing it to the user, so the setting is visible before the breakout begins.
 
 After a breakout returns, the control thread independently refreshes repository evidence before accepting completion or preparing the next task.
 
