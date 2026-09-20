@@ -25,6 +25,7 @@ https://nimbrethil81.github.io/gac-helper/
 
 - [`docs/SPEC.md`](docs/SPEC.md) — authoritative specification of the current system, architecture, data model, and behaviour.
 - [`docs/TARGET_ARCHITECTURE.md`](docs/TARGET_ARCHITECTURE.md) — proposed future architecture for the canonical data platform, autonomous counter maintenance, publication model, and migration.
+- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — staged delivery plan, work packages, dependencies, acceptance gates, manual configuration, and rollback.
 - [`ROADMAP.md`](ROADMAP.md) — forward-looking product ideas and planned, candidate, deferred, research, or conditional work.
 - [`docs/SCORING_REFERENCE.md`](docs/SCORING_REFERENCE.md) — scoring maths and authoring guidance for banner and undersize data.
 - [`changelog.md`](changelog.md) — concise release history and record of what changed.
