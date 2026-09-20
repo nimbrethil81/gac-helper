@@ -26,6 +26,9 @@
 10. Agents may commit approved work directly to `main` under `AGENTS.md`, but may not trigger production deployment unless the work package explicitly authorises it.
 11. No secrets, personal identifiers or private operational files may enter a public artifact.
 12. Stage boundaries are acceptance decisions. Passing unit tests alone is not sufficient.
+13. Human authoring and maintenance review must be runnable on demand outside the schedule.
+14. Manual and scheduled maintenance use the same core pipeline, policy, validation and audit path; a manual trigger cannot bypass safeguards.
+15. This conversation remains the control thread. Coding and deep-analysis work may use breakout threads, but scope, decisions, verification and next-step selection return here.
 
 ---
 
@@ -704,6 +707,8 @@ Produce explainable maintenance proposals from real evidence without changing th
 
 ### ARCH-206 — Deterministic applier and non-current candidate
 
+- provide an on-demand report-only entry point so a maintenance review can be run outside the eventual schedule;
+- record whether each run was triggered manually or by schedule;
 - re-evaluate every `PUBLISH` finding against the checked-in policy;
 - record enforced policy version;
 - demote failed findings to `OBSERVE` with reason;
@@ -712,7 +717,7 @@ Produce explainable maintenance proposals from real evidence without changing th
 - prevent pointer updates unconditionally in report-only mode;
 - produce a concise diff against the current release.
 
-**Acceptance:** No Stage 2 code path can update `catalogue_state` or the production pointer, even with an analyst credential.
+**Acceptance:** A user can manually trigger a report-only run and receive the same candidate and findings that the scheduled path would produce from the same inputs. No Stage 2 code path can update `catalogue_state` or the production pointer, even with an analyst credential.
 
 **Depends on:** ARCH-205 and Stage 1 publisher.
 
@@ -758,6 +763,11 @@ Run eligible maintenance cycles unattended, publish only validated changes, and 
 
 ### ARCH-301 — Scheduler and readiness detection
 
+- expose an explicit on-demand trigger as well as the schedule;
+- make report-only the safe default for a manual maintenance trigger;
+- allow manual publication only through the normal eligible-publication path, never as a validation bypass;
+- route scheduled and manual triggers into the same versioned command/function;
+- record trigger type, initiator and supplied cycle/mode inputs;
 - schedule at the lowest useful cadence;
 - detect completed events and source readiness;
 - create/resume one logical run;
@@ -765,7 +775,7 @@ Run eligible maintenance cycles unattended, publish only validated changes, and 
 - back off on rate limits and source outages;
 - produce no alert for ordinary “not ready” results.
 
-**Acceptance:** Duplicate scheduler triggers create no duplicate run or release.
+**Acceptance:** Duplicate scheduler triggers create no duplicate run or release. A manual run for the same cycle/mode either resumes the same eligible logical run or is rejected with a clear reason; it never creates a competing publication.
 
 ---
 
@@ -856,7 +866,105 @@ If provider UI or account restrictions force another substantial manual setup la
 
 ---
 
-## 13. Agent execution protocol
+## 13. Manual and on-demand operations
+
+Two separate on-demand paths are required.
+
+### 13.1 Human authoring
+
+The owner or control chat can initiate an authoring run at any time:
+
+1. prepare a validated change file;
+2. run a dry run;
+3. inspect the canonical and payload diff;
+4. apply the change through the authoring loader;
+5. generate and validate an `AUTHORING` candidate;
+6. publish only after the normal publication gates pass.
+
+Human authoring is independent of the maintenance schedule.
+
+### 13.2 Maintenance review
+
+The owner or control chat can trigger a maintenance review outside the schedule.
+
+The trigger must accept only bounded, validated inputs such as mode, cycle key and report-only/publication intent. Report-only is the default. It uses the same ingestion, mapping, assessment, policy, anomaly and validation code as a scheduled run.
+
+A manual trigger:
+
+- does not lower evidence thresholds;
+- does not bypass an anomaly;
+- does not override `AUTHORED_LOCKED` values;
+- does not write the production pointer unless it is explicitly a publication run and every ordinary gate passes;
+- records who/what triggered it;
+- remains idempotent for the same cycle and mode.
+
+This capability is required in Stage 2 for report-only analysis and retained in Stage 3 after scheduling is enabled.
+
+---
+
+## 14. Control-chat operating model
+
+This conversation is the programme control thread.
+
+The control thread owns:
+
+- current work-package selection and status;
+- architectural and product decisions;
+- dependency and acceptance-gate checks;
+- manual-configuration guidance;
+- review of breakout results against fresh repository evidence;
+- the next self-contained handoff prompt;
+- decisions to pause, rollback, cut over or activate autonomy.
+
+### 14.1 Coding breakouts
+
+Each coding session receives a self-contained prompt for one work package or an explicitly bounded part of one.
+
+Every coding prompt must include:
+
+- repository and branch;
+- requirement to report the fresh full `main` SHA;
+- instruction to read `AGENTS.md`, this plan and all task-relevant authorities;
+- objective, deliverables and precise exclusions;
+- current dependencies and prerequisite evidence;
+- expected files or components to inspect without assuming their contents;
+- tests and acceptance criteria;
+- documentation-update rules;
+- permission to commit directly to `main` where appropriate;
+- an explicit prohibition on production deployment unless that work package authorises it;
+- required final report: resulting SHA, files changed, tests run, validation evidence, decisions and blockers.
+
+After a breakout returns, the control thread independently refreshes repository evidence before accepting completion or preparing the next task.
+
+### 14.2 Deep-analysis breakouts
+
+Use a read-only analysis breakout when a decision needs substantial research, comparison or failure-mode testing before code is appropriate.
+
+Analysis prompts must:
+
+- state that no repository or external-system changes are authorised;
+- identify the exact decision to resolve;
+- distinguish fact, inference and recommendation;
+- return concrete options, trade-offs and a recommended decision;
+- identify time-sensitive facts that require current verification.
+
+### 14.3 Manual steps
+
+Whenever the user must configure GitHub, the database host, static hosting, Apps Script or another external service, the control thread provides:
+
+1. the purpose of the configuration;
+2. numbered, click-by-click instructions using current interface labels;
+3. the exact value or value pattern to enter;
+4. which values are secret and must not be pasted into chat or committed;
+5. a verification step after each logical group;
+6. an explicit stop point if the displayed options differ;
+7. the rollback or removal action where relevant.
+
+Do not distribute avoidable configuration across later stages. Prepare the full Stage 1 checklist before asking the user to begin the concentrated configuration session.
+
+---
+
+## 15. Agent execution protocol
 
 Each work package should be handed to a coding agent separately using a self-contained prompt.
 
@@ -880,7 +988,7 @@ A work package may be split into smaller coding tasks when needed, but the packa
 
 ---
 
-## 14. Status tracking
+## 16. Status tracking
 
 Use these states:
 
@@ -916,7 +1024,7 @@ Only one implementation work package should normally be `In progress` at a time.
 
 ---
 
-## 15. Explicit exclusions
+## 17. Explicit exclusions
 
 This programme does not include:
 
@@ -937,7 +1045,7 @@ These remain separate roadmap or architectural decisions.
 
 ---
 
-## 16. Definition of programme complete
+## 18. Definition of programme complete
 
 The programme is complete only when:
 
