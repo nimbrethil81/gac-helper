@@ -7,10 +7,13 @@
     "test": "node --test",
     "check": "for f in app.js service-worker.js scripts/*.js tests/*.js; do node --check \"$f\" || exit 1; done",
     "baseline:verify": "node scripts/verify-baseline.js",
-    "db:test": "node --test tests/database-schema.test.js tests/migration-loader.test.js",
+    "db:test": "node --test tests/database-schema.test.js tests/migration-loader.test.js tests/authoring-loader.test.js",
     "migrate:reconcile": "node scripts/migration-reconcile.js",
     "migrate:load": "node scripts/migration-load.js",
-    "migrate:verify": "node scripts/migration-verify.js"
+    "migrate:verify": "node scripts/migration-verify.js",
+    "author:validate": "node scripts/authoring-validate.js",
+    "author:dry-run": "node scripts/authoring-dry-run.js",
+    "author:apply": "node scripts/authoring-load.js"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8"
