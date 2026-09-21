@@ -4,6 +4,7 @@ node_modules/
 !.env.example
 .arch-103-capture/
 data/exports/.staging/
+supabase/.temp/
 credentials*.json
 client_secret*.json
 *.db

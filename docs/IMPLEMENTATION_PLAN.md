@@ -288,6 +288,17 @@ At Stage 1 completion:
 
 **Purpose:** Implement the provider-neutral schema defined by the target architecture.
 
+**Completion evidence (2026-09-21):**
+
+- Two ordered migrations under `supabase/migrations/` create the private `gac` schema, its lifecycle enums, 21 relational tables, referential/uniqueness/lifecycle constraints, foreign-key indexes, row-level security and non-`SECURITY DEFINER` validation triggers.
+- Matching reverse-order scripts under `supabase/rollbacks/` remove Stage-1 permission objects before dropping the unconnected schema and migration-owner role.
+- The schema covers canonical units/archetypes/profiles/members, matchups and accepted values, human authoring, generic evidence/mapping/assessment/finding/run records, board/scoring configuration, immutable release/provenance records, the `READY`/`DEPLOYED` lifecycle, base-release references and singleton publication state.
+- `gac_migration_admin`, `gac_authoring` and `gac_publisher` are non-login, non-superuser, non-RLS-bypass group roles with narrow grants. `anon` and `authenticated` have no access to the private schema. No backup role is needed under the accepted Stage-1 reconstruction model, and no Stage-2 role is created.
+- `tests/database-schema.test.js` applies the migrations to disposable PostgreSQL, proves role boundaries and negative writes, exercises stable-identity/uniqueness/lifecycle constraints, audits foreign-key indexes and absence of `SECURITY DEFINER`, runs both rollback scripts, and reapplies from empty. No hosted database or external service is contacted.
+- Operational details and the role matrix are recorded in [`docs/database/ARCH-105.md`](database/ARCH-105.md).
+
+**Status: Complete.** Hosted connection/configuration remains ARCH-104; migration loading and captured-anomaly reconciliation remain ARCH-106.
+
 **Schema areas:**
 
 - units;
@@ -1075,7 +1086,7 @@ Initial status:
 | ARCH-102 | Complete |
 | ARCH-103 | Complete |
 | ARCH-104 | Not started |
-| ARCH-105 | Not started |
+| ARCH-105 | Complete |
 | ARCH-106 | Not started |
 | ARCH-107 | Not started |
 | ARCH-108 | Not started |

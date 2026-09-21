@@ -6,6 +6,10 @@
   "scripts": {
     "test": "node --test",
     "check": "for f in app.js service-worker.js scripts/*.js tests/*.test.js; do node --check \"$f\" || exit 1; done",
-    "baseline:verify": "node scripts/verify-baseline.js"
+    "baseline:verify": "node scripts/verify-baseline.js",
+    "db:test": "node --test tests/database-schema.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
   }
 }
