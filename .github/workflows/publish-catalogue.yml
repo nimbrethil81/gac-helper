@@ -1,0 +1,85 @@
+name: Publish catalogue
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Publication operation
+        type: choice
+        required: true
+        default: publish
+        options:
+          - publish
+          - reconcile
+          - rollback
+      release_reason:
+        description: Release reason for publish
+        type: choice
+        required: true
+        default: AUTHORING
+        options:
+          - MIGRATION
+          - AUTHORING
+          - MAINTENANCE
+          - APPROVED_OVERRIDE
+      authoring_change_ids:
+        description: Comma-separated APPLIED change IDs for an AUTHORING release
+        type: string
+        required: false
+      expected_base_release_id:
+        description: Expected base release ID, or none for the first release
+        type: string
+        required: false
+      release_id:
+        description: Existing release ID for rollback
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gac-helper-production-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_PUBLISHER_DATABASE_URL: ${{ secrets.SUPABASE_PUBLISHER_DATABASE_URL }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PRODUCTION_WORKER_NAME: ${{ vars.CLOUDFLARE_PRODUCTION_WORKER_NAME }}
+      CATALOGUE_PRODUCTION_BASE_URL: ${{ vars.CATALOGUE_PRODUCTION_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run guarded publication command
+        shell: bash
+        env:
+          OPERATION: ${{ inputs.operation }}
+          RELEASE_REASON: ${{ inputs.release_reason }}
+          AUTHORING_CHANGE_IDS: ${{ inputs.authoring_change_ids }}
+          EXPECTED_BASE_RELEASE_ID: ${{ inputs.expected_base_release_id }}
+          RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          case "$OPERATION" in
+            publish)
+              args=(--commit "$GITHUB_SHA" --reason "$RELEASE_REASON")
+              if [[ -n "$AUTHORING_CHANGE_IDS" ]]; then args+=(--change-ids "$AUTHORING_CHANGE_IDS"); fi
+              if [[ -n "$EXPECTED_BASE_RELEASE_ID" ]]; then args+=(--base "$EXPECTED_BASE_RELEASE_ID"); fi
+              npm run catalogue:publish -- "${args[@]}"
+              ;;
+            reconcile)
+              npm run catalogue:reconcile -- --commit "$GITHUB_SHA"
+              ;;
+            rollback)
+              test -n "$RELEASE_ID"
+              npm run catalogue:rollback -- --commit "$GITHUB_SHA" --release-id "$RELEASE_ID"
+              ;;
+          esac

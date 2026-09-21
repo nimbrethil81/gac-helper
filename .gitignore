@@ -10,3 +10,5 @@ client_secret*.json
 *.db
 *.sqlite
 *.sqlite3
+dist/
+.local/

@@ -13,9 +13,23 @@
     "migrate:verify": "node scripts/migration-verify.js",
     "author:validate": "node scripts/authoring-validate.js",
     "author:dry-run": "node scripts/authoring-dry-run.js",
-    "author:apply": "node scripts/authoring-load.js"
+    "author:apply": "node scripts/authoring-load.js",
+    "catalogue:generate": "node scripts/catalogue-publish.js generate",
+    "catalogue:validate": "node scripts/catalogue-publish.js validate",
+    "catalogue:prepare": "node scripts/catalogue-publish.js prepare",
+    "catalogue:stage": "node scripts/catalogue-publish.js stage",
+    "catalogue:deploy": "node scripts/catalogue-publish.js deploy",
+    "catalogue:verify": "node scripts/catalogue-publish.js verify",
+    "catalogue:finalise": "node scripts/catalogue-publish.js finalise",
+    "catalogue:reconcile": "node scripts/catalogue-publish.js reconcile",
+    "catalogue:rollback": "node scripts/catalogue-publish.js rollback",
+    "catalogue:publish": "node scripts/catalogue-publish.js publish"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.8"
+    "@electric-sql/pglite": "0.5.8",
+    "wrangler": "4.136.0"
+  },
+  "dependencies": {
+    "postgres": "3.4.9"
   }
 }

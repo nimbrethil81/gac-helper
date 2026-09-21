@@ -1050,13 +1050,15 @@ test("the loaded baseline keeps TIE_ADVANCED_x1 and all three mirror matchups", 
   });
 });
 
-test("every migration and rollback, including the ARCH-106 follow-ups, applies in order and reapplies", async () => {
+test("every migration and rollback, including ARCH-106 and ARCH-108 follow-ups, applies in order and reapplies", async () => {
   const forward = migrationFiles().map((migration) => migration.filename);
   assert.deepEqual(forward, [
     "20260921101325_arch_105_core_schema.sql",
     "20260921101336_arch_105_stage1_permissions.sql",
     UNIT_ID_MIGRATION,
-    MIRROR_MIGRATION
+    MIRROR_MIGRATION,
+    "20260921160000_arch_108_catalogue_value_lifecycle.sql",
+    "20260921160010_arch_108_release_rollback_transition.sql"
   ]);
   const rollbacks = fs.readdirSync(ROLLBACK_DIRECTORY).filter((name) => name.endsWith(".down.sql")).sort();
   assert.deepEqual(rollbacks, forward.map((name) => name.replace(/\.sql$/, ".down.sql")));

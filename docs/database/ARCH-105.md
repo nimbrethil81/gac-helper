@@ -11,6 +11,8 @@ This document is the operational entry point for the unconnected Stage-1 databas
 
 Two ordered follow-up migrations owned by ARCH-106 correct constraints in this schema — `20260921113000_arch_106_unit_id_format.sql` widens `units_unit_id_format` and `20260921113010_arch_106_mirror_matchups.sql` removes `matchups_distinct_archetypes` — each with a matching non-destructive rollback. The reasons are recorded in [`ARCH-106.md`](ARCH-106.md). The two ARCH-105 files above are unchanged.
 
+ARCH-108 later adds lifecycle state to profile members and defence catalogue values, plus the narrow retained-release rollback transition. This is an additive refinement under delivery principle 18, not a reopening of ARCH-105; see [`ARCH-108.md`](ARCH-108.md). `gac_authoring` still receives no `DELETE` grant.
+
 The migrations create no login credential, secret or catalogue seed data. They do not connect to the hosted Supabase project. ARCH-104 will create the separate login credentials that assume the checked-in `NOLOGIN` group roles.
 
 ## Role boundary

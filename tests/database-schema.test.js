@@ -202,6 +202,16 @@ test("authoring and publisher permissions enforce their Stage-1 boundaries", asy
       "update gac.catalogue_state set publication_generation = 1",
       /permission denied|row-level security/
     );
+    await rejectsSql(
+      database,
+      "delete from gac.team_profile_members",
+      /permission denied|row-level security/
+    );
+    await rejectsSql(
+      database,
+      "delete from gac.defence_catalogue_values",
+      /permission denied|row-level security/
+    );
 
     await database.exec("reset role; set role gac_publisher");
     await rejectsSql(
@@ -301,7 +311,7 @@ test("ordered migrations are idempotent through history and roll back cleanly", 
     await applyMigrations(database, true);
     await applyMigrations(database, true);
     const history = await database.query("select count(*)::int as count from public.arch105_migration_history");
-    assert.equal(history.rows[0].count, 4);
+    assert.equal(history.rows[0].count, 6);
 
     await rollbackMigrations(database);
     const removed = await database.query(`
@@ -322,5 +332,29 @@ test("ordered migrations are idempotent through history and roll back cleanly", 
     await applyMigrations(database, true);
     const restored = await database.query("select count(*)::int as count from information_schema.tables where table_schema = 'gac'");
     assert.equal(restored.rows[0].count, 21);
+  });
+});
+
+test("ARCH-108 lifecycle rollback refuses to discard retirement audit state", async () => {
+  await withDatabase(async (database) => {
+    await applyMigrations(database);
+    await database.exec("set role gac_authoring");
+    await database.exec(`
+      insert into gac.units (unit_id, display_name, external_id, unit_type)
+      values ('UNIT_A', 'Unit A', 'UNITA', 'CHARACTER');
+      insert into gac.team_archetypes (archetype_code, display_name, battle_type, identity_reason, created_by)
+      values ('COUNTER_A', 'Counter A', 'SQUAD', 'LEGACY_MIGRATION', 'HUMAN');
+      insert into gac.team_profiles (archetype_id, mode, usage_role)
+      select archetype_id, '5V5', 'ATTACK' from gac.team_archetypes where archetype_code = 'COUNTER_A';
+      insert into gac.team_profile_members (profile_id, unit_id, member_role, sort_order, status, retired_at, retired_reason)
+      select profile_id, 'UNIT_A', 'REQUIRED', 0, 'RETIRED', statement_timestamp(), 'Test retirement'
+      from gac.team_profiles;
+      reset role;
+    `);
+    const rollback = fs.readFileSync(path.join(ROLLBACK_DIRECTORY, "20260921160000_arch_108_catalogue_value_lifecycle.down.sql"), "utf8");
+    await rejectsSql(database, rollback, /rollback refused.*retired profile member/i);
+    await database.exec("rollback");
+    const row = await database.query("select status, retired_reason from gac.team_profile_members");
+    assert.deepEqual(row.rows, [{ status: "RETIRED", retired_reason: "Test retirement" }]);
   });
 });
