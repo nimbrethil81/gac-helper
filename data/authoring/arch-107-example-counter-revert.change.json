@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "changeId": "ARCH-107-EXAMPLE-COUNTER-REVERT",
+  "author": "arch-107-example",
+  "authorRole": "OWNER",
+  "authoredAt": "2026-09-21T12:30:00Z",
+  "reason": "Reverse ARCH-107-EXAMPLE-COUNTER by retiring everything it created.",
+  "expectedBaseRelease": null,
+  "operations": [
+    {
+      "entity": "matchup",
+      "operation": "retire",
+      "mode": "5v5",
+      "defenceArchetypeCode": "ADMIRAL_RADDUS",
+      "counterArchetypeCode": "FO_HUX",
+      "retiredReason": "Reversing the ARCH-107 worked example."
+    },
+    {
+      "entity": "profile",
+      "operation": "retire",
+      "archetypeCode": "FO_HUX",
+      "mode": "ANY",
+      "usageRole": "ATTACK"
+    },
+    {
+      "entity": "archetype",
+      "operation": "retire",
+      "archetypeCode": "FO_HUX"
+    }
+  ]
+}

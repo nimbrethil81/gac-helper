@@ -412,6 +412,26 @@ The live PWA receives no database credential.
 
 **Purpose:** Ensure routine maintenance remains easier than direct database editing.
 
+**Completion evidence (2026-09-21):**
+
+- Starting `main` SHA `978dfcb0c9a6bbc2375620b09a5119c38ba8d245`, confirmed as the tip of `origin/main` before any edit. Delivered on a branch, as ARCH-105 and ARCH-106 were.
+- Files added: `scripts/authoring-lib.js`, `scripts/authoring-validate.js`, `scripts/authoring-dry-run.js`, `scripts/authoring-load.js`, `tests/authoring-loader.test.js`, `data/authoring/arch-107-example-counter.change.json`, `data/authoring/arch-107-example-counter-revert.change.json` and [`docs/database/ARCH-107.md`](database/ARCH-107.md). Files changed: `package.json` (three `author:*` commands; `db:test` extended) and `docs/database/ARCH-106.md` (its forward-looking note said ARCH-107 would use YAML).
+- No migration, schema object, constraint, permission, role or policy was added or changed. The ARCH-105 and ARCH-106 migrations and rollbacks are byte-identical, and a test asserts every `gac` table, constraint, policy, grant and role is unchanged by an apply.
+- **Change-file format: JSON**, not the YAML the ARCH-106 document anticipated. Every machine-readable data file in the repository is already JSON, Node parses it natively, and the project pins exactly one dependency. The cost — no comments in a change file — is accepted and recorded.
+- Commands `author:validate`, `author:dry-run` and `author:apply` run against a disposable in-memory PGlite database, or a persistent local one with `--data-dir`. There is no override, flag or environment variable that bypasses a validation rule, a lock or the base-release check.
+- Supported operations: `create`/`update`/`retire` for units, archetypes, profiles and matchups, and `create`/`update` for members and defence catalogue values. Matchup catalogue values ride on the matchup operations, which are one-to-one with them. `gac_board_config` and `gac_scoring_rules` are deliberately out of scope as application configuration.
+- Validation reuses the ARCH-106 identity vocabulary (`SOURCE_MODE_TO_CANONICAL`, `canonicalMode`, `UNIT_ID_PATTERN`, `ARCHETYPE_CODE_PATTERN`) rather than restating it, and takes mode-aware banner and undersize ceilings from [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md) (57/65/73 and 2/4/5). Every migrated value satisfies those bounds.
+- The dry run applies the change inside the transaction and rolls back, so the reported diff is the change's real effect rather than a prediction. It reports the canonical row diff column by column and the payload diff path by path, and a test asserts the database and payload are byte-identical before and after.
+- `AUTHORED_LOCKED` protection is enforced per field and per declared `authorRole`: the maintenance role cannot change a locked value or its authority, and the owner must set `acknowledgeLocked` on the operation. **This boundary is loader-enforced, not database-enforced**, because both roles run as `gac_authoring` and ARCH-105 deliberately created no separate maintenance role; the limitation is documented rather than worked around.
+- Validation: `npm run check` (clean), `npm test` (117/117 passing, 29 of them new), `npm run db:test` (68/68 passing), `npm run baseline:verify`, `npm run migrate:reconcile`, `npm run migrate:load -- --twice`, `npm run migrate:verify` (PASSED, 0 unexplained differences, the same 2 declared deltas), `npm run author:validate`, `npm run author:dry-run` and `npm run author:apply -- --twice` (6 writes then 0), plus a three-process `--data-dir` exercise applying the example, its reversal, and a refused replay.
+- The 29 package tests cover every acceptance criterion below, plus: unknown fields rejected rather than ignored, a create that disagrees with stored state refused rather than merged, a stable change ID refused for different content, an applied change refused when a later change superseded it, mode/battle-type incompatibility, required-member `external_id` coverage, every update and retire write path, the non-data statement guard, an unchanged schema and release lifecycle, and a full rollback on a database-level rejection.
+- No hosted service, credential or secret was touched: no Supabase project, Cloudflare target, GitHub setting or secret, no Google Sheet, no Apps Script deployment and no deployment of any kind. The ARCH-103 capture and the ARCH-106 decision file are only read.
+- **Open question for the control thread.** A profile member cannot be removed: `gac_authoring` holds no `DELETE` grant on `gac.team_profile_members` and the table has no lifecycle column. `member.retire` is refused with an explicit message rather than worked around. Resolving it needs either an additive migration granting that `DELETE`, or a lifecycle column — both are ARCH-105 permission-boundary changes and were not taken unilaterally. `gac.defence_catalogue_values` has the same shape.
+- **Handoff to ARCH-108.** ARCH-106's compatibility projection does not filter retired archetypes or profiles, so a retired attack identity still projects into `counterDefinitions`. Retiring a matchup does remove the counter from `counters`. ARCH-108's generator must filter retired rows; a test asserts the current behaviour so it cannot be forgotten.
+- Operational details, the change-file schema, the authoring workflow and the full limitation list are recorded in [`docs/database/ARCH-107.md`](database/ARCH-107.md).
+
+**Status: Ready for review.** Every acceptance criterion below is implemented and covered by a test, except `create AUTHORING candidates through the normal publisher`, which cannot be demonstrated until ARCH-108 exists and is excluded by design (see **Operationally proven only alongside ARCH-108**). `docs/SPEC.md` is unchanged because no shipped application behaviour changed. Sign-off belongs to the control thread.
+
 **Repository work:**
 
 - define a concise validated change-file schema;
@@ -1122,7 +1142,7 @@ Initial status:
 | ARCH-104 | Not started |
 | ARCH-105 | Complete |
 | ARCH-106 | Complete |
-| ARCH-107 | Not started |
+| ARCH-107 | Validation |
 | ARCH-108 | Not started |
 | ARCH-109 | Not started |
 | ARCH-110 | Not started |

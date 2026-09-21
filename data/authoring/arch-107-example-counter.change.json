@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "changeId": "ARCH-107-EXAMPLE-COUNTER",
+  "author": "arch-107-example",
+  "authorRole": "OWNER",
+  "authoredAt": "2026-09-21T12:00:00Z",
+  "reason": "Illustrative worked example only: add a First Order counter identity and list it against Admiral Raddus in 5v5.",
+  "expectedBaseRelease": null,
+  "operations": [
+    {
+      "entity": "archetype",
+      "operation": "create",
+      "archetypeCode": "FO_HUX",
+      "displayName": "First Order (Hux)",
+      "battleType": "SQUAD",
+      "identityReason": "DISTINCT_LEADER",
+      "createdBy": "HUMAN"
+    },
+    {
+      "entity": "profile",
+      "operation": "create",
+      "archetypeCode": "FO_HUX",
+      "mode": "ANY",
+      "usageRole": "ATTACK",
+      "flexSlots": 0,
+      "membersComplete": false
+    },
+    {
+      "entity": "member",
+      "operation": "create",
+      "archetypeCode": "FO_HUX",
+      "mode": "ANY",
+      "usageRole": "ATTACK",
+      "unitId": "GENERAL_HUX",
+      "memberRole": "REQUIRED",
+      "isLeader": true,
+      "sortOrder": 0
+    },
+    {
+      "entity": "member",
+      "operation": "create",
+      "archetypeCode": "FO_HUX",
+      "mode": "ANY",
+      "usageRole": "ATTACK",
+      "unitId": "SITH_TROOPER",
+      "memberRole": "REQUIRED",
+      "isLeader": false,
+      "sortOrder": 1
+    },
+    {
+      "entity": "member",
+      "operation": "create",
+      "archetypeCode": "FO_HUX",
+      "mode": "ANY",
+      "usageRole": "ATTACK",
+      "unitId": "CAPTAIN_PHASMA",
+      "memberRole": "RECOMMENDED",
+      "isLeader": false,
+      "sortOrder": 2
+    },
+    {
+      "entity": "matchup",
+      "operation": "create",
+      "mode": "5v5",
+      "defenceArchetypeCode": "ADMIRAL_RADDUS",
+      "counterArchetypeCode": "FO_HUX",
+      "values": {
+        "tier": "B",
+        "bannerScore": 60,
+        "undersize": 0,
+        "notes": "Illustrative example value",
+        "tierAuthority": "AUTHORED_BASELINE",
+        "bannerAuthority": "AUTHORED_BASELINE",
+        "undersizeAuthority": "AUTHORED_BASELINE"
+      }
+    }
+  ]
+}

@@ -207,7 +207,7 @@ A failed load needs no rollback step of its own: the whole load is one transacti
 
 ## Boundaries with ARCH-107 and ARCH-108
 
-- **ARCH-107** owns the human authoring path: the change-file schema, its YAML authoring format, create/update/retire operations and the proposed-diff workflow. ARCH-106 writes exactly one `authoring_changes` row, for the legacy migration itself, and adds no YAML dependency.
+- **ARCH-107** owns the human authoring path: the change-file schema, its authoring format, create/update/retire operations and the proposed-diff workflow, and is documented in [`ARCH-107.md`](ARCH-107.md). ARCH-106 writes exactly one `authoring_changes` row, for the legacy migration itself, and adds no dependency of its own. (ARCH-106 anticipated a YAML authoring format; ARCH-107 chose JSON instead, for the reasons recorded in its own document.)
 - **ARCH-108** owns the production payload generator, payload schema versioning, additive provenance, the structural and product-contract validators, static catalogue artifacts, the Cloudflare publication protocol and the READY/DEPLOYED lifecycle. ARCH-108 must apply `modeNormalisation.canonicalToPublic` from the decision file when it generates the public payload: the database stores `3V3`, `5V5`, `FLEET` and `ANY`, while the published contract uses `3v3`, `5v5`, `FLEET` and — for the `defenceTeams` domain only — `Any`.
 
 ## Deferred and out of scope
