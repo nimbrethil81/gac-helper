@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.arch-103-capture/
+data/exports/.staging/
+credentials*.json
+client_secret*.json
+*.db
+*.sqlite
+*.sqlite3

@@ -5,6 +5,7 @@
   "description": "SWGOH GAC Helper development repository test and check commands.",
   "scripts": {
     "test": "node --test",
-    "check": "for f in app.js service-worker.js tests/*.test.js; do node --check \"$f\" || exit 1; done"
+    "check": "for f in app.js service-worker.js scripts/*.js tests/*.test.js; do node --check \"$f\" || exit 1; done",
+    "baseline:verify": "node scripts/verify-baseline.js"
   }
 }

@@ -192,6 +192,19 @@ At Stage 1 completion:
 
 **Purpose:** Create immutable evidence of the current canonical data and app contract before migration.
 
+**Completion evidence (2026-09-21):**
+
+- Starting full `origin/main` SHA: `d113f512b02d950ede320a26075fe52d3f6e9c97`; the dedicated `codex/arch-103-canonical-baseline` branch was grounded exactly at that commit after confirming the worktree was clean and the remote `main` ref had not moved.
+- One replacement read-only `action=data` capture was made at `2026-09-21T08:59:37Z`, using the deployment URL already configured in `app.js`. The exact 77,553 response bytes have SHA-256 `342e3e4bf095cb7ae25011682f81b17da2b8470b445e046db5f541d5bc0cc4a3` and satisfy the seven-key contract in `SPEC.md`.
+- Baseline directory: [`data/exports/20260921T085937Z/`](../data/exports/20260921T085937Z/). The raw response, deterministic canonical JSON, manifest, source-tab CSV files and observational report share the same capture timestamp.
+- Exported source tabs and data-row counts: `Counters` 366; `Defence_Teams` 9; `Score_Meanings` 26; `Counter_Definitions` 56; `Counter_Composition` 70; `Character_Definitions` 312; `GAC_Board_Config` 40; `GAC_Scoring` 16. The optional `Defence_Composition` tab was absent and is recorded as a zero-row source limitation. `Roster` and `GAC History` were not read or exported.
+- Verification command: `npm run baseline:verify`. It checks the file set, byte sizes, hashes, payload schema/types, semantic raw/canonical equality, CSV headers and row counts, payload-domain counts, and prohibited manifest fields without any network access or credential.
+- Anomaly summary: [`capture-report.md`](../data/exports/20260921T085937Z/capture-report.md). It records zero migration blockers; deterministic-mapping work for 33 unmatched defence names, one duplicate matchup composite, the synthesized `MAZ_KANATA` counter definition and eight mixed-case `Any` wildcard rows; one safe legacy condition (the absent optional defence-composition tab); and the two informational derived columns.
+- Completion validation included `npm run check`, `npm test`, `npm run baseline:verify`, `git diff --check`, a tracked-files-only clean-checkout verification, a temporary corruption rehearsal that failed non-zero, a post-rehearsal baseline pass, privacy/secret scans, exact raw/canonical semantic comparison and CI review. CI remains credential-free and verifies only committed files.
+- No live Sheet cell, Apps Script deployment, endpoint other than `action=data`, cloud service, repository setting/secret, deployment or database was changed.
+
+**Status: Complete.** The acceptance criteria below passed, including explicit reporting of unresolved and partial defence compositions.
+
 **Artifacts:**
 
 - timestamped exports of every relevant Sheet tab;
@@ -1059,7 +1072,7 @@ Initial status:
 |---|---|
 | ARCH-101 | Complete |
 | ARCH-102 | Complete |
-| ARCH-103 | Not started |
+| ARCH-103 | Complete |
 | ARCH-104 | Not started |
 | ARCH-105 | Not started |
 | ARCH-106 | Not started |

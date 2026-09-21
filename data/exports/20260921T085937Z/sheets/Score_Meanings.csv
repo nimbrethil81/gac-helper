@@ -1,0 +1,27 @@
+Mode,Score,Meaning
+5v5,65,"Flawless — no losses, full health & protection"
+5v5,64,Very efficient — trivial chip damage
+5v5,63,"Efficient — light damage, no losses"
+5v5,62,"Standard clean win — some damage, no losses"
+5v5,61,Occasionally lose a unit
+5v5,60,Reliable but inefficient — usually lose a unit
+5v5,58,Risky — often lose two
+5v5,55,"Cleanup likely — messy, multiple losses"
+3v3,57,"Flawless — no losses, full health & protection"
+3v3,56,Very efficient — trivial chip damage
+3v3,55,"Efficient — light damage, no losses"
+3v3,54,"Standard clean win — some damage, no losses"
+3v3,53,Occasionally lose a unit
+3v3,52,Reliable but inefficient — usually lose a unit
+3v3,51,Reliable but inefficient — usually loses two units
+3v3,50,Risky — often lose two
+3v3,48,"Cleanup likely — messy, multiple losses"
+FLEET,73,"Flawless — all 7 ships survive, full health & protection"
+FLEET,71,Very efficient — trivial chip damage
+FLEET,70,Very efficient — light damage
+FLEET,69,"Efficient — light damage, no losses"
+FLEET,67,"Standard clean win — some damage, no losses"
+FLEET,64,Occasionally lose a ship
+FLEET,61,Reliable but inefficient — usually lose a ship
+FLEET,57,Risky — often lose two
+FLEET,52,"Cleanup likely — messy, multiple losses"

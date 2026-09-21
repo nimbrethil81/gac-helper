@@ -347,7 +347,7 @@ The current accepted player-facing values for a matchup.
 | `source_finding_id` | Applied finding where relevant |
 | `updated_at` | Audit timestamp |
 
-Notes are human-authored only in v0.2 and have no autonomous authority state.
+Notes are human-authored only in the initial architecture and have no autonomous authority state.
 
 A high-confidence assessment may update `AUTHORED_BASELINE` tier values through the deterministic applier. `AUTHORED_LOCKED` values can produce findings but cannot be changed autonomously.
 

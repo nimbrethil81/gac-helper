@@ -1,0 +1,311 @@
+{
+  "aggregateRowCounts": {
+    "sheetDataRows": {
+      "Character_Definitions": 312,
+      "Counter_Composition": 70,
+      "Counter_Definitions": 56,
+      "Counters": 366,
+      "Defence_Teams": 9,
+      "GAC_Board_Config": 40,
+      "GAC_Scoring": 16,
+      "Score_Meanings": 26
+    },
+    "sheetDataRowsTotal": 895,
+    "sourceDomains": {
+      "boardConfig": 40,
+      "characterDefinitions": 312,
+      "counterComposition": 70,
+      "counterDefinitions": 56,
+      "counters": 366,
+      "defenceCompositions": 0,
+      "defenceTeams": 9,
+      "scoreMeanings": 26,
+      "scoring": 16
+    }
+  },
+  "appsScriptPayload": {
+    "canonicalByteSize": 129692,
+    "canonicalFilename": "apps-script-action-data.canonical.json",
+    "canonicalSha256": "9a7fd5e371f2abcaf964e3f844371cdb98a44cb1b9c9a59f17cd4bc108f80cf3",
+    "domainCounts": {
+      "boardConfig": {
+        "byLeagueMode": {
+          "AURODIUM": {
+            "3v3": 4,
+            "5v5": 4
+          },
+          "BRONZIUM": {
+            "3v3": 4,
+            "5v5": 4
+          },
+          "CARBONITE": {
+            "3v3": 4,
+            "5v5": 4
+          },
+          "CHROMIUM": {
+            "3v3": 4,
+            "5v5": 4
+          },
+          "KYBER": {
+            "3v3": 4,
+            "5v5": 4
+          }
+        },
+        "rows": 40
+      },
+      "characterDefinitions": 312,
+      "counterDefinitions": 57,
+      "counters": {
+        "byMode": {
+          "3v3": {
+            "defenceTeams": 54,
+            "rows": 181
+          },
+          "5v5": {
+            "defenceTeams": 49,
+            "rows": 154
+          },
+          "FLEET": {
+            "defenceTeams": 8,
+            "rows": 31
+          }
+        },
+        "defenceTeams": 111,
+        "rows": 366
+      },
+      "defenceCompositions": {
+        "members": 0,
+        "teams": 0,
+        "teamsByMode": {}
+      },
+      "defenceTeams": {
+        "byMode": {
+          "5v5": 1,
+          "Any": 8
+        },
+        "rows": 9
+      },
+      "scoring": 16
+    },
+    "rawByteSize": 77553,
+    "rawFilename": "apps-script-action-data.raw.json",
+    "rawSha256": "342e3e4bf095cb7ae25011682f81b17da2b8470b445e046db5f541d5bc0cc4a3",
+    "responseMetadata": {
+      "contentType": "application/json; charset=utf-8",
+      "httpStatus": 200
+    },
+    "topLevelKeys": [
+      "counters",
+      "counterDefinitions",
+      "characterDefinitions",
+      "boardConfig",
+      "scoring",
+      "defenceTeams",
+      "defenceCompositions"
+    ]
+  },
+  "captureTimestamp": "2026-09-21T08:59:37Z",
+  "integrity": {
+    "canonicalPayloadTransformation": "deterministic formatting and object-key ordering only; arrays and values unchanged",
+    "csvLineEndings": "LF",
+    "csvRowOrderPreserved": true,
+    "csvTrailingCellsPreservedToHeaderWidth": true,
+    "rawPayloadPreservedByteForByte": true,
+    "redactionPerformed": false,
+    "semanticTransformationPerformed": false
+  },
+  "report": {
+    "byteSize": 11400,
+    "filename": "capture-report.md",
+    "sha256": "2b875397bb71775af2e5082316a78c4037f1ae550409cad1940ad9797d613aa1"
+  },
+  "schemaVersion": 1,
+  "sheetExports": [
+    {
+      "byteSize": 32385,
+      "classification": "app-facing, authored plus derived",
+      "dataRowCount": 366,
+      "derivedColumns": [
+        "Counter Team",
+        "Score Meaning"
+      ],
+      "filename": "sheets/Counters.csv",
+      "headers": [
+        "Mode",
+        "Defence Team",
+        "Counter_ID",
+        "Counter Team",
+        "Tier",
+        "Banner Score",
+        "Score Meaning",
+        "Undersize",
+        "Notes"
+      ],
+      "representation": "current displayed cell values; formulas are recorded in capture-report.md",
+      "sha256": "62aec2e41bf8e5016d123dff1a7096ffb8def0dff65a168961188a4f4c728636",
+      "stableIdentifiers": [
+        "Mode",
+        "Defence Team",
+        "Counter_ID"
+      ],
+      "tabName": "Counters"
+    },
+    {
+      "byteSize": 230,
+      "classification": "app-facing authored data",
+      "dataRowCount": 9,
+      "derivedColumns": [],
+      "filename": "sheets/Defence_Teams.csv",
+      "headers": [
+        "Defence_Team",
+        "Mode",
+        "Threat",
+        "Notes"
+      ],
+      "representation": "authored cell values",
+      "sha256": "f70f95396bb356d7cd718024545f16c579bd69a3ada9625d52c022f527016460",
+      "stableIdentifiers": [
+        "Mode",
+        "Defence_Team"
+      ],
+      "tabName": "Defence_Teams"
+    },
+    {
+      "byteSize": 1277,
+      "classification": "authoring-only lookup guidance",
+      "dataRowCount": 26,
+      "derivedColumns": [],
+      "filename": "sheets/Score_Meanings.csv",
+      "headers": [
+        "Mode",
+        "Score",
+        "Meaning"
+      ],
+      "representation": "authored cell values",
+      "sha256": "8caa873ff739720e5f8eb5ad286680b3cbbf8925d0e2b2af5921957c6696f422",
+      "stableIdentifiers": [
+        "Mode",
+        "Score"
+      ],
+      "tabName": "Score_Meanings"
+    },
+    {
+      "byteSize": 1121,
+      "classification": "app-facing authored data",
+      "dataRowCount": 56,
+      "derivedColumns": [],
+      "filename": "sheets/Counter_Definitions.csv",
+      "headers": [
+        "Counter_ID",
+        "Counter Team"
+      ],
+      "representation": "authored cell values",
+      "sha256": "265f15a39781ed7fed5922e612192712c74bf25fc4a57afcee183d28b0db41de",
+      "stableIdentifiers": [
+        "Counter_ID"
+      ],
+      "tabName": "Counter_Definitions"
+    },
+    {
+      "byteSize": 2194,
+      "classification": "app-facing authored data",
+      "dataRowCount": 70,
+      "derivedColumns": [],
+      "filename": "sheets/Counter_Composition.csv",
+      "headers": [
+        "Counter_ID",
+        "Character_ID",
+        "Role"
+      ],
+      "representation": "authored cell values",
+      "sha256": "6603c9900c14d6e57e4e427d631ae72cb675216d5efba5f2764a720edffa3246",
+      "stableIdentifiers": [
+        "Counter_ID",
+        "Character_ID"
+      ],
+      "tabName": "Counter_Composition"
+    },
+    {
+      "byteSize": 15904,
+      "classification": "app-facing authored data",
+      "dataRowCount": 312,
+      "derivedColumns": [],
+      "filename": "sheets/Character_Definitions.csv",
+      "headers": [
+        "Character_ID",
+        "Character_Name",
+        "Unit_Type",
+        "External_ID"
+      ],
+      "representation": "authored cell values",
+      "sha256": "d47574b36af48160b04e0e7710d5de1641c60c2229cfb1e5cec1bfad195a8e36",
+      "stableIdentifiers": [
+        "Character_ID",
+        "External_ID"
+      ],
+      "tabName": "Character_Definitions"
+    },
+    {
+      "byteSize": 1312,
+      "classification": "app-facing authored configuration",
+      "dataRowCount": 40,
+      "derivedColumns": [],
+      "filename": "sheets/GAC_Board_Config.csv",
+      "headers": [
+        "League",
+        "Mode",
+        "Territory",
+        "Territory_Type",
+        "Team_Count"
+      ],
+      "representation": "authored cell values; row order retained",
+      "sha256": "44bea8ada4c8af443781b197d0605a76f25b98c7d97aa234c8cb72d8c78d1fce",
+      "stableIdentifiers": [
+        "League",
+        "Mode",
+        "Territory"
+      ],
+      "tabName": "GAC_Board_Config"
+    },
+    {
+      "byteSize": 1006,
+      "classification": "app-facing authored rules",
+      "dataRowCount": 16,
+      "derivedColumns": [],
+      "filename": "sheets/GAC_Scoring.csv",
+      "headers": [
+        "Rule_ID",
+        "Battle_Type",
+        "Mode",
+        "Value",
+        "Notes"
+      ],
+      "representation": "authored cell values",
+      "sha256": "7bdad798740d2c91d9bcd7245243d58583809bfaf311fb41cdd65f4a0560e62b",
+      "stableIdentifiers": [
+        "Rule_ID",
+        "Battle_Type",
+        "Mode"
+      ],
+      "tabName": "GAC_Scoring"
+    }
+  ],
+  "sourceLimitations": [
+    "The optional Defence_Composition tab was absent; the payload contains an empty defenceCompositions object.",
+    "CSV files cover each relevant tab's current non-empty row extent; grid-capacity-only trailing empty rows are not records.",
+    "Counters contains two ARRAYFORMULA-derived columns. Its CSV retains current displayed values and capture-report.md records the exact formulas.",
+    "No binary workbook was retained because the accepted implementation plan does not require it and it would redundantly include excluded non-catalogue tabs.",
+    "Only safe response metadata was retained; temporary response headers were not committed."
+  ],
+  "sourceRepositorySha": "d113f512b02d950ede320a26075fe52d3f6e9c97",
+  "sourceWorkbook": {
+    "absentOptionalTabs": [
+      "Defence_Composition"
+    ],
+    "excludedTabs": [
+      "Roster",
+      "GAC History"
+    ],
+    "title": "SWGOH_GAC_Assistant_Data"
+  }
+}

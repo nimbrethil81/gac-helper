@@ -1,0 +1,367 @@
+Mode,Defence Team,Counter_ID,Counter Team,Tier,Banner Score,Score Meaning,Undersize,Notes
+3v3,Admiral Raddus,GAS,GAS,S,55,"Efficient — light damage, no losses",0,
+5v5,Admiral Raddus,GAS,GAS,S,61,Occasionally lose a unit,0,
+5v5,Admiral Raddus,CLS,CLS,A,61,Occasionally lose a unit,0,
+3v3,Admiral Raddus,DARTH_REVAN,Darth Revan,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Admiral Raddus,JKR,Jedi Knight Revan,A,52,Reliable but inefficient — usually lose a unit,0,
+5v5,Admiral Trench,BAYLAN,Baylan Skoll,S,62,"Standard clean win — some damage, no losses",0,
+3v3,Ahsoka Tano,LEIA,Leia Organa,S,53,Occasionally lose a unit,0,
+5v5,Ahsoka Tano,LEIA,Leia Organa,A,63,"Efficient — light damage, no losses",0,Preferred
+3v3,Ahsoka Tano,BANE,Bane,A,52,Reliable but inefficient — usually lose a unit,1,
+5v5,Dr Aphra,JML,Jedi Master Luke,A,60,Reliable but inefficient — usually lose a unit,0,
+5v5,Dr Aphra,JABBA,Jabba,A,60,Reliable but inefficient — usually lose a unit,0,
+3v3,Baylan Skoll,JABBA,Jabba,S,54,"Standard clean win — some damage, no losses",0,
+5v5,Baylan Skoll,JML,Jedi Master Luke,A,61,Occasionally lose a unit,0,
+5v5,Baylan Skoll,JABBA,Jabba,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Bo-Katan Mandalore,LEIA,Leia Organa,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Bo-Katan Mandalore,JABBA,Jabba,A,60,Reliable but inefficient — usually lose a unit,0,
+3v3,Bo-Katan Mandalore,SLKR,SLKR,S,54,"Standard clean win — some damage, no losses",0,Try dropping a unit for efficiency
+3v3,Bo-Katan Mandalore,DARTH_NIHILUS,Darth Nihilus,S,53,Occasionally lose a unit,0,
+3v3,Cere UFU,REVA,Reva,A,55,"Efficient — light damage, no losses",0,
+3v3,Cere UFU,DARTH_REVAN,Darth Revan,S,53,Occasionally lose a unit,0,
+5v5,Cere UFU,GI,Grand Inquisitor,S,63,"Efficient — light damage, no losses",0,Standard
+5v5,Cere UFU,REVA,Reva,A,60,Reliable but inefficient — usually lose a unit,0,Reliable
+5v5,Cere UFU,TRAYA,Darth Traya,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Cere UFU,BOSSK,Bossk,C,55,"Cleanup likely — messy, multiple losses",0,Two shot
+5v5,Cere UFU,BAYLAN,Baylan Skoll,S,62,"Standard clean win — some damage, no losses",0,
+FLEET,Chimaera,PROFUNDITY,Profundity,S,71,Very efficient — trivial chip damage,2,Be efficient and leave slots empty
+FLEET,Chimaera,EXECUTOR,Executor,S,71,Very efficient — trivial chip damage,1,Be efficient and leave slots empty
+FLEET,Chimaera,NEGOTIATOR,Negotiator,A,69,"Efficient — light damage, no losses",0,
+FLEET,Chimaera,LEVIATHAN,Leviathan,S,71,Very efficient — trivial chip damage,2,Be efficient and leave slots empty
+FLEET,Chimaera,MALEVOLENCE,Malevolence,S,69,"Efficient — light damage, no losses",2,
+3v3,CLS,CERE,Cere UFU,S,55,"Efficient — light damage, no losses",0,
+3v3,CLS,DARTH_REVAN,Darth Revan,S,57,"Flawless — no losses, full health & protection",0,
+5v5,CLS,PHOENIX,Phoenix,S,62,"Standard clean win — some damage, no losses",0,
+3v3,CLS,PHOENIX,Phoenix,S,52,Reliable but inefficient — usually lose a unit,0,Must have Captain Rex
+3v3,Dark Trooper Moff Gideon,DARTH_REVAN,Darth Revan,S,55,"Efficient — light damage, no losses",0,
+3v3,Dark Trooper Moff Gideon,GAS,GAS,S,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Darth Malgus,BANE,Bane,S,56,Very efficient — trivial chip damage,1,
+3v3,Darth Malgus,SEE,Sith Eternal Emperor,S,53,Occasionally lose a unit,1,
+3v3,Darth Malgus,BAYLAN,Baylan Skoll,A,53,Occasionally lose a unit,0,
+3v3,Darth Malgus,JKL,Jedi Knight Luke,S,57,"Flawless — no losses, full health & protection",0,With Cal and Hermit
+5v5,Darth Malgus,BANE,Bane,S,64,Very efficient — trivial chip damage,3,
+5v5,Darth Malgus,JKCK,JKCK,A,61,Occasionally lose a unit,0,Reliable
+5v5,Darth Malgus,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,61,Occasionally lose a unit,0,Good option
+5v5,Darth Malgus,SEE,Sith Eternal Emperor,S,64,Very efficient — trivial chip damage,3,
+3v3,Darth Malgus,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Darth Revan with Zaalbar,JML,Jedi Master Luke,S,55,"Efficient — light damage, no losses",0,
+3v3,Darth Revan with Zaalbar,BANE,Bane,S,54,"Standard clean win — some damage, no losses",1,
+3v3,Darth Revan with Zaalbar,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Darth Revan with Zaalbar,CERE,Cere UFU,B,51,Reliable but inefficient — usually loses two units,0,
+3v3,Darth Revan with Zaalbar,BAYLAN,Baylan Skoll,B,51,Reliable but inefficient — usually loses two units,0,
+3v3,Darth Revan with Zaalbar,CLS,CLS,C,48,"Cleanup likely — messy, multiple losses",0,May need cleanup
+3v3,Dash Rendar,GAS,GAS,A,51,Reliable but inefficient — usually loses two units,0,
+3v3,Dash Rendar,DARTH_REVAN,Darth Revan,S,54,"Standard clean win — some damage, no losses",0,
+5v5,Dr Aphra,CLS,CLS,A,61,Occasionally lose a unit,0,
+3v3,Dr Aphra,SLKR,SLKR,S,54,"Standard clean win — some damage, no losses",0,Try dropping a unit for efficiency
+3v3,Emperor Palp with Vader Dual's End,LORD_VADER,Lord Vader,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Enoch,CLS,CLS,S,56,Very efficient — trivial chip damage,0,C-3PO and Chewie
+FLEET,Executor,LEVIATHAN,Leviathan,S,71,Very efficient — trivial chip damage,1,
+FLEET,Executor,EXECUTOR,Executor,S,67,"Standard clean win — some damage, no losses",1,
+3v3,Finn,MOTHER_TALZIN,Mother Talzin,A,53,Occasionally lose a unit,0,Reliable
+3v3,Finn,CERE_SK,Cere Starkiller,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Finn,BANE,Bane,S,54,"Standard clean win — some damage, no losses",1,
+3v3,Finn,GREAT_MOTHERS,Great Mothers,S,53,Occasionally lose a unit,0,
+3v3,Finn,DARTH_REVAN,Darth Revan,S,53,Occasionally lose a unit,0,
+3v3,Finn,BAYLAN,Baylan Skoll,S,56,Very efficient — trivial chip damage,0,
+5v5,Finn,MOTHER_TALZIN,Mother Talzin,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Finn,TRAYA,Darth Traya,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Finn,STARKILLER,Starkiller,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Finn,BAYLAN,Baylan Skoll,S,61,Occasionally lose a unit,0,
+3v3,GAS,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,53,Occasionally lose a unit,0,
+3v3,GAS,STARKILLER,Starkiller,S,56,Very efficient — trivial chip damage,0,
+5v5,GAS,CLS,CLS,A,61,Occasionally lose a unit,0,
+3v3,General Grievous,WAMPA,Wampa,B,54,"Standard clean win — some damage, no losses",2,
+3v3,General Grievous,ADMIRAL_RADDUS,Admiral Raddus,S,55,"Efficient — light damage, no losses",0,
+5v5,General Grievous,MOTHER_TALZIN,Mother Talzin,S,63,"Efficient — light damage, no losses",0,Strong
+5v5,Geonosians,JAWAS,Jawas,B,60,Reliable but inefficient — usually lose a unit,0,
+3v3,Geonosian,CLS,CLS,A,53,Occasionally lose a unit,0,
+3v3,Geonosian,JAWAS,Jawas,B,50,Risky — often lose two,0,Hold off AoE first turn.
+3v3,Grand Inquisitor,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,Strong
+5v5,Grand Inquisitor,GAS,GAS,S,61,Occasionally lose a unit,0,
+3v3,Grand Inquisitor,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Grand Moff Tarkin,BAYLAN,Baylan Skoll,S,56,Very efficient — trivial chip damage,0,
+5v5,Grand Moff Tarkin,BAYLAN,Baylan Skoll,S,62,"Standard clean win — some damage, no losses",0,
+3v3,Grand Moff Tarkin,CERE,Cere UFU,S,55,"Efficient — light damage, no losses",0,
+3v3,Great Mothers,BANE,Bane,S,55,"Efficient — light damage, no losses",1,Reliable
+3v3,Great Mothers,REVA,Reva,S,55,"Efficient — light damage, no losses",0,Preferred
+3v3,Great Mothers,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,53,Occasionally lose a unit,0,
+5v5,Great Mothers,BANE,Bane,S,64,Very efficient — trivial chip damage,3,
+5v5,Great Mothers,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,60,Reliable but inefficient — usually lose a unit,0,Strong
+5v5,Great Mothers,REVA,Reva,S,63,"Efficient — light damage, no losses",0,
+3v3,Great Mothers,CERE,Cere UFU,S,53,Occasionally lose a unit,0,
+3v3,Gungans,JML,Jedi Master Luke,B,48,"Cleanup likely — messy, multiple losses",0,
+3v3,Gungans,GREAT_MOTHERS,Great Mothers,S,53,Occasionally lose a unit,0,Preferred
+5v5,Gungans,JML,Jedi Master Luke,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Gungans,LEIA,Leia Organa,A,60,Reliable but inefficient — usually lose a unit,0,Reliable
+5v5,Gungans,GREAT_MOTHERS,Great Mothers,S,63,"Efficient — light damage, no losses",0,Preferred
+5v5,Gungans,TRAYA,Darth Traya,A,60,Reliable but inefficient — usually lose a unit,0,
+5v5,Gungans,PHOENIX,Phoenix,A,62,"Standard clean win — some damage, no losses",0,
+3v3,Gungans,TRAYA,Darth Traya,B,52,Reliable but inefficient — usually lose a unit,0,Manual control
+3v3,Gungans,MOTHER_TALZIN,Mother Talzin,B,52,Reliable but inefficient — usually lose a unit,0,Manual control
+FLEET,Home One,PROFUNDITY,Profundity,S,73,"Flawless — all 7 ships survive, full health & protection",2,
+FLEET,Home One,MALEVOLENCE,Malevolence,S,69,"Efficient — light damage, no losses",1,
+3v3,Hondo,SLKR,SLKR,S,53,Occasionally lose a unit,0,Strong
+5v5,Hondo,CERE,Cere UFU,S,63,"Efficient — light damage, no losses",0,Preferred
+5v5,Hondo,BAYLAN,Baylan Skoll,S,63,"Efficient — light damage, no losses",0,Strong
+5v5,Hondo,SLKR,SLKR,A,63,"Efficient — light damage, no losses",0,Strong
+5v5,Iden Versio,GAS,GAS,S,64,Very efficient — trivial chip damage,0,
+3v3,Inquisitor Barriss,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Inquisitor Barriss,CERE,Cere UFU,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Inquisitor Barriss,GAS,GAS,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Inquisitor Barriss,REVA,Reva,S,55,"Efficient — light damage, no losses",0,
+3v3,Jabba,JML,Jedi Master Luke,S,48,"Cleanup likely — messy, multiple losses",0,
+3v3,Jabba,SLKR,SLKR,S,53,Occasionally lose a unit,0,Strong
+5v5,Jabba,JML,Jedi Master Luke,B,60,Reliable but inefficient — usually lose a unit,0,Cleanup risk
+5v5,Jabba,BANE,Bane,A,64,Very efficient — trivial chip damage,0,Good banners
+5v5,Jabba,SLKR,SLKR,S,63,"Efficient — light damage, no losses",0,Strong
+5v5,Jabba,MOTHER_TALZIN,Mother Talzin,C,55,"Cleanup likely — messy, multiple losses",0,Two shot
+5v5,Jabba,VEERS,Imperial Troopers,C,55,"Cleanup likely — messy, multiple losses",0,Cleanup
+5v5,Jabba,JMK,Jedi Master Kenobi,A,63,"Efficient — light damage, no losses",0,Strong
+5v5,Jabba,REVA,Reva,A,63,"Efficient — light damage, no losses",0,Cleanup risk
+3v3,Jabba,CLS,CLS,C,48,"Cleanup likely — messy, multiple losses",0,Cleanup only
+3v3,Jabba,STARKILLER,Starkiller,C,48,"Cleanup likely — messy, multiple losses",0,Cleanup only
+5v5,Jedi Knight Revan,GAS,GAS,S,61,Occasionally lose a unit,0,
+3v3,Jedi Knight Revan,DARTH_REVAN,Darth Revan,S,54,"Standard clean win — some damage, no losses",0,
+5v5,Jedi Master Kenobi,LEIA,Leia Organa,S,62,"Standard clean win — some damage, no losses",0,Preferred
+5v5,Jedi Master Kenobi,SEE,Sith Eternal Emperor,B,55,"Cleanup likely — messy, multiple losses",0,Riskier
+5v5,Jedi Master Kenobi,REVA,Reva,S,63,"Efficient — light damage, no losses",0,Strong
+3v3,Jedi Master Kenobi,REVA,Reva,S,55,"Efficient — light damage, no losses",0,
+3v3,Jedi Master Kenobi,BAYLAN,Baylan Skoll,C,48,"Cleanup likely — messy, multiple losses",0,Cleanup only
+5v5,Jedi Master Luke,LEIA,Leia Organa,S,62,"Standard clean win — some damage, no losses",0,Reliable
+5v5,Jedi Master Luke,SEE,Sith Eternal Emperor,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Jedi Master Luke,REVA,Reva,S,63,"Efficient — light damage, no losses",0,Strong
+3v3,Jedi Master Luke,CLS,CLS,C,48,"Cleanup likely — messy, multiple losses",0,Cleanup only
+3v3,Jedi Master Luke,REVA,Reva,S,55,"Efficient — light damage, no losses",0,
+3v3,Jedi Master Luke,SEE,Sith Eternal Emperor,S,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Jedi Master Luke,CERE_SK,Cere Starkiller,B,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Jedi Master Mace Windu,JML,Jedi Master Luke,S,55,"Efficient — light damage, no losses",0,
+3v3,Jedi Master Mace Windu,TRAYA,Darth Traya,S,55,"Efficient — light damage, no losses",0,
+5v5,Jedi Master Mace Windu,SEE,Sith Eternal Emperor,S,63,"Efficient — light damage, no losses",0,Strong
+3v3,Jedi Master Mace Windu,JABBA,Jabba,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Jedi Training Rey,JKR,Jedi Knight Revan,B,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Kelleran Beq,DARTH_NIHILUS,Darth Nihilus,S,55,"Efficient — light damage, no losses",0,
+3v3,Kelleran Beq,MAUL,Maul,B,50,Risky — often lose two,0,
+3v3,Leia Organa,JABBA,Jabba,S,52,Reliable but inefficient — usually lose a unit,0,Reliable
+3v3,Leia Organa,SEE,Sith Eternal Emperor,S,51,Reliable but inefficient — usually loses two units,0,Use Savage Opress
+5v5,Leia Organa,JABBA,Jabba,S,62,"Standard clean win — some damage, no losses",0,Do not full auto
+5v5,Leia Organa,GREAT_MOTHERS,Great Mothers,A,60,Reliable but inefficient — usually lose a unit,0,Strong
+5v5,Leia Organa,SEE,Sith Eternal Emperor,A,63,"Efficient — light damage, no losses",0,Strong
+5v5,Leia Organa,MAUL,Maul,C,55,"Cleanup likely — messy, multiple losses",0,Two shot
+3v3,Leia Organa,SLKR,SLKR,A,50,Risky — often lose two,0,
+FLEET,Leviathan,LEVIATHAN,Leviathan,S,71,Very efficient — trivial chip damage,1,Reinforce Scimitar first
+3v3,Lord Vader,JMK,Jedi Master Kenobi,A,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Lord Vader,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,50,Risky — often lose two,0,Cleanup risk vs dark side clones
+5v5,Lord Vader,JMK,Jedi Master Kenobi,A,62,"Standard clean win — some damage, no losses",0,Cleanup risk
+5v5,Lord Vader,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,60,Reliable but inefficient — usually lose a unit,0,Cleanup risk against dark side clones
+5v5,Lord Vader,JML,Jedi Master Luke,B,58,Risky — often lose two,0,Cleanup risk
+5v5,Lord Vader,SLKR,SLKR,S,63,"Efficient — light damage, no losses",0,Reliable
+5v5,Lord Vader,BANE,Bane,S,65,"Flawless — no losses, full health & protection",3,Strong
+3v3,Lord Vader,SLKR,SLKR,A,50,Risky — often lose two,0,
+3v3,Lord Vader,MAUL,Maul,C,48,"Cleanup likely — messy, multiple losses",0,Cleanup only
+3v3,Lord Vader,JML,Jedi Master Luke,C,48,"Cleanup likely — messy, multiple losses",0,
+FLEET,Malevolence,LEVIATHAN,Leviathan,S,71,Very efficient — trivial chip damage,2,Be efficient and leave slots empty
+FLEET,Malevolence,HOME_ONE,Home One,A,69,"Efficient — light damage, no losses",2,
+FLEET,Malevolence,EXECUTOR,Executor,S,71,Very efficient — trivial chip damage,1,Be efficient and leave slots empty
+5v5,Maul,CLS,CLS,A,61,Occasionally lose a unit,0,
+3v3,Mauldalorians,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Mauldalorians,JAWAS,Jawas,B,50,Risky — often lose two,0,Hold off AoE first turn.
+3v3,Maz Kanata,BAYLAN,Baylan Skoll,S,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Maz Kanata,REVA,Reva,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Maz Kanata,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,53,Occasionally lose a unit,0,
+3v3,Maz Kanata,CERE,Cere UFU,S,53,Occasionally lose a unit,0,
+5v5,Maz Kanata,BAYLAN,Baylan Skoll,S,62,"Standard clean win — some damage, no losses",0,
+3v3,Mon Mothma,GAS,GAS,S,56,Very efficient — trivial chip damage,0,
+5v5,Mon Mothma,VEERS,Imperial Troopers,A,62,"Standard clean win — some damage, no losses",0,
+3v3,Mon Mothma,VEERS,Imperial Troopers,B,50,Risky — often lose two,0,
+5v5,Mother Talzin,VEERS,Imperial Troopers,B,61,Occasionally lose a unit,0,
+3v3,Mother Talzin,BOSSK,Bossk,A,53,Occasionally lose a unit,0,Manual
+FLEET,Negotiator,PROFUNDITY,Profundity,S,71,Very efficient — trivial chip damage,1,
+FLEET,Negotiator,EXECUTOR,Executor,S,71,Very efficient — trivial chip damage,1,
+FLEET,Negotiator,LEVIATHAN,Leviathan,S,71,Very efficient — trivial chip damage,1,
+3v3,Padme Amidala,MALAK,Malak (solo),S,54,"Standard clean win — some damage, no losses",2,Preferred
+5v5,Padme Amidala,TRAYA,Darth Traya,A,62,"Standard clean win — some damage, no losses",0,
+3v3,Queen Amidala,BANE,Bane,S,53,Occasionally lose a unit,1,Preferred
+3v3,Queen Amidala,LORD_VADER,Lord Vader,B,50,Risky — often lose two,0,
+5v5,Queen Amidala,BANE,Bane,S,64,Very efficient — trivial chip damage,3,Preferred
+5v5,Queen Amidala,JABBA,Jabba,A,60,Reliable but inefficient — usually lose a unit,0,Reliable
+5v5,Queen Amidala,GAS,GAS,A,61,Occasionally lose a unit,0,
+3v3,Qui-Gon Jinn,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Qui-Gon Jinn,ENOCH,Enoch,S,53,Occasionally lose a unit,0,
+3v3,Qui-Gon Jinn,REVA,Reva,S,56,Very efficient — trivial chip damage,0,
+3v3,Qui-Gon Jinn,GAS,GAS,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Qui-Gon Jinn,JKR,Jedi Knight Revan,C,48,"Cleanup likely — messy, multiple losses",0,May need cleanup
+5v5,Qui-Gon Jinn,BAD_BATCH,Bad Batch,B,60,Reliable but inefficient — usually lose a unit,0,Cleanup risk
+5v5,Qui-Gon Jinn,JKR,Jedi Knight Revan,A,61,Occasionally lose a unit,0,
+3v3,Reva,LEIA,Leia Organa,A,50,Risky — often lose two,0,
+3v3,Reva,DARTH_REVAN,Darth Revan,S,52,Reliable but inefficient — usually lose a unit,0,Include Malak for reliability
+5v5,Reva,LEIA,Leia Organa,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Reva,JMK,Jedi Master Kenobi,A,60,Reliable but inefficient — usually lose a unit,0,
+5v5,Reva,TRAYA,Darth Traya,A,63,"Efficient — light damage, no losses",0,Check relic delta
+5v5,Reva,PHOENIX,Phoenix,S,61,Occasionally lose a unit,0,
+5v5,Reva,MOTHER_TALZIN,Mother Talzin,C,55,"Cleanup likely — messy, multiple losses",0,Two shot
+5v5,Reva,MALGUS,Darth Malgus,A,61,Occasionally lose a unit,0,
+3v3,Reva,TRAYA,Darth Traya,A,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Rex,DARTH_REVAN,Darth Revan,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Rex,JMK,Jedi Master Kenobi,S,55,"Efficient — light damage, no losses",0,
+3v3,Rey,STARKILLER,Starkiller,S,53,Occasionally lose a unit,0,
+3v3,Rey,CERE,Cere UFU,S,53,Occasionally lose a unit,0,Preferred
+3v3,Rey,LEIA,Leia Organa,S,57,"Flawless — no losses, full health & protection",0,
+3v3,Rey,CERE_SK,Cere Starkiller,S,53,Occasionally lose a unit,0,
+3v3,Rey,SLKR,SLKR,S,52,Reliable but inefficient — usually lose a unit,0,
+5v5,Rey,STARKILLER,Starkiller,S,62,"Standard clean win — some damage, no losses",0,Standard
+5v5,Rey,BANE,Bane,A,63,"Efficient — light damage, no losses",0,Efficient
+5v5,Rey,JML,Jedi Master Luke,C,63,"Efficient — light damage, no losses",0,Standard
+5v5,Rey,LEIA,Leia Organa,A,63,"Efficient — light damage, no losses",0,Strong
+5v5,Rey,GAS,GAS,A,55,"Cleanup likely — messy, multiple losses",0,Cleanup
+3v3,Rey,JML,Jedi Master Luke,A,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Rey,ADMIRAL_RADDUS,Admiral Raddus,C,48,"Cleanup likely — messy, multiple losses",0,Cleanup only
+3v3,Satele Shan,BANE,Bane,S,52,Reliable but inefficient — usually lose a unit,1,
+3v3,Satele Shan,REVA,Reva,S,55,"Efficient — light damage, no losses",0,
+3v3,Satele Shan,STARKILLER,Starkiller,S,55,"Efficient — light damage, no losses",0,
+3v3,Satele Shan,GREAT_MOTHERS,Great Mothers,S,55,"Efficient — light damage, no losses",0,
+5v5,Satele Shan,REVA,Reva,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Satele Shan,BAYLAN,Baylan Skoll,S,62,"Standard clean win — some damage, no losses",0,
+3v3,Saw Gerrera,REVA,Reva,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Saw Gerrera,CERE,Cere UFU,S,56,Very efficient — trivial chip damage,0,
+3v3,Saw Gerrera,BAYLAN,Baylan Skoll,S,54,"Standard clean win — some damage, no losses",0,
+5v5,Saw Gerrera,CLS,CLS,B,58,Risky — often lose two,0,
+5v5,Sith Eternal Emperor,BANE,Bane,S,65,"Flawless — no losses, full health & protection",3,Very efficient
+5v5,Sith Eternal Emperor,WAMPA,Wampa,B,58,Risky — often lose two,4,Depends on comp
+5v5,Sith Eternal Emperor,SLKR,SLKR,S,63,"Efficient — light damage, no losses",0,Strong
+5v5,SLKR,JML,Jedi Master Luke,S,63,"Efficient — light damage, no losses",0,Strong
+5v5,SLKR,BANE,Bane,S,65,"Flawless — no losses, full health & protection",3,Strong
+3v3,SLKR,JML,Jedi Master Luke,S,55,"Efficient — light damage, no losses",0,
+5v5,Starkiller,CLS,CLS,A,61,Occasionally lose a unit,0,
+5v5,Starkiller,SEE,Sith Eternal Emperor,S,64,Very efficient — trivial chip damage,3,
+3v3,Stormtrooper Luke,BANE,Bane,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Stormtrooper Luke,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,54,"Standard clean win — some damage, no losses",0,No auto
+3v3,Stormtrooper Luke,DARTH_REVAN,Darth Revan,S,53,Occasionally lose a unit,0,"HK47 sufficient, leave Malak out"
+3v3,Stormtrooper Luke,GREAT_MOTHERS,Great Mothers,S,55,"Efficient — light damage, no losses",0,
+3v3,Tarfful,DARTH_REVAN,Darth Revan,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tarfful,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tarfful,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,The Stranger,SEE,Sith Eternal Emperor,B,52,Reliable but inefficient — usually lose a unit,0,
+3v3,The Stranger,BANE,Bane,S,50,Risky — often lose two,1,
+3v3,The Stranger,SEE_BANE,SEE and Bane,S,53,Occasionally lose a unit,1,
+5v5,The Stranger,JABBA,Jabba,B,62,"Standard clean win — some damage, no losses",0,
+3v3,Traya,SLKR,SLKR,S,54,"Standard clean win — some damage, no losses",0,Try dropping a unit for efficiency
+3v3,Traya,BAYLAN,Baylan Skoll,A,53,Occasionally lose a unit,0,
+3v3,Tusken,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,ADMIRAL_RADDUS,Admiral Raddus,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,GREAT_MOTHERS,Great Mothers,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,GAS,GAS,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,CERE,Cere UFU,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,STARKILLER,Starkiller,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Tusken,JABBA,Jabba,S,56,Very efficient — trivial chip damage,0,
+5v5,Tusken,CERE,Cere UFU,S,62,"Standard clean win — some damage, no losses",0,
+3v3,Veers,WAMPA,Wampa,A,54,"Standard clean win — some damage, no losses",2,
+3v3,Veers,JKR,Jedi Knight Revan,A,54,"Standard clean win — some damage, no losses",0,
+FLEET,Leviathan,EXECUTOR,Executor,C,57,Risky — often lose two,1,
+FLEET,Leviathan,PROFUNDITY,Profundity,C,57,Risky — often lose two,1,
+FLEET,Executor,PROFUNDITY,Profundity,B,57,Risky — often lose two,1,
+FLEET,Executor,EXECUTRIX,Executrix,C,57,Risky — often lose two,1,
+FLEET,Malevolence,PROFUNDITY,Profundity,S,69,"Efficient — light damage, no losses",2,
+FLEET,Malevolence,CHIMAERA,Chimaera,A,64,Occasionally lose a ship,1,
+3v3,Omega (Fugitive),CLS,CLS,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Omega (Fugitive),50R_T,Shorty,S,56,Very efficient — trivial chip damage,0,BB8 and Chewpio
+FLEET,Profundity,LEVIATHAN,Leviathan,S,71,Very efficient — trivial chip damage,2,
+FLEET,Profundity,EXECUTOR,Executor,A,69,"Efficient — light damage, no losses",1,Hounds Tooth starts
+FLEET,Profundity,EXECUTRIX,Executrix,B,67,"Standard clean win — some damage, no losses",1,
+FLEET,Profundity,MALEVOLENCE,Malevolence,C,57,Risky — often lose two,2,
+3v3,Satele Shan,SEE,Sith Eternal Emperor,S,56,Very efficient — trivial chip damage,1,
+5v5,Leia Organa,STARKILLER,Starkiller,C,58,Risky — often lose two,0,2 shot
+5v5,Jedi Master Luke,JABBA,Jabba,A,62,"Standard clean win — some damage, no losses",0,
+5v5,General Grievous,WAMPA,Wampa,A,58,Risky — often lose two,4,
+5v5,Iden Versio,WAMPA,Wampa,A,58,Risky — often lose two,4,Not if Scout Trooper present
+5v5,Gungans,BANE,Bane,S,62,"Standard clean win — some damage, no losses",3,Queen Amidala preferred
+5v5,Saw Gerrera,BOBA_FETT_SCION_OF_JANGO,Boba and Fennec,C,58,Risky — often lose two,3,
+5v5,Qui-Gon Jinn,JML,Jedi Master Luke,A,62,"Standard clean win — some damage, no losses",2,
+5v5,Traya,SLKR,SLKR,S,63,"Efficient — light damage, no losses",1,
+5v5,Dark Trooper Moff Gideon,SLKR,SLKR,S,63,"Efficient — light damage, no losses",1,
+5v5,Starkiller,SLKR,SLKR,S,63,"Efficient — light damage, no losses",1,
+5v5,Darth Malgus,SLKR,SLKR,S,63,"Efficient — light damage, no losses",1,
+5v5,Starkiller,JMK,Jedi Master Kenobi,S,63,"Efficient — light damage, no losses",1,
+5v5,Queen Amidala,JMK,Jedi Master Kenobi,A,62,"Standard clean win — some damage, no losses",1,
+5v5,Cere UFU,JMK,Jedi Master Kenobi,S,62,"Standard clean win — some damage, no losses",1,
+5v5,Kelleran Beq,REVA,Reva,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Tarfful,BAYLAN,Baylan Skoll,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Great Mothers,MALGUS,Darth Malgus,A,61,Occasionally lose a unit,0,
+5v5,Jedi Training Rey,VEERS,Imperial Troopers,B,61,Occasionally lose a unit,0,
+5v5,Geonosians,VEERS,Imperial Troopers,B,61,Occasionally lose a unit,0,
+5v5,Kelleran Beq,MAUL,Maul,C,55,"Cleanup likely — messy, multiple losses",0,
+5v5,Dr Aphra,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,60,Reliable but inefficient — usually lose a unit,0,
+5v5,Geonosians,BOSSK,Bossk,B,61,Occasionally lose a unit,0,
+5v5,Enoch,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Enoch,MALGUS,Darth Malgus,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Enoch,TRAYA,Darth Traya,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Enoch,JML,Jedi Master Luke,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Enoch,REVA,Reva,S,62,"Standard clean win — some damage, no losses",0,
+5v5,The Stranger,SATELE_SHAN,Satele Shan,S,62,"Standard clean win — some damage, no losses",0,
+5v5,The Stranger,SEE,Sith Eternal Emperor,A,62,"Standard clean win — some damage, no losses",0,
+5v5,The Stranger,JMK,Jedi Master Kenobi,B,60,Reliable but inefficient — usually lose a unit,0,
+5v5,The Stranger,SEE_BANE,SEE and Bane,S,62,"Standard clean win — some damage, no losses",0,
+5v5,The Stranger,THE_STRANGER,The Stranger,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Jedi Master Mace Windu,JML,Jedi Master Luke,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Jedi Master Mace Windu,TRAYA,Darth Traya,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Leia Organa,SLKR,SLKR,A,62,"Standard clean win — some damage, no losses",0,Cleanup
+5v5,Carth Onasi,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Carth Onasi,TRAYA,Darth Traya,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Carth Onasi,GREAT_MOTHERS,Great Mothers,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Carth Onasi,GAS,GAS,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Carth Onasi,CLS,CLS,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Carth Onasi,SEE,Sith Eternal Emperor,S,62,"Standard clean win — some damage, no losses",3,
+5v5,Carth Onasi,LORD_VADER,Lord Vader,S,62,"Standard clean win — some damage, no losses",1,
+5v5,Kelleran Beq,SEE,Sith Eternal Emperor,S,62,"Standard clean win — some damage, no losses",2,
+5v5,Saw Gerrera,BO_KATAN_MANDALORE,Bo-Katan Mandalore,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Saw Gerrera,TRAYA,Darth Traya,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Saw Gerrera,BAYLAN,Baylan Skoll,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Saw Gerrera,GAS,GAS,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Saw Gerrera,JABBA,Jabba,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Saw Gerrera,BANE,Bane,S,62,"Standard clean win — some damage, no losses",3,
+5v5,Admiral Raddus,LEIA,Leia Organa,S,62,"Standard clean win — some damage, no losses",2,
+5v5,Admiral Raddus,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Admiral Raddus,BAD_BATCH,Bad Batch,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Admiral Raddus,TRAYA,Darth Traya,S,62,"Standard clean win — some damage, no losses",0,
+5v5,Admiral Raddus,PHOENIX,Phoenix,A,62,"Standard clean win — some damage, no losses",0,
+5v5,Admiral Raddus,MALGUS,Darth Malgus,S,62,"Standard clean win — some damage, no losses",0,
+FLEET,Raddus,CHIMAERA,Chimaera,A,67,"Standard clean win — some damage, no losses",1,
+FLEET,Raddus,NEGOTIATOR,Negotiator,A,67,"Standard clean win — some damage, no losses",1,
+FLEET,Raddus,LEVIATHAN,Leviathan,S,67,"Standard clean win — some damage, no losses",2,
+FLEET,Raddus,EXECUTRIX,Executrix,A,67,"Standard clean win — some damage, no losses",0,
+FLEET,Raddus,PROFUNDITY,Profundity,S,67,"Standard clean win — some damage, no losses",2,
+3v3,Cassian Andor (Undercover),CLS,CLS,S,55,"Efficient — light damage, no losses",0,
+3v3,Cassian Andor (Undercover),TRAYA,Darth Traya,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Cassian Andor (Undercover),BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Cassian Andor (Undercover),CERE,Cere UFU,S,55,"Efficient — light damage, no losses",0,
+3v3,Cassian Andor (Undercover),JMK,Jedi Master Kenobi,S,56,Very efficient — trivial chip damage,1,
+3v3,Cassian Andor (Undercover),SEE,Sith Eternal Emperor,S,55,"Efficient — light damage, no losses",1,
+3v3,Cassian Andor (Undercover),BANE,Bane,S,56,Very efficient — trivial chip damage,1,
+3v3,Cassian Andor (Undercover),LEIA,Leia Organa,S,55,"Efficient — light damage, no losses",0,
+3v3,Cassian Andor (Undercover),SLKR,SLKR,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Cassian Andor (Undercover),GREAT_MOTHERS,Great Mothers,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Cassian Andor (Undercover),GAS,GAS,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Cassian Andor (Undercover),DASH,Dash Rendar,A,54,"Standard clean win — some damage, no losses",0,
+3v3,Cassian Andor (Undercover),REVA,Reva,S,55,"Efficient — light damage, no losses",0,
+3v3,Cassian Andor (Undercover),JML,Jedi Master Luke,S,55,"Efficient — light damage, no losses",0,
+3v3,Cassian Andor (Undercover),WAMPA,Wampa,A,54,"Standard clean win — some damage, no losses",2,
+3v3,Admiral Trench,BAYLAN,Baylan Skoll,S,56,Very efficient — trivial chip damage,0,
+3v3,Admiral Trench,GREAT_MOTHERS,Great Mothers,S,56,Very efficient — trivial chip damage,0,
+3v3,Admiral Trench,BO_KATAN_MANDALORE,Bo-Katan Mandalore,S,55,"Efficient — light damage, no losses",0,
+3v3,Admiral Trench,QUEEN_AMIDALA,Queen Amidala,S,56,Very efficient — trivial chip damage,0,
+3v3,Admiral Trench,MALGUS,Darth Malgus,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Admiral Trench,GAS,GAS,S,54,"Standard clean win — some damage, no losses",0,
+3v3,Admiral Trench,REVA,Reva,A,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Admiral Trench,WAMPA,Wampa,A,52,Reliable but inefficient — usually lose a unit,2,
+3v3,Emperor Palp with Vader Dual's End,BAD_BATCH,Bad Batch,B,50,Risky — often lose two,0,
+3v3,Emperor Palp with Vader Dual's End,GUNGANS,Gungans,S,55,"Efficient — light damage, no losses",0,
+3v3,Emperor Palp with Vader Dual's End,MALGUS,Darth Malgus,A,53,Occasionally lose a unit,0,
+3v3,Emperor Palp with Vader Dual's End,SAW_GERRERA,Saw Gerrera,A,53,Occasionally lose a unit,0,
+3v3,Emperor Palp with Vader Dual's End,THE_STRANGER,The Stranger,S,55,"Efficient — light damage, no losses",0,
+3v3,Emperor Palp with Vader Dual's End,REVA,Reva,A,52,Reliable but inefficient — usually lose a unit,0,
+3v3,Emperor Palp with Vader Dual's End,SLKR,SLKR,S,56,Very efficient — trivial chip damage,0,
+3v3,Emperor Palp with Vader Dual's End,JMK,Jedi Master Kenobi,S,56,Very efficient — trivial chip damage,0,
+3v3,Emperor Palp with Vader Dual's End,SEE,Sith Eternal Emperor,S,55,"Efficient — light damage, no losses",0,
+3v3,Emperor Palp with Vader Dual's End,JML,Jedi Master Luke,S,55,"Efficient — light damage, no losses",0,
+3v3,Emperor Palp with Vader Dual's End,LEIA,Leia Organa,S,55,"Efficient — light damage, no losses",0,

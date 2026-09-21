@@ -1,0 +1,17 @@
+Rule_ID,Battle_Type,Mode,Value,Notes
+VICTORY,ANY,ANY,15,Per battle won
+FIRST_ATTEMPT,ANY,ANY,30,Bonus for a first-attempt win
+SECOND_ATTEMPT,ANY,ANY,10,Bonus for a second-attempt win
+SURVIVING_UNIT,ANY,ANY,1,Per attacking unit alive at battle end
+UNUSED_SLOT,ANY,ANY,4,Per empty slot in the attacking squad
+FULL_HEALTH_UNIT,ANY,ANY,1,Per attacking unit on 100% health at battle end
+FULL_PROTECTION_UNIT,ANY,ANY,1,Per attacking unit on 100% protection at battle end
+DEFEATED_ENEMY,ANY,ANY,1,Per enemy unit defeated
+FIRST_ATTACK,ANY,ANY,10,One-off for the round's first battle
+TERRITORY_CLEAR_BASE,ANY,ANY,120,Base bonus for conquering a territory
+TERRITORY_CLEAR_PER_TEAM,SQUAD,5v5,30,Per defence squad in the conquered territory
+TERRITORY_CLEAR_PER_TEAM,SQUAD,3v3,28,Per defence squad in the conquered territory
+TERRITORY_CLEAR_PER_TEAM,FLEET,ANY,33,Per defence fleet in the conquered territory
+OWN_UNITS,FLEET,ANY,7,
+ENEMY_UNITS,FLEET,ANY,7,
+SETTING_DEFENCE,ANY,ANY,90,Per defence team set at round start

@@ -1,0 +1,5526 @@
+{
+  "boardConfig": {
+    "AURODIUM": {
+      "3v3": [
+        {
+          "teamCount": 4,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 4,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 5,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ],
+      "5v5": [
+        {
+          "teamCount": 3,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 3,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 3,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ]
+    },
+    "BRONZIUM": {
+      "3v3": [
+        {
+          "teamCount": 2,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 3,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ],
+      "5v5": [
+        {
+          "teamCount": 2,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ]
+    },
+    "CARBONITE": {
+      "3v3": [
+        {
+          "teamCount": 1,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 1,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ],
+      "5v5": [
+        {
+          "teamCount": 1,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 1,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 1,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ]
+    },
+    "CHROMIUM": {
+      "3v3": [
+        {
+          "teamCount": 3,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 3,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 4,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ],
+      "5v5": [
+        {
+          "teamCount": 3,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 2,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 2,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ]
+    },
+    "KYBER": {
+      "3v3": [
+        {
+          "teamCount": 5,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 5,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 3,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 5,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ],
+      "5v5": [
+        {
+          "teamCount": 4,
+          "territory": "FRONT_TOP",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 4,
+          "territory": "FRONT_BOTTOM",
+          "type": "SQUAD"
+        },
+        {
+          "teamCount": 3,
+          "territory": "BACK_TOP",
+          "type": "FLEET"
+        },
+        {
+          "teamCount": 3,
+          "territory": "BACK_BOTTOM",
+          "type": "SQUAD"
+        }
+      ]
+    }
+  },
+  "characterDefinitions": {
+    "0_0_0": {
+      "externalId": "TRIPLEZERO",
+      "name": "0-0-0",
+      "unitType": "CHARACTER"
+    },
+    "4_LOM": {
+      "externalId": "4LOM",
+      "name": "4-LOM",
+      "unitType": "CHARACTER"
+    },
+    "50R_T": {
+      "externalId": "50RT",
+      "name": "50R-T",
+      "unitType": "CHARACTER"
+    },
+    "AAYLA_SECURA": {
+      "externalId": "AAYLASECURA",
+      "name": "Aayla Secura",
+      "unitType": "CHARACTER"
+    },
+    "ADMIRAL_ACKBAR": {
+      "externalId": "ADMIRALACKBAR",
+      "name": "Admiral Ackbar",
+      "unitType": "CHARACTER"
+    },
+    "ADMIRAL_PIETT": {
+      "externalId": "ADMIRALPIETT",
+      "name": "Admiral Piett",
+      "unitType": "CHARACTER"
+    },
+    "ADMIRAL_RADDUS": {
+      "externalId": "ADMIRALRADDUS",
+      "name": "Admiral Raddus",
+      "unitType": "CHARACTER"
+    },
+    "ADMIRAL_TRENCH": {
+      "externalId": "TRENCH",
+      "name": "Admiral Trench",
+      "unitType": "CHARACTER"
+    },
+    "AHSOKA_TANO": {
+      "externalId": "GLAHSOKATANO",
+      "name": "Ahsoka Tano",
+      "unitType": "CHARACTER"
+    },
+    "AHSOKA_TANO_FULCRUM": {
+      "externalId": "FULCRUMAHSOKA",
+      "name": "Ahsoka Tano (Fulcrum)",
+      "unitType": "CHARACTER"
+    },
+    "AHSOKA_TANO_SNIPS": {
+      "externalId": "AHSOKATANO",
+      "name": "Ahsoka Tano (Snips)",
+      "unitType": "CHARACTER"
+    },
+    "AMILYN_HOLDO": {
+      "externalId": "AMILYNHOLDO",
+      "name": "Amilyn Holdo",
+      "unitType": "CHARACTER"
+    },
+    "ANAKINS_ETA_2_STARFIGHTER": {
+      "externalId": "JEDISTARFIGHTERANAKIN",
+      "name": "Anakin's Eta-2 Starfighter",
+      "unitType": "SHIP"
+    },
+    "ARC_170": {
+      "externalId": "ARC170CLONESERGEANT",
+      "name": "Clone Sergeant's ARC-170",
+      "unitType": "SHIP"
+    },
+    "ARC_TROOPER": {
+      "externalId": "ARCTROOPER501ST",
+      "name": "ARC Trooper",
+      "unitType": "CHARACTER"
+    },
+    "ARMORER": {
+      "externalId": "ARMORER",
+      "name": "The Armorer",
+      "unitType": "CHARACTER"
+    },
+    "ASAJJ_VENTRESS": {
+      "externalId": "ASAJVENTRESS",
+      "name": "Asajj Ventress",
+      "unitType": "CHARACTER"
+    },
+    "ASAJJ_VENTRESS_DARK_DISCIPLE": {
+      "externalId": "ASAJJDARKDISCIPLE",
+      "name": "Asajj Ventress (Dark Disciple)",
+      "unitType": "CHARACTER"
+    },
+    "AURRA_SING": {
+      "externalId": "AURRA_SING",
+      "name": "Aurra Sing",
+      "unitType": "CHARACTER"
+    },
+    "B1_BATTLE_DROID": {
+      "externalId": "B1BATTLEDROIDV2",
+      "name": "B1 Battle Droid",
+      "unitType": "CHARACTER"
+    },
+    "B2_SUPER_BATTLE_DROID": {
+      "externalId": "B2SUPERBATTLEDROID",
+      "name": "B2 Super Battle Droid",
+      "unitType": "CHARACTER"
+    },
+    "BAD_BATCH_ECHO": {
+      "externalId": "BADBATCHECHO",
+      "name": "Echo",
+      "unitType": "CHARACTER"
+    },
+    "BAD_BATCH_OMEGA": {
+      "externalId": "BADBATCHOMEGA",
+      "name": "Omega",
+      "unitType": "CHARACTER"
+    },
+    "BAD_BATCH_TECH": {
+      "externalId": "BADBATCHTECH",
+      "name": "Tech",
+      "unitType": "CHARACTER"
+    },
+    "BAD_BATCH_WRECKER": {
+      "externalId": "BADBATCHWRECKER",
+      "name": "Wrecker",
+      "unitType": "CHARACTER"
+    },
+    "BARRISS_OFFEE": {
+      "externalId": "BARRISSOFFEE",
+      "name": "Barriss Offee",
+      "unitType": "CHARACTER"
+    },
+    "BASTILA_SHAN": {
+      "externalId": "BASTILASHAN",
+      "name": "Bastila Shan",
+      "unitType": "CHARACTER"
+    },
+    "BASTILA_SHAN_FALLEN": {
+      "externalId": "BASTILASHANDARK",
+      "name": "Bastila Shan (Fallen)",
+      "unitType": "CHARACTER"
+    },
+    "BATCHER": {
+      "externalId": "BATCHERS3",
+      "name": "Batcher",
+      "unitType": "CHARACTER"
+    },
+    "BAYLAN_SKOLL": {
+      "externalId": "BAYLANSKOLL",
+      "name": "Baylan Skoll",
+      "unitType": "CHARACTER"
+    },
+    "BAZE_MALBUS": {
+      "externalId": "BAZEMALBUS",
+      "name": "Baze Malbus",
+      "unitType": "CHARACTER"
+    },
+    "BEN_SOLO": {
+      "externalId": "BENSOLO",
+      "name": "Ben Solo",
+      "unitType": "CHARACTER"
+    },
+    "BIGGS_DARKLIGHTER": {
+      "externalId": "BIGGSDARKLIGHTER",
+      "name": "Biggs Darklighter",
+      "unitType": "CHARACTER"
+    },
+    "BIGGS_DARKLIGHTER_X_WING": {
+      "externalId": "XWINGRED3",
+      "name": "Biggs Darklighter's X-wing",
+      "unitType": "SHIP"
+    },
+    "BISTAN": {
+      "externalId": "BISTAN",
+      "name": "Bistan",
+      "unitType": "CHARACTER"
+    },
+    "BISTAN_U_WING": {
+      "externalId": "UWINGSCARIF",
+      "name": "Bistan's U-wing",
+      "unitType": "SHIP"
+    },
+    "BOBA_FETT": {
+      "externalId": "BOBAFETT",
+      "name": "Boba Fett",
+      "unitType": "CHARACTER"
+    },
+    "BOBA_FETT_SCION_OF_JANGO": {
+      "externalId": "BOBAFETTSCION",
+      "name": "Boba Fett, Scion of Jango",
+      "unitType": "CHARACTER"
+    },
+    "BODHI_ROOK": {
+      "externalId": "BODHIROOK",
+      "name": "Bodhi Rook",
+      "unitType": "CHARACTER"
+    },
+    "BOSSK": {
+      "externalId": "BOSSK",
+      "name": "Bossk",
+      "unitType": "CHARACTER"
+    },
+    "BOSS_NASS": {
+      "externalId": "BOSSNASS",
+      "name": "Boss Nass",
+      "unitType": "CHARACTER"
+    },
+    "BOUSHH_LEIA_ORGANA": {
+      "externalId": "BOUSHH",
+      "name": "Boushh (Leia Organa)",
+      "unitType": "CHARACTER"
+    },
+    "BO_KATAN_KRYZE": {
+      "externalId": "BOKATAN",
+      "name": "Bo-Katan Kryze",
+      "unitType": "CHARACTER"
+    },
+    "BO_KATAN_MANDALOR": {
+      "externalId": "MANDALORBOKATAN",
+      "name": "Bo-Katan (Mand'alor)",
+      "unitType": "CHARACTER"
+    },
+    "BRUTUS": {
+      "externalId": "BRUTUS",
+      "name": "Brutus",
+      "unitType": "CHARACTER"
+    },
+    "C3PO": {
+      "externalId": "C3POLEGENDARY",
+      "name": "C-3PO",
+      "unitType": "CHARACTER"
+    },
+    "CAD_BANE": {
+      "externalId": "CADBANE",
+      "name": "Cad Bane",
+      "unitType": "CHARACTER"
+    },
+    "CAL_KESTIS": {
+      "externalId": "CALKESTIS",
+      "name": "Cal Kestis",
+      "unitType": "CHARACTER"
+    },
+    "CANDEROUS_ORDO": {
+      "externalId": "CANDEROUSORDO",
+      "name": "Canderous Ordo",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_CARSON_TEVA": {
+      "externalId": "CARSONTEVA",
+      "name": "Captain Carson Teva",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_DROGAN": {
+      "externalId": "CAPTAINDROGAN",
+      "name": "Captain Drogan",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_ENOCH": {
+      "externalId": "CAPTAINENOCH",
+      "name": "Captain Enoch",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_HAN_SOLO": {
+      "externalId": "HOTHHAN",
+      "name": "Captain Han Solo",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_ITHANO": {
+      "externalId": "ITHANO",
+      "name": "Captain Ithano",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_PHASMA": {
+      "externalId": "PHASMA",
+      "name": "Captain Phasma",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_REX": {
+      "externalId": "CAPTAINREX",
+      "name": "Captain Rex",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_SILVO": {
+      "externalId": "CAPTAINSILVO",
+      "name": "Captain Silvo",
+      "unitType": "CHARACTER"
+    },
+    "CAPTAIN_TARPALS": {
+      "externalId": "CAPTAINTARPALS",
+      "name": "Captain Tarpals",
+      "unitType": "CHARACTER"
+    },
+    "CARA_DUNE": {
+      "externalId": "CARADUNE",
+      "name": "Cara Dune",
+      "unitType": "CHARACTER"
+    },
+    "CARTH_ONASI": {
+      "externalId": "CARTHONASI",
+      "name": "Carth Onasi",
+      "unitType": "CHARACTER"
+    },
+    "CASSIANS_U_WING": {
+      "externalId": "UWINGROGUEONE",
+      "name": "Cassian's U-wing",
+      "unitType": "SHIP"
+    },
+    "CASSIAN_ANDOR": {
+      "externalId": "CASSIANANDOR",
+      "name": "Cassian Andor",
+      "unitType": "CHARACTER"
+    },
+    "CASSIAN_ANDOR_UNDERCOVER": {
+      "externalId": "CASSIANUNDERCOVER",
+      "name": "Cassian Andor (Undercover)",
+      "unitType": "CHARACTER"
+    },
+    "CC_1119_APPO": {
+      "externalId": "APPO",
+      "name": "CC-1119 \"Appo\"",
+      "unitType": "CHARACTER"
+    },
+    "CC_2224_CODY": {
+      "externalId": "CC2224",
+      "name": "CC-2224 \"Cody\"",
+      "unitType": "CHARACTER"
+    },
+    "CERE_JUNDA": {
+      "externalId": "CEREJUNDA",
+      "name": "Cere Junda",
+      "unitType": "CHARACTER"
+    },
+    "CHEWBACCA": {
+      "externalId": "CHEWBACCALEGENDARY",
+      "name": "Chewbacca",
+      "unitType": "CHARACTER"
+    },
+    "CHIEF_CHIRPA": {
+      "externalId": "CHIEFCHIRPA",
+      "name": "Chief Chirpa",
+      "unitType": "CHARACTER"
+    },
+    "CHIEF_NEBIT": {
+      "externalId": "CHIEFNEBIT",
+      "name": "Chief Nebit",
+      "unitType": "CHARACTER"
+    },
+    "CHIMAERA": {
+      "externalId": "CAPITALCHIMAERA",
+      "name": "Chimaera",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "CHIRRUT_IMWE": {
+      "externalId": "CHIRRUTIMWE",
+      "name": "Chirrut Îmwe",
+      "unitType": "CHARACTER"
+    },
+    "CHOPPER": {
+      "externalId": "CHOPPERS3",
+      "name": "Chopper",
+      "unitType": "CHARACTER"
+    },
+    "CINTA_KAZ": {
+      "externalId": "CINTA",
+      "name": "Cinta Kaz",
+      "unitType": "CHARACTER"
+    },
+    "CLONE_SERGEANT_PHASE_I": {
+      "externalId": "CLONESERGEANTPHASEI",
+      "name": "Clone Sergeant - Phase I",
+      "unitType": "CHARACTER"
+    },
+    "CLONE_WARS_CHEWBACCA": {
+      "externalId": "CLONEWARSCHEWBACCA",
+      "name": "Clone Wars Chewbacca",
+      "unitType": "CHARACTER"
+    },
+    "COBB_VANTH": {
+      "externalId": "COBBVANTH",
+      "name": "Cobb Vanth",
+      "unitType": "CHARACTER"
+    },
+    "COLONEL_STARCK": {
+      "externalId": "COLONELSTARCK",
+      "name": "Colonel Starck",
+      "unitType": "CHARACTER"
+    },
+    "COLONEL_WARD": {
+      "externalId": "BISHOP",
+      "name": "Colonel Ward",
+      "unitType": "CHARACTER"
+    },
+    "COMMANDER_AHSOKA_TANO": {
+      "externalId": "COMMANDERAHSOKA",
+      "name": "Commander Ahsoka Tano",
+      "unitType": "CHARACTER"
+    },
+    "COMMANDER_LUKE_SKYWALKER": {
+      "externalId": "COMMANDERLUKESKYWALKER",
+      "name": "Commander Luke Skywalker",
+      "unitType": "CHARACTER"
+    },
+    "CORUSCANT_UNDERWORLD_POLICE": {
+      "externalId": "CORUSCANTUNDERWORLDPOLICE",
+      "name": "Coruscant Underworld Police",
+      "unitType": "CHARACTER"
+    },
+    "COUNT_DOOKU": {
+      "externalId": "COUNTDOOKU",
+      "name": "Count Dooku",
+      "unitType": "CHARACTER"
+    },
+    "CROSSHAIR_SCARRED": {
+      "externalId": "CROSSHAIRS3",
+      "name": "Crosshair (Scarred)",
+      "unitType": "CHARACTER"
+    },
+    "CT_21_0408_ECHO": {
+      "externalId": "CT210408",
+      "name": "CT-21-0408 \"Echo\"",
+      "unitType": "CHARACTER"
+    },
+    "CT_5555_FIVES": {
+      "externalId": "CT5555",
+      "name": "CT-5555 \"Fives\"",
+      "unitType": "CHARACTER"
+    },
+    "CT_7567_REX": {
+      "externalId": "CT7567",
+      "name": "CT-7567 \"Rex\"",
+      "unitType": "CHARACTER"
+    },
+    "CX_2": {
+      "externalId": "OPERATIVE",
+      "name": "CX-2",
+      "unitType": "CHARACTER"
+    },
+    "DARK_TROOPER": {
+      "externalId": "DARKTROOPER",
+      "name": "Dark Trooper",
+      "unitType": "CHARACTER"
+    },
+    "DARK_TROOPER_MOFF_GIDEON": {
+      "externalId": "MOFFGIDEONS3",
+      "name": "Dark Trooper Moff Gideon",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_BANE": {
+      "externalId": "DARTHBANE",
+      "name": "Darth Bane",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_MALAK": {
+      "externalId": "DARTHMALAK",
+      "name": "Darth Malak",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_MALGUS": {
+      "externalId": "DARTHMALGUS",
+      "name": "Darth Malgus",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_MAUL": {
+      "externalId": "MAUL",
+      "name": "Darth Maul",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_NIHILUS": {
+      "externalId": "DARTHNIHILUS",
+      "name": "Darth Nihilus",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_REVAN": {
+      "externalId": "DARTHREVAN",
+      "name": "Darth Revan",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_SIDIOUS": {
+      "externalId": "DARTHSIDIOUS",
+      "name": "Darth Sidious",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_SION": {
+      "externalId": "DARTHSION",
+      "name": "Darth Sion",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_TALON": {
+      "externalId": "DARTHTALON",
+      "name": "Darth Talon",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_TRAYA": {
+      "externalId": "DARTHTRAYA",
+      "name": "Darth Traya",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_VADER": {
+      "externalId": "VADER",
+      "name": "Darth Vader",
+      "unitType": "CHARACTER"
+    },
+    "DARTH_VADER_DUALS_END": {
+      "externalId": "VADERDUELSEND",
+      "name": "Darth Vader Dual's End",
+      "unitType": "CHARACTER"
+    },
+    "DASH_RENDAR": {
+      "externalId": "DASHRENDAR",
+      "name": "Dash Rendar",
+      "unitType": "CHARACTER"
+    },
+    "DATHCHA": {
+      "externalId": "DATHCHA",
+      "name": "Dathcha",
+      "unitType": "CHARACTER"
+    },
+    "DEATH_TROOPER": {
+      "externalId": "DEATHTROOPER",
+      "name": "Death Trooper",
+      "unitType": "CHARACTER"
+    },
+    "DEDRA_MEERO": {
+      "externalId": "DEDRAMEERO",
+      "name": "Dedra Meero",
+      "unitType": "CHARACTER"
+    },
+    "DIRECTOR_KRENNIC": {
+      "externalId": "DIRECTORKRENNIC",
+      "name": "Director Krennic",
+      "unitType": "CHARACTER"
+    },
+    "DOCTOR_APHRA": {
+      "externalId": "DOCTORAPHRA",
+      "name": "Doctor Aphra",
+      "unitType": "CHARACTER"
+    },
+    "DROIDEKA": {
+      "externalId": "DROIDEKA",
+      "name": "Droideka",
+      "unitType": "CHARACTER"
+    },
+    "EBON_HAWK": {
+      "externalId": "EBONHAWK",
+      "name": "Ebon Hawk",
+      "unitType": "SHIP"
+    },
+    "EIGHTH_BROTHER": {
+      "externalId": "EIGHTHBROTHER",
+      "name": "Eighth Brother",
+      "unitType": "CHARACTER"
+    },
+    "EMPEROR_PALPATINE": {
+      "externalId": "EMPERORPALPATINE",
+      "name": "Emperor Palpatine",
+      "unitType": "CHARACTER"
+    },
+    "EMPEROR_PALPATINE_SHUTTLE": {
+      "externalId": "EMPERORSSHUTTLE",
+      "name": "Emperor Palpatine's Shuttle",
+      "unitType": "SHIP"
+    },
+    "ENDURANCE": {
+      "externalId": "CAPITALJEDICRUISER",
+      "name": "Endurance",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "ENFYS_NEST": {
+      "externalId": "ENFYSNEST",
+      "name": "Enfys Nest",
+      "unitType": "CHARACTER"
+    },
+    "EWOK_ELDER": {
+      "externalId": "EWOKELDER",
+      "name": "Ewok Elder",
+      "unitType": "CHARACTER"
+    },
+    "EWOK_SCOUT": {
+      "externalId": "EWOKSCOUT",
+      "name": "Ewok Scout",
+      "unitType": "CHARACTER"
+    },
+    "EXECUTOR": {
+      "externalId": "CAPITALEXECUTOR",
+      "name": "Executor",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "EXECUTRIX": {
+      "externalId": "CAPITALSTARDESTROYER",
+      "name": "Executrix",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "EZRA_BRIDGER": {
+      "externalId": "EZRABRIDGERS3",
+      "name": "Ezra Bridger",
+      "unitType": "CHARACTER"
+    },
+    "FENNEC_SHAND": {
+      "externalId": "FENNECSHAND",
+      "name": "Fennec Shand",
+      "unitType": "CHARACTER"
+    },
+    "FIFTH_BROTHER": {
+      "externalId": "FIFTHBROTHER",
+      "name": "Fifth Brother",
+      "unitType": "CHARACTER"
+    },
+    "FINALIZER": {
+      "externalId": "CAPITALFINALIZER",
+      "name": "Finalizer",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "FINN": {
+      "externalId": "FINN",
+      "name": "Finn",
+      "unitType": "CHARACTER"
+    },
+    "FIRST_ORDER_EXECUTIONER": {
+      "externalId": "FIRSTORDEREXECUTIONER",
+      "name": "First Order Executioner",
+      "unitType": "CHARACTER"
+    },
+    "FIRST_ORDER_OFFICER": {
+      "externalId": "FIRSTORDEROFFICERMALE",
+      "name": "First Order Officer",
+      "unitType": "CHARACTER"
+    },
+    "FIRST_ORDER_SF_TIE_PILOT": {
+      "externalId": "FIRSTORDERSPECIALFORCESPILOT",
+      "name": "First Order SF TIE Pilot",
+      "unitType": "CHARACTER"
+    },
+    "FIRST_ORDER_SPECIAL_FORCES_TIE_FIGHTER": {
+      "externalId": "TIEFIGHTERFOSF",
+      "name": "First Order Special Forces TIE Fighter",
+      "unitType": "SHIP"
+    },
+    "FIRST_ORDER_STORMTROOPER": {
+      "externalId": "FIRSTORDERTROOPER",
+      "name": "First Order Stormtrooper",
+      "unitType": "CHARACTER"
+    },
+    "FIRST_ORDER_TIE_FIGHTER": {
+      "externalId": "TIEFIGHTERFIRSTORDER",
+      "name": "First Order TIE Fighter",
+      "unitType": "SHIP"
+    },
+    "FIRST_ORDER_TIE_PILOT": {
+      "externalId": "FIRSTORDERTIEPILOT",
+      "name": "First Order TIE Pilot",
+      "unitType": "CHARACTER"
+    },
+    "GAMORREAN_GUARD": {
+      "externalId": "GAMORREANGUARD",
+      "name": "Gamorrean Guard",
+      "unitType": "CHARACTER"
+    },
+    "GAR_SAXON": {
+      "externalId": "GARSAXON",
+      "name": "Gar Saxon",
+      "unitType": "CHARACTER"
+    },
+    "GAUNTLET_STARFIGHTER": {
+      "externalId": "GAUNTLETSTARFIGHTER",
+      "name": "Gauntlet Starfighter",
+      "unitType": "SHIP"
+    },
+    "GENERAL_GRIEVOUS": {
+      "externalId": "GRIEVOUS",
+      "name": "General Grievous",
+      "unitType": "CHARACTER"
+    },
+    "GENERAL_HUX": {
+      "externalId": "GENERALHUX",
+      "name": "General Hux",
+      "unitType": "CHARACTER"
+    },
+    "GENERAL_KENOBI": {
+      "externalId": "GENERALKENOBI",
+      "name": "General Kenobi",
+      "unitType": "CHARACTER"
+    },
+    "GENERAL_SKYWALKER": {
+      "externalId": "GENERALSKYWALKER",
+      "name": "General Skywalker",
+      "unitType": "CHARACTER"
+    },
+    "GENERAL_SYNDULLA": {
+      "externalId": "GENERALSYNDULLA",
+      "name": "General Syndulla",
+      "unitType": "CHARACTER"
+    },
+    "GENERAL_VEERS": {
+      "externalId": "VEERS",
+      "name": "General Veers",
+      "unitType": "CHARACTER"
+    },
+    "GEONOSIAN_BROOD_ALPHA": {
+      "externalId": "GEONOSIANBROODALPHA",
+      "name": "Geonosian Brood Alpha",
+      "unitType": "CHARACTER"
+    },
+    "GEONOSIAN_SOLDIER": {
+      "externalId": "GEONOSIANSOLDIER",
+      "name": "Geonosian Soldier",
+      "unitType": "CHARACTER"
+    },
+    "GEONOSIAN_SOLDIER_STARFIGHTER": {
+      "externalId": "GEONOSIANSTARFIGHTER2",
+      "name": "Geonosian Soldier's Starfighter",
+      "unitType": "SHIP"
+    },
+    "GEONOSIAN_SPY": {
+      "externalId": "GEONOSIANSPY",
+      "name": "Geonosian Spy",
+      "unitType": "CHARACTER"
+    },
+    "GEONOSIAN_SPY_STARFIGHTER": {
+      "externalId": "GEONOSIANSTARFIGHTER3",
+      "name": "Geonosian Spy's Starfighter",
+      "unitType": "SHIP"
+    },
+    "GHOST": {
+      "externalId": "GHOST",
+      "name": "Ghost",
+      "unitType": "SHIP"
+    },
+    "GRANDMASTER_YODA": {
+      "externalId": "GRANDMASTERYODA",
+      "name": "Grandmaster Yoda",
+      "unitType": "CHARACTER"
+    },
+    "GRAND_ADMIRAL_THRAWN": {
+      "externalId": "GRANDADMIRALTHRAWN",
+      "name": "Grand Admiral Thrawn",
+      "unitType": "CHARACTER"
+    },
+    "GRAND_INQUISITOR": {
+      "externalId": "GRANDINQUISITOR",
+      "name": "Grand Inquisitor",
+      "unitType": "CHARACTER"
+    },
+    "GRAND_MOFF_TARKIN": {
+      "externalId": "GRANDMOFFTARKIN",
+      "name": "Grand Moff Tarkin",
+      "unitType": "CHARACTER"
+    },
+    "GREAT_MOTHERS": {
+      "externalId": "GREATMOTHERS",
+      "name": "Great Mothers",
+      "unitType": "CHARACTER"
+    },
+    "GREEF_KARGA": {
+      "externalId": "GREEFKARGA",
+      "name": "Greef Karga",
+      "unitType": "CHARACTER"
+    },
+    "GUNGAN_PHALANX": {
+      "externalId": "GUNGANPHALANX",
+      "name": "Gungan Phalanx",
+      "unitType": "CHARACTER"
+    },
+    "HANS_MILLENNIUM_FALCON": {
+      "externalId": "MILLENNIUMFALCON",
+      "name": "Han's Millennium Falcon",
+      "unitType": "SHIP"
+    },
+    "HAN_SOLO": {
+      "externalId": "HANSOLO",
+      "name": "Han Solo",
+      "unitType": "CHARACTER"
+    },
+    "HERA_SYNDULLA": {
+      "externalId": "HERASYNDULLAS3",
+      "name": "Hera Syndulla",
+      "unitType": "CHARACTER"
+    },
+    "HERMIT_YODA": {
+      "externalId": "HERMITYODA",
+      "name": "Hermit Yoda",
+      "unitType": "CHARACTER"
+    },
+    "HK_47": {
+      "externalId": "HK47",
+      "name": "HK-47",
+      "unitType": "CHARACTER"
+    },
+    "HOME_ONE": {
+      "externalId": "CAPITALMONCALAMARICRUISER",
+      "name": "Home One",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "HONDO_OHNAKA": {
+      "externalId": "HONDO",
+      "name": "Hondo Ohnaka",
+      "unitType": "CHARACTER"
+    },
+    "HOTH_REBEL_SCOUT": {
+      "externalId": "HOTHREBELSCOUT",
+      "name": "Hoth Rebel Scout",
+      "unitType": "CHARACTER"
+    },
+    "HOTH_REBEL_SOLDIER": {
+      "externalId": "HOTHREBELSOLDIER",
+      "name": "Hoth Rebel Soldier",
+      "unitType": "CHARACTER"
+    },
+    "HOUNDS_TOOTH": {
+      "externalId": "HOUNDSTOOTH",
+      "name": "Hound's Tooth",
+      "unitType": "SHIP"
+    },
+    "HUNTER": {
+      "externalId": "BADBATCHHUNTER",
+      "name": "Hunter",
+      "unitType": "CHARACTER"
+    },
+    "HYENA_BOMBER": {
+      "externalId": "HYENABOMBER",
+      "name": "Hyena Bomber",
+      "unitType": "SHIP"
+    },
+    "IDEN_VERSIO": {
+      "externalId": "IDENVERSIOEMPIRE",
+      "name": "Iden Versio",
+      "unitType": "CHARACTER"
+    },
+    "IG_100_MAGNAGUARD": {
+      "externalId": "MAGNAGUARD",
+      "name": "IG-100 MagnaGuard",
+      "unitType": "CHARACTER"
+    },
+    "IG_11": {
+      "externalId": "IG11",
+      "name": "IG-11",
+      "unitType": "CHARACTER"
+    },
+    "IG_2000": {
+      "externalId": "IG2000",
+      "name": "IG-2000",
+      "unitType": "SHIP"
+    },
+    "IG_88": {
+      "externalId": "IG88",
+      "name": "IG-88",
+      "unitType": "CHARACTER"
+    },
+    "IMPERIAL_PROBE_DROID": {
+      "externalId": "IMPERIALPROBEDROID",
+      "name": "Imperial Probe Droid",
+      "unitType": "CHARACTER"
+    },
+    "IMPERIAL_SUPER_COMMANDO": {
+      "externalId": "IMPERIALSUPERCOMMANDO",
+      "name": "Imperial Super Commando",
+      "unitType": "CHARACTER"
+    },
+    "IMPERIAL_TIE_BOMBER": {
+      "externalId": "TIEBOMBERIMPERIAL",
+      "name": "Imperial TIE Bomber",
+      "unitType": "SHIP"
+    },
+    "JABBA_THE_HUTT": {
+      "externalId": "JABBATHEHUTT",
+      "name": "Jabba the Hutt",
+      "unitType": "CHARACTER"
+    },
+    "JANGO_FETT": {
+      "externalId": "JANGOFETT",
+      "name": "Jango Fett",
+      "unitType": "CHARACTER"
+    },
+    "JAR_JAR_BINKS": {
+      "externalId": "JARJARBINKS",
+      "name": "Jar Jar Binks",
+      "unitType": "CHARACTER"
+    },
+    "JAWA": {
+      "externalId": "JAWA",
+      "name": "Jawa",
+      "unitType": "CHARACTER"
+    },
+    "JAWA_ENGINEER": {
+      "externalId": "JAWAENGINEER",
+      "name": "Jawa Engineer",
+      "unitType": "CHARACTER"
+    },
+    "JAWA_SCAVENGER": {
+      "externalId": "JAWASCAVENGER",
+      "name": "Jawa Scavenger",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_CONSULAR": {
+      "externalId": "JEDIKNIGHTCONSULAR",
+      "name": "Jedi Consular",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_CONSULAR_STARFIGHTER": {
+      "externalId": "JEDISTARFIGHTERCONSULAR",
+      "name": "Jedi Consular's Starfighter",
+      "unitType": "SHIP"
+    },
+    "JEDI_KNIGHT_ANAKIN": {
+      "externalId": "ANAKINKNIGHT",
+      "name": "Jedi Knight Anakin",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_KNIGHT_CAL_KESTIS": {
+      "externalId": "JEDIKNIGHTCAL",
+      "name": "Jedi Knight Cal Kestis",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_KNIGHT_GUARDIAN": {
+      "externalId": "JEDIKNIGHTGUARDIAN",
+      "name": "Jedi Knight Guardian",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_KNIGHT_LUKE_SKYWALKER": {
+      "externalId": "JEDIKNIGHTLUKE",
+      "name": "Jedi Knight Luke Skywalker",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_KNIGHT_REVAN": {
+      "externalId": "JEDIKNIGHTREVAN",
+      "name": "Jedi Knight Revan",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_MASTER_KENOBI": {
+      "externalId": "JEDIMASTERKENOBI",
+      "name": "Jedi Master Kenobi",
+      "unitType": "CHARACTER"
+    },
+    "JEDI_MASTER_LUKE": {
+      "externalId": "GRANDMASTERLUKE",
+      "name": "Jedi Master Luke Skywalker",
+      "unitType": "CHARACTER"
+    },
+    "JYN_ERSO": {
+      "externalId": "JYNERSO",
+      "name": "Jyn Erso",
+      "unitType": "CHARACTER"
+    },
+    "KANAN_JARRUS": {
+      "externalId": "KANANJARRUSS3",
+      "name": "Kanan Jarrus",
+      "unitType": "CHARACTER"
+    },
+    "KIT_FISTO": {
+      "externalId": "KITFISTO",
+      "name": "Kit Fisto",
+      "unitType": "CHARACTER"
+    },
+    "KRRSANTAN": {
+      "externalId": "KRRSANTAN",
+      "name": "Krrsantan",
+      "unitType": "CHARACTER"
+    },
+    "KUILL": {
+      "externalId": "KUIIL",
+      "name": "Kuiil",
+      "unitType": "CHARACTER"
+    },
+    "KYLO_REN": {
+      "externalId": "KYLOREN",
+      "name": "Kylo Ren",
+      "unitType": "CHARACTER"
+    },
+    "KYLO_REN_COMMAND_SHUTTLE": {
+      "externalId": "COMMANDSHUTTLE",
+      "name": "Kylo Ren's Command Shuttle",
+      "unitType": "SHIP"
+    },
+    "KYLO_REN_UNMASKED": {
+      "externalId": "KYLORENUNMASKED",
+      "name": "Kylo Ren (Unmasked)",
+      "unitType": "CHARACTER"
+    },
+    "K_2SO": {
+      "externalId": "K2SO",
+      "name": "K-2SO",
+      "unitType": "CHARACTER"
+    },
+    "L3_37": {
+      "externalId": "L3_37",
+      "name": "L3-37",
+      "unitType": "CHARACTER"
+    },
+    "LANDOS_MILLENNIUM_FALCON": {
+      "externalId": "MILLENNIUMFALCONPRISTINE",
+      "name": "Lando's Millennium Falcon",
+      "unitType": "SHIP"
+    },
+    "LANDO_CALRISSIAN": {
+      "externalId": "ADMINISTRATORLANDO",
+      "name": "Lando Calrissian",
+      "unitType": "CHARACTER"
+    },
+    "LEIA_ORGANA": {
+      "externalId": "GLLEIA",
+      "name": "Leia Organa",
+      "unitType": "CHARACTER"
+    },
+    "LEVIATHAN": {
+      "externalId": "CAPITALLEVIATHAN",
+      "name": "Leviathan",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "LOBOT": {
+      "externalId": "LOBOT",
+      "name": "Lobot",
+      "unitType": "CHARACTER"
+    },
+    "LOGRAY": {
+      "externalId": "LOGRAY",
+      "name": "Logray",
+      "unitType": "CHARACTER"
+    },
+    "LORD_VADER": {
+      "externalId": "LORDVADER",
+      "name": "Lord Vader",
+      "unitType": "CHARACTER"
+    },
+    "LUMINARA_UNDULI": {
+      "externalId": "LUMINARAUNDULI",
+      "name": "Luminara Unduli",
+      "unitType": "CHARACTER"
+    },
+    "MACE_WINDU": {
+      "externalId": "MACEWINDU",
+      "name": "Mace Windu",
+      "unitType": "CHARACTER"
+    },
+    "MAGMA_TROOPER": {
+      "externalId": "MAGMATROOPER",
+      "name": "Magma Trooper",
+      "unitType": "CHARACTER"
+    },
+    "MALEVOLENCE": {
+      "externalId": "CAPITALMALEVOLENCE",
+      "name": "Malevolence",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "MANDALORIAN": {
+      "externalId": "THEMANDALORIAN",
+      "name": "The Mandalorian",
+      "unitType": "CHARACTER"
+    },
+    "MANDALORIAN_BESKAR_ARMOR": {
+      "externalId": "THEMANDALORIANBESKARARMOR",
+      "name": "The Mandalorian (Beskar Armor)",
+      "unitType": "CHARACTER"
+    },
+    "MARA_JADE": {
+      "externalId": "MARAJADE",
+      "name": "Mara Jade",
+      "unitType": "CHARACTER"
+    },
+    "MAUL": {
+      "externalId": "MAULS7",
+      "name": "Maul",
+      "unitType": "CHARACTER"
+    },
+    "MAZ_KANATA": {
+      "externalId": "MAZKANATA",
+      "name": "Maz Kanata",
+      "unitType": "CHARACTER"
+    },
+    "MERRIN": {
+      "externalId": "MERRIN",
+      "name": "Merrin",
+      "unitType": "CHARACTER"
+    },
+    "MISSION_VAO": {
+      "externalId": "MISSIONVAO",
+      "name": "Mission Vao",
+      "unitType": "CHARACTER"
+    },
+    "MOFF_GIDEON": {
+      "externalId": "MOFFGIDEONS1",
+      "name": "Moff Gideon",
+      "unitType": "CHARACTER"
+    },
+    "MON_MOTHMA": {
+      "externalId": "MONMOTHMA",
+      "name": "Mon Mothma",
+      "unitType": "CHARACTER"
+    },
+    "MOTHER_TALZIN": {
+      "externalId": "MOTHERTALZIN",
+      "name": "Mother Talzin",
+      "unitType": "CHARACTER"
+    },
+    "NEGOTIATOR": {
+      "externalId": "CAPITALNEGOTIATOR",
+      "name": "Negotiator",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "NIGHTSISTER_ACOLYTE": {
+      "externalId": "NIGHTSISTERACOLYTE",
+      "name": "Nightsister Acolyte",
+      "unitType": "CHARACTER"
+    },
+    "NIGHTSISTER_INITIATE": {
+      "externalId": "NIGHTSISTERINITIATE",
+      "name": "Nightsister Initiate",
+      "unitType": "CHARACTER"
+    },
+    "NIGHTSISTER_SPIRIT": {
+      "externalId": "NIGHTSISTERSPIRIT",
+      "name": "Nightsister Spirit",
+      "unitType": "CHARACTER"
+    },
+    "NIGHTSISTER_ZOMBIE": {
+      "externalId": "NIGHTSISTERZOMBIE",
+      "name": "Nightsister Zombie",
+      "unitType": "CHARACTER"
+    },
+    "NINTH_SISTER": {
+      "externalId": "NINTHSISTER",
+      "name": "Ninth Sister",
+      "unitType": "CHARACTER"
+    },
+    "NUTE_GUNRAY": {
+      "externalId": "NUTEGUNRAY",
+      "name": "Nute Gunray",
+      "unitType": "CHARACTER"
+    },
+    "OBI_WAN_KENOBI_OLD_BEN": {
+      "externalId": "OLDBENKENOBI",
+      "name": "Obi-Wan Kenobi (Old Ben)",
+      "unitType": "CHARACTER"
+    },
+    "OLD_DAKA": {
+      "externalId": "DAKA",
+      "name": "Old Daka",
+      "unitType": "CHARACTER"
+    },
+    "OUTRIDER": {
+      "externalId": "OUTRIDER",
+      "name": "Outrider",
+      "unitType": "SHIP"
+    },
+    "PADME_AMIDALA": {
+      "externalId": "PADMEAMIDALA",
+      "name": "Padmé Amidala",
+      "unitType": "CHARACTER"
+    },
+    "PAO": {
+      "externalId": "PAO",
+      "name": "Pao",
+      "unitType": "CHARACTER"
+    },
+    "PAPLOO": {
+      "externalId": "PAPLOO",
+      "name": "Paploo",
+      "unitType": "CHARACTER"
+    },
+    "PHANTOM_II": {
+      "externalId": "PHANTOM2",
+      "name": "Phantom II",
+      "unitType": "SHIP"
+    },
+    "PLO_KOON": {
+      "externalId": "PLOKOON",
+      "name": "Plo Koon",
+      "unitType": "CHARACTER"
+    },
+    "PLO_KOON_JEDI_STARFIGHTER": {
+      "externalId": "BLADEOFDORIN",
+      "name": "Plo Koon's Jedi Starfighter",
+      "unitType": "SHIP"
+    },
+    "POE_DAMERON": {
+      "externalId": "POE",
+      "name": "Poe Dameron",
+      "unitType": "CHARACTER"
+    },
+    "POE_DAMERONS_X_WING": {
+      "externalId": "XWINGBLACKONE",
+      "name": "Poe Dameron's X-wing",
+      "unitType": "SHIP"
+    },
+    "POGGLE_THE_LESSER": {
+      "externalId": "POGGLETHELESSER",
+      "name": "Poggle the Lesser",
+      "unitType": "CHARACTER"
+    },
+    "PRINCESS_LEIA": {
+      "externalId": "PRINCESSLEIA",
+      "name": "Princess Leia",
+      "unitType": "CHARACTER"
+    },
+    "PROFUNDITY": {
+      "externalId": "CAPITALPROFUNDITY",
+      "name": "Profundity",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "QUEEN_AMIDALA": {
+      "externalId": "QUEENAMIDALA",
+      "name": "Queen Amidala",
+      "unitType": "CHARACTER"
+    },
+    "QUI_GON_JINN": {
+      "externalId": "QUIGONJINN",
+      "name": "Qui-Gon Jinn",
+      "unitType": "CHARACTER"
+    },
+    "R2_D2": {
+      "externalId": "R2D2_LEGENDARY",
+      "name": "R2-D2",
+      "unitType": "CHARACTER"
+    },
+    "RADDUS": {
+      "externalId": "CAPITALRADDUS",
+      "name": "Raddus",
+      "unitType": "CAPITAL_SHIP"
+    },
+    "RAVEN_CLAW": {
+      "externalId": "RAVENSCLAW",
+      "name": "Raven's Claw",
+      "unitType": "SHIP"
+    },
+    "RAZOR_CREST": {
+      "externalId": "RAZORCREST",
+      "name": "Razor Crest",
+      "unitType": "SHIP"
+    },
+    "REBEL_OFFICER_LEIA": {
+      "externalId": "HOTHLEIA",
+      "name": "Rebel Officer Leia Organa",
+      "unitType": "CHARACTER"
+    },
+    "RESISTANCE_HERO_FINN": {
+      "externalId": "EPIXFINN",
+      "name": "Resistance Hero Finn",
+      "unitType": "CHARACTER"
+    },
+    "RESISTANCE_HERO_POE": {
+      "externalId": "EPIXPOE",
+      "name": "Resistance Hero Poe",
+      "unitType": "CHARACTER"
+    },
+    "RESISTANCE_PILOT": {
+      "externalId": "RESISTANCEPILOT",
+      "name": "Resistance Pilot",
+      "unitType": "CHARACTER"
+    },
+    "RESISTANCE_TROOPER": {
+      "externalId": "RESISTANCETROOPER",
+      "name": "Resistance Trooper",
+      "unitType": "CHARACTER"
+    },
+    "REX_SHUTTLE": {
+      "externalId": "ARC170REX",
+      "name": "Rex's ARC-170",
+      "unitType": "SHIP"
+    },
+    "REY": {
+      "externalId": "GLREY",
+      "name": "Rey",
+      "unitType": "CHARACTER"
+    },
+    "REY_FALCON": {
+      "externalId": "MILLENNIUMFALCONEP7",
+      "name": "Rey's Millennium Falcon",
+      "unitType": "SHIP"
+    },
+    "REY_JEDI_TRAINING": {
+      "externalId": "REYJEDITRAINING",
+      "name": "Rey (Jedi Training)",
+      "unitType": "CHARACTER"
+    },
+    "REY_SCAVENGER": {
+      "externalId": "REY",
+      "name": "Rey (Scavenger)",
+      "unitType": "CHARACTER"
+    },
+    "ROSE_TICO": {
+      "externalId": "ROSETICO",
+      "name": "Rose Tico",
+      "unitType": "CHARACTER"
+    },
+    "ROYAL_GUARD": {
+      "externalId": "ROYALGUARD",
+      "name": "Royal Guard",
+      "unitType": "CHARACTER"
+    },
+    "SABINE_WREN": {
+      "externalId": "SABINEWRENS3",
+      "name": "Sabine Wren",
+      "unitType": "CHARACTER"
+    },
+    "SANA_STARROS": {
+      "externalId": "SANASTARROS",
+      "name": "Sana Starros",
+      "unitType": "CHARACTER"
+    },
+    "SATELE_SHAN": {
+      "externalId": "SATELESHAN",
+      "name": "Satele Shan",
+      "unitType": "CHARACTER"
+    },
+    "SAVAGE_OPRESS": {
+      "externalId": "SAVAGEOPRESS",
+      "name": "Savage Opress",
+      "unitType": "CHARACTER"
+    },
+    "SAW_GERRERA": {
+      "externalId": "SAWGERRERA",
+      "name": "Saw Gerrera",
+      "unitType": "CHARACTER"
+    },
+    "SCARIF_REBEL_PATHFINDER": {
+      "externalId": "SCARIFREBEL",
+      "name": "Scarif Rebel Pathfinder",
+      "unitType": "CHARACTER"
+    },
+    "SCIMITAR": {
+      "externalId": "SITHINFILTRATOR",
+      "name": "Scimitar",
+      "unitType": "SHIP"
+    },
+    "SCOUT_TROOPER": {
+      "externalId": "SCOUTTROOPER_V3",
+      "name": "Scout Trooper",
+      "unitType": "CHARACTER"
+    },
+    "SCYTHE": {
+      "externalId": "SCYTHE",
+      "name": "Scythe",
+      "unitType": "SHIP"
+    },
+    "SECOND_SISTER": {
+      "externalId": "SECONDSISTER",
+      "name": "Second Sister",
+      "unitType": "CHARACTER"
+    },
+    "SEVENTH_SISTER": {
+      "externalId": "SEVENTHSISTER",
+      "name": "Seventh Sister",
+      "unitType": "CHARACTER"
+    },
+    "SHAAK_TI": {
+      "externalId": "SHAAKTI",
+      "name": "Shaak Ti",
+      "unitType": "CHARACTER"
+    },
+    "SHIN_HATI": {
+      "externalId": "SHINHATI",
+      "name": "Shin Hati",
+      "unitType": "CHARACTER"
+    },
+    "SHORETROOPER": {
+      "externalId": "SHORETROOPER",
+      "name": "Shoretrooper",
+      "unitType": "CHARACTER"
+    },
+    "SITH_ASSASSIN": {
+      "externalId": "SITHASSASSIN",
+      "name": "Sith Assassin",
+      "unitType": "CHARACTER"
+    },
+    "SITH_EMPIRE_TROOPER": {
+      "externalId": "SITHTROOPER",
+      "name": "Sith Empire Trooper",
+      "unitType": "CHARACTER"
+    },
+    "SITH_ETERNAL_EMPEROR": {
+      "externalId": "SITHPALPATINE",
+      "name": "Sith Eternal Emperor",
+      "unitType": "CHARACTER"
+    },
+    "SITH_FIGHTER": {
+      "externalId": "SITHFIGHTER",
+      "name": "Sith Fighter",
+      "unitType": "SHIP"
+    },
+    "SITH_MARAUDER": {
+      "externalId": "SITHMARAUDER",
+      "name": "Sith Marauder",
+      "unitType": "CHARACTER"
+    },
+    "SITH_TROOPER": {
+      "externalId": "FOSITHTROOPER",
+      "name": "Sith Trooper",
+      "unitType": "CHARACTER"
+    },
+    "SLAVE_I": {
+      "externalId": "SLAVE1",
+      "name": "Slave I",
+      "unitType": "SHIP"
+    },
+    "SNOWTROOPER": {
+      "externalId": "SNOWTROOPER",
+      "name": "Snowtrooper",
+      "unitType": "CHARACTER"
+    },
+    "STAP": {
+      "externalId": "STAP",
+      "name": "STAP",
+      "unitType": "CHARACTER"
+    },
+    "STARKILLER": {
+      "externalId": "STARKILLER",
+      "name": "Starkiller",
+      "unitType": "CHARACTER"
+    },
+    "STORMTROOPER": {
+      "externalId": "STORMTROOPER",
+      "name": "Stormtrooper",
+      "unitType": "CHARACTER"
+    },
+    "STORMTROOPER_HAN": {
+      "externalId": "STORMTROOPERHAN",
+      "name": "Stormtrooper Han",
+      "unitType": "CHARACTER"
+    },
+    "SUN_FAC": {
+      "externalId": "SUNFAC",
+      "name": "Sun Fac",
+      "unitType": "CHARACTER"
+    },
+    "SUN_FAC_GEONOSIAN_STARFIGHTER": {
+      "externalId": "GEONOSIANSTARFIGHTER1",
+      "name": "Sun Fac's Geonosian Starfighter",
+      "unitType": "SHIP"
+    },
+    "SUPREME_LEADER_KYLO_REN": {
+      "externalId": "SUPREMELEADERKYLOREN",
+      "name": "Supreme Leader Kylo Ren",
+      "unitType": "CHARACTER"
+    },
+    "TALIA": {
+      "externalId": "TALIA",
+      "name": "Talia",
+      "unitType": "CHARACTER"
+    },
+    "TARON_MALICOS": {
+      "externalId": "TARONMALICOS",
+      "name": "Taron Malicos",
+      "unitType": "CHARACTER"
+    },
+    "TEEBO": {
+      "externalId": "TEEBO",
+      "name": "Teebo",
+      "unitType": "CHARACTER"
+    },
+    "THE_STRANGER": {
+      "externalId": "STRANGER",
+      "name": "The Stranger",
+      "unitType": "CHARACTER"
+    },
+    "THIRD_SISTER": {
+      "externalId": "THIRDSISTER",
+      "name": "Third Sister",
+      "unitType": "CHARACTER"
+    },
+    "TIE_ADVANCED_x1": {
+      "externalId": "TIEADVANCED",
+      "name": "TIE Advanced x1",
+      "unitType": "SHIP"
+    },
+    "TIE_DEFENDER": {
+      "externalId": "TIEDEFENDER",
+      "name": "TIE Defender",
+      "unitType": "SHIP"
+    },
+    "TIE_FIGHTER_PILOT": {
+      "externalId": "TIEFIGHTERPILOT",
+      "name": "TIE Fighter Pilot",
+      "unitType": "CHARACTER"
+    },
+    "TIE_INTERCEPTOR": {
+      "externalId": "TIEINTERCEPTOR",
+      "name": "TIE/IN Interceptor",
+      "unitType": "SHIP"
+    },
+    "TIE_REAPER": {
+      "externalId": "TIEREAPER",
+      "name": "TIE Reaper",
+      "unitType": "SHIP"
+    },
+    "TIE_SILENCER": {
+      "externalId": "TIESILENCER",
+      "name": "TIE Silencer",
+      "unitType": "SHIP"
+    },
+    "TUSKEN_CHIEFTAN": {
+      "externalId": "TUSKENCHIEFTAIN",
+      "name": "Tusken Chieftain",
+      "unitType": "CHARACTER"
+    },
+    "TUSKEN_RAIDER": {
+      "externalId": "TUSKENRAIDER",
+      "name": "Tusken Raider",
+      "unitType": "CHARACTER"
+    },
+    "TUSKEN_SHAMAN": {
+      "externalId": "TUSKENSHAMAN",
+      "name": "Tusken Shaman",
+      "unitType": "CHARACTER"
+    },
+    "URORRURRR": {
+      "externalId": "URORRURRR",
+      "name": "URoRRuR'R'R",
+      "unitType": "CHARACTER"
+    },
+    "VISAS_MARR": {
+      "externalId": "VISASMARR",
+      "name": "Visas Marr",
+      "unitType": "CHARACTER"
+    },
+    "WAMPA": {
+      "externalId": "WAMPA",
+      "name": "Wampa",
+      "unitType": "CHARACTER"
+    },
+    "WATT_TAMBOR": {
+      "externalId": "WATTAMBOR",
+      "name": "Wat Tambor",
+      "unitType": "CHARACTER"
+    },
+    "WEDGE_ANTILLES": {
+      "externalId": "WEDGEANTILLES",
+      "name": "Wedge Antilles",
+      "unitType": "CHARACTER"
+    },
+    "WEDGE_ANTILLES_X_WING": {
+      "externalId": "XWINGRED2",
+      "name": "Wedge Antilles's X-wing",
+      "unitType": "SHIP"
+    },
+    "XANADU_BLOOD": {
+      "externalId": "XANADUBLOOD",
+      "name": "Xanadu Blood",
+      "unitType": "SHIP"
+    },
+    "YOUNG_HAN_SOLO": {
+      "externalId": "YOUNGHAN",
+      "name": "Young Han Solo",
+      "unitType": "CHARACTER"
+    },
+    "YOUNG_LANDO": {
+      "externalId": "YOUNGLANDO",
+      "name": "Young Lando Calrissian",
+      "unitType": "CHARACTER"
+    },
+    "ZAALBAR": {
+      "externalId": "ZAALBAR",
+      "name": "Zaalbar",
+      "unitType": "CHARACTER"
+    },
+    "ZAM_WESELL": {
+      "externalId": "ZAMWESELL",
+      "name": "Zam Wesell",
+      "unitType": "CHARACTER"
+    },
+    "ZEB_ORRELIOS": {
+      "externalId": "ZEBS3",
+      "name": "Zeb Orrelios",
+      "unitType": "CHARACTER"
+    }
+  },
+  "counterDefinitions": {
+    "50R_T": {
+      "name": "Shorty",
+      "recommended": [],
+      "required": [
+        "50R_T"
+      ]
+    },
+    "ADMIRAL_RADDUS": {
+      "name": "Admiral Raddus",
+      "recommended": [],
+      "required": [
+        "ADMIRAL_RADDUS",
+        "JYN_ERSO"
+      ]
+    },
+    "BAD_BATCH": {
+      "name": "Bad Batch",
+      "recommended": [],
+      "required": [
+        "HUNTER"
+      ]
+    },
+    "BANE": {
+      "name": "Bane",
+      "recommended": [],
+      "required": [
+        "DARTH_BANE"
+      ]
+    },
+    "BAYLAN": {
+      "name": "Baylan Skoll",
+      "recommended": [],
+      "required": [
+        "BAYLAN_SKOLL"
+      ]
+    },
+    "BOBA_FETT_SCION_OF_JANGO": {
+      "name": "Boba and Fennec",
+      "recommended": [],
+      "required": [
+        "BOBA_FETT_SCION_OF_JANGO",
+        "FENNEC_SHAND"
+      ]
+    },
+    "BOSSK": {
+      "name": "Bossk",
+      "recommended": [],
+      "required": [
+        "BOSSK"
+      ]
+    },
+    "BO_KATAN_MANDALORE": {
+      "name": "Bo-Katan Mandalore",
+      "recommended": [],
+      "required": [
+        "BO_KATAN_MANDALOR"
+      ]
+    },
+    "CERE": {
+      "name": "Cere UFU",
+      "recommended": [],
+      "required": [
+        "CERE_JUNDA",
+        "TARON_MALICOS"
+      ]
+    },
+    "CERE_SK": {
+      "name": "Cere Starkiller",
+      "recommended": [],
+      "required": [
+        "CERE_JUNDA",
+        "TARON_MALICOS",
+        "STARKILLER"
+      ]
+    },
+    "CHIMAERA": {
+      "name": "Chimaera",
+      "recommended": [],
+      "required": [
+        "CHIMAERA"
+      ]
+    },
+    "CLS": {
+      "name": "CLS",
+      "recommended": [],
+      "required": [
+        "COMMANDER_LUKE_SKYWALKER"
+      ]
+    },
+    "DARTH_NIHILUS": {
+      "name": "Darth Nihilus",
+      "recommended": [],
+      "required": [
+        "DARTH_NIHILUS"
+      ]
+    },
+    "DARTH_REVAN": {
+      "name": "Darth Revan",
+      "recommended": [],
+      "required": [
+        "DARTH_REVAN"
+      ]
+    },
+    "DASH": {
+      "name": "Dash Rendar",
+      "recommended": [],
+      "required": [
+        "DASH_RENDAR"
+      ]
+    },
+    "ENDURANCE": {
+      "name": "Endurance",
+      "recommended": [],
+      "required": [
+        "ENDURANCE"
+      ]
+    },
+    "ENOCH": {
+      "name": "Enoch",
+      "recommended": [],
+      "required": [
+        "CAPTAIN_ENOCH"
+      ]
+    },
+    "EXECUTOR": {
+      "name": "Executor",
+      "recommended": [],
+      "required": [
+        "EXECUTOR"
+      ]
+    },
+    "EXECUTRIX": {
+      "name": "Executrix",
+      "recommended": [],
+      "required": [
+        "EXECUTRIX"
+      ]
+    },
+    "FINALIZER": {
+      "name": "Finalizer",
+      "recommended": [],
+      "required": [
+        "FINALIZER"
+      ]
+    },
+    "GAS": {
+      "name": "GAS",
+      "recommended": [],
+      "required": [
+        "GENERAL_SKYWALKER"
+      ]
+    },
+    "GI": {
+      "name": "Grand Inquisitor",
+      "recommended": [],
+      "required": [
+        "GRAND_INQUISITOR"
+      ]
+    },
+    "GREAT_MOTHERS": {
+      "name": "Great Mothers",
+      "recommended": [],
+      "required": [
+        "GREAT_MOTHERS"
+      ]
+    },
+    "GUNGANS": {
+      "name": "Gungans",
+      "recommended": [],
+      "required": [
+        "BOSS_NASS"
+      ]
+    },
+    "HOME_ONE": {
+      "name": "Home One",
+      "recommended": [],
+      "required": [
+        "HOME_ONE"
+      ]
+    },
+    "JABBA": {
+      "name": "Jabba",
+      "recommended": [],
+      "required": [
+        "JABBA_THE_HUTT"
+      ]
+    },
+    "JAWAS": {
+      "name": "Jawas",
+      "recommended": [],
+      "required": [
+        "CHIEF_NEBIT"
+      ]
+    },
+    "JKCK": {
+      "name": "JKCK",
+      "recommended": [],
+      "required": [
+        "JEDI_KNIGHT_CAL_KESTIS"
+      ]
+    },
+    "JKL": {
+      "name": "Jedi Knight Luke",
+      "recommended": [],
+      "required": [
+        "JEDI_KNIGHT_LUKE_SKYWALKER"
+      ]
+    },
+    "JKR": {
+      "name": "Jedi Knight Revan",
+      "recommended": [],
+      "required": [
+        "JEDI_KNIGHT_REVAN"
+      ]
+    },
+    "JMK": {
+      "name": "Jedi Master Kenobi",
+      "recommended": [],
+      "required": [
+        "JEDI_MASTER_KENOBI"
+      ]
+    },
+    "JML": {
+      "name": "Jedi Master Luke",
+      "recommended": [],
+      "required": [
+        "JEDI_MASTER_LUKE"
+      ]
+    },
+    "LEIA": {
+      "name": "Leia Organa",
+      "recommended": [
+        "CAPTAIN_DROGAN",
+        "R2_D2"
+      ],
+      "required": [
+        "LEIA_ORGANA"
+      ]
+    },
+    "LEVIATHAN": {
+      "name": "Leviathan",
+      "recommended": [],
+      "required": [
+        "LEVIATHAN"
+      ]
+    },
+    "LORD_VADER": {
+      "name": "Lord Vader",
+      "recommended": [],
+      "required": [
+        "LORD_VADER"
+      ]
+    },
+    "MALAK": {
+      "name": "Malak (solo)",
+      "recommended": [],
+      "required": [
+        "DARTH_MALAK"
+      ]
+    },
+    "MALEVOLENCE": {
+      "name": "Malevolence",
+      "recommended": [],
+      "required": [
+        "MALEVOLENCE"
+      ]
+    },
+    "MALGUS": {
+      "name": "Darth Malgus",
+      "recommended": [],
+      "required": [
+        "DARTH_MALGUS"
+      ]
+    },
+    "MAUL": {
+      "name": "Maul",
+      "recommended": [],
+      "required": [
+        "MAUL",
+        "CANDEROUS_ORDO",
+        "JANGO_FETT"
+      ]
+    },
+    "MAZ_KANATA": {
+      "name": "MAZ_KANATA",
+      "recommended": [],
+      "required": [
+        "MAZ_KANATA"
+      ]
+    },
+    "MOTHER_TALZIN": {
+      "name": "Mother Talzin",
+      "recommended": [],
+      "required": [
+        "MOTHER_TALZIN"
+      ]
+    },
+    "NEGOTIATOR": {
+      "name": "Negotiator",
+      "recommended": [],
+      "required": [
+        "NEGOTIATOR"
+      ]
+    },
+    "PHOENIX": {
+      "name": "Phoenix",
+      "recommended": [],
+      "required": [
+        "HERA_SYNDULLA"
+      ]
+    },
+    "PROFUNDITY": {
+      "name": "Profundity",
+      "recommended": [],
+      "required": [
+        "PROFUNDITY"
+      ]
+    },
+    "QUEEN_AMIDALA": {
+      "name": "Queen Amidala",
+      "recommended": [],
+      "required": [
+        "QUEEN_AMIDALA"
+      ]
+    },
+    "RADDUS": {
+      "name": "Raddus",
+      "recommended": [],
+      "required": [
+        "RADDUS"
+      ]
+    },
+    "REVA": {
+      "name": "Reva",
+      "recommended": [],
+      "required": [
+        "THIRD_SISTER"
+      ]
+    },
+    "SATELE_SHAN": {
+      "name": "Satele Shan",
+      "recommended": [],
+      "required": [
+        "SATELE_SHAN"
+      ]
+    },
+    "SAW_GERRERA": {
+      "name": "Saw Gerrera",
+      "recommended": [],
+      "required": [
+        "SAW_GERRERA"
+      ]
+    },
+    "SEE": {
+      "name": "Sith Eternal Emperor",
+      "recommended": [],
+      "required": [
+        "SITH_ETERNAL_EMPEROR"
+      ]
+    },
+    "SEE_BANE": {
+      "name": "SEE and Bane",
+      "recommended": [],
+      "required": [
+        "SITH_ETERNAL_EMPEROR",
+        "DARTH_BANE"
+      ]
+    },
+    "SLKR": {
+      "name": "SLKR",
+      "recommended": [],
+      "required": [
+        "SUPREME_LEADER_KYLO_REN"
+      ]
+    },
+    "STARKILLER": {
+      "name": "Starkiller",
+      "recommended": [],
+      "required": [
+        "STARKILLER",
+        "EMPEROR_PALPATINE",
+        "MARA_JADE"
+      ]
+    },
+    "THE_STRANGER": {
+      "name": "The Stranger",
+      "recommended": [],
+      "required": [
+        "THE_STRANGER"
+      ]
+    },
+    "TRAYA": {
+      "name": "Darth Traya",
+      "recommended": [],
+      "required": [
+        "DARTH_TRAYA",
+        "DARTH_NIHILUS"
+      ]
+    },
+    "VEERS": {
+      "name": "Imperial Troopers",
+      "recommended": [],
+      "required": [
+        "GENERAL_VEERS"
+      ]
+    },
+    "WAMPA": {
+      "name": "Wampa",
+      "recommended": [],
+      "required": [
+        "WAMPA"
+      ]
+    }
+  },
+  "counters": {
+    "3v3": {
+      "Admiral Raddus": [
+        {
+          "bannerScore": 55,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Jedi Knight Revan",
+          "counterId": "JKR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Admiral Trench": [
+        {
+          "bannerScore": 56,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Queen Amidala",
+          "counterId": "QUEEN_AMIDALA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Malgus",
+          "counterId": "MALGUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 2
+        }
+      ],
+      "Ahsoka Tano": [
+        {
+          "bannerScore": 53,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "A",
+          "undersize": 1
+        }
+      ],
+      "Baylan Skoll": [
+        {
+          "bannerScore": 54,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Bo-Katan Mandalore": [
+        {
+          "bannerScore": 54,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Try dropping a unit for efficiency",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Darth Nihilus",
+          "counterId": "DARTH_NIHILUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "CLS": [
+        {
+          "bannerScore": 55,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Phoenix",
+          "counterId": "PHOENIX",
+          "notes": "Must have Captain Rex",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Cassian Andor (Undercover)": [
+        {
+          "bannerScore": 55,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Dash Rendar",
+          "counterId": "DASH",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 2
+        }
+      ],
+      "Cere UFU": [
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Dark Trooper Moff Gideon": [
+        {
+          "bannerScore": 55,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Darth Malgus": [
+        {
+          "bannerScore": 56,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Jedi Knight Luke",
+          "counterId": "JKL",
+          "notes": "With Cal and Hermit",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Darth Revan with Zaalbar": [
+        {
+          "bannerScore": 55,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 51,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 51,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "May need cleanup",
+          "tier": "C",
+          "undersize": 0
+        }
+      ],
+      "Dash Rendar": [
+        {
+          "bannerScore": 51,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Dr Aphra": [
+        {
+          "bannerScore": 54,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Try dropping a unit for efficiency",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Emperor Palp with Vader Dual's End": [
+        {
+          "bannerScore": 54,
+          "counter": "Lord Vader",
+          "counterId": "LORD_VADER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Bad Batch",
+          "counterId": "BAD_BATCH",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Gungans",
+          "counterId": "GUNGANS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Darth Malgus",
+          "counterId": "MALGUS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Saw Gerrera",
+          "counterId": "SAW_GERRERA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "The Stranger",
+          "counterId": "THE_STRANGER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Enoch": [
+        {
+          "bannerScore": 56,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "C-3PO and Chewie",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Finn": [
+        {
+          "bannerScore": 53,
+          "counter": "Mother Talzin",
+          "counterId": "MOTHER_TALZIN",
+          "notes": "Reliable",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Cere Starkiller",
+          "counterId": "CERE_SK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "GAS": [
+        {
+          "bannerScore": 53,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "General Grievous": [
+        {
+          "bannerScore": 54,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "",
+          "tier": "B",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Admiral Raddus",
+          "counterId": "ADMIRAL_RADDUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Geonosian": [
+        {
+          "bannerScore": 53,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Jawas",
+          "counterId": "JAWAS",
+          "notes": "Hold off AoE first turn.",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Grand Inquisitor": [
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Grand Moff Tarkin": [
+        {
+          "bannerScore": 56,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Great Mothers": [
+        {
+          "bannerScore": 55,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Reliable",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Gungans": [
+        {
+          "bannerScore": 48,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "Manual control",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Mother Talzin",
+          "counterId": "MOTHER_TALZIN",
+          "notes": "Manual control",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Hondo": [
+        {
+          "bannerScore": 53,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Inquisitor Barriss": [
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Jabba": [
+        {
+          "bannerScore": 48,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "Cleanup only",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "Cleanup only",
+          "tier": "C",
+          "undersize": 0
+        }
+      ],
+      "Jedi Knight Revan": [
+        {
+          "bannerScore": 54,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Jedi Master Kenobi": [
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "Cleanup only",
+          "tier": "C",
+          "undersize": 0
+        }
+      ],
+      "Jedi Master Luke": [
+        {
+          "bannerScore": 48,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "Cleanup only",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Cere Starkiller",
+          "counterId": "CERE_SK",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Jedi Master Mace Windu": [
+        {
+          "bannerScore": 55,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Jedi Training Rey": [
+        {
+          "bannerScore": 52,
+          "counter": "Jedi Knight Revan",
+          "counterId": "JKR",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Kelleran Beq": [
+        {
+          "bannerScore": 55,
+          "counter": "Darth Nihilus",
+          "counterId": "DARTH_NIHILUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Maul",
+          "counterId": "MAUL",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Leia Organa": [
+        {
+          "bannerScore": 52,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "Reliable",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 51,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "Use Savage Opress",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Lord Vader": [
+        {
+          "bannerScore": 52,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "Cleanup risk vs dark side clones",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "Maul",
+          "counterId": "MAUL",
+          "notes": "Cleanup only",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "C",
+          "undersize": 0
+        }
+      ],
+      "Mauldalorians": [
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Jawas",
+          "counterId": "JAWAS",
+          "notes": "Hold off AoE first turn.",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Maz Kanata": [
+        {
+          "bannerScore": 52,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Mon Mothma": [
+        {
+          "bannerScore": 56,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Imperial Troopers",
+          "counterId": "VEERS",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Mother Talzin": [
+        {
+          "bannerScore": 53,
+          "counter": "Bossk",
+          "counterId": "BOSSK",
+          "notes": "Manual",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Omega (Fugitive)": [
+        {
+          "bannerScore": 54,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Shorty",
+          "counterId": "50R_T",
+          "notes": "BB8 and Chewpio",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Padme Amidala": [
+        {
+          "bannerScore": 54,
+          "counter": "Malak (solo)",
+          "counterId": "MALAK",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 2
+        }
+      ],
+      "Queen Amidala": [
+        {
+          "bannerScore": 53,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Lord Vader",
+          "counterId": "LORD_VADER",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Qui-Gon Jinn": [
+        {
+          "bannerScore": 54,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Enoch",
+          "counterId": "ENOCH",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "Jedi Knight Revan",
+          "counterId": "JKR",
+          "notes": "May need cleanup",
+          "tier": "C",
+          "undersize": 0
+        }
+      ],
+      "Reva": [
+        {
+          "bannerScore": 50,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "Include Malak for reliability",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Rex": [
+        {
+          "bannerScore": 54,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Rey": [
+        {
+          "bannerScore": 53,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Cere Starkiller",
+          "counterId": "CERE_SK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 52,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 48,
+          "counter": "Admiral Raddus",
+          "counterId": "ADMIRAL_RADDUS",
+          "notes": "Cleanup only",
+          "tier": "C",
+          "undersize": 0
+        }
+      ],
+      "SLKR": [
+        {
+          "bannerScore": 55,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Satele Shan": [
+        {
+          "bannerScore": 52,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Saw Gerrera": [
+        {
+          "bannerScore": 54,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Stormtrooper Luke": [
+        {
+          "bannerScore": 54,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "No auto",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "HK47 sufficient, leave Malak out",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Tarfful": [
+        {
+          "bannerScore": 54,
+          "counter": "Darth Revan",
+          "counterId": "DARTH_REVAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "The Stranger": [
+        {
+          "bannerScore": 52,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 50,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 53,
+          "counter": "SEE and Bane",
+          "counterId": "SEE_BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Traya": [
+        {
+          "bannerScore": 54,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Try dropping a unit for efficiency",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 53,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Tusken": [
+        {
+          "bannerScore": 54,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Admiral Raddus",
+          "counterId": "ADMIRAL_RADDUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 56,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Veers": [
+        {
+          "bannerScore": 54,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 54,
+          "counter": "Jedi Knight Revan",
+          "counterId": "JKR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ]
+    },
+    "5v5": {
+      "Admiral Raddus": [
+        {
+          "bannerScore": 61,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Bad Batch",
+          "counterId": "BAD_BATCH",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Phoenix",
+          "counterId": "PHOENIX",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Malgus",
+          "counterId": "MALGUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Admiral Trench": [
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Ahsoka Tano": [
+        {
+          "bannerScore": 63,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "Preferred",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Baylan Skoll": [
+        {
+          "bannerScore": 61,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Bo-Katan Mandalore": [
+        {
+          "bannerScore": 62,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "CLS": [
+        {
+          "bannerScore": 62,
+          "counter": "Phoenix",
+          "counterId": "PHOENIX",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Carth Onasi": [
+        {
+          "bannerScore": 62,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Lord Vader",
+          "counterId": "LORD_VADER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Cere UFU": [
+        {
+          "bannerScore": 63,
+          "counter": "Grand Inquisitor",
+          "counterId": "GI",
+          "notes": "Standard",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "Reliable",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Bossk",
+          "counterId": "BOSSK",
+          "notes": "Two shot",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Dark Trooper Moff Gideon": [
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Darth Malgus": [
+        {
+          "bannerScore": 64,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 61,
+          "counter": "JKCK",
+          "counterId": "JKCK",
+          "notes": "Reliable",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "Good option",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 64,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Dr Aphra": [
+        {
+          "bannerScore": 60,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Enoch": [
+        {
+          "bannerScore": 62,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Malgus",
+          "counterId": "MALGUS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Finn": [
+        {
+          "bannerScore": 62,
+          "counter": "Mother Talzin",
+          "counterId": "MOTHER_TALZIN",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "GAS": [
+        {
+          "bannerScore": 61,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "General Grievous": [
+        {
+          "bannerScore": 63,
+          "counter": "Mother Talzin",
+          "counterId": "MOTHER_TALZIN",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 58,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 4
+        }
+      ],
+      "Geonosians": [
+        {
+          "bannerScore": 60,
+          "counter": "Jawas",
+          "counterId": "JAWAS",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Imperial Troopers",
+          "counterId": "VEERS",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Bossk",
+          "counterId": "BOSSK",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Grand Inquisitor": [
+        {
+          "bannerScore": 61,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Grand Moff Tarkin": [
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Great Mothers": [
+        {
+          "bannerScore": 64,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "Strong",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Darth Malgus",
+          "counterId": "MALGUS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Gungans": [
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "Reliable",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Phoenix",
+          "counterId": "PHOENIX",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Queen Amidala preferred",
+          "tier": "S",
+          "undersize": 3
+        }
+      ],
+      "Hondo": [
+        {
+          "bannerScore": 63,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Strong",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Iden Versio": [
+        {
+          "bannerScore": 64,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 58,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "Not if Scout Trooper present",
+          "tier": "A",
+          "undersize": 4
+        }
+      ],
+      "Jabba": [
+        {
+          "bannerScore": 60,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "Cleanup risk",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 64,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Good banners",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Mother Talzin",
+          "counterId": "MOTHER_TALZIN",
+          "notes": "Two shot",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Imperial Troopers",
+          "counterId": "VEERS",
+          "notes": "Cleanup",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "Strong",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "Cleanup risk",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Jedi Knight Revan": [
+        {
+          "bannerScore": 61,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Jedi Master Kenobi": [
+        {
+          "bannerScore": 62,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "Riskier",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Jedi Master Luke": [
+        {
+          "bannerScore": 62,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "Reliable",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Jedi Master Mace Windu": [
+        {
+          "bannerScore": 63,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Jedi Training Rey": [
+        {
+          "bannerScore": 61,
+          "counter": "Imperial Troopers",
+          "counterId": "VEERS",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Kelleran Beq": [
+        {
+          "bannerScore": 62,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Maul",
+          "counterId": "MAUL",
+          "notes": "",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        }
+      ],
+      "Leia Organa": [
+        {
+          "bannerScore": 62,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "Do not full auto",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Great Mothers",
+          "counterId": "GREAT_MOTHERS",
+          "notes": "Strong",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "Strong",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Maul",
+          "counterId": "MAUL",
+          "notes": "Two shot",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 58,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "2 shot",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Cleanup",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Lord Vader": [
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "Cleanup risk",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "Cleanup risk against dark side clones",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 58,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "Cleanup risk",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Reliable",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 65,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 3
+        }
+      ],
+      "Maul": [
+        {
+          "bannerScore": 61,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Maz Kanata": [
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Mon Mothma": [
+        {
+          "bannerScore": 62,
+          "counter": "Imperial Troopers",
+          "counterId": "VEERS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Mother Talzin": [
+        {
+          "bannerScore": 61,
+          "counter": "Imperial Troopers",
+          "counterId": "VEERS",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        }
+      ],
+      "Padme Amidala": [
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Queen Amidala": [
+        {
+          "bannerScore": 64,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Preferred",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "Reliable",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "A",
+          "undersize": 1
+        }
+      ],
+      "Qui-Gon Jinn": [
+        {
+          "bannerScore": 60,
+          "counter": "Bad Batch",
+          "counterId": "BAD_BATCH",
+          "notes": "Cleanup risk",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Jedi Knight Revan",
+          "counterId": "JKR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "",
+          "tier": "A",
+          "undersize": 2
+        }
+      ],
+      "Reva": [
+        {
+          "bannerScore": 62,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "Check relic delta",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Phoenix",
+          "counterId": "PHOENIX",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "Mother Talzin",
+          "counterId": "MOTHER_TALZIN",
+          "notes": "Two shot",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 61,
+          "counter": "Darth Malgus",
+          "counterId": "MALGUS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Rey": [
+        {
+          "bannerScore": 62,
+          "counter": "Starkiller",
+          "counterId": "STARKILLER",
+          "notes": "Standard",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Efficient",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "Standard",
+          "tier": "C",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Leia Organa",
+          "counterId": "LEIA",
+          "notes": "Strong",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 55,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "Cleanup",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "SLKR": [
+        {
+          "bannerScore": 63,
+          "counter": "Jedi Master Luke",
+          "counterId": "JML",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 65,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 3
+        }
+      ],
+      "Satele Shan": [
+        {
+          "bannerScore": 62,
+          "counter": "Reva",
+          "counterId": "REVA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Saw Gerrera": [
+        {
+          "bannerScore": 58,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 58,
+          "counter": "Boba and Fennec",
+          "counterId": "BOBA_FETT_SCION_OF_JANGO",
+          "notes": "",
+          "tier": "C",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Bo-Katan Mandalore",
+          "counterId": "BO_KATAN_MANDALORE",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Darth Traya",
+          "counterId": "TRAYA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "GAS",
+          "counterId": "GAS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 3
+        }
+      ],
+      "Sith Eternal Emperor": [
+        {
+          "bannerScore": 65,
+          "counter": "Bane",
+          "counterId": "BANE",
+          "notes": "Very efficient",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 58,
+          "counter": "Wampa",
+          "counterId": "WAMPA",
+          "notes": "Depends on comp",
+          "tier": "B",
+          "undersize": 4
+        },
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "Starkiller": [
+        {
+          "bannerScore": 61,
+          "counter": "CLS",
+          "counterId": "CLS",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 64,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 3
+        },
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 63,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Tarfful": [
+        {
+          "bannerScore": 62,
+          "counter": "Baylan Skoll",
+          "counterId": "BAYLAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ],
+      "The Stranger": [
+        {
+          "bannerScore": 62,
+          "counter": "Jabba",
+          "counterId": "JABBA",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Satele Shan",
+          "counterId": "SATELE_SHAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "Sith Eternal Emperor",
+          "counterId": "SEE",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 60,
+          "counter": "Jedi Master Kenobi",
+          "counterId": "JMK",
+          "notes": "",
+          "tier": "B",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "SEE and Bane",
+          "counterId": "SEE_BANE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 62,
+          "counter": "The Stranger",
+          "counterId": "THE_STRANGER",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        }
+      ],
+      "Traya": [
+        {
+          "bannerScore": 63,
+          "counter": "SLKR",
+          "counterId": "SLKR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Tusken": [
+        {
+          "bannerScore": 62,
+          "counter": "Cere UFU",
+          "counterId": "CERE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 0
+        }
+      ]
+    },
+    "FLEET": {
+      "Chimaera": [
+        {
+          "bannerScore": 71,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "Be efficient and leave slots empty",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 71,
+          "counter": "Executor",
+          "counterId": "EXECUTOR",
+          "notes": "Be efficient and leave slots empty",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 69,
+          "counter": "Negotiator",
+          "counterId": "NEGOTIATOR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 71,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "Be efficient and leave slots empty",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 69,
+          "counter": "Malevolence",
+          "counterId": "MALEVOLENCE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        }
+      ],
+      "Executor": [
+        {
+          "bannerScore": 71,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 67,
+          "counter": "Executor",
+          "counterId": "EXECUTOR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "",
+          "tier": "B",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Executrix",
+          "counterId": "EXECUTRIX",
+          "notes": "",
+          "tier": "C",
+          "undersize": 1
+        }
+      ],
+      "Home One": [
+        {
+          "bannerScore": 73,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 69,
+          "counter": "Malevolence",
+          "counterId": "MALEVOLENCE",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Leviathan": [
+        {
+          "bannerScore": 71,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "Reinforce Scimitar first",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Executor",
+          "counterId": "EXECUTOR",
+          "notes": "",
+          "tier": "C",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "",
+          "tier": "C",
+          "undersize": 1
+        }
+      ],
+      "Malevolence": [
+        {
+          "bannerScore": 71,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "Be efficient and leave slots empty",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 69,
+          "counter": "Home One",
+          "counterId": "HOME_ONE",
+          "notes": "",
+          "tier": "A",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 71,
+          "counter": "Executor",
+          "counterId": "EXECUTOR",
+          "notes": "Be efficient and leave slots empty",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 69,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 64,
+          "counter": "Chimaera",
+          "counterId": "CHIMAERA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 1
+        }
+      ],
+      "Negotiator": [
+        {
+          "bannerScore": 71,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 71,
+          "counter": "Executor",
+          "counterId": "EXECUTOR",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 71,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 1
+        }
+      ],
+      "Profundity": [
+        {
+          "bannerScore": 71,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 69,
+          "counter": "Executor",
+          "counterId": "EXECUTOR",
+          "notes": "Hounds Tooth starts",
+          "tier": "A",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 67,
+          "counter": "Executrix",
+          "counterId": "EXECUTRIX",
+          "notes": "",
+          "tier": "B",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 57,
+          "counter": "Malevolence",
+          "counterId": "MALEVOLENCE",
+          "notes": "",
+          "tier": "C",
+          "undersize": 2
+        }
+      ],
+      "Raddus": [
+        {
+          "bannerScore": 67,
+          "counter": "Chimaera",
+          "counterId": "CHIMAERA",
+          "notes": "",
+          "tier": "A",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 67,
+          "counter": "Negotiator",
+          "counterId": "NEGOTIATOR",
+          "notes": "",
+          "tier": "A",
+          "undersize": 1
+        },
+        {
+          "bannerScore": 67,
+          "counter": "Leviathan",
+          "counterId": "LEVIATHAN",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        },
+        {
+          "bannerScore": 67,
+          "counter": "Executrix",
+          "counterId": "EXECUTRIX",
+          "notes": "",
+          "tier": "A",
+          "undersize": 0
+        },
+        {
+          "bannerScore": 67,
+          "counter": "Profundity",
+          "counterId": "PROFUNDITY",
+          "notes": "",
+          "tier": "S",
+          "undersize": 2
+        }
+      ]
+    }
+  },
+  "defenceCompositions": {},
+  "defenceTeams": {
+    "5v5": {
+      "Gungan": {
+        "notes": "",
+        "threat": "HIGH"
+      }
+    },
+    "Any": {
+      "Ahsoka Tano": {
+        "notes": "",
+        "threat": "HIGH"
+      },
+      "Carth Onasi": {
+        "notes": "",
+        "threat": "LOW"
+      },
+      "Executor": {
+        "notes": "",
+        "threat": "HIGH"
+      },
+      "Jedi Master Kenobi": {
+        "notes": "",
+        "threat": "HIGH"
+      },
+      "Leviathan": {
+        "notes": "",
+        "threat": "EXTREME"
+      },
+      "Lord Vader": {
+        "notes": "",
+        "threat": "HIGH"
+      },
+      "Profundity": {
+        "notes": "",
+        "threat": "HIGH"
+      },
+      "The Stranger": {
+        "notes": "",
+        "threat": "EXTREME"
+      }
+    }
+  },
+  "scoring": [
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per battle won",
+      "ruleId": "VICTORY",
+      "value": 15
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Bonus for a first-attempt win",
+      "ruleId": "FIRST_ATTEMPT",
+      "value": 30
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Bonus for a second-attempt win",
+      "ruleId": "SECOND_ATTEMPT",
+      "value": 10
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per attacking unit alive at battle end",
+      "ruleId": "SURVIVING_UNIT",
+      "value": 1
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per empty slot in the attacking squad",
+      "ruleId": "UNUSED_SLOT",
+      "value": 4
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per attacking unit on 100% health at battle end",
+      "ruleId": "FULL_HEALTH_UNIT",
+      "value": 1
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per attacking unit on 100% protection at battle end",
+      "ruleId": "FULL_PROTECTION_UNIT",
+      "value": 1
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per enemy unit defeated",
+      "ruleId": "DEFEATED_ENEMY",
+      "value": 1
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "One-off for the round's first battle",
+      "ruleId": "FIRST_ATTACK",
+      "value": 10
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Base bonus for conquering a territory",
+      "ruleId": "TERRITORY_CLEAR_BASE",
+      "value": 120
+    },
+    {
+      "battleType": "SQUAD",
+      "mode": "5v5",
+      "notes": "Per defence squad in the conquered territory",
+      "ruleId": "TERRITORY_CLEAR_PER_TEAM",
+      "value": 30
+    },
+    {
+      "battleType": "SQUAD",
+      "mode": "3v3",
+      "notes": "Per defence squad in the conquered territory",
+      "ruleId": "TERRITORY_CLEAR_PER_TEAM",
+      "value": 28
+    },
+    {
+      "battleType": "FLEET",
+      "mode": "ANY",
+      "notes": "Per defence fleet in the conquered territory",
+      "ruleId": "TERRITORY_CLEAR_PER_TEAM",
+      "value": 33
+    },
+    {
+      "battleType": "FLEET",
+      "mode": "ANY",
+      "notes": "",
+      "ruleId": "OWN_UNITS",
+      "value": 7
+    },
+    {
+      "battleType": "FLEET",
+      "mode": "ANY",
+      "notes": "",
+      "ruleId": "ENEMY_UNITS",
+      "value": 7
+    },
+    {
+      "battleType": "ANY",
+      "mode": "ANY",
+      "notes": "Per defence team set at round start",
+      "ruleId": "SETTING_DEFENCE",
+      "value": 90
+    }
+  ]
+}
