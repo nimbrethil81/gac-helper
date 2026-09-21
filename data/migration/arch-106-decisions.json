@@ -1,0 +1,311 @@
+{
+  "anomalies": [
+    {
+      "affectedCount": 33,
+      "condition": "33 defence display names have no exact attack-counter identity.",
+      "detail": "Each name becomes its own team_archetypes row with an unchanged public display_name, identity_reason LEGACY_MIGRATION, and the deterministic code in identityRules.defenceOnlyArchetypeCodes. No name is matched approximately.",
+      "id": "UNMATCHED_DEFENCE_IDENTITIES",
+      "resolution": "DEFENCE_ONLY_ARCHETYPE",
+      "source": "ARCH-103 capture report — requires deterministic mapping (1)",
+      "status": "RESOLVED"
+    },
+    {
+      "candidates": [
+        {
+          "effect": "One canonical matchup with notes 'Strong'. No authored note is lost. The public counters array for 3v3 | Grand Inquisitor loses one of its two identical-looking TRAYA entries, which is a visible catalogue change.",
+          "id": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE"
+        },
+        {
+          "effect": "One canonical matchup with an empty note. This drops the authored note 'Strong' and conflicts with the ARCH-106 rule that no note may be dropped.",
+          "id": "COLLAPSE_KEEPING_ROW_82"
+        },
+        {
+          "effect": "The owner removes or amends one row in the Google Sheet and ARCH-103 is re-captured. ARCH-106 then loads a baseline with no duplicate composite. Requires a new capture, which ARCH-106 may not perform.",
+          "id": "CORRECT_AT_SOURCE"
+        }
+      ],
+      "condition": "Counters rows 80 and 82 both state 3v3 | Grand Inquisitor | TRAYA. gac.matchups permits exactly one row per (mode, defence_archetype_id, counter_archetype_id).",
+      "detail": "Accepted by the owner on 2026-09-21. The two source rows collapse into the one canonical matchup the schema permits. They share Tier S, Banner Score 54 and Undersize 0, and differ only in Notes: row 80 carries the authored note 'Strong' and row 82 carries none. The sole authored note is retained, so no note is dropped, and the survivor was not chosen by row order or last-write-wins. This is NOT an identical-duplicate collapse: the rows are not byte-for-byte equivalent, so IDENTICAL_DUPLICATE_COLLAPSED does not apply to them. Both source rows are recorded in the reconciliation report and in the gac.authoring_changes provenance record.",
+      "evidence": {
+        "differingFields": [
+          "Notes"
+        ],
+        "identicalFields": [
+          "Mode",
+          "Defence Team",
+          "Counter_ID",
+          "Tier",
+          "Banner Score",
+          "Undersize"
+        ],
+        "row80": {
+          "bannerScore": "54",
+          "notes": "Strong",
+          "tier": "S",
+          "undersize": "0"
+        },
+        "row82": {
+          "bannerScore": "54",
+          "notes": "",
+          "tier": "S",
+          "undersize": "0"
+        }
+      },
+      "id": "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA",
+      "ownerDecision": {
+        "acceptedCandidate": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
+        "blankNoteSourceRow": 82,
+        "decidedBy": "owner",
+        "notesDropped": 0,
+        "recordedOn": "2026-09-21",
+        "retainedNote": "Strong",
+        "retainedNoteSourceRow": 80,
+        "schemaFollowUp": null
+      },
+      "resolution": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
+      "source": "ARCH-103 capture report — requires deterministic mapping (2)",
+      "status": "RESOLVED"
+    },
+    {
+      "condition": "MAZ_KANATA has Counter_Composition data but no authored Counter_Definitions row. The legacy Apps Script synthesizes its published definition, using the Counter_ID itself as the display name.",
+      "detail": "MAZ_KANATA migrates as an attack archetype with archetype_code MAZ_KANATA and display_name 'MAZ_KANATA', exactly reproducing the current published semantics. It is recorded with created_by = AUTOMATION and an identity_reason_detail naming the legacy Apps Script synthesis, so it is distinguishable from the 56 authored definitions. No new public name is invented and the definition is not discarded. The unrelated defence display name 'Maz Kanata' stays a separate defence-only identity (DEF_MAZ_KANATA); ARCH-106 does not assume the two are the same team.",
+      "id": "SYNTHESIZED_COUNTER_DEFINITION_MAZ_KANATA",
+      "resolution": "PRESERVE_LEGACY_SYNTHESIZED_DEFINITION",
+      "source": "ARCH-103 capture report — requires deterministic mapping (3)",
+      "status": "RESOLVED"
+    },
+    {
+      "compatibilityNote": "The mismatch between the stored 'Any' spelling and the client's 'ANY' wildcard lookup is a pre-existing live-application condition, not something ARCH-106 introduces: the eight rows are already inert on the wildcard path today. ARCH-106 reproduces current behaviour exactly and does not fix it. Changing the published spelling would be a product change and is out of scope here.",
+      "condition": "Eight Defence_Teams rows use mode 'Any'. The payload preserves that spelling, while the client's wildcard lookup in threatFor() reads defenceTeams['ANY'].",
+      "detail": "The database stores the canonical gac.catalogue_mode value ANY. The compatibility projection emits 'Any' for the defenceTeams domain so the generated public payload stays byte-identical to the ARCH-103 golden payload. ARCH-108 must apply modeNormalisation.canonicalToPublic when it generates the production payload.",
+      "id": "DEFENCE_TEAM_MODE_SPELLING_ANY",
+      "resolution": "STORE_CANONICAL_ANY_PROJECT_SOURCE_SPELLING",
+      "source": "ARCH-103 capture report — requires deterministic mapping (4)",
+      "status": "RESOLVED"
+    },
+    {
+      "condition": "The optional Defence_Composition tab is absent, so no defence membership exists.",
+      "detail": "Every defence profile is created with members_complete = false and zero team_profile_members rows. No defence member is inferred from attack composition. The projected defenceCompositions payload domain stays {}.",
+      "id": "ABSENT_DEFENCE_COMPOSITION",
+      "resolution": "INCOMPLETE_DEFENCE_PROFILES_NO_INVENTED_MEMBERS",
+      "source": "ARCH-103 capture report — safe known legacy condition",
+      "status": "RESOLVED"
+    },
+    {
+      "affectedCount": 26,
+      "condition": "Score_Meanings holds 26 authoring-only guidance rows and is not read by the Apps Script.",
+      "detail": "TARGET_ARCHITECTURE.md section 6 states Score_Meanings is not migrated as runtime data and its enduring guidance lives in docs/SCORING_REFERENCE.md. ARCH-106 creates no runtime table. All 26 rows are reconciled against the ladders in SCORING_REFERENCE.md; the two rows that had no home there (3v3 score 51 and FLEET score 70) were added to that document by ARCH-106 so the retirement loses no guidance.",
+      "id": "SCORE_MEANINGS_RETIRED",
+      "resolution": "RETIRED_AUTHORING_GUIDANCE",
+      "source": "ARCH-103 capture report — informational",
+      "status": "RESOLVED"
+    },
+    {
+      "condition": "The public scoring array is a flat list in Sheet row order. gac.gac_scoring_rules is keyed by (rule_id, battle_type, mode) and has no ordering column.",
+      "detail": "The scoring domain is compared as an unordered collection. The client resolves scoring by key and specificity in scoreRule() and settingDefenceRule(), never by array position, so order carries no product meaning. ARCH-108 chooses the published order.",
+      "expectedDelta": true,
+      "id": "SCORING_ARRAY_ORDER",
+      "resolution": "EXPECTED_DELTA_ORDER_INSENSITIVE_SCORING",
+      "source": "ARCH-106 compatibility projection",
+      "status": "RESOLVED"
+    },
+    {
+      "candidates": [
+        {
+          "effect": "A reviewed follow-up ARCH-105 migration widens units_unit_id_format to admit the existing legacy casing. Character_ID and the public payload stay byte-for-byte identical. This is the only candidate that satisfies ARCH-106 requirement 1 as written.",
+          "id": "AMEND_ARCH_105_UNIT_ID_FORMAT",
+          "owner": "ARCH-105"
+        },
+        {
+          "effect": "unit_id becomes TIE_ADVANCED_X1. This changes the public characterDefinitions key, so it is a catalogue contract change needing a documented client migration, and it breaks ARCH-106 requirement 1.",
+          "id": "RENAME_UNIT_ID_TO_UPPERCASE"
+        },
+        {
+          "effect": "The owner renames the Character_ID in the Google Sheet and ARCH-103 is re-captured. Still a public identifier change, and it requires a new capture that ARCH-106 may not perform.",
+          "id": "CORRECT_AT_SOURCE"
+        }
+      ],
+      "condition": "Character_Definitions row 287 has Character_ID 'TIE_ADVANCED_x1'. gac.units enforces units_unit_id_format check (unit_id ~ '^[A-Z0-9]+(?:_[A-Z0-9]+)*$'), which the lowercase 'x1' segment fails.",
+      "detail": "Accepted by the owner on 2026-09-21. Character_ID TIE_ADVANCED_x1 is preserved byte-for-byte as the canonical unit_id and as the public characterDefinitions key; it is not renamed or normalised. The ARCH-105 units_unit_id_format constraint is corrected by an ordered follow-up migration that relaxes exactly one axis, letter case, and keeps every other structural rule: ASCII alphanumerics and underscores only, at least one character per segment, no leading or trailing underscore, and no consecutive underscores. TIE_ADVANCED_x1 is the only one of the 312 captured Character_ID values that relies on the newly allowed form; the other 311 also satisfy the original expression. The already-integrated ARCH-105 migration is unchanged, and the matching rollback refuses non-destructively if any stored unit relies on the widened form.",
+      "evidence": {
+        "characterId": "TIE_ADVANCED_x1",
+        "characterName": "TIE Advanced x1",
+        "externalId": "TIEADVANCED",
+        "publicPayloadKey": "characterDefinitions.TIE_ADVANCED_x1",
+        "referencedByCounterCompositionRows": 0,
+        "unitType": "SHIP"
+      },
+      "id": "UNIT_ID_FORMAT_TIE_ADVANCED_X1",
+      "ownerDecision": {
+        "acceptedCandidate": "AMEND_ARCH_105_UNIT_ID_FORMAT",
+        "decidedBy": "owner",
+        "recordedOn": "2026-09-21",
+        "schemaFollowUp": {
+          "identifiersRelyingOnNewForm": [
+            "TIE_ADVANCED_x1"
+          ],
+          "migration": "supabase/migrations/20260921113000_arch_106_unit_id_format.sql",
+          "previousConstraint": "units_unit_id_format check (unit_id ~ '^[A-Z0-9]+(?:_[A-Z0-9]+)*$')",
+          "replacementConstraint": "units_unit_id_format check (unit_id ~ '^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$')",
+          "rollback": "supabase/rollbacks/20260921113000_arch_106_unit_id_format.down.sql",
+          "unchangedIdentifierFormats": [
+            "team_archetypes_code_format",
+            "gac_scoring_rules_rule_id_format"
+          ]
+        }
+      },
+      "resolution": "AMEND_ARCH_105_UNIT_ID_FORMAT",
+      "source": "ARCH-106 loader — conflict between the ARCH-103 baseline and the ARCH-105 schema",
+      "status": "RESOLVED"
+    },
+    {
+      "candidates": [
+        {
+          "effect": "A reviewed follow-up ARCH-105 migration drops matchups_distinct_archetypes. Mirror matchups load as one archetype in both roles, all three source rows survive, and the public payload is unchanged.",
+          "id": "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS",
+          "owner": "ARCH-105"
+        },
+        {
+          "effect": "Executor, Leviathan and The Stranger each gain a separate defence-only archetype (DEF_EXECUTOR, DEF_LEVIATHAN, DEF_THE_STRANGER). The public payload is unchanged, but the canonical model then asserts that three exactly-matching names are different teams, contradicting the single-registry rule and the reuse rule applied to the other 36 defence names.",
+          "id": "SPLIT_DEFENCE_IDENTITY_FOR_MIRRORS"
+        },
+        {
+          "effect": "Not acceptable: it silently drops three authored source rows and changes the public payload.",
+          "id": "DROP_MIRROR_MATCHUPS"
+        }
+      ],
+      "condition": "Three Counters rows pair a defence display name with the identically named attack counter. Under the accepted exact-name identity rule both sides resolve to one archetype, which gac.matchups forbids through matchups_distinct_archetypes check (defence_archetype_id <> counter_archetype_id).",
+      "detail": "Accepted by the owner on 2026-09-21. A defence and its counter may legitimately resolve to the same archetype, so all three mirror matchups load with one archetype in both roles. No defence-only identity is fabricated for Executor, Leviathan or The Stranger. The ARCH-105 matchups_distinct_archetypes constraint is removed by an ordered follow-up migration. Uniqueness on (mode, defence_archetype_id, counter_archetype_id) is unchanged, so a single self-reference is valid while a duplicate self-reference is still rejected. The matching rollback refuses non-destructively if any mirror matchup exists.",
+      "evidence": {
+        "rows": [
+          {
+            "counterId": "EXECUTOR",
+            "defenceTeam": "Executor",
+            "mode": "FLEET",
+            "sourceRow": 60
+          },
+          {
+            "counterId": "LEVIATHAN",
+            "defenceTeam": "Leviathan",
+            "mode": "FLEET",
+            "sourceRow": 152
+          },
+          {
+            "counterId": "THE_STRANGER",
+            "defenceTeam": "The Stranger",
+            "mode": "5v5",
+            "sourceRow": 305
+          }
+        ]
+      },
+      "id": "MIRROR_MATCHUP_SELF_REFERENCE",
+      "ownerDecision": {
+        "acceptedCandidate": "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS",
+        "decidedBy": "owner",
+        "recordedOn": "2026-09-21",
+        "schemaFollowUp": {
+          "migration": "supabase/migrations/20260921113010_arch_106_mirror_matchups.sql",
+          "removedConstraint": "matchups_distinct_archetypes check (defence_archetype_id <> counter_archetype_id)",
+          "retainedConstraint": "matchups_unique_relationship unique (mode, defence_archetype_id, counter_archetype_id)",
+          "rollback": "supabase/rollbacks/20260921113010_arch_106_mirror_matchups.down.sql"
+        }
+      },
+      "resolution": "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS",
+      "source": "ARCH-106 loader — conflict between the ARCH-103 baseline and the ARCH-105 schema",
+      "status": "RESOLVED"
+    }
+  ],
+  "baseline": {
+    "canonicalSha256": "9a7fd5e371f2abcaf964e3f844371cdb98a44cb1b9c9a59f17cd4bc108f80cf3",
+    "captureDirectory": "data/exports/20260921T085937Z",
+    "rawSha256": "342e3e4bf095cb7ae25011682f81b17da2b8470b445e046db5f541d5bc0cc4a3"
+  },
+  "description": "Deterministic migration decisions that transform the committed ARCH-103 baseline into the ARCH-105 canonical schema. Every anomaly recorded by the ARCH-103 capture report, and every additional conflict found by the ARCH-106 loader, has an explicit entry here. Three conditions that ARCH-106 initially reported as blockers were resolved by owner decision on 2026-09-21; two of those are implemented as ordered follow-up migrations that correct the ARCH-105 schema. The loader still refuses to write to a database while any entry has status BLOCKED, and only ever acts on a resolution it implements.",
+  "identityRules": {
+    "attackArchetypeCode": "archetype_code is the source Counter_ID, byte-for-byte.",
+    "authority": "Every migrated judgement is AUTHORED_BASELINE. The source carries no lock evidence, so no value is migrated as AUTHORED_LOCKED.",
+    "battleType": "An attack archetype is FLEET when any Counter_Composition member is a SHIP or CAPITAL_SHIP, otherwise SQUAD; the result is cross-checked against the modes the Counter_ID appears in on Counters and a disagreement is rejected. A defence-only archetype takes FLEET when every Counters mode it defends in is FLEET, SQUAD when none is, and is rejected when it spans both. A defence identity that never appears on Counters takes its battle type from its Defence_Teams mode, and is rejected when that mode is Any.",
+    "defenceIdentityResolution": "A defence display name reuses an attack archetype only when it matches exactly one team_archetypes.display_name. Zero matches create a defence-only archetype. Two or more matches are rejected as ambiguous. No fuzzy, case-insensitive or semantic matching is ever attempted.",
+    "defenceOnlyArchetypeCodes": {
+      "Admiral Trench": "DEF_ADMIRAL_TRENCH",
+      "Ahsoka Tano": "DEF_AHSOKA_TANO",
+      "Carth Onasi": "DEF_CARTH_ONASI",
+      "Cassian Andor (Undercover)": "DEF_CASSIAN_ANDOR_UNDERCOVER",
+      "Dark Trooper Moff Gideon": "DEF_DARK_TROOPER_MOFF_GIDEON",
+      "Darth Revan with Zaalbar": "DEF_DARTH_REVAN_WITH_ZAALBAR",
+      "Dr Aphra": "DEF_DR_APHRA",
+      "Emperor Palp with Vader Dual's End": "DEF_EMPEROR_PALP_WITH_VADER_DUAL_S_END",
+      "Finn": "DEF_FINN",
+      "General Grievous": "DEF_GENERAL_GRIEVOUS",
+      "Geonosian": "DEF_GEONOSIAN",
+      "Geonosians": "DEF_GEONOSIANS",
+      "Grand Moff Tarkin": "DEF_GRAND_MOFF_TARKIN",
+      "Gungan": "DEF_GUNGAN",
+      "Hondo": "DEF_HONDO",
+      "Iden Versio": "DEF_IDEN_VERSIO",
+      "Inquisitor Barriss": "DEF_INQUISITOR_BARRISS",
+      "Jedi Master Mace Windu": "DEF_JEDI_MASTER_MACE_WINDU",
+      "Jedi Training Rey": "DEF_JEDI_TRAINING_REY",
+      "Kelleran Beq": "DEF_KELLERAN_BEQ",
+      "Mauldalorians": "DEF_MAULDALORIANS",
+      "Maz Kanata": "DEF_MAZ_KANATA",
+      "Mon Mothma": "DEF_MON_MOTHMA",
+      "Omega (Fugitive)": "DEF_OMEGA_FUGITIVE",
+      "Padme Amidala": "DEF_PADME_AMIDALA",
+      "Qui-Gon Jinn": "DEF_QUI_GON_JINN",
+      "Rex": "DEF_REX",
+      "Rey": "DEF_REY",
+      "Stormtrooper Luke": "DEF_STORMTROOPER_LUKE",
+      "Tarfful": "DEF_TARFFUL",
+      "Traya": "DEF_TRAYA",
+      "Tusken": "DEF_TUSKEN",
+      "Veers": "DEF_VEERS"
+    },
+    "defenceOnlyCodeRule": "DEF_ + the display name uppercased, with every character outside [A-Z0-9] replaced by _, runs of _ collapsed to one, and leading/trailing _ removed. On collision with an already-assigned archetype_code the loader appends _2, _3, ... taking the first free integer, processing names in ascending code-point order so the outcome is independent of source row order.",
+    "leaderAndFlex": "is_leader is false and flex_slots is 0 for every migrated profile. The source records neither, and ARCH-106 does not invent them.",
+    "profiles": "Squad attack compositions migrate once as mode ANY because they are currently shared across 3v3 and 5v5. Fleet attack compositions migrate as mode FLEET. Defence profiles are created only for the modes in which the identity actually appears, carry no members, and set members_complete = false.",
+    "unitId": "unit_id is the source Character_ID, byte-for-byte."
+  },
+  "modeNormalisation": {
+    "canonicalToPublic": {
+      "counters": {
+        "3V3": "3v3",
+        "5V5": "5v5",
+        "FLEET": "FLEET"
+      },
+      "defenceTeams": {
+        "3V3": "3v3",
+        "5V5": "5v5",
+        "ANY": "Any",
+        "FLEET": "FLEET"
+      },
+      "scoring": {
+        "3V3": "3v3",
+        "5V5": "5v5",
+        "ANY": "ANY",
+        "FLEET": "FLEET"
+      }
+    },
+    "note": "gac.catalogue_mode is an uppercase enum. Source spellings are normalised on the way in and projected back to their exact source spelling on the way out, per public domain. No public payload string changes.",
+    "sourceToCanonical": {
+      "3v3": "3V3",
+      "5v5": "5V5",
+      "ANY": "ANY",
+      "Any": "ANY",
+      "FLEET": "FLEET"
+    }
+  },
+  "package": "ARCH-106",
+  "provenance": {
+    "author": "arch-106-migration-loader",
+    "authoredAt": "2026-09-21T08:59:37Z",
+    "authority": "AUTHORED_BASELINE",
+    "changeId": "ARCH-106-LEGACY-MIGRATION",
+    "entityType": "LEGACY_CATALOGUE",
+    "identityReason": "LEGACY_MIGRATION",
+    "note": "authoredAt is pinned to the ARCH-103 capture timestamp so repeated loads and independent databases produce the same authoring record. gac.catalogue_releases and gac.catalogue_release_provenance are deliberately NOT written by ARCH-106: a release carries a generated public payload and a publication lifecycle, both of which belong to ARCH-108.",
+    "operation": "MIGRATE",
+    "reason": "ARCH-106 deterministic migration of the committed ARCH-103 Google Sheets baseline into the ARCH-105 canonical schema."
+  },
+  "schemaVersion": 1
+}

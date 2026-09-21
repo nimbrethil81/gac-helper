@@ -9,6 +9,8 @@ This document is the operational entry point for the unconnected Stage-1 databas
 - Matching files in `supabase/rollbacks/` remove the permission layer first and then the schema and migration-owner role.
 - `tests/database-schema.test.js` applies the migrations to disposable WebAssembly PostgreSQL, tests constraints and role boundaries, runs rollback, and reapplies from empty.
 
+Two ordered follow-up migrations owned by ARCH-106 correct constraints in this schema — `20260921113000_arch_106_unit_id_format.sql` widens `units_unit_id_format` and `20260921113010_arch_106_mirror_matchups.sql` removes `matchups_distinct_archetypes` — each with a matching non-destructive rollback. The reasons are recorded in [`ARCH-106.md`](ARCH-106.md). The two ARCH-105 files above are unchanged.
+
 The migrations create no login credential, secret or catalogue seed data. They do not connect to the hosted Supabase project. ARCH-104 will create the separate login credentials that assume the checked-in `NOLOGIN` group roles.
 
 ## Role boundary
@@ -37,4 +39,4 @@ The test runner uses `@electric-sql/pglite` pinned in `package-lock.json`; it do
 
 ARCH-104 applies these ordered migrations through the normal Supabase migration history after its time-sensitive provider checks and credential setup. Do not paste individual statements selectively into the hosted project.
 
-Before any future connected application, take the recovery action required by the active environment. To reverse an unconnected/disposable application, execute the two `.down.sql` files in reverse migration order. The permissions rollback must run before the core-schema rollback. No application currently reads this database, so rollback does not affect the live PWA.
+Before any future connected application, take the recovery action required by the active environment. To reverse an unconnected/disposable application, execute every `.down.sql` file in reverse migration order: the two ARCH-106 follow-ups first, then the permissions rollback, then the core-schema rollback. No application currently reads this database, so rollback does not affect the live PWA.

@@ -301,7 +301,7 @@ test("ordered migrations are idempotent through history and roll back cleanly", 
     await applyMigrations(database, true);
     await applyMigrations(database, true);
     const history = await database.query("select count(*)::int as count from public.arch105_migration_history");
-    assert.equal(history.rows[0].count, 2);
+    assert.equal(history.rows[0].count, 4);
 
     await rollbackMigrations(database);
     const removed = await database.query(`

@@ -84,6 +84,7 @@ Two levers change the total between modes: the **number of enemy units** (defeat
 | 54 | Standard clean win — some damage, no losses |
 | 53 | Occasionally lose a unit |
 | 52 | Reliable but inefficient — usually lose a unit |
+| 51 | Reliable but inefficient — usually loses two units |
 | 50 | Risky — often lose two |
 | 48 | Cleanup likely — messy, multiple losses |
 
@@ -95,6 +96,7 @@ Fleet is a **7-unit** format (capital ship + 6). All 7 count toward the survive,
 |-------|---------|
 | 73 | Flawless — all 7 ships survive, full health & protection |
 | 71 | Very efficient — trivial chip damage |
+| 70 | Very efficient — light damage |
 | 69 | Efficient — light damage, no losses |
 | 67 | Standard clean win — some damage, no losses |
 | 64 | Occasionally lose a ship |
