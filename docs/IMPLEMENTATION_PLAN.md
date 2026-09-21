@@ -465,6 +465,8 @@ The live PWA receives no database credential.
 
 ### ARCH-108 — Catalogue generator, validator and publisher
 
+**Status: Implementation ready for ARCH-104 and connected verification.** Phase A implements the generator, validators, lifecycle amendment, immutable artifact/pointer builder, locked two-transaction publication protocol, adapters, HTTP verification, reconciliation, compatible rollback, manual-only workflow and command entry points. Local PGlite and simulated static-deployment evidence is recorded in [`docs/database/ARCH-108.md`](database/ARCH-108.md). It includes the ARCH-107 example/reversal integration proof, but does not claim real Cloudflare, connected Supabase, independent-session contention or production-workflow overlap. Those Phase-B items remain mandatory after ARCH-104, so ARCH-108 is not Complete and ARCH-107 is not yet operationally signed off.
+
 **Purpose:** Generate immutable app-compatible artifacts safely, and implement the revised distributed publication protocol across the database and Cloudflare Workers.
 
 **Components:**

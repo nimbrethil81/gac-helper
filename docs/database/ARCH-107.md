@@ -162,11 +162,17 @@ A test snapshots every `gac` table, constraint, policy, grant and role, plus the
 4. **Dry run.** `npm run author:dry-run -- --change <path>` reports the exact canonical rows that would change, column by column, and the exact payload paths that would change, then rolls back. Add `--json <path>` for the machine-readable candidate.
 5. **Review.** The owner reads the diff. Nothing has been written at this point.
 6. **Apply.** `npm run author:apply -- --change <path>` commits the change to the development database and records the author, reason and change ID in `gac.authoring_changes`.
-7. **Publish.** Not yet available. ARCH-108 turns the candidate canonical state into a validated `AUTHORING` release.
+7. **Publish.** ARCH-108 turns the candidate canonical state into a validated `AUTHORING` release; its connected operation remains gated on ARCH-104.
 
 To reverse a change before publication, author a compensating change file that retires what was created, as `arch-107-example-counter-revert.change.json` does. Nothing is ever deleted, so the history stays intact and the reversal is itself a recorded authoring change.
 
-## Known limitations
+## ARCH-108 lifecycle amendment
+
+ARCH-108 resolves the two child-row lifecycle gaps additively: `gac.team_profile_members` and `gac.defence_catalogue_values` now carry the same `ACTIVE`/`RETIRED` shape used by the canonical model, and the loader supports idempotent `retire`/`reactivate` operations for both. No `DELETE` grant was added. The migration and its non-destructive rollback are recorded in [`ARCH-108.md`](ARCH-108.md); this is a later refinement under delivery principle 18, not a reopening of ARCH-105.
+
+The ARCH-108 projection also filters retired archetypes, profiles, members, matchups and defence values. The earlier limitations below describe ARCH-107 at its accepted commit and are superseded by that additive record.
+
+## Known limitations at the accepted ARCH-107 commit
 
 - **A profile member cannot be removed.** `gac_authoring` holds `select, insert, update` on `gac.team_profile_members` and no `DELETE`, and the table carries no lifecycle column, so there is no way to drop a member without a permission change. `member.retire` is refused with an explicit message rather than worked around. This is an **open question for the control thread**: the fix is either a small ARCH-107-owned additive migration granting `delete on gac.team_profile_members to gac_authoring`, or a lifecycle column on the table. Neither was taken unilaterally, because it changes the ARCH-105 permission boundary.
 - **A `defence_catalogue_values` row cannot be retired**, for the same reason: the table has a composite primary key, no status column and no `DELETE` grant. Its values can be updated.
@@ -188,4 +194,4 @@ ARCH-108 owns, and must supply, the rest of the human publication path described
 - **filtering retired archetypes, profiles and matchups out of the generated payload**, which ARCH-106's compatibility projection does not do;
 - applying `modeNormalisation.canonicalToPublic` from the ARCH-106 decision file, as ARCH-106 already recorded.
 
-Until then, ARCH-107's `create AUTHORING candidates through the normal publisher` acceptance bullet is undemonstrated by design. The two packages share one full independent verification pass, run at ARCH-108 completion.
+ARCH-108 Phase A now demonstrates this local path, including the worked example, release link, expected delta and compensating change. Operational sign-off remains deferred until ARCH-108 Phase B performs connected publication and rollback; see [`ARCH-108.md`](ARCH-108.md).

@@ -76,9 +76,9 @@ const ENTITIES = Object.freeze({
   unit: ["create", "update", "retire"],
   archetype: ["create", "update", "retire"],
   profile: ["create", "update", "retire"],
-  member: ["create", "update"],
+  member: ["create", "update", "retire", "reactivate"],
   matchup: ["create", "update", "retire"],
-  defenceValues: ["create", "update"]
+  defenceValues: ["create", "update", "retire", "reactivate"]
 });
 
 // Keys each operation shape accepts. Anything else is rejected rather than
@@ -104,6 +104,12 @@ const OPERATION_KEYS = Object.freeze({
     "entity", "operation", "archetypeCode", "mode", "usageRole",
     "unitId", "memberRole", "isLeader", "sortOrder"
   ],
+  "member.retire": [
+    "entity", "operation", "archetypeCode", "mode", "usageRole", "unitId", "retiredReason"
+  ],
+  "member.reactivate": [
+    "entity", "operation", "archetypeCode", "mode", "usageRole", "unitId"
+  ],
   "matchup.create": [
     "entity", "operation", "mode", "defenceArchetypeCode", "counterArchetypeCode",
     "values", "acknowledgeLocked"
@@ -116,7 +122,9 @@ const OPERATION_KEYS = Object.freeze({
     "entity", "operation", "mode", "defenceArchetypeCode", "counterArchetypeCode", "retiredReason"
   ],
   "defenceValues.create": ["entity", "operation", "archetypeCode", "mode", "values", "acknowledgeLocked"],
-  "defenceValues.update": ["entity", "operation", "archetypeCode", "mode", "values", "acknowledgeLocked"]
+  "defenceValues.update": ["entity", "operation", "archetypeCode", "mode", "values", "acknowledgeLocked"],
+  "defenceValues.retire": ["entity", "operation", "archetypeCode", "mode", "retiredReason"],
+  "defenceValues.reactivate": ["entity", "operation", "archetypeCode", "mode"]
 });
 
 const MATCHUP_VALUE_KEYS = Object.freeze([
@@ -324,10 +332,6 @@ function validateOperation(issues, index, raw) {
     return null;
   }
   if (!allowedOperations.includes(raw.operation)) {
-    // member.retire is the one deliberate gap: gac_authoring holds no DELETE
-    // grant on gac.team_profile_members and the table carries no lifecycle
-    // column, so ARCH-107 cannot remove a member without a permission change
-    // that belongs to the owner, not to this package. See docs/database/ARCH-107.md.
     issues.add(
       "OPERATION",
       `${at}.operation`,
@@ -463,28 +467,36 @@ function validateOperation(issues, index, raw) {
 
     case "member.create":
     case "member.update":
+    case "member.retire":
+    case "member.reactivate":
       op.mode = normaliseMode(issues, `${at}.mode`, raw.mode, { allowAny: true });
       if (requireEnum(issues, `${at}.usageRole`, raw.usageRole, USAGE_ROLES)) op.usage_role = raw.usageRole;
-      if (present("memberRole")) {
-        if (requireEnum(issues, `${at}.memberRole`, raw.memberRole, MEMBER_ROLES)) op.member_role = raw.memberRole;
-      } else if (raw.operation === "create") {
-        issues.add("REQUIRED", `${at}.memberRole`, "is required when a member is created");
-      }
-      if (present("isLeader")) {
-        if (requireBoolean(issues, `${at}.isLeader`, raw.isLeader)) op.is_leader = raw.isLeader;
-      } else if (raw.operation === "create") {
-        op.is_leader = false;
-      }
-      if (present("sortOrder")) {
-        if (requireInteger(issues, `${at}.sortOrder`, raw.sortOrder, { min: 0, max: 32 })) op.sort_order = raw.sortOrder;
-      } else if (raw.operation === "create") {
-        issues.add("REQUIRED", `${at}.sortOrder`, "is required when a member is created");
-      }
-      if (op.is_leader === true && op.member_role === "RECOMMENDED") {
-        issues.add("LEADER_ROLE", `${at}.isLeader`, "a leader must be a REQUIRED member");
-      }
-      if (raw.operation === "update" && !present("memberRole") && !present("isLeader") && !present("sortOrder")) {
-        issues.add("EMPTY_VALUES", at, "changes nothing; give memberRole, isLeader or sortOrder");
+      if (raw.operation === "retire") {
+        if (requireString(issues, `${at}.retiredReason`, raw.retiredReason, { maxLength: NOTES_MAX_LENGTH })) {
+          op.retired_reason = raw.retiredReason;
+        }
+      } else if (raw.operation !== "reactivate") {
+        if (present("memberRole")) {
+          if (requireEnum(issues, `${at}.memberRole`, raw.memberRole, MEMBER_ROLES)) op.member_role = raw.memberRole;
+        } else if (raw.operation === "create") {
+          issues.add("REQUIRED", `${at}.memberRole`, "is required when a member is created");
+        }
+        if (present("isLeader")) {
+          if (requireBoolean(issues, `${at}.isLeader`, raw.isLeader)) op.is_leader = raw.isLeader;
+        } else if (raw.operation === "create") {
+          op.is_leader = false;
+        }
+        if (present("sortOrder")) {
+          if (requireInteger(issues, `${at}.sortOrder`, raw.sortOrder, { min: 0, max: 32 })) op.sort_order = raw.sortOrder;
+        } else if (raw.operation === "create") {
+          issues.add("REQUIRED", `${at}.sortOrder`, "is required when a member is created");
+        }
+        if (op.is_leader === true && op.member_role === "RECOMMENDED") {
+          issues.add("LEADER_ROLE", `${at}.isLeader`, "a leader must be a REQUIRED member");
+        }
+        if (raw.operation === "update" && !present("memberRole") && !present("isLeader") && !present("sortOrder")) {
+          issues.add("EMPTY_VALUES", at, "changes nothing; give memberRole, isLeader or sortOrder");
+        }
       }
       break;
 
@@ -524,11 +536,19 @@ function validateOperation(issues, index, raw) {
 
     case "defenceValues.create":
     case "defenceValues.update":
+    case "defenceValues.retire":
+    case "defenceValues.reactivate":
       op.mode = normaliseMode(issues, `${at}.mode`, raw.mode, { allowAny: true });
-      op.values = validateDefenceValues(issues, `${at}.values`, raw.values, { required: raw.operation === "create" });
-      op.acknowledge_locked = false;
-      if (present("acknowledgeLocked") && requireBoolean(issues, `${at}.acknowledgeLocked`, raw.acknowledgeLocked)) {
-        op.acknowledge_locked = raw.acknowledgeLocked;
+      if (raw.operation === "retire") {
+        if (requireString(issues, `${at}.retiredReason`, raw.retiredReason, { maxLength: NOTES_MAX_LENGTH })) {
+          op.retired_reason = raw.retiredReason;
+        }
+      } else if (raw.operation !== "reactivate") {
+        op.values = validateDefenceValues(issues, `${at}.values`, raw.values, { required: raw.operation === "create" });
+        op.acknowledge_locked = false;
+        if (present("acknowledgeLocked") && requireBoolean(issues, `${at}.acknowledgeLocked`, raw.acknowledgeLocked)) {
+          op.acknowledge_locked = raw.acknowledgeLocked;
+        }
       }
       break;
 

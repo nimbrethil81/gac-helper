@@ -52,6 +52,8 @@ async function projectPayload(database, decisions) {
     join gac.team_archetypes counter on counter.archetype_id = matchup.counter_archetype_id
     join gac.matchup_catalogue_values value on value.matchup_id = matchup.matchup_id
     where matchup.status = 'ACTIVE'
+      and defence.status = 'ACTIVE'
+      and counter.status = 'ACTIVE'
     order by matchup.matchup_id
   `)).rows;
   for (const row of matchupRows) {
@@ -75,11 +77,14 @@ async function projectPayload(database, decisions) {
     from gac.team_profiles profile
     join gac.team_archetypes archetype on archetype.archetype_id = profile.archetype_id
     where profile.usage_role = 'ATTACK'
+      and profile.status = 'ACTIVE'
+      and archetype.status = 'ACTIVE'
     order by archetype.archetype_code
   `)).rows;
   const attackMembers = (await database.query(`
     select profile_id, unit_id, member_role
     from gac.team_profile_members
+    where status = 'ACTIVE'
     order by profile_id, sort_order
   `)).rows;
   const membersByProfile = new Map();
@@ -97,7 +102,7 @@ async function projectPayload(database, decisions) {
   }
 
   const characterDefinitions = {};
-  for (const unit of (await database.query("select unit_id, display_name, unit_type, external_id from gac.units order by unit_id")).rows) {
+  for (const unit of (await database.query("select unit_id, display_name, unit_type, external_id from gac.units where active order by unit_id")).rows) {
     characterDefinitions[unit.unit_id] = {
       name: unit.display_name,
       unitType: unit.unit_type,
@@ -131,6 +136,7 @@ async function projectPayload(database, decisions) {
     select archetype.display_name, value.mode, value.threat, value.notes
     from gac.defence_catalogue_values value
     join gac.team_archetypes archetype on archetype.archetype_id = value.archetype_id
+    where value.status = 'ACTIVE' and archetype.status = 'ACTIVE'
     order by value.mode, archetype.display_name
   `)).rows) {
     const mode = publicMode("defenceTeams", decisions, row.mode);
@@ -147,6 +153,9 @@ async function projectPayload(database, decisions) {
     join gac.team_profiles profile on profile.profile_id = member.profile_id
     join gac.team_archetypes archetype on archetype.archetype_id = profile.archetype_id
     where profile.usage_role = 'DEFENCE'
+      and member.status = 'ACTIVE'
+      and profile.status = 'ACTIVE'
+      and archetype.status = 'ACTIVE'
     order by profile.profile_id, member.sort_order
   `)).rows) {
     const mode = publicMode("defenceTeams", decisions, row.mode);

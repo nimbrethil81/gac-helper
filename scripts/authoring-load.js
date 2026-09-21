@@ -119,7 +119,8 @@ async function canonicalSnapshot(database) {
   }
 
   for (const row of (await run(database, `
-    select profile_id, unit_id, member_role, is_leader, sort_order from gac.team_profile_members
+    select profile_id, unit_id, member_role, is_leader, sort_order, status, retired_reason
+    from gac.team_profile_members
   `)).rows) {
     const key = `${profileKeyById.get(String(row.profile_id))}|${row.unit_id}`;
     snapshot.team_profile_members[key] = {
@@ -127,7 +128,9 @@ async function canonicalSnapshot(database) {
       unit_id: row.unit_id,
       member_role: row.member_role,
       is_leader: row.is_leader,
-      sort_order: Number(row.sort_order)
+      sort_order: Number(row.sort_order),
+      status: row.status,
+      retired_reason: row.retired_reason ?? null
     };
   }
 
@@ -168,7 +171,8 @@ async function canonicalSnapshot(database) {
   }
 
   for (const row of (await run(database, `
-    select archetype_id, mode, threat, notes, threat_authority from gac.defence_catalogue_values
+    select archetype_id, mode, threat, notes, threat_authority, status, retired_reason
+    from gac.defence_catalogue_values
   `)).rows) {
     const code = archetypeCodeById.get(String(row.archetype_id));
     snapshot.defence_catalogue_values[`${code}|${row.mode}`] = {
@@ -176,7 +180,9 @@ async function canonicalSnapshot(database) {
       mode: row.mode,
       threat: row.threat,
       notes: row.notes,
-      threat_authority: row.threat_authority
+      threat_authority: row.threat_authority,
+      status: row.status,
+      retired_reason: row.retired_reason ?? null
     };
   }
 
@@ -390,6 +396,7 @@ function validateAgainstState(change, snapshot, issues, { isReplay = false } = {
 
       case "member": {
         const key = profileKeyOf(op);
+        if (op.operation === "reactivate") requireArchetype(at, op.archetype_code, "archetype");
         const parent = profile(key);
         if (parent === null) {
           add("UNKNOWN_PROFILE", at, `profile ${key} does not exist`);
@@ -403,10 +410,19 @@ function validateAgainstState(change, snapshot, issues, { isReplay = false } = {
           add("UNKNOWN_UNIT", at, `unit ${op.unit_id} does not exist`);
           break;
         }
+        if (member.active === false && ["create", "reactivate"].includes(op.operation)) {
+          add("RETIRED_UNIT", at, `unit ${op.unit_id} is retired`);
+        }
         const stored = snapshot.team_profile_members[`${key}|${op.unit_id}`] ?? null;
-        if (op.operation === "update" && stored === null) {
+        if (op.operation !== "create" && stored === null) {
           add("UNKNOWN_MEMBER", at, `${op.unit_id} is not a member of ${key}`);
           break;
+        }
+        if (op.operation === "create" && stored?.status === "RETIRED") {
+          add("RETIRED_MEMBER", at, `${op.unit_id} is retired from ${key}; use member.reactivate`);
+        }
+        if (op.operation === "update" && stored?.status !== "ACTIVE") {
+          add("RETIRED_MEMBER", at, `${op.unit_id} is ${stored.status} in ${key}; reactivate it before updating`);
         }
         if (op.operation === "create" && stored !== null) {
           for (const [column, value] of Object.entries({
@@ -486,9 +502,13 @@ function validateAgainstState(change, snapshot, issues, { isReplay = false } = {
 
       case "defenceValues": {
         const stored = snapshot.defence_catalogue_values[`${op.archetype_code}|${op.mode}`] ?? null;
+        if (op.operation === "reactivate") requireArchetype(at, op.archetype_code, "archetype");
         if (op.operation === "create") {
           requireArchetype(at, op.archetype_code, "archetype");
           if (stored !== null) {
+            if (stored.status === "RETIRED") {
+              add("RETIRED_DEFENCE_VALUES", at, `defence values ${op.archetype_code}|${op.mode} are retired; use defenceValues.reactivate`);
+            }
             for (const [column, value] of Object.entries(op.values ?? {})) {
               if (stored[column] !== value) {
                 add("CONFLICT", at, `gac.defence_catalogue_values already holds ${column} ${JSON.stringify(stored[column])} for ${op.archetype_code}|${op.mode}, not ${JSON.stringify(value)}`);
@@ -497,7 +517,9 @@ function validateAgainstState(change, snapshot, issues, { isReplay = false } = {
           }
         } else if (stored === null) {
           add("UNKNOWN_DEFENCE_VALUES", at, `defence values ${op.archetype_code}|${op.mode} do not exist`);
-        } else if (op.values !== null) {
+        } else if (op.operation === "update" && stored.status !== "ACTIVE") {
+          add("RETIRED_DEFENCE_VALUES", at, `defence values ${op.archetype_code}|${op.mode} are ${stored.status}; reactivate them before updating`);
+        } else if (op.values !== null && op.values !== undefined) {
           checkLocks(add, at, op, stored, change.author_role);
         }
         break;
@@ -650,6 +672,14 @@ function planWrites(change, snapshot) {
               op
             });
           }
+        } else if (op.operation === "retire") {
+          if (stored !== null && stored.status !== "RETIRED") {
+            writes.push({ kind: "retireMember", table: "gac.team_profile_members", key, profile: profileKey, unit_id: op.unit_id, reason: op.retired_reason, op });
+          }
+        } else if (op.operation === "reactivate") {
+          if (stored !== null && stored.status !== "ACTIVE") {
+            writes.push({ kind: "reactivateMember", table: "gac.team_profile_members", key, profile: profileKey, unit_id: op.unit_id, op });
+          }
         } else {
           const target = pick({ member_role: op.member_role, is_leader: op.is_leader, sort_order: op.sort_order });
           writes.push(...memberUpdate(key, profileKey, op, stored, target));
@@ -714,6 +744,18 @@ function planWrites(change, snapshot) {
           break;
         }
         if (stored === null) break;
+        if (op.operation === "retire") {
+          if (stored.status !== "RETIRED") {
+            writes.push({ kind: "retireDefenceValues", table: "gac.defence_catalogue_values", key, archetype_code: op.archetype_code, mode: op.mode, reason: op.retired_reason, op });
+          }
+          break;
+        }
+        if (op.operation === "reactivate") {
+          if (stored.status !== "ACTIVE") {
+            writes.push({ kind: "reactivateDefenceValues", table: "gac.defence_catalogue_values", key, archetype_code: op.archetype_code, mode: op.mode, op });
+          }
+          break;
+        }
         const target = pick(op.values ?? {});
         const changed = differingColumns(stored, target);
         if (changed.length > 0) {
@@ -948,6 +990,27 @@ async function executeWrite(database, write) {
       return;
     }
 
+    case "retireMember":
+    case "reactivateMember": {
+      const [archetypeCode, mode, usageRole] = write.profile.split("|");
+      await run(
+        database,
+        `update gac.team_profile_members
+            set status = $5,
+                retired_at = ${write.kind === "retireMember" ? "statement_timestamp()" : "null"},
+                retired_reason = $6
+          where profile_id = ${PROFILE_ID}$1
+             and profile.mode = $2 and profile.usage_role = $3)
+            and unit_id = $4`,
+        [
+          archetypeCode, mode, usageRole, write.unit_id,
+          write.kind === "retireMember" ? "RETIRED" : "ACTIVE",
+          write.kind === "retireMember" ? write.reason : null
+        ]
+      );
+      return;
+    }
+
     case "updateMatchupValues": {
       const assignments = setClause(write.set, params);
       params.push(write.mode, write.defence_archetype_code, write.counter_archetype_code);
@@ -977,6 +1040,24 @@ async function executeWrite(database, write) {
       );
       return;
     }
+
+    case "retireDefenceValues":
+    case "reactivateDefenceValues":
+      await run(
+        database,
+        `update gac.defence_catalogue_values
+            set status = $3,
+                retired_at = ${write.kind === "retireDefenceValues" ? "statement_timestamp()" : "null"},
+                retired_reason = $4
+          where archetype_id = ${ARCHETYPE_ID}$1)
+            and mode = $2`,
+        [
+          write.archetype_code, write.mode,
+          write.kind === "retireDefenceValues" ? "RETIRED" : "ACTIVE",
+          write.kind === "retireDefenceValues" ? write.reason : null
+        ]
+      );
+      return;
 
     default:
       throw new Error(`Unhandled write kind ${write.kind}`);
@@ -1055,7 +1136,9 @@ async function verifyInvariants(database, releaseStateBefore) {
     select count(*)::int as total
     from gac.team_profile_members member
     join gac.units unit on unit.unit_id = member.unit_id
-    where member.member_role = 'REQUIRED' and coalesce(unit.external_id, '') = ''
+    where member.status = 'ACTIVE'
+      and member.member_role = 'REQUIRED'
+      and coalesce(unit.external_id, '') = ''
   `);
   if (orphanRequired.rows[0].total !== 0) {
     throw new Error(`${orphanRequired.rows[0].total} required members have no external_id after the change`);

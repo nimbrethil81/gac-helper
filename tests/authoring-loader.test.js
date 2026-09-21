@@ -227,21 +227,20 @@ test("an operation that changes nothing is rejected", () => {
   expectRejected(baseDocument({ operations: [{ entity: "unit", operation: "update", unitId: "GAS" }] }), "EMPTY_VALUES");
 });
 
-test("removing a profile member is refused, because no grant allows it", () => {
-  // gac_authoring holds no DELETE grant on gac.team_profile_members and the
-  // table carries no lifecycle column, so ARCH-107 refuses rather than
-  // pretending. Recorded as an open question in docs/database/ARCH-107.md.
-  const error = expectRejected(baseDocument({
+test("profile members use retirement rather than DELETE", () => {
+  const change = validateChange(baseDocument({
     operations: [{
       entity: "member",
       operation: "retire",
       archetypeCode: "GAS",
       mode: "ANY",
       usageRole: "ATTACK",
-      unitId: "GENERAL_HUX"
+      unitId: "GENERAL_HUX",
+      retiredReason: "No longer part of the published composition."
     }]
-  }), "OPERATION");
-  assert.match(error.message, /member supports create, update/);
+  }));
+  assert.equal(change.operations[0].operation, "retire");
+  assert.equal(change.operations[0].retired_reason, "No longer part of the published composition.");
 });
 
 test("a leader must be a required member", () => {
@@ -866,11 +865,7 @@ test("the example change is reversible and produces a valid development candidat
     assert.equal(canonicalJson(after.counters), canonicalJson(baseline.counters),
       "the counter no longer appears anywhere a player would see it");
 
-    // Known limitation, recorded in docs/database/ARCH-107.md: ARCH-106's
-    // compatibility projection predates retirement and does not filter retired
-    // attack profiles, so the retired identity still projects into
-    // counterDefinitions. ARCH-108's generator owns that filter.
-    assert.ok(Object.keys(after.counterDefinitions).includes("FO_HUX"));
+    assert.ok(!Object.keys(after.counterDefinitions).includes("FO_HUX"));
     assert.equal(canonicalJson(after.characterDefinitions), canonicalJson(baseline.characterDefinitions));
     assert.equal(canonicalJson(after.boardConfig), canonicalJson(baseline.boardConfig));
     assert.equal(canonicalJson(after.scoring), canonicalJson(baseline.scoring));
