@@ -78,6 +78,34 @@ async function assertAuthoringChanges(database, changeIds) {
   }
 }
 
+async function lifecycleAllowances(database, changeIds) {
+  if (changeIds.length === 0) return { allowedRemovedCounterIds: [], allowedRemovedDefenceNames: [] };
+  const placeholders = changeIds.map((_, index) => `$${index + 1}`).join(", ");
+  const rows = (await query(database, `
+    select structured_values from gac.authoring_changes
+    where change_id in (${placeholders})
+  `, changeIds)).rows;
+  const counterIds = new Set();
+  const archetypeCodes = new Set();
+  for (const row of rows) {
+    const values = asJson(row.structured_values);
+    for (const operation of values.operations ?? []) {
+      if (operation.operation !== "retire") continue;
+      if (["archetype", "profile"].includes(operation.entity) && operation.archetype_code) counterIds.add(operation.archetype_code);
+      if (operation.archetype_code) archetypeCodes.add(operation.archetype_code);
+      if (operation.defence_archetype_code) archetypeCodes.add(operation.defence_archetype_code);
+    }
+  }
+  if (archetypeCodes.size === 0) return { allowedRemovedCounterIds: [...counterIds], allowedRemovedDefenceNames: [] };
+  const codes = [...archetypeCodes].sort();
+  const codePlaceholders = codes.map((_, index) => `$${index + 1}`).join(", ");
+  const names = (await query(database, `
+    select display_name from gac.team_archetypes
+    where archetype_code in (${codePlaceholders})
+  `, codes)).rows.map((row) => row.display_name);
+  return { allowedRemovedCounterIds: [...counterIds].sort(), allowedRemovedDefenceNames: [...new Set(names)].sort() };
+}
+
 async function prepareRelease(database, options) {
   const {
     expectedBaseReleaseId = null,
@@ -112,7 +140,20 @@ async function prepareRelease(database, options) {
       sourceCommitSha,
       authoringChangeIds: [...new Set(authoringChangeIds)]
     });
-    validatePayload(payload, validation);
+    const persistedValidation = { ...validation };
+    if (state.current_release_id !== null && persistedValidation.basePayload === undefined) {
+      persistedValidation.basePayload = (await readRelease(database, state.current_release_id)).payload;
+    }
+    if (releaseReason === "AUTHORING") {
+      const allowances = await lifecycleAllowances(database, [...new Set(authoringChangeIds)]);
+      persistedValidation.allowedRemovedCounterIds = [
+        ...new Set([...(persistedValidation.allowedRemovedCounterIds ?? []), ...allowances.allowedRemovedCounterIds])
+      ];
+      persistedValidation.allowedRemovedDefenceNames = [
+        ...new Set([...(persistedValidation.allowedRemovedDefenceNames ?? []), ...allowances.allowedRemovedDefenceNames])
+      ];
+    }
+    validatePayload(payload, persistedValidation);
 
     const inserted = (await query(database, `
       insert into gac.catalogue_releases (
@@ -258,6 +299,7 @@ module.exports = {
   PUBLICATION_LOCK_KEY,
   PublicationError,
   finaliseRelease,
+  lifecycleAllowances,
   prepareRelease,
   readRelease,
   readState,
