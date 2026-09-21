@@ -193,16 +193,88 @@ function assertPayloadContract(payload) {
   }
 }
 
+function validateRelativePath(filename, label = "Manifest filename") {
+  if (typeof filename !== "string" || filename.length === 0) {
+    throw new Error(`${label} must be a non-empty string`);
+  }
+  if (filename.includes("\0")) throw new Error(`${label} contains a NUL byte`);
+  if (path.posix.isAbsolute(filename)) throw new Error(`${label} must not be an absolute POSIX path: ${filename}`);
+  if (path.win32.isAbsolute(filename)) throw new Error(`${label} must not be an absolute Windows path: ${filename}`);
+  if (/^[A-Za-z]:/.test(filename)) throw new Error(`${label} must not be a Windows drive-relative path: ${filename}`);
+  if (filename.includes("\\")) throw new Error(`${label} must not contain backslashes: ${filename}`);
+
+  const segments = filename.split("/");
+  if (segments.some((segment) => segment === "." || segment === "..")) {
+    throw new Error(`${label} must not contain . or .. segments: ${filename}`);
+  }
+
+  return path.posix.normalize(filename);
+}
+
+function resolveCaptureRoot(root) {
+  if (typeof root !== "string" || root.length === 0) {
+    throw new Error("Capture root must be a non-empty string");
+  }
+
+  const requestedRoot = path.resolve(root);
+  let rootStat;
+  try {
+    rootStat = fs.lstatSync(requestedRoot);
+  } catch (error) {
+    throw new Error(`Capture root is unavailable: ${requestedRoot} (${error.message})`);
+  }
+  if (rootStat.isSymbolicLink()) throw new Error(`Capture root must not be a symbolic link: ${requestedRoot}`);
+  if (!rootStat.isDirectory()) throw new Error(`Capture root is not a directory: ${requestedRoot}`);
+
+  return fs.realpathSync(requestedRoot);
+}
+
+function resolveRegularFile(root, filename) {
+  const relativePath = validateRelativePath(filename);
+  const absolutePath = path.resolve(root, ...relativePath.split("/"));
+  const containment = path.relative(root, absolutePath);
+  if (containment === ".." || containment.startsWith(`..${path.sep}`) || path.isAbsolute(containment)) {
+    throw new Error(`Manifest filename resolves outside capture root: ${filename}`);
+  }
+
+  const segments = relativePath.split("/");
+  let current = root;
+  for (let index = 0; index < segments.length; index += 1) {
+    current = path.join(current, segments[index]);
+    let entryStat;
+    try {
+      entryStat = fs.lstatSync(current);
+    } catch (error) {
+      throw new Error(`Missing listed file: ${filename} (${error.message})`);
+    }
+    if (entryStat.isSymbolicLink()) {
+      throw new Error(`Symbolic links are not allowed in baseline paths: ${relativePath}`);
+    }
+    if (index < segments.length - 1 && !entryStat.isDirectory()) {
+      throw new Error(`Baseline path component is not a directory: ${segments.slice(0, index + 1).join("/")}`);
+    }
+    if (index === segments.length - 1 && !entryStat.isFile()) {
+      throw new Error(`Listed baseline path is not a regular file: ${relativePath}`);
+    }
+  }
+
+  return { absolutePath, relativePath };
+}
+
 function listFilesRecursively(directory, prefix = "") {
   const files = [];
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) {
-      files.push(...listFilesRecursively(path.join(directory, entry.name), relative));
-    } else if (entry.isFile()) {
-      files.push(relative);
+    const validatedRelative = validateRelativePath(relative, "Baseline entry path");
+    const absolute = path.join(directory, entry.name);
+    const entryStat = fs.lstatSync(absolute);
+    if (entryStat.isSymbolicLink()) throw new Error(`Symbolic links are not allowed in baseline: ${validatedRelative}`);
+    if (entryStat.isDirectory()) {
+      files.push(...listFilesRecursively(absolute, validatedRelative));
+    } else if (entryStat.isFile()) {
+      files.push(validatedRelative);
     } else {
-      files.push(relative);
+      throw new Error(`Non-regular filesystem object is not allowed in baseline: ${validatedRelative}`);
     }
   }
   return files.sort();
@@ -216,7 +288,10 @@ module.exports = {
   countPayloadDomains,
   listFilesRecursively,
   parseCsv,
+  resolveCaptureRoot,
+  resolveRegularFile,
   semanticJsonEqual,
   sha256,
-  sortJson
+  sortJson,
+  validateRelativePath
 };

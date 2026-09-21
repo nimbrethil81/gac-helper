@@ -134,4 +134,4 @@ A privacy scan of these fields found no email address, ally-code-shaped value, c
 | Safe known legacy condition | 1 | The optional `Defence_Composition` tab is absent, so the seven-key payload correctly carries an empty `defenceCompositions` object and saved-defence resolution remains partial/unresolved. |
 | Informational | 2 | The `Counters` tab has two ARRAYFORMULA-derived columns. `Score_Meanings` is authoring-only and is not returned as a payload domain. |
 
-ARCH-105/ARCH-106 must not silently collapse the duplicate matchup, invent the missing `MAZ_KANATA` display definition, normalize `Any` to `ANY`, or infer any of the 33 unmatched defence identities without an explicit deterministic mapping decision.
+ARCH-105 provides the canonical schema and constraints. ARCH-106 owns migration reconciliation and deterministic resolution of these captured mapping anomalies: it must not silently collapse the duplicate matchup, invent the missing `MAZ_KANATA` display definition, normalize `Any` to `ANY`, or infer any of the 33 unmatched defence identities without an explicit deterministic mapping decision.

@@ -10,6 +10,8 @@ const {
   countPayloadDomains,
   listFilesRecursively,
   parseCsv,
+  resolveCaptureRoot,
+  resolveRegularFile,
   semanticJsonEqual,
   sha256
 } = require("./baseline-lib.js");
@@ -17,11 +19,8 @@ const {
 const SECRET_FIELD_PATTERN = /(?:apikey|authorization|cookie|credential|oauth|password|secret|token|connectionstring|endpointurl)/;
 
 function requireFile(root, filename, expectedBytes, expectedSha) {
-  const absolute = path.join(root, filename);
-  if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) {
-    throw new Error(`Missing listed file: ${filename}`);
-  }
-  const bytes = fs.readFileSync(absolute);
+  const resolved = resolveRegularFile(root, filename);
+  const bytes = fs.readFileSync(resolved.absolutePath);
   if (bytes.length !== expectedBytes) {
     throw new Error(`Byte size differs for ${filename}: expected ${expectedBytes}, got ${bytes.length}`);
   }
@@ -29,7 +28,7 @@ function requireFile(root, filename, expectedBytes, expectedSha) {
   if (actualSha !== expectedSha) {
     throw new Error(`SHA-256 differs for ${filename}: expected ${expectedSha}, got ${actualSha}`);
   }
-  return bytes;
+  return { bytes, relativePath: resolved.relativePath };
 }
 
 function assertNoSecretFields(value, location = "manifest") {
@@ -48,9 +47,9 @@ function assertNoSecretFields(value, location = "manifest") {
 }
 
 function verifyBaseline(root) {
-  const manifestPath = path.join(root, "manifest.json");
-  if (!fs.existsSync(manifestPath)) throw new Error(`Missing manifest: ${manifestPath}`);
-  const manifestText = fs.readFileSync(manifestPath, "utf8");
+  const captureRoot = resolveCaptureRoot(root);
+  const manifestPath = resolveRegularFile(captureRoot, "manifest.json");
+  const manifestText = fs.readFileSync(manifestPath.absolutePath, "utf8");
   const manifest = JSON.parse(manifestText);
   assertNoSecretFields(manifest);
 
@@ -58,13 +57,14 @@ function verifyBaseline(root) {
   if (canonicalJson(manifest) !== manifestText) throw new Error("manifest.json is not deterministically canonicalized");
 
   const expectedFiles = new Set(["manifest.json"]);
-  const rawBytes = requireFile(
-    root,
+  const rawFile = requireFile(
+    captureRoot,
     manifest.appsScriptPayload.rawFilename,
     manifest.appsScriptPayload.rawByteSize,
     manifest.appsScriptPayload.rawSha256
   );
-  expectedFiles.add(manifest.appsScriptPayload.rawFilename);
+  const rawBytes = rawFile.bytes;
+  expectedFiles.add(rawFile.relativePath);
 
   let rawPayload;
   try {
@@ -74,13 +74,14 @@ function verifyBaseline(root) {
   }
   assertPayloadContract(rawPayload);
 
-  const canonicalBytes = requireFile(
-    root,
+  const canonicalFile = requireFile(
+    captureRoot,
     manifest.appsScriptPayload.canonicalFilename,
     manifest.appsScriptPayload.canonicalByteSize,
     manifest.appsScriptPayload.canonicalSha256
   );
-  expectedFiles.add(manifest.appsScriptPayload.canonicalFilename);
+  const canonicalBytes = canonicalFile.bytes;
+  expectedFiles.add(canonicalFile.relativePath);
   let canonicalPayload;
   try {
     canonicalPayload = JSON.parse(canonicalBytes.toString("utf8"));
@@ -107,8 +108,9 @@ function verifyBaseline(root) {
 
   const rowCounts = {};
   for (const sheet of manifest.sheetExports) {
-    const bytes = requireFile(root, sheet.filename, sheet.byteSize, sheet.sha256);
-    expectedFiles.add(sheet.filename);
+    const sheetFile = requireFile(captureRoot, sheet.filename, sheet.byteSize, sheet.sha256);
+    const bytes = sheetFile.bytes;
+    expectedFiles.add(sheetFile.relativePath);
     const rows = parseCsv(bytes.toString("utf8"));
     if (rows.length === 0) throw new Error(`CSV is empty: ${sheet.filename}`);
     if (!semanticJsonEqual(rows[0], sheet.headers)) {
@@ -125,10 +127,10 @@ function verifyBaseline(root) {
   }
 
   const report = manifest.report;
-  requireFile(root, report.filename, report.byteSize, report.sha256);
-  expectedFiles.add(report.filename);
+  const reportFile = requireFile(captureRoot, report.filename, report.byteSize, report.sha256);
+  expectedFiles.add(reportFile.relativePath);
 
-  const actualFiles = listFilesRecursively(root);
+  const actualFiles = listFilesRecursively(captureRoot);
   const unexpected = actualFiles.filter((filename) => !expectedFiles.has(filename));
   const missing = [...expectedFiles].filter((filename) => !actualFiles.includes(filename));
   if (unexpected.length || missing.length) {

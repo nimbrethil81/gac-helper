@@ -115,9 +115,9 @@
     "semanticTransformationPerformed": false
   },
   "report": {
-    "byteSize": 11400,
+    "byteSize": 11546,
     "filename": "capture-report.md",
-    "sha256": "2b875397bb71775af2e5082316a78c4037f1ae550409cad1940ad9797d613aa1"
+    "sha256": "5a4502c4d7807fe937635b52efefd4b9bf02c9bdda17c7ae186d8e608fccd1d5"
   },
   "schemaVersion": 1,
   "sheetExports": [
