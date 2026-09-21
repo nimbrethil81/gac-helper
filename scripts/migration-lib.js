@@ -88,16 +88,55 @@ function readDecisions(decisionsPath = DEFAULT_DECISIONS_PATH) {
   return decisions;
 }
 
+// The resolutions the loader actually implements, per anomaly. A decision can
+// only change behaviour by naming one of these. There is deliberately no
+// "proceed anyway" or "ignore blockers" option: an unrecognised resolution
+// leaves the anomaly unresolved and the loader still refuses.
+const RECOGNISED_RESOLUTIONS = Object.freeze({
+  UNMATCHED_DEFENCE_IDENTITIES: ["DEFENCE_ONLY_ARCHETYPE"],
+  SYNTHESIZED_COUNTER_DEFINITION_MAZ_KANATA: ["PRESERVE_LEGACY_SYNTHESIZED_DEFINITION"],
+  DEFENCE_TEAM_MODE_SPELLING_ANY: ["STORE_CANONICAL_ANY_PROJECT_SOURCE_SPELLING"],
+  ABSENT_DEFENCE_COMPOSITION: ["INCOMPLETE_DEFENCE_PROFILES_NO_INVENTED_MEMBERS"],
+  SCORE_MEANINGS_RETIRED: ["RETIRED_AUTHORING_GUIDANCE"],
+  SCORING_ARRAY_ORDER: ["EXPECTED_DELTA_ORDER_INSENSITIVE_SCORING"],
+  DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: [
+    "IDENTICAL_DUPLICATE_COLLAPSED",
+    "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE"
+  ],
+  UNIT_ID_FORMAT_TIE_ADVANCED_X1: ["AMEND_ARCH_105_UNIT_ID_FORMAT", "RENAME_UNIT_ID_TO_UPPERCASE"],
+  MIRROR_MATCHUP_SELF_REFERENCE: ["AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS", "SPLIT_DEFENCE_IDENTITY_FOR_MIRRORS"]
+});
+
 function findAnomaly(decisions, id) {
   return decisions.anomalies.find((anomaly) => anomaly.id === id) ?? null;
 }
 
 // A decision counts as settled only when it is explicitly RESOLVED and names a
-// resolution. Anything else stops the load.
+// resolution this loader implements. Anything else stops the load.
 function resolutionOf(decisions, id) {
   const anomaly = findAnomaly(decisions, id);
   if (!anomaly) return null;
-  return anomaly.status === "RESOLVED" && anomaly.resolution ? anomaly.resolution : null;
+  if (anomaly.status !== "RESOLVED" || !anomaly.resolution) return null;
+  const recognised = RECOGNISED_RESOLUTIONS[id];
+  if (recognised && !recognised.includes(anomaly.resolution)) return null;
+  return anomaly.resolution;
+}
+
+// Surface an unimplementable decision as its own blocker rather than letting it
+// look like a missing decision.
+function assertRecognisedResolutions(decisions, blockers) {
+  for (const anomaly of decisions.anomalies) {
+    if (anomaly.status !== "RESOLVED") continue;
+    const recognised = RECOGNISED_RESOLUTIONS[anomaly.id];
+    if (!recognised) continue;
+    if (!recognised.includes(anomaly.resolution)) {
+      blockers.add(
+        anomaly.id,
+        `decision names resolution ${JSON.stringify(anomaly.resolution)}, which the ARCH-106 loader does not implement (expected one of: ${recognised.join(", ")})`,
+        { anomalyId: anomaly.id, resolution: anomaly.resolution ?? null }
+      );
+    }
+  }
 }
 
 // ─── deterministic helpers ───────────────────────────────────────────────────
@@ -613,7 +652,7 @@ function buildMatchups(sources, identity, decisions, blockers) {
         displayName: group.defence.display_name,
         sourceRows: values.map((value) => value.sourceRow)
       });
-      if (mirrorResolution === null) {
+      if (mirrorResolution !== "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS") {
         blockers.add(
           "MIRROR_MATCHUP_SELF_REFERENCE",
           `${group.mode} | ${group.defence.display_name} | ${group.counter.archetype_code} resolves both roles to archetype ${group.defence.archetype_code}, which ARCH-105 matchups_distinct_archetypes forbids`,
@@ -644,7 +683,14 @@ function buildMatchups(sources, identity, decisions, blockers) {
           defenceDisplayName: group.defence.display_name,
           counterArchetypeCode: group.counter.archetype_code,
           sourceRows: values.map((value) => value.sourceRow),
-          resolution: "IDENTICAL_DUPLICATE_COLLAPSED"
+          resolution: "IDENTICAL_DUPLICATE_COLLAPSED",
+          identicalDuplicate: true,
+          survivingSourceRow: values[0].sourceRow,
+          retainedNote: values[0].notes,
+          retainedNoteSourceRow: values[0].notes === "" ? null : values[0].sourceRow,
+          blankNoteSourceRows: values.filter((value) => value.notes === "").map((value) => value.sourceRow),
+          notesDropped: 0,
+          rationale: "The source rows are byte-for-byte equivalent across every meaningful field, so collapsing them loses nothing."
         });
       } else if (!identical && duplicateResolution === "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE") {
         const nonBlank = values.filter((value) => value.notes !== "");
@@ -656,6 +702,16 @@ function buildMatchups(sources, identity, decisions, blockers) {
             `${group.mode} | ${group.defence.display_name} | ${group.counter.archetype_code} duplicates differ beyond a single non-blank note (${[...otherFields, ...(nonBlank.length > 1 ? ["notes"] : [])].join(", ")})`,
             { sourceRows: values.map((value) => value.sourceRow) }
           );
+          // Record the withheld rows so note accounting can tell a blocked row
+          // apart from a silently dropped one.
+          for (const value of values) {
+            dropped.push({
+              source: "Counters",
+              sourceRow: value.sourceRow,
+              identifier: `${group.mode} | ${group.defence.display_name} | ${group.counter.archetype_code}`,
+              reason: "BLOCKED_DUPLICATE_COMPOSITE"
+            });
+          }
           continue;
         }
         chosen = nonBlank[0] ?? values[0];
@@ -665,7 +721,19 @@ function buildMatchups(sources, identity, decisions, blockers) {
           counterArchetypeCode: group.counter.archetype_code,
           sourceRows: values.map((value) => value.sourceRow),
           resolution: "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
-          survivingSourceRow: chosen.sourceRow
+          // Explicitly NOT an identical-duplicate collapse: these rows differ.
+          identicalDuplicate: false,
+          survivingSourceRow: chosen.sourceRow,
+          sharedFields: {
+            tier: chosen.tier,
+            bannerScore: chosen.banner_score,
+            undersize: chosen.undersize
+          },
+          retainedNote: chosen.notes,
+          retainedNoteSourceRow: chosen.notes === "" ? null : chosen.sourceRow,
+          blankNoteSourceRows: values.filter((value) => value.notes === "").map((value) => value.sourceRow),
+          notesDropped: 0,
+          rationale: "The source rows share Tier, Banner Score and Undersize and differ only in Notes. Exactly one row carried an authored note, so that note is retained and no note is dropped. No survivor was chosen by row order or last-write-wins."
         });
       } else {
         blockers.add(
@@ -930,7 +998,10 @@ function buildReconciliation(sources, decisions, plan, identity, blockers, extra
       id: anomaly.id,
       status: anomaly.status,
       resolution: anomaly.resolution,
-      affectedCount: anomaly.affectedCount ?? null
+      affectedCount: anomaly.affectedCount ?? null,
+      decidedBy: anomaly.ownerDecision?.decidedBy ?? null,
+      recordedOn: anomaly.ownerDecision?.recordedOn ?? null,
+      schemaFollowUp: anomaly.ownerDecision?.schemaFollowUp ?? null
     })),
     blockers: blockers.entries
   };
@@ -940,6 +1011,7 @@ function buildReconciliation(sources, decisions, plan, identity, blockers, extra
 
 function buildPlan(sources, decisions) {
   const blockers = new Blockers();
+  assertRecognisedResolutions(decisions, blockers);
 
   const unitResult = buildUnits(sources, decisions, blockers);
   const identity = buildArchetypes(sources, decisions, blockers);
@@ -997,7 +1069,12 @@ function buildPlan(sources, decisions) {
     baseline: reconciliation.baseline,
     canonicalEntityCounts: reconciliation.canonicalEntityCounts,
     sourceRowCounts: reconciliation.sourceRowCounts,
-    decisions: reconciliation.anomalies
+    decisions: reconciliation.anomalies,
+    // Source-row provenance for the rows whose mapping is not one-to-one, so a
+    // reader of the database alone can trace them back to the Sheet.
+    collapsedMatchups: reconciliation.mappings.manyToOne,
+    mirrorMatchups: reconciliation.mirrorMatchups,
+    unitIdRenames: reconciliation.unitIdRenames
   };
 
   return { plan, identity, reconciliation, blockers };
@@ -1013,6 +1090,7 @@ function assertLoadable(reconciliation) {
 
 module.exports = {
   ARCHETYPE_CODE_PATTERN,
+  RECOGNISED_RESOLUTIONS,
   DEFAULT_CAPTURE_ROOT,
   DEFAULT_DECISIONS_PATH,
   SOURCE_MODE_TO_CANONICAL,

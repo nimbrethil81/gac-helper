@@ -25,7 +25,7 @@
         }
       ],
       "condition": "Counters rows 80 and 82 both state 3v3 | Grand Inquisitor | TRAYA. gac.matchups permits exactly one row per (mode, defence_archetype_id, counter_archetype_id).",
-      "detail": "The two rows are NOT byte-for-byte equivalent across all meaningful fields: row 80 carries the tactical note 'Strong' and row 82 carries none. IDENTICAL_DUPLICATE_COLLAPSED therefore does not apply, and ARCH-106 will not choose a survivor or apply last-write-wins. An owner decision is required.",
+      "detail": "Accepted by the owner on 2026-09-21. The two source rows collapse into the one canonical matchup the schema permits. They share Tier S, Banner Score 54 and Undersize 0, and differ only in Notes: row 80 carries the authored note 'Strong' and row 82 carries none. The sole authored note is retained, so no note is dropped, and the survivor was not chosen by row order or last-write-wins. This is NOT an identical-duplicate collapse: the rows are not byte-for-byte equivalent, so IDENTICAL_DUPLICATE_COLLAPSED does not apply to them. Both source rows are recorded in the reconciliation report and in the gac.authoring_changes provenance record.",
       "evidence": {
         "differingFields": [
           "Notes"
@@ -52,9 +52,19 @@
         }
       },
       "id": "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA",
-      "resolution": null,
+      "ownerDecision": {
+        "acceptedCandidate": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
+        "blankNoteSourceRow": 82,
+        "decidedBy": "owner",
+        "notesDropped": 0,
+        "recordedOn": "2026-09-21",
+        "retainedNote": "Strong",
+        "retainedNoteSourceRow": 80,
+        "schemaFollowUp": null
+      },
+      "resolution": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
       "source": "ARCH-103 capture report — requires deterministic mapping (2)",
-      "status": "BLOCKED"
+      "status": "RESOLVED"
     },
     {
       "condition": "MAZ_KANATA has Counter_Composition data but no authored Counter_Definitions row. The legacy Apps Script synthesizes its published definition, using the Counter_ID itself as the display name.",
@@ -116,7 +126,7 @@
         }
       ],
       "condition": "Character_Definitions row 287 has Character_ID 'TIE_ADVANCED_x1'. gac.units enforces units_unit_id_format check (unit_id ~ '^[A-Z0-9]+(?:_[A-Z0-9]+)*$'), which the lowercase 'x1' segment fails.",
-      "detail": "ARCH-106 requirement 1 is to preserve every Character_ID as the canonical unit_id, and the accepted compatibility rule is that no public identifier changes. The ARCH-105 constraint makes those two requirements unsatisfiable for this one unit. ARCH-106 may not alter the ARCH-105 schema and will not silently rename a public identifier, so an owner decision is required.",
+      "detail": "Accepted by the owner on 2026-09-21. Character_ID TIE_ADVANCED_x1 is preserved byte-for-byte as the canonical unit_id and as the public characterDefinitions key; it is not renamed or normalised. The ARCH-105 units_unit_id_format constraint is corrected by an ordered follow-up migration that relaxes exactly one axis, letter case, and keeps every other structural rule: ASCII alphanumerics and underscores only, at least one character per segment, no leading or trailing underscore, and no consecutive underscores. TIE_ADVANCED_x1 is the only one of the 312 captured Character_ID values that relies on the newly allowed form; the other 311 also satisfy the original expression. The already-integrated ARCH-105 migration is unchanged, and the matching rollback refuses non-destructively if any stored unit relies on the widened form.",
       "evidence": {
         "characterId": "TIE_ADVANCED_x1",
         "characterName": "TIE Advanced x1",
@@ -126,9 +136,27 @@
         "unitType": "SHIP"
       },
       "id": "UNIT_ID_FORMAT_TIE_ADVANCED_X1",
-      "resolution": null,
+      "ownerDecision": {
+        "acceptedCandidate": "AMEND_ARCH_105_UNIT_ID_FORMAT",
+        "decidedBy": "owner",
+        "recordedOn": "2026-09-21",
+        "schemaFollowUp": {
+          "identifiersRelyingOnNewForm": [
+            "TIE_ADVANCED_x1"
+          ],
+          "migration": "supabase/migrations/20260921113000_arch_106_unit_id_format.sql",
+          "previousConstraint": "units_unit_id_format check (unit_id ~ '^[A-Z0-9]+(?:_[A-Z0-9]+)*$')",
+          "replacementConstraint": "units_unit_id_format check (unit_id ~ '^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$')",
+          "rollback": "supabase/rollbacks/20260921113000_arch_106_unit_id_format.down.sql",
+          "unchangedIdentifierFormats": [
+            "team_archetypes_code_format",
+            "gac_scoring_rules_rule_id_format"
+          ]
+        }
+      },
+      "resolution": "AMEND_ARCH_105_UNIT_ID_FORMAT",
       "source": "ARCH-106 loader — conflict between the ARCH-103 baseline and the ARCH-105 schema",
-      "status": "BLOCKED"
+      "status": "RESOLVED"
     },
     {
       "candidates": [
@@ -147,7 +175,7 @@
         }
       ],
       "condition": "Three Counters rows pair a defence display name with the identically named attack counter. Under the accepted exact-name identity rule both sides resolve to one archetype, which gac.matchups forbids through matchups_distinct_archetypes check (defence_archetype_id <> counter_archetype_id).",
-      "detail": "These are ordinary mirror matches: the catalogue advises countering a team with the same team. TARGET_ARCHITECTURE.md section 2.2 holds a single team registry, so the defence and attack identities here are genuinely the same archetype. ARCH-106 may not alter the ARCH-105 schema, and splitting an identity whose names match exactly would be the inverse of the rule that forbids guessing two differently named identities are the same. An owner decision is required.",
+      "detail": "Accepted by the owner on 2026-09-21. A defence and its counter may legitimately resolve to the same archetype, so all three mirror matchups load with one archetype in both roles. No defence-only identity is fabricated for Executor, Leviathan or The Stranger. The ARCH-105 matchups_distinct_archetypes constraint is removed by an ordered follow-up migration. Uniqueness on (mode, defence_archetype_id, counter_archetype_id) is unchanged, so a single self-reference is valid while a duplicate self-reference is still rejected. The matching rollback refuses non-destructively if any mirror matchup exists.",
       "evidence": {
         "rows": [
           {
@@ -171,9 +199,20 @@
         ]
       },
       "id": "MIRROR_MATCHUP_SELF_REFERENCE",
-      "resolution": null,
+      "ownerDecision": {
+        "acceptedCandidate": "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS",
+        "decidedBy": "owner",
+        "recordedOn": "2026-09-21",
+        "schemaFollowUp": {
+          "migration": "supabase/migrations/20260921113010_arch_106_mirror_matchups.sql",
+          "removedConstraint": "matchups_distinct_archetypes check (defence_archetype_id <> counter_archetype_id)",
+          "retainedConstraint": "matchups_unique_relationship unique (mode, defence_archetype_id, counter_archetype_id)",
+          "rollback": "supabase/rollbacks/20260921113010_arch_106_mirror_matchups.down.sql"
+        }
+      },
+      "resolution": "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS",
       "source": "ARCH-106 loader — conflict between the ARCH-103 baseline and the ARCH-105 schema",
-      "status": "BLOCKED"
+      "status": "RESOLVED"
     }
   ],
   "baseline": {
@@ -181,7 +220,7 @@
     "captureDirectory": "data/exports/20260921T085937Z",
     "rawSha256": "342e3e4bf095cb7ae25011682f81b17da2b8470b445e046db5f541d5bc0cc4a3"
   },
-  "description": "Deterministic migration decisions that transform the committed ARCH-103 baseline into the ARCH-105 canonical schema. Every anomaly recorded by the ARCH-103 capture report, and every additional conflict found by the ARCH-106 loader, has an explicit entry here. The loader refuses to write to a database while any entry has status BLOCKED.",
+  "description": "Deterministic migration decisions that transform the committed ARCH-103 baseline into the ARCH-105 canonical schema. Every anomaly recorded by the ARCH-103 capture report, and every additional conflict found by the ARCH-106 loader, has an explicit entry here. Three conditions that ARCH-106 initially reported as blockers were resolved by owner decision on 2026-09-21; two of those are implemented as ordered follow-up migrations that correct the ARCH-105 schema. The loader still refuses to write to a database while any entry has status BLOCKED, and only ever acts on a resolution it implements.",
   "identityRules": {
     "attackArchetypeCode": "archetype_code is the source Counter_ID, byte-for-byte.",
     "authority": "Every migrated judgement is AUTHORED_BASELINE. The source carries no lock evidence, so no value is migrated as AUTHORED_LOCKED.",

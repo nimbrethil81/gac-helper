@@ -2,57 +2,101 @@
   "anomalies": [
     {
       "affectedCount": 33,
+      "decidedBy": null,
       "id": "UNMATCHED_DEFENCE_IDENTITIES",
+      "recordedOn": null,
       "resolution": "DEFENCE_ONLY_ARCHETYPE",
+      "schemaFollowUp": null,
       "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": "owner",
       "id": "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA",
-      "resolution": null,
-      "status": "BLOCKED"
+      "recordedOn": "2026-09-21",
+      "resolution": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
+      "schemaFollowUp": null,
+      "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": null,
       "id": "SYNTHESIZED_COUNTER_DEFINITION_MAZ_KANATA",
+      "recordedOn": null,
       "resolution": "PRESERVE_LEGACY_SYNTHESIZED_DEFINITION",
+      "schemaFollowUp": null,
       "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": null,
       "id": "DEFENCE_TEAM_MODE_SPELLING_ANY",
+      "recordedOn": null,
       "resolution": "STORE_CANONICAL_ANY_PROJECT_SOURCE_SPELLING",
+      "schemaFollowUp": null,
       "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": null,
       "id": "ABSENT_DEFENCE_COMPOSITION",
+      "recordedOn": null,
       "resolution": "INCOMPLETE_DEFENCE_PROFILES_NO_INVENTED_MEMBERS",
+      "schemaFollowUp": null,
       "status": "RESOLVED"
     },
     {
       "affectedCount": 26,
+      "decidedBy": null,
       "id": "SCORE_MEANINGS_RETIRED",
+      "recordedOn": null,
       "resolution": "RETIRED_AUTHORING_GUIDANCE",
+      "schemaFollowUp": null,
       "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": null,
       "id": "SCORING_ARRAY_ORDER",
+      "recordedOn": null,
       "resolution": "EXPECTED_DELTA_ORDER_INSENSITIVE_SCORING",
+      "schemaFollowUp": null,
       "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": "owner",
       "id": "UNIT_ID_FORMAT_TIE_ADVANCED_X1",
-      "resolution": null,
-      "status": "BLOCKED"
+      "recordedOn": "2026-09-21",
+      "resolution": "AMEND_ARCH_105_UNIT_ID_FORMAT",
+      "schemaFollowUp": {
+        "identifiersRelyingOnNewForm": [
+          "TIE_ADVANCED_x1"
+        ],
+        "migration": "supabase/migrations/20260921113000_arch_106_unit_id_format.sql",
+        "previousConstraint": "units_unit_id_format check (unit_id ~ '^[A-Z0-9]+(?:_[A-Z0-9]+)*$')",
+        "replacementConstraint": "units_unit_id_format check (unit_id ~ '^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$')",
+        "rollback": "supabase/rollbacks/20260921113000_arch_106_unit_id_format.down.sql",
+        "unchangedIdentifierFormats": [
+          "team_archetypes_code_format",
+          "gac_scoring_rules_rule_id_format"
+        ]
+      },
+      "status": "RESOLVED"
     },
     {
       "affectedCount": null,
+      "decidedBy": "owner",
       "id": "MIRROR_MATCHUP_SELF_REFERENCE",
-      "resolution": null,
-      "status": "BLOCKED"
+      "recordedOn": "2026-09-21",
+      "resolution": "AMEND_ARCH_105_ALLOW_MIRROR_MATCHUPS",
+      "schemaFollowUp": {
+        "migration": "supabase/migrations/20260921113010_arch_106_mirror_matchups.sql",
+        "removedConstraint": "matchups_distinct_archetypes check (defence_archetype_id <> counter_archetype_id)",
+        "retainedConstraint": "matchups_unique_relationship unique (mode, defence_archetype_id, counter_archetype_id)",
+        "rollback": "supabase/rollbacks/20260921113010_arch_106_mirror_matchups.down.sql"
+      },
+      "status": "RESOLVED"
     }
   ],
   "assurances": {
@@ -68,69 +112,14 @@
     "captureTimestamp": "2026-09-21T08:59:37Z",
     "rawSha256": "342e3e4bf095cb7ae25011682f81b17da2b8470b445e046db5f541d5bc0cc4a3"
   },
-  "blockers": [
-    {
-      "anomalyId": "UNIT_ID_FORMAT_TIE_ADVANCED_X1",
-      "evidence": {
-        "characterId": "TIE_ADVANCED_x1",
-        "sourceRow": 287
-      },
-      "message": "Character_ID \"TIE_ADVANCED_x1\" (Character_Definitions row 287) fails the ARCH-105 units_unit_id_format constraint"
-    },
-    {
-      "anomalyId": "MIRROR_MATCHUP_SELF_REFERENCE",
-      "evidence": {
-        "archetypeCode": "EXECUTOR",
-        "mode": "FLEET",
-        "sourceRows": [
-          60
-        ]
-      },
-      "message": "FLEET | Executor | EXECUTOR resolves both roles to archetype EXECUTOR, which ARCH-105 matchups_distinct_archetypes forbids"
-    },
-    {
-      "anomalyId": "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA",
-      "evidence": {
-        "differingFields": [
-          "notes"
-        ],
-        "sourceRows": [
-          80,
-          82
-        ]
-      },
-      "message": "3V3 | Grand Inquisitor | TRAYA appears 2 times and the rows differ in notes; ARCH-106 will not choose a survivor"
-    },
-    {
-      "anomalyId": "MIRROR_MATCHUP_SELF_REFERENCE",
-      "evidence": {
-        "archetypeCode": "LEVIATHAN",
-        "mode": "FLEET",
-        "sourceRows": [
-          152
-        ]
-      },
-      "message": "FLEET | Leviathan | LEVIATHAN resolves both roles to archetype LEVIATHAN, which ARCH-105 matchups_distinct_archetypes forbids"
-    },
-    {
-      "anomalyId": "MIRROR_MATCHUP_SELF_REFERENCE",
-      "evidence": {
-        "archetypeCode": "THE_STRANGER",
-        "mode": "5V5",
-        "sourceRows": [
-          305
-        ]
-      },
-      "message": "5V5 | The Stranger | THE_STRANGER resolves both roles to archetype THE_STRANGER, which ARCH-105 matchups_distinct_archetypes forbids"
-    }
-  ],
+  "blockers": [],
   "canonicalEntityCounts": {
     "authoring_changes": 1,
     "defence_catalogue_values": 9,
     "gac_board_config": 40,
     "gac_scoring_rules": 16,
-    "matchup_catalogue_values": 361,
-    "matchups": 361,
+    "matchup_catalogue_values": 365,
+    "matchups": 365,
     "team_archetypes": 90,
     "team_archetypes_attack": 57,
     "team_archetypes_defence_only": 33,
@@ -138,7 +127,7 @@
     "team_profiles": 169,
     "team_profiles_attack": 57,
     "team_profiles_defence": 112,
-    "units": 311
+    "units": 312
   },
   "defenceComposition": {
     "allDefenceProfilesIncomplete": true,
@@ -497,44 +486,7 @@
       }
     ]
   },
-  "droppedSourceRows": [
-    {
-      "identifier": "FLEET | Executor | EXECUTOR",
-      "reason": "BLOCKED_MIRROR_MATCHUP",
-      "source": "Counters",
-      "sourceRow": 60
-    },
-    {
-      "identifier": "3V3 | Grand Inquisitor | TRAYA",
-      "reason": "BLOCKED_DUPLICATE_COMPOSITE",
-      "source": "Counters",
-      "sourceRow": 80
-    },
-    {
-      "identifier": "3V3 | Grand Inquisitor | TRAYA",
-      "reason": "BLOCKED_DUPLICATE_COMPOSITE",
-      "source": "Counters",
-      "sourceRow": 82
-    },
-    {
-      "identifier": "FLEET | Leviathan | LEVIATHAN",
-      "reason": "BLOCKED_MIRROR_MATCHUP",
-      "source": "Counters",
-      "sourceRow": 152
-    },
-    {
-      "identifier": "TIE_ADVANCED_x1",
-      "reason": "BLOCKED_UNIT_ID_FORMAT",
-      "source": "Character_Definitions",
-      "sourceRow": 287
-    },
-    {
-      "identifier": "5V5 | The Stranger | THE_STRANGER",
-      "reason": "BLOCKED_MIRROR_MATCHUP",
-      "source": "Counters",
-      "sourceRow": 305
-    }
-  ],
+  "droppedSourceRows": [],
   "generatedIdentifiers": [
     {
       "collisionSuffix": null,
@@ -769,12 +721,37 @@
     }
   ],
   "mappings": {
-    "manyToOne": [],
+    "manyToOne": [
+      {
+        "blankNoteSourceRows": [
+          82
+        ],
+        "counterArchetypeCode": "TRAYA",
+        "defenceDisplayName": "Grand Inquisitor",
+        "identicalDuplicate": false,
+        "mode": "3V3",
+        "notesDropped": 0,
+        "rationale": "The source rows share Tier, Banner Score and Undersize and differ only in Notes. Exactly one row carried an authored note, so that note is retained and no note is dropped. No survivor was chosen by row order or last-write-wins.",
+        "resolution": "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
+        "retainedNote": "Strong",
+        "retainedNoteSourceRow": 80,
+        "sharedFields": {
+          "bannerScore": 54,
+          "tier": "S",
+          "undersize": 0
+        },
+        "sourceRows": [
+          80,
+          82
+        ],
+        "survivingSourceRow": 80
+      }
+    ],
     "oneToOne": {
-      "Character_Definitions -> gac.units": "312 -> 311",
+      "Character_Definitions -> gac.units": "312 -> 312",
       "Counter_Composition -> gac.team_profile_members": "70 -> 70",
       "Counter_Definitions -> gac.team_archetypes (attack)": "56 -> 56",
-      "Counters -> gac.matchups + gac.matchup_catalogue_values": "366 -> 361",
+      "Counters -> gac.matchups + gac.matchup_catalogue_values": "366 -> 365",
       "Defence_Teams -> gac.defence_catalogue_values": "9 -> 9",
       "GAC_Board_Config -> gac.gac_board_config": "40 -> 40",
       "GAC_Scoring -> gac.gac_scoring_rules": "16 -> 16"
@@ -820,10 +797,10 @@
   ],
   "notePreservation": {
     "migratedDefenceNotesNonBlank": 0,
-    "migratedMatchupNotesNonBlank": 95,
+    "migratedMatchupNotesNonBlank": 97,
     "migratedScoringNotesNonBlank": 14,
     "notesDroppedSilently": 0,
-    "notesWithheldByBlockers": 2,
+    "notesWithheldByBlockers": 0,
     "sourceCounterNotesNonBlank": 97,
     "sourceDefenceTeamNotesNonBlank": 0,
     "sourceScoringNotesNonBlank": 14
@@ -852,6 +829,6 @@
     "Score_Meanings": 26
   },
   "sourceRowCountsTotal": 895,
-  "status": "BLOCKED",
+  "status": "READY",
   "unitIdRenames": []
 }

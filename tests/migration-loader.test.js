@@ -19,6 +19,7 @@ const { verifyBaseline } = require("../scripts/verify-baseline.js");
 const {
   DEFAULT_CAPTURE_ROOT,
   DEFAULT_DECISIONS_PATH,
+  RECOGNISED_RESOLUTIONS,
   allocateDefenceOnlyCode,
   assertLoadable,
   buildPlan,
@@ -29,36 +30,63 @@ const {
   applySchema,
   assertDataStatement,
   createDisposableDatabase,
-  loadPlan
+  loadPlan,
+  migrationFiles
 } = require("../scripts/migration-load.js");
 const { renderMarkdown } = require("../scripts/migration-reconcile.js");
 const { applyExpectedDeltas, projectPayload, sortScoring, verifyProjection } = require("../scripts/migration-verify.js");
 const { baseSheets, writeFixture } = require("./migration-fixture.js");
 
-// The committed decision file deliberately leaves three conditions BLOCKED.
-// These are the candidate resolutions that load against the ARCH-105 schema
-// exactly as it is committed today. They are test inputs, not owner decisions.
-const CANDIDATE_RESOLUTIONS = {
-  DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE",
-  UNIT_ID_FORMAT_TIE_ADVANCED_X1: "RENAME_UNIT_ID_TO_UPPERCASE",
-  MIRROR_MATCHUP_SELF_REFERENCE: "SPLIT_DEFENCE_IDENTITY_FOR_MIRRORS"
-};
-
-function withCandidateResolutions(overrides = CANDIDATE_RESOLUTIONS) {
+// Every committed decision is now an accepted owner decision, so the loader
+// runs from the decision file as committed. These helpers exist only so the
+// negative tests can alter one decision at a time and prove that blocker
+// handling is still enforced.
+function withResolutions(overrides) {
   const decisions = readDecisions();
   for (const anomaly of decisions.anomalies) {
-    if (overrides[anomaly.id]) {
-      anomaly.status = "RESOLVED";
+    if (overrides[anomaly.id] !== undefined) {
       anomaly.resolution = overrides[anomaly.id];
+      anomaly.status = overrides[anomaly.id] === null ? "BLOCKED" : "RESOLVED";
     }
   }
   return decisions;
+}
+
+const MIGRATION_DIRECTORY = path.resolve("supabase", "migrations");
+const ROLLBACK_DIRECTORY = path.resolve("supabase", "rollbacks");
+
+function sqlFile(directory, filename) {
+  return fs.readFileSync(path.join(directory, filename), "utf8");
+}
+
+const UNIT_ID_MIGRATION = "20260921113000_arch_106_unit_id_format.sql";
+const MIRROR_MIGRATION = "20260921113010_arch_106_mirror_matchups.sql";
+const UNIT_ID_ROLLBACK = "20260921113000_arch_106_unit_id_format.down.sql";
+const MIRROR_ROLLBACK = "20260921113010_arch_106_mirror_matchups.down.sql";
+
+async function unitIdConstraint(database) {
+  const result = await database.query(`
+    select pg_get_constraintdef(oid) as definition
+    from pg_constraint where conname = 'units_unit_id_format'
+  `);
+  return result.rows.length === 0 ? null : result.rows[0].definition;
+}
+
+async function mirrorConstraintExists(database) {
+  const result = await database.query(
+    "select count(*)::int as total from pg_constraint where conname = 'matchups_distinct_archetypes'"
+  );
+  return result.rows[0].total === 1;
 }
 
 function sourceRows(filename) {
   const rows = parseCsv(fs.readFileSync(path.join(DEFAULT_CAPTURE_ROOT, "sheets", filename), "utf8"));
   const headers = rows[0];
   return rows.slice(1).map((cells) => Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""])));
+}
+
+async function rejects(database, sql, pattern) {
+  await assert.rejects(database.query(sql), pattern);
 }
 
 async function withDatabase(run) {
@@ -158,44 +186,77 @@ test("unexpected fixture corruption is rejected by the baseline verifier", () =>
   }
 });
 
-test("the committed decision file is canonical and leaves exactly the reported blockers open", () => {
+test("the committed decision file is canonical and records an accepted decision for every anomaly", () => {
   const text = fs.readFileSync(DEFAULT_DECISIONS_PATH, "utf8");
   const decisions = JSON.parse(text);
   assert.equal(canonicalJson(decisions), text, "decision file must stay deterministically canonicalized");
   assert.equal(decisions.package, "ARCH-106");
 
-  const blocked = decisions.anomalies.filter((anomaly) => anomaly.status === "BLOCKED").map((anomaly) => anomaly.id).sort();
-  assert.deepEqual(blocked, [
+  assert.deepEqual(decisions.anomalies.filter((anomaly) => anomaly.status !== "RESOLVED"), []);
+  for (const anomaly of decisions.anomalies) {
+    assert.ok(anomaly.resolution, `${anomaly.id} must name a resolution`);
+    const recognised = RECOGNISED_RESOLUTIONS[anomaly.id];
+    assert.ok(recognised, `${anomaly.id} must be a resolution the loader implements`);
+    assert.ok(recognised.includes(anomaly.resolution), `${anomaly.id} names an unimplemented resolution`);
+  }
+
+  // The three conditions ARCH-106 originally reported as blockers are recorded
+  // as accepted owner decisions, with their candidate history retained.
+  const ownerDecided = decisions.anomalies.filter((anomaly) => anomaly.ownerDecision);
+  assert.deepEqual(ownerDecided.map((anomaly) => anomaly.id).sort(), [
     "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA",
     "MIRROR_MATCHUP_SELF_REFERENCE",
     "UNIT_ID_FORMAT_TIE_ADVANCED_X1"
   ]);
-  for (const anomaly of decisions.anomalies) {
-    if (anomaly.status === "BLOCKED") {
-      assert.equal(anomaly.resolution, null, `${anomaly.id} must not pre-empt the owner decision`);
-      assert.ok(Array.isArray(anomaly.candidates) && anomaly.candidates.length > 0, `${anomaly.id} must list candidates`);
-    } else {
-      assert.equal(anomaly.status, "RESOLVED");
-      assert.ok(anomaly.resolution, `${anomaly.id} must name a resolution`);
-    }
+  for (const anomaly of ownerDecided) {
+    assert.equal(anomaly.ownerDecision.acceptedCandidate, anomaly.resolution);
+    assert.equal(anomaly.ownerDecision.decidedBy, "owner");
+    assert.ok(Array.isArray(anomaly.candidates) && anomaly.candidates.length > 0, `${anomaly.id} must retain its candidates`);
+    assert.ok(
+      anomaly.candidates.some((candidate) => candidate.id === anomaly.resolution),
+      `${anomaly.id} must accept one of its recorded candidates`
+    );
   }
+  assert.equal(
+    decisions.anomalies.find((anomaly) => anomaly.id === "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA")
+      .ownerDecision.retainedNote,
+    "Strong"
+  );
 });
 
-test("the committed decisions refuse to load and report every blocker precisely", () => {
+test("the committed decisions are ready to load with no blocker remaining", () => {
   const { reconciliation } = buildPlan(readSources(), readDecisions());
-  assert.equal(reconciliation.status, "BLOCKED");
-  const byAnomaly = {};
-  for (const blocker of reconciliation.blockers) {
-    byAnomaly[blocker.anomalyId] = (byAnomaly[blocker.anomalyId] ?? 0) + 1;
-  }
-  assert.deepEqual(byAnomaly, {
-    UNIT_ID_FORMAT_TIE_ADVANCED_X1: 1,
-    MIRROR_MATCHUP_SELF_REFERENCE: 3,
-    DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: 1
-  });
-  assert.throws(() => assertLoadable(reconciliation), /unresolved blocker/);
-  // No note is ever lost silently, even while the load is blocked.
+  assert.equal(reconciliation.status, "READY");
+  assert.deepEqual(reconciliation.blockers, []);
+  assert.deepEqual(reconciliation.droppedSourceRows, [], "no source row may be withheld");
   assert.equal(reconciliation.notePreservation.notesDroppedSilently, 0);
+  assert.equal(reconciliation.notePreservation.notesWithheldByBlockers, 0);
+  assert.equal(reconciliation.unitIdRenames.length, 0, "no public identifier is renamed");
+  assert.doesNotThrow(() => assertLoadable(reconciliation));
+});
+
+test("blocker handling still applies to an unresolved or unimplementable decision", () => {
+  const sources = readSources();
+
+  // Withdrawing any one decision blocks the load again.
+  for (const anomalyId of [
+    "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA",
+    "UNIT_ID_FORMAT_TIE_ADVANCED_X1",
+    "MIRROR_MATCHUP_SELF_REFERENCE"
+  ]) {
+    const { reconciliation } = buildPlan(sources, withResolutions({ [anomalyId]: null }));
+    assert.equal(reconciliation.status, "BLOCKED", `${anomalyId} must still be able to block`);
+    assert.ok(reconciliation.blockers.some((entry) => entry.anomalyId === anomalyId));
+    assert.throws(() => assertLoadable(reconciliation), /unresolved blocker/);
+  }
+
+  // A resolution the loader does not implement is a blocker, not a licence to
+  // proceed. There is no general "ignore blockers" option to reach for.
+  const invented = buildPlan(sources, withResolutions({
+    MIRROR_MATCHUP_SELF_REFERENCE: "PROCEED_ANYWAY"
+  })).reconciliation;
+  assert.equal(invented.status, "BLOCKED");
+  assert.ok(invented.blockers.some((entry) => /does not implement/.test(entry.message)));
 });
 
 test("the committed reconciliation reports match a fresh generation", () => {
@@ -212,18 +273,21 @@ test("the committed reconciliation reports match a fresh generation", () => {
   );
 });
 
-// ─── loading the real baseline under explicit resolutions ────────────────────
+// ─── loading the real baseline from the committed decisions ──────────────────
 
 test("a fresh ARCH-105 schema accepts the ARCH-106 load and reconciles to source", async () => {
   const sources = readSources();
-  const { plan, reconciliation } = buildPlan(sources, withCandidateResolutions());
+  const { plan, reconciliation } = buildPlan(sources, readDecisions());
   assert.equal(reconciliation.status, "READY");
 
   await withDatabase(async (database) => {
     const result = await loadPlan(database, plan, reconciliation);
     assert.deepEqual(result.invariants.rowCounts, {
       "gac.units": 312,
-      "gac.team_archetypes": 93,
+      // 57 attack identities plus 33 defence-only ones. The three mirror
+      // defences reuse their identically named attack archetype, so no extra
+      // identity is invented for them.
+      "gac.team_archetypes": 90,
       "gac.team_profiles": 169,
       "gac.team_profile_members": 70,
       "gac.matchups": 365,
@@ -248,7 +312,7 @@ test("a fresh ARCH-105 schema accepts the ARCH-106 load and reconciles to source
 });
 
 test("a second identical load changes nothing", async () => {
-  const { plan, reconciliation } = buildPlan(readSources(), withCandidateResolutions());
+  const { plan, reconciliation } = buildPlan(readSources(), readDecisions());
   await withDatabase(async (database) => {
     const first = await loadPlan(database, plan, reconciliation);
     const beforeIds = (await database.query("select archetype_id, archetype_code from gac.team_archetypes order by archetype_code")).rows;
@@ -270,7 +334,7 @@ test("a second identical load changes nothing", async () => {
 
 test("two fresh databases produce the same logical identities and the same payload", async () => {
   const sources = readSources();
-  const decisions = withCandidateResolutions();
+  const decisions = readDecisions();
   const { plan, reconciliation } = buildPlan(sources, decisions);
 
   const results = [];
@@ -291,19 +355,18 @@ test("two fresh databases produce the same logical identities and the same paylo
 
 test("every source identifier, display name, note, board order and scoring value survives", async () => {
   const sources = readSources();
-  const decisions = withCandidateResolutions();
+  const decisions = readDecisions();
   const { plan, reconciliation } = buildPlan(sources, decisions);
 
   await withDatabase(async (database) => {
     await loadPlan(database, plan, reconciliation);
 
-    // Every Character_ID is retained, with the single documented rename the
-    // only difference and nothing dropped.
+    // Every Character_ID is retained byte-for-byte, with nothing renamed and
+    // nothing dropped.
     const units = (await database.query("select unit_id from gac.units")).rows.map((row) => row.unit_id);
-    const renames = new Map(reconciliation.unitIdRenames.map((entry) => [entry.from, entry.to]));
-    assert.equal(renames.size, 1);
+    assert.equal(reconciliation.unitIdRenames.length, 0);
     for (const row of sourceRows("Character_Definitions.csv")) {
-      assert.ok(units.includes(renames.get(row.Character_ID) ?? row.Character_ID), `missing unit ${row.Character_ID}`);
+      assert.ok(units.includes(row.Character_ID), `missing unit ${row.Character_ID}`);
     }
     assert.equal(units.length, 312);
 
@@ -317,7 +380,7 @@ test("every source identifier, display name, note, board order and scoring value
     // No display name changes anywhere.
     const unitNames = new Map((await database.query("select unit_id, display_name from gac.units")).rows.map((row) => [row.unit_id, row.display_name]));
     for (const row of sourceRows("Character_Definitions.csv")) {
-      assert.equal(unitNames.get(renames.get(row.Character_ID) ?? row.Character_ID), row.Character_Name);
+      assert.equal(unitNames.get(row.Character_ID), row.Character_Name);
     }
     const archetypeNames = new Map((await database.query("select archetype_code, display_name from gac.team_archetypes")).rows.map((row) => [row.archetype_code, row.display_name]));
     for (const row of sourceRows("Counter_Definitions.csv")) {
@@ -459,28 +522,89 @@ test("an ambiguous defence identity is rejected rather than guessed", () => {
 
 // ─── duplicate handling ──────────────────────────────────────────────────────
 
-test("the known duplicate is handled only by its explicit decision", () => {
+test("rows 80 and 82 collapse to one matchup retaining the sole authored note", async () => {
+  const sources = readSources();
+  const decisions = readDecisions();
+  const { plan, reconciliation } = buildPlan(sources, decisions);
+
+  assert.equal(reconciliation.mappings.manyToOne.length, 1);
+  const collapse = reconciliation.mappings.manyToOne[0];
+  assert.equal(collapse.resolution, "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE");
+  assert.equal(collapse.identicalDuplicate, false, "these rows differ; this is not an identical-duplicate collapse");
+  // Both source rows stay represented in the reconciliation record.
+  assert.deepEqual(collapse.sourceRows, [80, 82]);
+  assert.equal(collapse.survivingSourceRow, 80);
+  assert.equal(collapse.retainedNote, "Strong");
+  assert.equal(collapse.retainedNoteSourceRow, 80);
+  assert.deepEqual(collapse.blankNoteSourceRows, [82]);
+  assert.equal(collapse.notesDropped, 0);
+  assert.deepEqual(collapse.sharedFields, { tier: "S", bannerScore: 54, undersize: 0 });
+
+  // Both source rows also reach the in-database provenance record.
+  assert.deepEqual(plan.authoringChange.structured_values.collapsedMatchups[0].sourceRows, [80, 82]);
+
+  await withDatabase(async (database) => {
+    await loadPlan(database, plan, reconciliation);
+    const rows = (await database.query(`
+      select value.tier, value.banner_score, value.undersize, value.notes
+      from gac.matchups matchup
+      join gac.team_archetypes defence on defence.archetype_id = matchup.defence_archetype_id
+      join gac.team_archetypes counter on counter.archetype_id = matchup.counter_archetype_id
+      join gac.matchup_catalogue_values value on value.matchup_id = matchup.matchup_id
+      where matchup.mode = '3V3' and defence.display_name = 'Grand Inquisitor'
+        and counter.archetype_code = 'TRAYA'
+    `)).rows;
+    assert.equal(rows.length, 1, "the duplicate must reduce to exactly one canonical matchup");
+    assert.equal(rows[0].notes, "Strong");
+    assert.equal(rows[0].tier, "S");
+    assert.equal(Number(rows[0].banner_score), 54);
+    assert.equal(Number(rows[0].undersize), 0);
+
+    const provenance = (await database.query(
+      "select structured_values from gac.authoring_changes where change_id = 'ARCH-106-LEGACY-MIGRATION'"
+    )).rows[0].structured_values;
+    assert.deepEqual(provenance.collapsedMatchups[0].sourceRows, [80, 82]);
+    assert.equal(provenance.collapsedMatchups[0].retainedNote, "Strong");
+  });
+});
+
+test("the duplicate collapses only because of its explicit decision", () => {
   const sources = readSources();
 
-  const blocked = buildPlan(sources, readDecisions()).reconciliation;
-  assert.equal(blocked.mappings.manyToOne.length, 0, "no collapse without an explicit decision");
+  // Withdrawing the decision must block the load again.
+  const withdrawn = buildPlan(sources, withResolutions({
+    DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: null
+  })).reconciliation;
+  assert.equal(withdrawn.mappings.manyToOne.length, 0, "no collapse without an explicit decision");
+  assert.ok(withdrawn.blockers.some((entry) => entry.anomalyId === "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA"));
 
   // The committed evidence says these rows differ, so IDENTICAL_DUPLICATE_COLLAPSED
-  // must not silently apply to them either.
-  const wrongDecision = withCandidateResolutions({
-    ...CANDIDATE_RESOLUTIONS,
+  // must not apply to them even though it is a recognised resolution.
+  const asIdentical = buildPlan(sources, withResolutions({
     DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: "IDENTICAL_DUPLICATE_COLLAPSED"
-  });
-  const stillBlocked = buildPlan(sources, wrongDecision).reconciliation;
+  })).reconciliation;
   assert.ok(
-    stillBlocked.blockers.some((entry) => entry.anomalyId === "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA"),
+    asIdentical.blockers.some((entry) => entry.anomalyId === "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA"),
     "a differing duplicate must not be collapsed as identical"
   );
+  assert.equal(asIdentical.mappings.manyToOne.length, 0);
+});
 
-  const resolved = buildPlan(sources, withCandidateResolutions()).reconciliation;
-  assert.equal(resolved.mappings.manyToOne.length, 1);
-  assert.deepEqual(resolved.mappings.manyToOne[0].sourceRows, [80, 82]);
-  assert.equal(resolved.mappings.manyToOne[0].survivingSourceRow, 80);
+test("a duplicate with two different authored notes is rejected", () => {
+  const sheets = baseSheets();
+  sheets.Counters.push({ ...sheets.Counters[0], Notes: "A different authored note." });
+  const root = writeFixture(sheets);
+  try {
+    const { reconciliation } = buildPlan(readSources(root), readDecisions());
+    const blocker = reconciliation.blockers
+      .find((entry) => entry.anomalyId === "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA");
+    assert.ok(blocker, "two competing notes need their own explicit decision");
+    assert.match(blocker.message, /beyond a single non-blank note/);
+    assert.equal(reconciliation.mappings.manyToOne.length, 0);
+    assert.equal(reconciliation.notePreservation.notesDroppedSilently, 0);
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("an identical duplicate collapses only with the explicit identical-duplicate decision", () => {
@@ -489,10 +613,12 @@ test("an identical duplicate collapses only with the explicit identical-duplicat
   sheets.Counters.push(duplicate);
   const root = writeFixture(sheets);
   try {
-    const blocked = buildPlan(readSources(root), readDecisions()).reconciliation;
+    const blocked = buildPlan(readSources(root), withResolutions({
+      DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: null
+    })).reconciliation;
     assert.ok(blocked.blockers.some((entry) => /appears 2 times with identical values/.test(entry.message)));
 
-    const decisions = withCandidateResolutions({
+    const decisions = withResolutions({
       DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: "IDENTICAL_DUPLICATE_COLLAPSED"
     });
     const collapsed = buildPlan(readSources(root), decisions).reconciliation;
@@ -510,7 +636,7 @@ test("a duplicate that differs in a scored field is rejected under every collaps
   const root = writeFixture(sheets);
   try {
     for (const resolution of ["IDENTICAL_DUPLICATE_COLLAPSED", "COLLAPSE_KEEPING_SOLE_NON_BLANK_NOTE"]) {
-      const decisions = withCandidateResolutions({ DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: resolution });
+      const decisions = withResolutions({ DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA: resolution });
       const { reconciliation } = buildPlan(readSources(root), decisions);
       assert.ok(
         reconciliation.blockers.some((entry) => entry.anomalyId === "DUPLICATE_MATCHUP_3V3_GRAND_INQUISITOR_TRAYA"),
@@ -526,7 +652,7 @@ test("a duplicate that differs in a scored field is rejected under every collaps
 // ─── synthesized definition, absent composition, mode spelling ───────────────
 
 test("MAZ_KANATA keeps its published semantics with documented synthesized provenance", async () => {
-  const decisions = withCandidateResolutions();
+  const decisions = readDecisions();
   const { plan, reconciliation } = buildPlan(readSources(), decisions);
 
   assert.deepEqual(reconciliation.mappings.synthesized, [{
@@ -558,7 +684,7 @@ test("MAZ_KANATA keeps its published semantics with documented synthesized prove
 });
 
 test("the absent Defence_Composition tab yields incomplete, member-free defence profiles", async () => {
-  const decisions = withCandidateResolutions();
+  const decisions = readDecisions();
   const { plan, reconciliation } = buildPlan(readSources(), decisions);
   assert.equal(reconciliation.defenceComposition.sourceTabPresent, false);
   assert.equal(reconciliation.defenceComposition.membersInvented, 0);
@@ -583,7 +709,7 @@ test("the absent Defence_Composition tab yields incomplete, member-free defence 
 });
 
 test("the Any/ANY decision stores the canonical enum and projects the source spelling", async () => {
-  const decisions = withCandidateResolutions();
+  const decisions = readDecisions();
   const anomaly = decisions.anomalies.find((entry) => entry.id === "DEFENCE_TEAM_MODE_SPELLING_ANY");
   assert.equal(anomaly.status, "RESOLVED");
   assert.equal(anomaly.resolution, "STORE_CANONICAL_ANY_PROJECT_SOURCE_SPELLING");
@@ -606,7 +732,7 @@ test("the Any/ANY decision stores the canonical enum and projects the source spe
 
 test("the compatibility projection has no unexplained difference from the golden payload", async () => {
   const sources = readSources();
-  const decisions = withCandidateResolutions();
+  const decisions = readDecisions();
   const { plan, reconciliation } = buildPlan(sources, decisions);
 
   await withDatabase(async (database) => {
@@ -619,9 +745,14 @@ test("the compatibility projection has no unexplained difference from the golden
     for (const check of result.checks) assert.ok(check.passed, `${check.id}: ${check.detail}`);
     assert.deepEqual(result.expectedDeltas.map((delta) => delta.id).sort(), [
       "COLLAPSED_DUPLICATE_MATCHUP",
-      "RENAMED_UNIT_ID",
       "SCORING_ARRAY_ORDER"
     ]);
+    // TIE_ADVANCED_x1 stays a published key, so no rename delta exists.
+    assert.ok(result.expectedDeltas.every((delta) => delta.id !== "RENAMED_UNIT_ID"));
+    assert.deepEqual(
+      projected.characterDefinitions.TIE_ADVANCED_x1,
+      sources.goldenPayload.characterDefinitions.TIE_ADVANCED_x1
+    );
     assert.equal(result.passed, true);
 
     // Expected deltas are declared, not achieved by excluding a domain.
@@ -633,7 +764,7 @@ test("the compatibility projection has no unexplained difference from the golden
 });
 
 test("an unexplained payload difference is reported rather than hidden", () => {
-  const { reconciliation } = buildPlan(readSources(), withCandidateResolutions());
+  const { reconciliation } = buildPlan(readSources(), readDecisions());
   const golden = readSources().goldenPayload;
   const damaged = JSON.parse(JSON.stringify(golden));
   damaged.characterDefinitions.JEDI_KNIGHT_REVAN = { name: "Not real", unitType: "CHARACTER", externalId: "X" };
@@ -665,7 +796,7 @@ test("an invalid source row is rejected before any database is opened", () => {
 });
 
 test("a row the database rejects rolls the whole load back", async () => {
-  const { plan, reconciliation } = buildPlan(readSources(), withCandidateResolutions());
+  const { plan, reconciliation } = buildPlan(readSources(), readDecisions());
   const damaged = {
     ...plan,
     matchups: plan.matchups.map((matchup, index) => (index === 200 ? { ...matchup, banner_score: 5000 } : matchup))
@@ -681,7 +812,7 @@ test("a row the database rejects rolls the whole load back", async () => {
 });
 
 test("the loader cannot modify schema objects or permissions", async () => {
-  const { plan, reconciliation } = buildPlan(readSources(), withCandidateResolutions());
+  const { plan, reconciliation } = buildPlan(readSources(), readDecisions());
 
   for (const statement of [
     "create table gac.sneaky (id int)",
@@ -708,4 +839,247 @@ test("the loader cannot modify schema objects or permissions", async () => {
     await assert.rejects(database.exec("create table gac.sneaky (id int)"), /permission denied/);
     await database.exec("reset role");
   });
+});
+
+// ─── ARCH-106 follow-up schema migrations ────────────────────────────────────
+
+test("the unit-id follow-up migration applies after ARCH-105 and widens only letter case", async () => {
+  await withDatabase(async (database) => {
+    // applySchema runs every file in supabase/migrations in filename order, so
+    // the follow-up is applied after the ARCH-105 core schema it corrects.
+    const files = migrationFiles().map((migration) => migration.filename);
+    assert.deepEqual(files, [...files].sort(), "migrations must be ordered by filename");
+    assert.ok(files.indexOf(UNIT_ID_MIGRATION) > files.indexOf("20260921101325_arch_105_core_schema.sql"));
+
+    const definition = await unitIdConstraint(database);
+    assert.match(definition, /A-Za-z0-9/);
+    assert.doesNotMatch(definition, /\[A-Z0-9\]\+\(\?:_\[A-Z0-9\]\+\)\*/);
+
+    await database.exec("set role gac_authoring");
+    // The legitimate legacy identifier is accepted, unchanged.
+    await database.exec(`
+      insert into gac.units (unit_id, display_name, external_id, unit_type)
+      values ('TIE_ADVANCED_x1', 'TIE Advanced x1', 'TIEADVANCED', 'SHIP')
+    `);
+    const stored = (await database.query("select unit_id from gac.units")).rows;
+    assert.deepEqual(stored, [{ unit_id: "TIE_ADVANCED_x1" }]);
+
+    // Every other structural rule still applies.
+    for (const [index, badId] of [
+      "_LEADING", "TRAILING_", "DOUBLE__UNDERSCORE", "HAS-HYPHEN", "HAS SPACE", "", "HAS.DOT", "HAS/SLASH"
+    ].entries()) {
+      await rejects(
+        database,
+        `insert into gac.units (unit_id, display_name, external_id, unit_type)
+         values ('${badId}', 'Bad ${index}', 'BAD${index}', 'CHARACTER')`,
+        /units_unit_id_format/
+      );
+    }
+    await database.exec("reset role");
+  });
+});
+
+test("the unit-id rollback restores the original constraint when no unit relies on the widened form", async () => {
+  await withDatabase(async (database) => {
+    await database.exec("set role gac_authoring");
+    await database.exec(`
+      insert into gac.units (unit_id, display_name, external_id, unit_type)
+      values ('JEDI_KNIGHT_REVAN', 'Jedi Knight Revan', 'JEDIKNIGHTREVAN', 'CHARACTER')
+    `);
+    await database.exec("reset role");
+
+    await database.exec(sqlFile(ROLLBACK_DIRECTORY, UNIT_ID_ROLLBACK));
+
+    const definition = await unitIdConstraint(database);
+    assert.doesNotMatch(definition, /A-Za-z0-9/);
+    const units = (await database.query("select unit_id from gac.units")).rows;
+    assert.deepEqual(units, [{ unit_id: "JEDI_KNIGHT_REVAN" }], "rollback must not touch data");
+
+    // Reapplying the forward migration restores the widened form.
+    await database.exec(sqlFile(MIGRATION_DIRECTORY, UNIT_ID_MIGRATION));
+    assert.match(await unitIdConstraint(database), /A-Za-z0-9/);
+  });
+});
+
+test("the unit-id rollback fails safely and non-destructively when a unit relies on the widened form", async () => {
+  await withDatabase(async (database) => {
+    await database.exec("set role gac_authoring");
+    await database.exec(`
+      insert into gac.units (unit_id, display_name, external_id, unit_type) values
+        ('TIE_ADVANCED_x1', 'TIE Advanced x1', 'TIEADVANCED', 'SHIP'),
+        ('JEDI_KNIGHT_REVAN', 'Jedi Knight Revan', 'JEDIKNIGHTREVAN', 'CHARACTER')
+    `);
+    await database.exec("reset role");
+
+    await assert.rejects(
+      database.exec(sqlFile(ROLLBACK_DIRECTORY, UNIT_ID_ROLLBACK)),
+      /rollback refused[\s\S]*TIE_ADVANCED_x1/
+    );
+    await database.exec("rollback; reset role");
+
+    // Nothing was renamed, nothing was deleted, and the widened form still holds.
+    const units = (await database.query("select unit_id from gac.units order by unit_id")).rows;
+    assert.deepEqual(units, [{ unit_id: "JEDI_KNIGHT_REVAN" }, { unit_id: "TIE_ADVANCED_x1" }]);
+    assert.match(await unitIdConstraint(database), /A-Za-z0-9/);
+  });
+});
+
+test("the mirror-matchup follow-up migration applies after ARCH-105 and keeps uniqueness", async () => {
+  await withDatabase(async (database) => {
+    const files = migrationFiles().map((migration) => migration.filename);
+    assert.ok(files.indexOf(MIRROR_MIGRATION) > files.indexOf("20260921101325_arch_105_core_schema.sql"));
+
+    assert.equal(await mirrorConstraintExists(database), false, "matchups_distinct_archetypes must be removed");
+    const unique = await database.query(
+      "select count(*)::int as total from pg_constraint where conname = 'matchups_unique_relationship'"
+    );
+    assert.equal(unique.rows[0].total, 1, "uniqueness must survive the amendment");
+
+    await database.exec("set role gac_authoring");
+    await database.exec(`
+      insert into gac.team_archetypes (archetype_code, display_name, battle_type, identity_reason, created_by)
+      values ('MIRROR_A', 'Mirror A', 'SQUAD', 'LEGACY_MIGRATION', 'HUMAN');
+      insert into gac.matchups (mode, defence_archetype_id, counter_archetype_id)
+      select '5V5', archetype_id, archetype_id from gac.team_archetypes where archetype_code = 'MIRROR_A';
+    `);
+    const mirrors = await database.query(
+      "select count(*)::int as total from gac.matchups where defence_archetype_id = counter_archetype_id"
+    );
+    assert.equal(mirrors.rows[0].total, 1);
+
+    // A single self-reference is valid; a duplicate self-reference is not.
+    await rejects(
+      database,
+      `insert into gac.matchups (mode, defence_archetype_id, counter_archetype_id)
+       select '5V5', archetype_id, archetype_id from gac.team_archetypes where archetype_code = 'MIRROR_A'`,
+      /duplicate key|matchups_unique_relationship/
+    );
+    await database.exec("reset role");
+  });
+});
+
+test("the mirror-matchup rollback restores the constraint when no mirror exists", async () => {
+  await withDatabase(async (database) => {
+    await database.exec(sqlFile(ROLLBACK_DIRECTORY, MIRROR_ROLLBACK));
+    assert.equal(await mirrorConstraintExists(database), true);
+
+    await database.exec(sqlFile(MIGRATION_DIRECTORY, MIRROR_MIGRATION));
+    assert.equal(await mirrorConstraintExists(database), false);
+  });
+});
+
+test("the mirror-matchup rollback fails safely and non-destructively when mirrors exist", async () => {
+  await withDatabase(async (database) => {
+    await database.exec("set role gac_authoring");
+    await database.exec(`
+      insert into gac.team_archetypes (archetype_code, display_name, battle_type, identity_reason, created_by)
+      values ('MIRROR_B', 'Mirror B', 'SQUAD', 'LEGACY_MIGRATION', 'HUMAN');
+      insert into gac.matchups (mode, defence_archetype_id, counter_archetype_id)
+      select '3V3', archetype_id, archetype_id from gac.team_archetypes where archetype_code = 'MIRROR_B';
+    `);
+    await database.exec("reset role");
+
+    await assert.rejects(
+      database.exec(sqlFile(ROLLBACK_DIRECTORY, MIRROR_ROLLBACK)),
+      /rollback refused[\s\S]*Mirror B/
+    );
+    await database.exec("rollback; reset role");
+
+    const remaining = await database.query("select count(*)::int as total from gac.matchups");
+    assert.equal(remaining.rows[0].total, 1, "rollback must not delete a matchup");
+    assert.equal(await mirrorConstraintExists(database), false);
+  });
+});
+
+test("the loaded baseline keeps TIE_ADVANCED_x1 and all three mirror matchups", async () => {
+  const sources = readSources();
+  const decisions = readDecisions();
+  const { plan, reconciliation } = buildPlan(sources, decisions);
+
+  assert.deepEqual(
+    reconciliation.mirrorMatchups.map((entry) => `${entry.mode} | ${entry.archetypeCode}`).sort(),
+    ["5V5 | THE_STRANGER", "FLEET | EXECUTOR", "FLEET | LEVIATHAN"]
+  );
+
+  await withDatabase(async (database) => {
+    await loadPlan(database, plan, reconciliation);
+
+    // The public identifier is stored exactly as authored.
+    const unit = (await database.query(
+      "select unit_id, display_name, external_id, unit_type from gac.units where unit_id = 'TIE_ADVANCED_x1'"
+    )).rows;
+    assert.deepEqual(unit, [{
+      unit_id: "TIE_ADVANCED_x1",
+      display_name: "TIE Advanced x1",
+      external_id: "TIEADVANCED",
+      unit_type: "SHIP"
+    }]);
+    const uppercased = await database.query("select count(*)::int as total from gac.units where unit_id = 'TIE_ADVANCED_X1'");
+    assert.equal(uppercased.rows[0].total, 0, "the identifier must not be normalised");
+
+    // Each mirror uses one archetype in both roles.
+    const mirrors = (await database.query(`
+      select matchup.mode::text as mode, archetype.archetype_code, archetype.display_name,
+             matchup.defence_archetype_id, matchup.counter_archetype_id
+      from gac.matchups matchup
+      join gac.team_archetypes archetype on archetype.archetype_id = matchup.defence_archetype_id
+      where matchup.defence_archetype_id = matchup.counter_archetype_id
+      order by archetype.archetype_code
+    `)).rows;
+    assert.equal(mirrors.length, 3);
+    for (const mirror of mirrors) {
+      assert.equal(mirror.defence_archetype_id, mirror.counter_archetype_id);
+    }
+    assert.deepEqual(mirrors.map((mirror) => `${mirror.mode} | ${mirror.archetype_code}`), [
+      "FLEET | EXECUTOR", "FLEET | LEVIATHAN", "5V5 | THE_STRANGER"
+    ]);
+
+    // No defence-only identity was fabricated for the mirror teams.
+    for (const code of ["DEF_EXECUTOR", "DEF_LEVIATHAN", "DEF_THE_STRANGER"]) {
+      const fabricated = await database.query(
+        "select count(*)::int as total from gac.team_archetypes where archetype_code = $1", [code]
+      );
+      assert.equal(fabricated.rows[0].total, 0, `${code} must not exist`);
+    }
+    const defenceOnly = reconciliation.defenceIdentities.defenceOnlyMappings.map((entry) => entry.displayName);
+    for (const name of ["Executor", "Leviathan", "The Stranger"]) {
+      assert.ok(!defenceOnly.includes(name), `${name} must reuse its attack identity`);
+    }
+    assert.equal(reconciliation.defenceIdentities.defenceOnly, 33);
+    assert.equal(reconciliation.defenceIdentities.reusedExactAttackIdentity, 36);
+  });
+});
+
+test("every migration and rollback, including the ARCH-106 follow-ups, applies in order and reapplies", async () => {
+  const forward = migrationFiles().map((migration) => migration.filename);
+  assert.deepEqual(forward, [
+    "20260921101325_arch_105_core_schema.sql",
+    "20260921101336_arch_105_stage1_permissions.sql",
+    UNIT_ID_MIGRATION,
+    MIRROR_MIGRATION
+  ]);
+  const rollbacks = fs.readdirSync(ROLLBACK_DIRECTORY).filter((name) => name.endsWith(".down.sql")).sort();
+  assert.deepEqual(rollbacks, forward.map((name) => name.replace(/\.sql$/, ".down.sql")));
+
+  const database = await createDisposableDatabase();
+  try {
+    await applySchema(database);
+    assert.match(await unitIdConstraint(database), /A-Za-z0-9/);
+    assert.equal(await mirrorConstraintExists(database), false);
+
+    // Reverse order: the ARCH-106 follow-ups unwind before ARCH-105.
+    for (const filename of [...rollbacks].reverse()) {
+      await database.exec(sqlFile(ROLLBACK_DIRECTORY, filename));
+    }
+    const gone = await database.query("select exists(select 1 from pg_namespace where nspname = 'gac') as present");
+    assert.equal(gone.rows[0].present, false);
+
+    await applySchema(database);
+    const tables = await database.query("select count(*)::int as total from information_schema.tables where table_schema = 'gac'");
+    assert.equal(tables.rows[0].total, 21);
+    assert.match(await unitIdConstraint(database), /A-Za-z0-9/);
+    assert.equal(await mirrorConstraintExists(database), false);
+  } finally {
+    await database.close();
+  }
 });

@@ -382,21 +382,21 @@ The live PWA receives no database credential.
 - all duplicate identity decisions are explicit;
 - the database can generate the current catalogue semantics.
 
-**Implementation evidence (2026-09-21):**
+**Completion evidence (2026-09-21):**
 
-- Starting `main` SHA `9a5f37a7ecbf7dfcac0b85f79e616e96a6924477`, clean worktree, dedicated branch.
-- The loader, reconciliation, compatibility verification, tests and record are implemented: `data/migration/arch-106-decisions.json`, `data/migration/arch-106-reconciliation.{json,md}`, `scripts/migration-lib.js`, `scripts/migration-load.js`, `scripts/migration-reconcile.js`, `scripts/migration-verify.js`, `tests/migration-loader.test.js`, `tests/migration-fixture.js` and [`docs/database/ARCH-106.md`](database/ARCH-106.md).
-- Commands `migrate:reconcile`, `migrate:load` and `migrate:verify` run against the committed baseline and a disposable PGlite database. No hosted service, credential or Docker is involved, and the ARCH-103 capture is only read.
-- Every ARCH-103 anomaly has an explicit committed outcome. Six are resolved: the 33 defence-only identities, the synthesized `MAZ_KANATA` definition, the eight `Any` modes, the absent `Defence_Composition`, the retirement of `Score_Meanings`, and the order-insensitive `scoring` comparison.
-- Idempotency, cross-database identity stability, note and name preservation, board order, scoring values, external-ID coverage, transaction rollback, the privilege boundary and unchanged fixture hashes are covered by 24 passing tests. A rehearsal under the candidate resolutions loads 312 units, 93 archetypes, 169 profiles, 365 matchups, 40 board rows and 16 scoring rows, reloads as a no-op, and projects the golden payload with no unexplained difference.
+- Starting `main` SHA `9a5f37a7ecbf7dfcac0b85f79e616e96a6924477`; candidate commit `30021c06df7f385f08fac5137867c4fc74dfe556` and its remediation commit on the dedicated branch.
+- Loader, reconciliation, compatibility verification, tests and record: `data/migration/arch-106-decisions.json`, `data/migration/arch-106-reconciliation.{json,md}`, `scripts/migration-lib.js`, `scripts/migration-load.js`, `scripts/migration-reconcile.js`, `scripts/migration-verify.js`, `tests/migration-loader.test.js`, `tests/migration-fixture.js` and [`docs/database/ARCH-106.md`](database/ARCH-106.md).
+- Commands `migrate:reconcile`, `migrate:load` and `migrate:verify` run against the committed baseline and a disposable PGlite database, with no override, flag or environment variable that bypasses a decision or a constraint. No hosted service, credential or Docker is involved, and the ARCH-103 capture is only read.
+- All nine captured and discovered anomalies have an explicit committed outcome. Six follow deterministic ARCH-106 rules: the 33 defence-only identities, the synthesized `MAZ_KANATA` definition, the eight `Any` modes, the absent `Defence_Composition`, the retirement of `Score_Meanings`, and the order-insensitive `scoring` comparison.
+- Three were conflicts between the ARCH-103 baseline and the ARCH-105 schema; the owner accepted all three recommended resolutions. The duplicate `3v3 | Grand Inquisitor | TRAYA` collapses to one matchup retaining its sole authored note `Strong`, with both source rows recorded in provenance. `TIE_ADVANCED_x1` is preserved byte-for-byte. All three mirror matchups load with one archetype in both roles and no fabricated defence-only identity.
+- Two ordered follow-up migrations owned by ARCH-106 correct the ARCH-105 schema, each with a non-destructive rollback that refuses rather than delete data: `supabase/migrations/20260921113000_arch_106_unit_id_format.sql` widens `units_unit_id_format` to `^[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*$`, and `supabase/migrations/20260921113010_arch_106_mirror_matchups.sql` removes `matchups_distinct_archetypes` while keeping `matchups_unique_relationship`. The already-integrated ARCH-105 migrations are unchanged.
+- Final canonical counts: 312 units; 90 archetypes (57 attack, 33 defence-only); 169 profiles (57 attack, 112 defence); 70 profile members; 365 matchups and 365 catalogue-value rows; 9 defence value rows; 40 board rows; 16 scoring rows; 1 authoring record. 366 `Counters` rows map to 365 matchups, the single difference being the approved duplicate collapse. Zero dropped source rows, zero silently dropped notes, zero required members without an `external_id`, zero fuzzy mappings.
+- Repeated loading is a no-op: the second load inserts nothing, moves no surrogate key, touches no `updated_at` and creates no duplicate provenance row. Two independently created databases hold identical business identities and project an identical payload.
+- Compatibility verification passes with zero unexplained differences and two declared deltas: the approved duplicate collapse and the order-insensitive `scoring` comparison. Public counter IDs, defence display names, notes, board order, scoring values and required-member external-ID coverage are all preserved.
+- Validation: `npm run check`, `npm test`, `npm run db:test`, `npm run baseline:verify`, `npm run migrate:reconcile`, `npm run migrate:load`, `npm run migrate:load -- --twice`, `npm run migrate:verify`, forward/rollback/reapply exercises including both follow-up migrations, safe rollback-failure exercises with incompatible data, `npm audit --audit-level=high`, `git diff --check`, ARCH-103 fixture hash verification, and secret/credential/ally-code/roster/absolute-path scans.
+- No external service was contacted or modified: no Google Sheet, Apps Script deployment, hosted Supabase project, Cloudflare target, GitHub setting or secret, and no deployment.
 
-**Status: Blocked — not complete.** Three acceptance conditions need an owner decision because the ARCH-103 baseline and the ARCH-105 schema conflict, and ARCH-106 will not resolve them silently:
-
-1. `Counters` rows 80 and 82 duplicate `3v3 | Grand Inquisitor | TRAYA` but differ in `Notes` (`Strong` versus blank), so the identical-duplicate collapse does not apply.
-2. `Character_ID` `TIE_ADVANCED_x1` fails the ARCH-105 `units_unit_id_format` constraint while being a public payload key.
-3. Three mirror matchups (`Executor`, `Leviathan`, `The Stranger`) resolve both roles to one archetype, which the ARCH-105 `matchups_distinct_archetypes` constraint forbids.
-
-Candidate resolutions and their exact effects are recorded in `data/migration/arch-106-decisions.json`; the recommended resolution for (2) and (3) is a reviewed follow-up ARCH-105 migration. The loader implements every candidate that needs no schema change, so recording a decision is the only work needed to unblock a load. ARCH-107 and ARCH-108 remain unstarted.
+**Status: Complete.** Every acceptance criterion passed. ARCH-104, ARCH-107 and ARCH-108 remain unstarted.
 
 **Rollback:** Drop/recreate the unconnected database and rerun. Sheet remains authoritative.
 
@@ -1103,7 +1103,7 @@ Initial status:
 | ARCH-103 | Complete |
 | ARCH-104 | Not started |
 | ARCH-105 | Complete |
-| ARCH-106 | Blocked — implementation complete, three owner decisions outstanding |
+| ARCH-106 | Complete |
 | ARCH-107 | Not started |
 | ARCH-108 | Not started |
 | ARCH-109 | Not started |

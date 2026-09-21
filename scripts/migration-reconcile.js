@@ -93,13 +93,20 @@ function renderMarkdown(report) {
   sections.push("### Many-to-one (collapsed) mappings");
   sections.push(report.mappings.manyToOne.length === 0
     ? "None applied."
-    : table(
-      ["Mode", "Defence", "Counter", "Source rows", "Resolution"],
-      report.mappings.manyToOne.map((entry) => [
-        entry.mode, entry.defenceDisplayName, `\`${entry.counterArchetypeCode}\``,
-        entry.sourceRows.join(", "), `\`${entry.resolution}\``
-      ])
-    ));
+    : [
+      table(
+        ["Mode", "Defence", "Counter", "Source rows", "Surviving row", "Resolution", "Identical duplicate?", "Retained note", "Notes dropped"],
+        report.mappings.manyToOne.map((entry) => [
+          entry.mode, entry.defenceDisplayName, `\`${entry.counterArchetypeCode}\``,
+          entry.sourceRows.join(", "), String(entry.survivingSourceRow), `\`${entry.resolution}\``,
+          entry.identicalDuplicate ? "yes" : "**no**",
+          entry.retainedNote === "" ? "—" : `\`${entry.retainedNote}\``,
+          String(entry.notesDropped)
+        ])
+      ),
+      "",
+      report.mappings.manyToOne.map((entry) => `- **${entry.mode} | ${entry.defenceDisplayName} | ${entry.counterArchetypeCode}** — ${entry.rationale}`).join("\n")
+    ].join("\n"));
 
   sections.push("### Synthesized definitions");
   sections.push(report.mappings.synthesized.length === 0
@@ -220,9 +227,11 @@ function renderMarkdown(report) {
 
   sections.push("## Decision status");
   sections.push(table(
-    ["Anomaly", "Status", "Resolution"],
+    ["Anomaly", "Status", "Resolution", "Decided by"],
     report.anomalies.map((entry) => [
-      `\`${entry.id}\``, entry.status, entry.resolution === null ? "**owner decision required**" : `\`${entry.resolution}\``
+      `\`${entry.id}\``, entry.status,
+      entry.resolution === null ? "**owner decision required**" : `\`${entry.resolution}\``,
+      entry.decidedBy === null ? "ARCH-106 rule" : entry.decidedBy
     ])
   ));
 
