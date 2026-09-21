@@ -1,8 +1,10 @@
 # SWGOH GAC Helper — Target Architecture
 
-**Status:** Proposed design v0.2, revised after independent peer review. Not yet implemented.
+**Status:** Proposed design v0.3, revised after independent peer review and after the accepted ARCH-102 platform decisions. Not yet implemented.
 
 **Scope.** This document defines the proposed target architecture for modernising GAC Helper's canonical data platform, authoring model, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
+
+**Platform decisions.** The Stage-1 host, environment, publication, secret, role and threat-model decisions referenced throughout this document (Cloudflare Workers as production static host, Supabase Free/London as the Stage-1 canonical database, the distributed publication protocol, the Stage-1 role inventory, and the accompanying threat and recovery model) are recorded authoritatively in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md). This document reflects those accepted decisions; the ADR owns their justification, rejected alternatives, and re-verification requirements.
 
 **Update this document when** an architectural decision below is accepted, revised or rejected during review or implementation. Once the target architecture ships, move enduring current-state facts into `SPEC.md` and either retire this document or reduce it to decisions not captured elsewhere.
 
@@ -190,13 +192,14 @@ Validated authoring loader     Immutable observations
 
 Target components:
 
-- **GitHub:** source, change files, schema migrations, policy, tests and deployment workflows.
-- **Postgres-compatible database:** canonical catalogue, evidence, assessments, findings, authoring records and release metadata.
-- **Static hosting:** the PWA plus immutable catalogue artifacts.
-- **Deterministic maintenance runner:** scheduled ingestion and rule-based analysis, with AI invoked only for bounded semantic cases.
+- **GitHub (Free plan):** source, change files, schema migrations, policy, tests and deployment workflows. Repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 production gate, in place of GitHub Environments (not available for a private repository on GitHub Free); see [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3.
+- **Postgres-compatible database — Supabase Free, London region (Stage-1 canonical, subject to ARCH-104 re-verification):** canonical catalogue, evidence, assessments, findings, authoring records and release metadata. Selected as the current use of the account's one remaining free project slot; reversible through a separate approved plan if another owner-operated application later needs the slot more. Development and schema rehearsal use a local, disposable Postgres instance; exactly one hosted project is canonical. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.3–§1.4, §3.
+- **Static hosting — Cloudflare Workers static assets:** the PWA plus immutable versioned catalogue artifacts and a small current-version pointer, replacing GitHub Pages as the production host because the account is GitHub Free and private-repository Pages is not available on it. A separate, publicly reachable development Worker (marked `noindex`, carrying no credentials or personal data, treated as a preview rather than an access-controlled environment) serves unpublished/candidate artifacts for inspection. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2, §1.5, §3, §4.
+- **Deterministic maintenance runner:** scheduled ingestion and rule-based analysis, with AI invoked only for bounded semantic cases. Selection remains deferred to the Stage 2 evidence gate (§20).
 - **Google Apps Script:** retained initially only as the roster proxy to Comlink; its `action=data` route is retired after a proved fallback period.
 - **Comlink:** existing read-only roster source unless separately replaced.
 - **Google Sheets:** migration source and temporary cutover fallback, not part of the target steady-state runtime.
+- **Existing public `gac-helper` repository and its GitHub Pages deployment:** retained, unchanged, as a fallback production route through the Stage-1 acceptance window defined in §14–§15; not part of the target steady-state runtime, and retired only at the ARCH-112 exit gate.
 
 ---
 
@@ -589,32 +592,30 @@ The payload includes:
 
 A singleton row holds `current_release_id`.
 
-Publication:
+Publication spans two independent systems — the database and Cloudflare Workers — and is **not** one atomic transaction across them. It uses a `READY`/`DEPLOYED` release lifecycle with HTTP verification between phases, defined precisely in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.1:
 
-1. takes a transaction-scoped advisory lock shared by all publication paths;
-2. reads and records the current release as the base;
-3. materialises the candidate from one consistent canonical snapshot;
-4. re-checks policy for every proposed automated mutation;
-5. generates and validates the complete payload;
-6. refuses publication if the current release no longer equals the base;
-7. allocates the monotonic version inside the lock;
-8. inserts the immutable release;
-9. marks it published and updates `current_release_id` atomically;
-10. writes the versioned static artifact;
-11. updates the static current-version pointer only after the artifact is available.
+1. generate and validate a candidate against an explicit base release (no writes yet);
+2. in a short database transaction: take the advisory lock, re-check the base release, allocate the monotonic version, insert an immutable release with `status = READY`, and commit **without** moving `current_release_id`;
+3. write the immutable artifact and static pointer;
+4. deploy artifact and pointer together as one Cloudflare Worker version;
+5. verify over HTTP — pointer, artifact, payload schema version, catalogue version, checksum;
+6. in a second short database transaction, mark the release `DEPLOYED` and move `current_release_id`;
+7. record the deployed commit SHA and the Cloudflare version/deployment identifier on the release row.
 
-A failed artifact write does not advertise the new release. A failed pointer write leaves clients on the prior artifact.
+Recovery for every failure window in this sequence (Cloudflare deployment failure, HTTP verification failure, database finalization failure) is defined in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.2, including an idempotent reconciliation command and a GitHub Actions concurrency group that prevents two production deployments running simultaneously. A failed artifact write does not advertise the new release. A failed pointer write, or a verification failure, leaves clients on the prior artifact and leaves the release `READY` rather than `DEPLOYED`.
 
 ### 9.3 Static artifact and client contract
 
-The storage mechanism for static artifacts is an implementation decision, but it must provide:
+Static artifacts are served as Cloudflare Workers static assets, from the same Worker that serves the PWA (see [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4). The mechanism provides:
 
 - immutable versioned URLs;
 - a tiny current-version pointer;
-- atomic or safely ordered publication;
+- the safely-ordered, verified publication sequence in §9.2 (not a single cross-system atomic transaction);
 - compatibility with the existing static host;
 - retention of prior compatible releases;
 - no database dependency for ordinary PWA reads.
+
+The static deployed pointer is authoritative for what the phone currently sees. The database's `current_release_id` records the verified-deployed state as understood by the publication tooling, and is expected to agree with the static pointer once step 6 above completes.
 
 The PWA:
 
@@ -846,7 +847,13 @@ Retrieved third-party content is untrusted data. Instructions embedded in it are
 
 ## 14. Repository and environments
 
-The desired endpoint remains one authoritative repository with explicit development and production environments.
+The desired endpoint remains one authoritative repository with explicit development and production environments. The private development repository (this one) remains the authoritative source throughout; it is never made public as part of this consolidation.
+
+The account is GitHub Free. GitHub Environments with required reviewers, and GitHub Pages served from a private repository, are not available on that plan. Repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 substitute production gate, and Cloudflare Workers static assets — not private-repository GitHub Pages — is the selected production static host. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1–§3 for the full decision and its rejected alternatives, and §12 for the plan-feature facts ARCH-104 must re-verify before relying on them.
+
+Because the production host changes, **the production URL changes.** This is not a side effect to be absorbed silently: the origin change is its own explicit migration, requiring client-state export/import so a player's roster, boards, templates, used counters and preferences survive the move. It is sequenced as ARCH-111/ARCH-112, detailed in §15.4, and depends on the manual authoring, review, publication and rollback runs (§16, "Manual run entry points") being operable end to end before any player-facing cutover.
+
+**Manual operation is mandatory**, not merely available. Every stage of this architecture must support a manual authoring run, a manual candidate/review run, a manual publication run and a manual rollback run, independent of any schedule; see §16, "Manual run entry points". Scheduling, where it exists in Stage 3, is an additional trigger for the same underlying commands, never the only way to operate the system.
 
 Prerequisites for consolidation:
 
@@ -859,11 +866,28 @@ Prerequisites for consolidation:
 
 Repository consolidation is not required before database migration and must not be combined atomically with catalogue cutover. It may be completed within Stage 1 through a later internal checkpoint so manual configuration remains concentrated without removing the fallback prematurely.
 
+The existing public `gac-helper` repository and its GitHub Pages deployment remain an untouched fallback through the Stage-1 acceptance window: they are not modified, degraded or pre-emptively retired by adopting Cloudflare Workers for the new production host. They are retired, and `LIVE_REPO_PAT` revoked, only at the approved ARCH-112 exit gate — see §15.4.
+
 ---
 
 ## 15. Migration and cutover
 
 Migration optimises for recoverability rather than prolonged dual-write.
+
+### 15.0 Production-origin change (ARCH-111/ARCH-112)
+
+The catalogue-platform migration described in §15.1–§15.4 changes the *data source*. Separately, and only as its own explicitly approved migration, the production **hosting origin** changes from GitHub Pages to Cloudflare Workers (§14), which also changes the production URL. Because all player-specific state lives in browser `localStorage` keyed to the origin (`SPEC.md` §3.4), a bare origin change would silently strand a player's roster, boards, templates, used counters and preferences. The origin change is therefore sequenced as its own migration, ARCH-111/ARCH-112, and is not performed as a side effect of any other work package:
+
+1. implement and test client-state export on the old origin;
+2. implement and test client-state import on the new origin;
+3. export before cutover;
+4. deploy and verify the new Cloudflare origin;
+5. import state and re-import the roster by ally code;
+6. verify boards, templates, used counters, preferences, and offline behaviour;
+7. keep the old origin unchanged through at least one complete GAC event;
+8. retire the old deployment and `LIVE_REPO_PAT` only at the approved exit gate.
+
+No step of this sequence is performed by the catalogue-platform work packages (ARCH-105–ARCH-110); it is authorised only by ARCH-111/ARCH-112 under their own explicit approval.
 
 ### 15.1 Required artifacts
 
@@ -930,12 +954,23 @@ The programme uses three stages. A small evidence gate sits before Stage 2; it i
 
 ### Stage 1 — Canonical platform, authoring and publication
 
-Manual configuration is concentrated into one coordinated session:
+Manual configuration is concentrated into one coordinated session (ARCH-104), which creates only the Stage-1 roles and secrets in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §7 — Stage-2 evidence/analyst/applier credentials are not created:
 
-- create the database project and least-privilege roles;
-- configure repository secrets and environments;
-- configure the static catalogue publication target;
+- create the Supabase Free project (London region) and least-privilege Stage-1 roles;
+- configure repository secrets (no GitHub Environments; manual `workflow_dispatch` gates production instead);
+- configure the Cloudflare Workers development and production static catalogue publication targets;
 - confirm the guarded route toward one repository.
+
+### Manual run entry points
+
+Manual operation is mandatory, not optional, throughout every stage (see §14). The following are always available as directly runnable commands and/or `workflow_dispatch` workflows, independent of any schedule, and are the exact code path a future scheduled trigger reuses:
+
+- a **manual authoring run** — prepare, dry-run, apply and optionally publish a human catalogue change without SQL (§6);
+- a **manual candidate/review run** — a report-only maintenance review outside the schedule, with report-only as the default (§8, Stage 2);
+- a **manual publication run** — the `READY`/`DEPLOYED` protocol in §9.2, invoked explicitly;
+- a **manual rollback run** — repoint to a prior compatible release, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §5.
+
+Every manual run records who/what triggered it and remains idempotent for the same logical unit of work. Full detail is in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §8.
 
 Agent implementation then:
 
@@ -1082,15 +1117,25 @@ Retention periods are set after measuring real volume. Do not add premature arch
 21. Apps Script remains initially for roster proxying only.
 22. One repository remains the desired target, but consolidation requires CI, fail-closed public output and a recoverable fallback.
 23. The programme has three implementation stages with manual configuration concentrated in Stage 1.
+24. Cloudflare Workers static assets is the selected production static host, replacing GitHub Pages, because the GitHub account is Free and private-repository Pages is unavailable ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1).
+25. Supabase Free in the London region is the selected Stage-1 canonical database, using the account's one remaining free project slot, subject to ARCH-104 re-verification of cost and account limits before manual creation ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3).
+26. The Supabase-slot allocation is reversible through a separate approved plan if another owner-operated application later needs the slot more ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.4).
+27. GitHub repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 production gate, in place of GitHub Environments ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.6).
+28. Manual operation — authoring, candidate/review, publication and rollback runs — is mandatory in every stage; scheduling is an additional trigger for the same commands, never the only way to operate the system ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.7, §8).
+29. Publication across the database and Cloudflare Workers uses the `READY`/`DEPLOYED` two-phase protocol with HTTP verification and idempotent reconciliation, not a cross-system atomic transaction ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4).
+30. Stage-1 backup/recovery reconstructs canonical state from ordered migrations, append-only authoring change files, immutable published artifacts and release metadata — not from raw `pg_dump` files committed to Git; an encrypted off-site logical-backup destination is selected later, at GATE-200 or the relevant Stage-2 package ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.1).
+31. No daily keep-alive is used to defeat Supabase free-tier pausing; every maintenance operation instead preflights database health, stops safely if paused, reports the owner action needed to resume it, and resumes idempotently ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.2).
+32. Only the Stage-1 roles Stage 1 actually exercises (migration/admin, authoring, publisher, and read-only backup/export if needed) are created in Stage 1; Stage-2 roles (evidence ingester, maintenance analyst, deterministic applier) are not created until Stage 2 ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §7).
 
 ---
 
 ## 20. Decisions deferred to implementation evidence
 
-- final database host and region;
-- exact static artifact storage and pointer mechanism;
-- exact one-repository consolidation and production-hosting mechanics;
-- evidence provider, retrieval contract and recurring cost;
+The database host/region, the static artifact storage/pointer mechanism, and the production-hosting selection are now settled by [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) (§19 items 24–32), subject to the re-verification it requires at ARCH-104. The following remain genuinely open:
+
+- exact one-repository consolidation mechanics (the target hosting is decided; how the consolidated repository route is wired up is not);
+- evidence provider, retrieval contract and recurring cost (GATE-200);
+- **encrypted off-site logical-backup destination, retention and restore testing for Stage-2 evidence and assessment history** — deliberately not preselected by ADR-ARCH-102 §10.1, and explicitly not "commit raw dumps to Git"; owned by GATE-200 or the relevant Stage-2 work package;
 - exact observation idempotency key;
 - final deterministic runner;
 - exact confidence formula and source-quality weights;
@@ -1126,3 +1171,20 @@ It modifies three recommendations:
 - repository consolidation remains the desired target, but is guarded and sequenced rather than coupled atomically to database cutover.
 
 It also keeps AI available for genuinely semantic ambiguity while making ordinary ingestion, mapping, policy enforcement and publication deterministic.
+
+---
+
+## 22. ARCH-102 resolution (v0.3)
+
+v0.3 records the accepted ARCH-102 platform decisions from [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md):
+
+- selected Cloudflare Workers static assets as the production static host, and Supabase Free (London) as the Stage-1 canonical database, both subject to ARCH-104 re-verification;
+- replaced GitHub Environments with repository secrets plus manual `workflow_dispatch` as the Stage-1 production gate, reflecting the GitHub Free plan;
+- replaced the single-transaction publication model with the `READY`/`DEPLOYED` two-phase, HTTP-verified protocol and its recovery/reconciliation procedure, because a database transaction and a Cloudflare deployment cannot be made atomic together;
+- required manual authoring, candidate/review, publication and rollback runs in every stage, with scheduling as an additional trigger only;
+- ruled out committing raw `pg_dump` backups to Git and ruled out a daily Supabase keep-alive, replacing both with an explicit Stage-1 reconstruction model and a preflight/fail-safe/resume pattern for maintenance operations;
+- limited Stage-1 role/credential creation to the roles Stage 1 actually exercises, deferring evidence ingester, maintenance analyst and deterministic-applier credentials to Stage 2;
+- recorded mandatory `SECURITY DEFINER` controls for any such function retained in the schema;
+- recorded the production-origin change (GitHub Pages → Cloudflare Workers) as its own explicit ARCH-111/ARCH-112 client-state migration, with the existing public repository and GitHub Pages deployment retained as an untouched fallback through the Stage-1 acceptance window and retired only at the approved exit gate.
+
+This section, §14, §15.0, §16, §19 items 24–32 and §20 reflect that resolution. The ADR itself remains the authoritative source for justification, rejected alternatives, the full threat model, and the time-sensitive assumptions ARCH-104 must re-check.
