@@ -22,13 +22,16 @@
 6. Stage 3 activates bounded autonomous publication only after Stage 2 acceptance.
 7. The current Sheet-backed application remains recoverable throughout Stage 1 and for at least one complete GAC event after cutover.
 8. The production app is never switched during an ordinary coding task. Cutover is its own explicitly approved work package.
-9. Each work package begins from fresh repository evidence and ends with a reviewed diff, relevant tests and an updated status in this document.
+9. Each work package begins from fresh repository evidence and ends with a reviewed diff, relevant tests and an updated status in this document. The depth of verification at the end of a package is set by principles 16–18, not applied uniformly.
 10. Agents may commit approved work directly to `main` under `AGENTS.md`, but may not trigger production deployment unless the work package explicitly authorises it.
 11. No secrets, personal identifiers or private operational files may enter a public artifact.
 12. Stage boundaries are acceptance decisions. Passing unit tests alone is not sufficient.
 13. Human authoring and maintenance review must be runnable on demand outside the schedule.
 14. Manual and scheduled maintenance use the same core pipeline, policy, validation and audit path; a manual trigger cannot bypass safeguards.
 15. This conversation remains the control thread. Coding and deep-analysis work may use breakout threads, but scope, decisions, verification and next-step selection return here.
+16. **Verification scales with blast radius, not with package count.** A work package that is local-only, git-revertible and has no external state, production, cost, credential or permission impact may land once: package acceptance tests pass; CI passes; a scope/diff review confirms no unintended changes; its documentation records results, known limitations and deferred integration checks; and the worktree is clean. Full independent verification for such a package is deferred to its stage's integration checkpoint (ARCH-110 for Stage 1, ARCH-207 for Stage 2, ARCH-304 for Stage 3), which re-exercises it there instead of twice.
+17. **Full independent verification is risk-triggered**, expressed as criteria rather than a fixed package list, and applies whenever a package involves: cloud configuration, credentials, permissions, RLS or another trust-boundary change; an operation that creates cost or mutates external state; publication, concurrency, rollback or distributed-state logic; a destructive or difficult-to-reverse data operation; a production deployment, URL migration, cutover or autonomous-activation step; or a stage exit gate. A nominally local package that turns out to introduce any of these risks automatically escalates to full verification, regardless of how it was originally scoped.
+18. **Later refinement does not normally reopen completed work.** A later package may amend an earlier package's output through additive migrations or documented follow-up changes; both packages' records cross-reference the amendment, and the earlier package remains `Complete`. This is not absolute: if later evidence shows the earlier package fundamentally failed its own acceptance criteria, exposed a security issue, or produced unsafe external state, reopening it is appropriate. Ordinary implementation refinement discovered by a downstream package — as ARCH-106 amending ARCH-105's schema constraints once real data was loaded — is not grounds to reopen the earlier package.
 
 ---
 
@@ -395,8 +398,9 @@ The live PWA receives no database credential.
 - Compatibility verification passes with zero unexplained differences and two declared deltas: the approved duplicate collapse and the order-insensitive `scoring` comparison. Public counter IDs, defence display names, notes, board order, scoring values and required-member external-ID coverage are all preserved.
 - Validation: `npm run check`, `npm test`, `npm run db:test`, `npm run baseline:verify`, `npm run migrate:reconcile`, `npm run migrate:load`, `npm run migrate:load -- --twice`, `npm run migrate:verify`, forward/rollback/reapply exercises including both follow-up migrations, safe rollback-failure exercises with incompatible data, `npm audit --audit-level=high`, `git diff --check`, ARCH-103 fixture hash verification, and secret/credential/ally-code/roster/absolute-path scans.
 - No external service was contacted or modified: no Google Sheet, Apps Script deployment, hosted Supabase project, Cloudflare target, GitHub setting or secret, and no deployment.
+- **Control-thread independent re-verification (2026-09-21):** ARCH-106 involves schema/constraint amendments and identity-mapping rules, so it received full independent verification under principle 17 rather than the lighter package 9/16 gate. From a clean checkout of the branch (`0778fad`, dependencies freshly installed), the control thread independently reran `npm run check`, `npm test` (88/88 passing), `npm run migrate:reconcile` (READY, 0 blockers), `npm run migrate:verify` (PASSED, 0 unexplained differences, exactly the 2 declared deltas) and `npm run migrate:load -- --twice` (0 rows inserted on the second load), and checked every plan acceptance criterion and non-negotiable compatibility rule above against the generated reports by hand. Merged into `main` as a merge commit after tests passed on the merged tree.
 
-**Status: Complete.** Every acceptance criterion passed. ARCH-104, ARCH-107 and ARCH-108 remain unstarted.
+**Status: Complete.** Every acceptance criterion passed and independently reconfirmed. ARCH-104, ARCH-107 and ARCH-108 remain unstarted.
 
 **Rollback:** Drop/recreate the unconnected database and rerun. Sheet remains authoritative.
 
@@ -429,9 +433,13 @@ The live PWA receives no database credential.
 - locked values cannot be changed by the maintenance role;
 - one reversible test authoring change produces a valid development candidate.
 
+**Verification approach:** Local-only and git-revertible (change-file schema, loader, validator, dry-run diff against a disposable database) — package tests, CI and a scope/diff review are sufficient to land it, per principle 16. It does not receive its own full independent verification cycle.
+
+**Operationally proven only alongside ARCH-108:** ARCH-107 may be implemented and merged before ARCH-108 exists, but its "create `AUTHORING` candidates through the normal publisher" acceptance bullet cannot be demonstrated until ARCH-108's publisher exists. ARCH-107 is therefore not considered operationally proven, and its acceptance criteria are not signed off, until ARCH-108 demonstrates an authored change becoming a validated candidate/release through the normal publisher. The two packages share one full independent verification pass, run at ARCH-108 completion, covering both.
+
 **Rollback:** Reject the candidate or create a compensating reviewed authoring change. No live pointer moves.
 
-**Depends on:** ARCH-105 and ARCH-106.
+**Depends on:** ARCH-105 and ARCH-106. Not operationally proven until ARCH-108 (see Verification approach above).
 
 ---
 
@@ -479,6 +487,8 @@ The live PWA receives no database credential.
 - the reconciliation command and the deployment step are both demonstrated idempotent under repeated invocation;
 - rollback selects only a compatible payload schema;
 - previous artifacts remain available.
+
+**Verification approach:** Full independent verification under principle 17 — this package implements the publication, concurrency, rollback and distributed-state logic that principle 17 names explicitly. Its verification pass also signs off ARCH-107's acceptance criteria (see ARCH-107's "Operationally proven only alongside ARCH-108" note).
 
 **Rollback:** Repoint to the previous compatible release, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §5. Database history remains intact.
 
@@ -530,6 +540,8 @@ The live PWA receives no database credential.
 - roster import still uses Apps Script;
 - current test suite and new cache tests pass.
 
+**Verification approach:** Local-only and git-revertible (client-side cache/fetch logic, no cloud or production impact) — package tests, CI and a scope/diff review are sufficient to land it, per principle 16. Its offline/cold-start and cache-invalidation behaviour is independently re-exercised as part of ARCH-110's integrated rehearsal (items 9–10) rather than in a separate verification pass here.
+
 **Rollback:** Restore the Apps Script catalogue URL. Existing `action=data` remains live.
 
 **Depends on:** ARCH-108 for the final contract. Test scaffolding may start earlier.
@@ -564,6 +576,8 @@ The live PWA receives no database credential.
 20. database health preflight and safe stop: a maintenance operation run against a paused/unavailable Supabase project reports the exact owner action needed to resume it, and the same logical run resumes idempotently afterward ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.2).
 
 **Deliverable:** A signed-off Stage 1 validation report containing evidence, not just pass/fail claims.
+
+**Verification approach:** Full independent verification — this is Stage 1's integration checkpoint under principle 16, and is where ARCH-107 and ARCH-109 (landed on package tests plus a scope/diff review) receive their independent re-verification, alongside ARCH-108's own full verification.
 
 **Acceptance:** Every mandatory check passes or has an explicit user-approved exception recorded in the architecture.
 
@@ -720,6 +734,8 @@ Produce explainable maintenance proposals from real evidence without changing th
 
 ## 9. Stage 2 work packages
 
+**Verification approach across Stage 2:** These packages are report-only by construction — nothing in ARCH-201–205 can alter the current live catalogue or pointer — so they land on package tests, CI and a scope/diff review per principle 16, without a separate independent verification cycle each. Full independent verification under principle 17 concentrates on ARCH-206 (the first package with any write authority, even to a non-current candidate) and ARCH-207 (the Stage 2 exit gate). A package that unexpectedly touches a credential, external write, or trust boundary escalates immediately per principle 17, regardless of this default.
+
 ### ARCH-201 — Provider contract and source adapter
 
 - formalise the provider fields and semantics proven by GATE-200;
@@ -851,6 +867,8 @@ Review:
 Run eligible maintenance cycles unattended, publish only validated changes, and involve the user only for failure or genuine escalation.
 
 ## 11. Stage 3 work packages
+
+**Verification approach across Stage 3:** ARCH-301 (scheduling/readiness) and ARCH-303 (reporting/escalation) land on package tests, CI and a scope/diff review per principle 16. Full independent verification under principle 17 concentrates on ARCH-302 (autonomous publication activation — irreversible production effect) and ARCH-304 (the Stage 3 exit gate).
 
 ### ARCH-301 — Scheduler and readiness detection
 
