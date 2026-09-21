@@ -23,7 +23,7 @@
 7. The current Sheet-backed application remains recoverable throughout Stage 1 and for at least one complete GAC event after cutover.
 8. The production app is never switched during an ordinary coding task. Cutover is its own explicitly approved work package.
 9. Each work package begins from fresh repository evidence and ends with a reviewed diff, relevant tests and an updated status in this document. The depth of verification at the end of a package is set by principles 16–18, not applied uniformly.
-10. Agents may commit approved work directly to `main` under `AGENTS.md`, but may not trigger production deployment unless the work package explicitly authorises it.
+10. Repository changes follow the branch and pull-request workflow in `AGENTS.md`. Pull-request review does not replace the independent verification required by principles 16–18 for higher-risk packages. Agents may not trigger production deployment unless the work package explicitly authorises it.
 11. No secrets, personal identifiers or private operational files may enter a public artifact.
 12. Stage boundaries are acceptance decisions. Passing unit tests alone is not sufficient.
 13. Human authoring and maintenance review must be runnable on demand outside the schedule.
@@ -430,7 +430,7 @@ The live PWA receives no database credential.
 - **Handoff to ARCH-108.** ARCH-106's compatibility projection does not filter retired archetypes or profiles, so a retired attack identity still projects into `counterDefinitions`. Retiring a matchup does remove the counter from `counters`. ARCH-108's generator must filter retired rows; a test asserts the current behaviour so it cannot be forgotten.
 - Operational details, the change-file schema, the authoring workflow and the full limitation list are recorded in [`docs/database/ARCH-107.md`](database/ARCH-107.md).
 
-**Status: Ready for review.** Every acceptance criterion below is implemented and covered by a test, except `create AUTHORING candidates through the normal publisher`, which cannot be demonstrated until ARCH-108 exists and is excluded by design (see **Operationally proven only alongside ARCH-108**). `docs/SPEC.md` is unchanged because no shipped application behaviour changed. Sign-off belongs to the control thread.
+**Status: Complete — local implementation accepted and merged; operational publication proof remains part of ARCH-108's full verification.** Merged into `main` at `d2685a9` via pull request #14 (merge commit `2553d0a71af8bb51393f4d489b744b1baf26c809`). Every acceptance criterion below is implemented and covered by a test, except `create AUTHORING candidates through the normal publisher`, which cannot be demonstrated until ARCH-108 exists and is excluded by design (see **Operationally proven only alongside ARCH-108**). `docs/SPEC.md` is unchanged because no shipped application behaviour changed.
 
 **Repository work:**
 
@@ -1060,7 +1060,7 @@ Every coding prompt must include:
 - expected files or components to inspect without assuming their contents;
 - tests and acceptance criteria;
 - documentation-update rules;
-- permission to commit directly to `main` where appropriate;
+- the branch and pull-request workflow in `AGENTS.md`;
 - an explicit prohibition on production deployment unless that work package authorises it;
 - required final report: resulting SHA, files changed, tests run, validation evidence, decisions and blockers.
 
@@ -1142,7 +1142,7 @@ Initial status:
 | ARCH-104 | Not started |
 | ARCH-105 | Complete |
 | ARCH-106 | Complete |
-| ARCH-107 | Validation |
+| ARCH-107 | Complete |
 | ARCH-108 | Not started |
 | ARCH-109 | Not started |
 | ARCH-110 | Not started |
