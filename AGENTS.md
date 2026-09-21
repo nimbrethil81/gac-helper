@@ -34,9 +34,16 @@ When roadmap work ships, remove it from ROADMAP, describe the resulting behaviou
 
 ## Repository workflow
 
-This is a single-developer development repository. Agents may commit and push approved task changes directly to `main`; a feature branch or pull request is not required unless explicitly requested.
+`AGENTS.md` is the single authority for the standard Git workflow. Agent-authored repository changes follow this default unless a task explicitly overrides it:
 
-Pushing to `main` in this repository does **not** deploy the public application. Production deployment is a separate, manually triggered GitHub Action that syncs an allow-listed set of files to the live repository. Do not trigger that deployment or modify the live repository unless explicitly asked.
+1. Create a dedicated branch from current `main`.
+2. Make and validate the scoped changes.
+3. Commit and push the branch.
+4. Open a pull request targeting `main`.
+5. The owner reviews and merges the pull request.
+6. An agent must not merge its own pull request unless the owner explicitly instructs it to do so.
+
+Pushing a branch or merging into `main` does **not** deploy the public application. Production deployment is a separate, manually triggered GitHub Action that syncs an allow-listed set of files to the live repository. No agent may trigger that deployment or modify the live repository unless a task explicitly authorises it.
 
 ## Development rules
 
