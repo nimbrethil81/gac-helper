@@ -1,6 +1,11 @@
 // app.js
 const APP_VERSION = "3.5";
-const API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
+const CATALOGUE_API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
+const ROSTER_API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
+
+const CATALOGUE_CACHE_SCHEMA = 1;
+const CATALOGUE_CACHE_KEY = "catalogueCache:v1";
+const CATALOGUE_SOURCE_CONTRACT = "apps-script-action-data:v1";
 
 const ROSTER_SCHEMA = 2;
 const ROSTER_KEY = "rosterData";             // versioned object
@@ -53,6 +58,7 @@ let scoringRules = [];                  // GAC banner economy rows (consumed in 
 let defenceTeams = {};                  // mode -> defence team name -> { threat, notes } (v3.0)
 let defenceCompositions = {};           // mode -> defence team name -> canonical unit IDs (v3.5)
 let baseIdToUnit = {};                  // base_id -> { characterId, unitType }
+let catalogueStatus = null;             // quiet cache/refresh status; never blocks a usable catalogue
 let currentMode = "5v5";
 let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 5v5/3v3 chosen; used for board setup when the toggle is on Fleet
 let boardModeDraft = null;              // squad format picked on the setup card while the toggle is on Fleet
@@ -1589,32 +1595,112 @@ async function requestPersistentStorage() {
     }
 }
 
-async function loadData() {
+function isPlainObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function isValidCataloguePayload(data) {
+    return isPlainObject(data) &&
+        isPlainObject(data.counters) &&
+        isPlainObject(data.counters["5v5"]) &&
+        isPlainObject(data.counters["3v3"]) &&
+        isPlainObject(data.counterDefinitions) &&
+        isPlainObject(data.characterDefinitions) &&
+        isPlainObject(data.boardConfig) &&
+        Array.isArray(data.scoring) &&
+        isPlainObject(data.defenceTeams) &&
+        isPlainObject(data.defenceCompositions);
+}
+
+function readCatalogueCache() {
+    let cached;
     try {
-        const response = await fetch(API_URL);
-        const data = await response.json();
-
-        gacData = data.counters;
-        counterDefinitions = data.counterDefinitions;
-        characterDefinitions = data.characterDefinitions;
-        spentCharsCache = { key: null, map: new Map() };   // definitions changed: required-unit lookups are stale
-        boardConfig = data.boardConfig || {};
-        scoringRules = data.scoring || [];
-        defenceTeams = data.defenceTeams || {};   // v3.0; absent tab yields {} and everything reads NORMAL
-        defenceCompositions = data.defenceCompositions || {};
-
-        ensureDefenceSnapshotForActiveRound();
-
-        buildReverseIndex();   // base_id -> Character_ID, from the registry
-
-        render();
-
-        maybeBackgroundSync(); // cache-first: refresh quietly if stale (non-blocking)
-    } catch (error) {
-        document.getElementById("app").innerHTML =
-            "<p style='padding:20px;color:#ff6666;'>Failed to load data. Please check your connection and refresh.</p>";
-        console.error(error);
+        cached = JSON.parse(localStorage.getItem(CATALOGUE_CACHE_KEY) || "null");
+    } catch (e) {
+        return null;
     }
+
+    if (!cached || cached.schema !== CATALOGUE_CACHE_SCHEMA ||
+        cached.sourceContract !== CATALOGUE_SOURCE_CONTRACT ||
+        !Number.isFinite(Date.parse(cached.acceptedAt)) ||
+        !isValidCataloguePayload(cached.payload)) {
+        return null;
+    }
+    return cached;
+}
+
+function writeCatalogueCache(payload) {
+    const entry = {
+        schema: CATALOGUE_CACHE_SCHEMA,
+        sourceContract: CATALOGUE_SOURCE_CONTRACT,
+        acceptedAt: new Date().toISOString(),
+        payload
+    };
+    try {
+        localStorage.setItem(CATALOGUE_CACHE_KEY, JSON.stringify(entry));
+        return true;
+    } catch (e) {
+        console.warn("Couldn't save the catalogue cache", e);
+        return false;
+    }
+}
+
+function applyCataloguePayload(data) {
+    gacData = data.counters;
+    counterDefinitions = data.counterDefinitions;
+    characterDefinitions = data.characterDefinitions;
+    spentCharsCache = { key: null, map: new Map() };   // definitions changed: required-unit lookups are stale
+    boardConfig = data.boardConfig;
+    scoringRules = data.scoring;
+    defenceTeams = data.defenceTeams;
+    defenceCompositions = data.defenceCompositions;
+
+    ensureDefenceSnapshotForActiveRound();
+    buildReverseIndex();
+}
+
+function renderCatalogueUnavailable() {
+    document.getElementById("app").innerHTML =
+        "<p style='padding:20px;'>Catalogue unavailable. Check your connection and try again. Your saved roster, round and other data have not been changed.</p>";
+}
+
+async function refreshCatalogue() {
+    let response;
+    let data;
+    try {
+        response = await fetch(CATALOGUE_API_URL);
+        if (!response || !response.ok) throw new Error("Catalogue request failed");
+        data = await response.json();
+    } catch (e) {
+        return false;
+    }
+
+    if (!isValidCataloguePayload(data) || !writeCatalogueCache(data)) return false;
+    applyCataloguePayload(data);
+    catalogueStatus = null;
+    render();
+    maybeBackgroundSync(); // roster refresh remains independent of catalogue loading
+    return true;
+}
+
+async function loadData() {
+    const cached = readCatalogueCache();
+    if (cached) {
+        applyCataloguePayload(cached.payload);
+        catalogueStatus = "Using saved catalogue while checking for updates.";
+        render();
+        maybeBackgroundSync();
+
+        const refreshed = await refreshCatalogue();
+        if (!refreshed) {
+            catalogueStatus = "Using saved catalogue. Couldn't check for updates just now.";
+            render();
+        }
+        return;
+    }
+
+    const refreshed = await refreshCatalogue();
+    if (!refreshed) renderCatalogueUnavailable();
 }
 
 // ─── EXTERNAL ID MAPPING ───────────────────────────────────────────────────────
@@ -1670,7 +1756,7 @@ function fetchWithTimeout(url, ms) {
 }
 
 async function fetchRosterFromApi(allyCode) {
-    const url = API_URL + "?action=roster&allyCode=" + encodeURIComponent(allyCode);
+    const url = ROSTER_API_URL + "?action=roster&allyCode=" + encodeURIComponent(allyCode);
     const resp = await fetchWithTimeout(url, ROSTER_FETCH_TIMEOUT_MS);
     return await resp.json();   // structured { ok, ... }
 }
@@ -1969,6 +2055,7 @@ function render() {
     }
 
     app.innerHTML = `
+${catalogueStatus ? `<div class="roster-saved-line" style="padding:10px 16px 0;">${catalogueStatus}</div>` : ""}
 ${viewHtml}
 
 <div class="footer">v${APP_VERSION}</div>
