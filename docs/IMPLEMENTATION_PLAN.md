@@ -573,7 +573,7 @@ The live PWA receives no database credential.
 
 ### ARCH-109 — Cache-first catalogue loading
 
-**Status: Not started. Re-scoped by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §10 to validated, cache-first loading of the Apps Script `action=data` payload.**
+**Status: Complete (ARCH-109).** The PWA now validates and caches the Apps Script `action=data` payload under a versioned localStorage entry containing cache schema, acceptance time and source-contract metadata. It renders a valid known-good cache first, refreshes in the background, and retains that cache through network, HTTP, JSON or contract-validation failures; a first-ever failed launch shows the explicit catalogue-unavailable state without clearing player state. The Apps Script roster route remains separate. The service worker caches only same-origin shell requests and does not intercept the catalogue endpoint. Local verification: `npm run check`, `npm test` (60 passing), `npm run baseline:verify`, and `git diff --check`.
 
 **Purpose:** Make the live-round application genuinely cache-first against the catalogue source it already uses, so a temporary connection failure or an Apps Script failure cannot cost the owner a round.
 
