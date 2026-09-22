@@ -1,16 +1,31 @@
 # SWGOH GAC Helper — Target Architecture Implementation Plan
 
-**Status:** Ready for implementation planning and staged execution. No implementation work has started.
+**Status:** Parked by owner decision on 2026-09-22. Completed work remains integrated and supported; no further architecture, migration, Cloudflare cutover or automated-maintenance stage is active.
 
-**Planning baseline:** `main` at `1e6bdc55b4619eccb4a2ca7103a79d0a831476c1`.
+**Original planning baseline:** `main` at `1e6bdc55b4619eccb4a2ca7103a79d0a831476c1`.
 
 **Architecture authority:** [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) v0.5, informed by the accepted platform decisions in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md) as re-baselined by [`docs/decisions/ADR-ARCH-113-stage1-rebaseline.md`](decisions/ADR-ARCH-113-stage1-rebaseline.md).
 
-**Active Stage-1 path.** Google Sheets (canonical catalogue and human authoring) → Apps Script `action=data` and `action=roster` → cache-first PWA → Cloudflare Workers development and production delivery. **No active work package requires a hosted database of any provider.** The completed database schema, migration loader, authoring tooling and publisher are preserved as **paused** future-migration assets behind GATE-150 (§7.1). See §5.0 for what is active and what is paused.
+**Defined Stage-1 path (parked).** Google Sheets (canonical catalogue and human authoring) → Apps Script `action=data` and `action=roster` → cache-first PWA → Cloudflare Workers development and production delivery. **No active work package requires a hosted database of any provider.** The completed database schema, migration loader, authoring tooling and publisher are preserved as **paused** future-migration assets behind GATE-150 (§7.1). See §5.0 for the parking checkpoint status of each package.
 
 **Scope.** This document defines the ordered delivery plan, dependencies, manual configuration, acceptance gates and rollback points for implementing the target architecture. It does not redefine the architecture and does not describe current shipped behaviour. Current behaviour remains authoritative in [`SPEC.md`](SPEC.md).
 
 **Update this document when** a work package is completed, split, materially re-scoped, blocked or abandoned. Record current status and evidence without turning this document into release history. Shipped behaviour moves into `SPEC.md` and the concise release event goes into `changelog.md`.
+
+## Parking checkpoint — 2026-09-22
+
+This is a deliberate priority change, not a failure or rollback of completed work.
+
+- Parking baseline: `main` at `f07d19e0feeef28427d71c67c8579c7bec1d3815`; CI passed on that commit.
+- The existing GitHub Pages application remains the production service. The last recorded successful `Deploy to Live` run used development-repository commit `337782b6165595e87b4937ccc0ff1926462ca157` on 2026-09-20. Later architecture work has not been promoted through that workflow.
+- ARCH-109 is complete and integrated on `main`, but its cache-first application changes are not claimed as shipped to the current production origin by this checkpoint.
+- ARCH-104 repository preparation is complete. The `gac-helper-dev` Worker record and `https://gac-helper-dev.nimbrethil81.workers.dev` URL exist, the failed automatic Cloudflare build connection was disconnected, and the manual GitHub deployment/rollback workflows are present. No successful connected Worker deployment, production Worker acceptance, rollback rehearsal or production cutover is recorded.
+- ARCH-105–ARCH-108 remain completed, tested future-migration assets. No GAC Helper hosted database, database user or database credential was created; ARCH-108 Phase B remains unrun.
+- ARCH-110–ARCH-112, GATE-150, GATE-200 and Stages 2–5 are parked. No evidence source, scheduled runner or autonomous catalogue mutation is active.
+- Until an explicit restart decision, catalogue maintenance uses the existing operating model: manually initiated, AI-assisted updates to the canonical Google Sheet, served by the unchanged Apps Script API.
+- The checked-in future architecture, migrations and automation design are preserved for possible later reuse. They must not be interpreted as an instruction to resume work automatically.
+
+To resume, first obtain fresh repository and service evidence, confirm the GitHub Pages production state, decide whether Cloudflare migration and automated maintenance are still desired, and then explicitly select the relevant parked gate or work package. Do not infer resumption merely from the ordering below.
 
 ---
 
@@ -103,30 +118,30 @@ At Stage 1 completion:
 
 ## 5. Stage 1 work packages
 
-### 5.0 Active and paused packages
+### 5.0 Package status at the parking checkpoint
 
-[ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselines the active Stage-1 path. No completion history below is changed by it: ARCH-101, ARCH-102, ARCH-103, ARCH-105, ARCH-106, ARCH-107 and ARCH-108 Phase A were delivered and verified as recorded.
+[ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselined the defined Stage-1 path before the programme was parked. No completion history below is changed: ARCH-101, ARCH-102, ARCH-103, ARCH-105, ARCH-106, ARCH-107, ARCH-108 Phase A and ARCH-109 were delivered and verified as recorded.
 
-| Package | Role after the re-baseline |
+| Package | Status at the parking checkpoint |
 |---|---|
 | ARCH-101 Baseline capture and CI | **Complete — active foundation.** CI still guards every change. |
 | ARCH-102 Platform decisions and threat model | **Complete.** Partly superseded by ADR-ARCH-113; Cloudflare delivery, the manual gate, manual operation, cache validation principles, client-state precautions and the threat model remain in force. |
 | ARCH-103 Migration and golden-contract capture | **Complete — reusable future asset.** The capture also serves as active-path recovery evidence and is still verified by `npm run baseline:verify` in CI. |
-| ARCH-104 Manual configuration session | **Active, re-scoped to Cloudflare only.** |
+| ARCH-104 Manual configuration session | **Repository preparation complete; connected configuration and deployment parked.** |
 | ARCH-105 Database schema and permissions | **Complete — paused future-migration asset.** Never applied to a hosted project. |
 | ARCH-106 Migration loader and reconciliation | **Complete — paused future-migration asset.** |
 | ARCH-107 Human authoring and manual release path | **Complete — paused future-migration asset.** Operational sign-off pauses with ARCH-108 Phase B. |
 | ARCH-108 Catalogue generator, validator and publisher | **Phase A complete — paused.** Phase B connected verification moves behind GATE-150. |
-| ARCH-109 PWA catalogue cache | **Active, re-scoped** to cache-first loading of the Apps Script payload. |
-| ARCH-110 Integration and failure rehearsal | **Active, re-scoped** to the revised path's integration checkpoint. |
-| ARCH-111 One-repository consolidation and origin preparation | **Active**, unchanged in purpose. |
-| ARCH-112 Production cutover and fallback window | **Active**, unchanged in purpose. |
-| GATE-150 Persistent maintenance-store decision | **New**, §7.1. |
-| GATE-200 Evidence and runner entry gate | Unchanged, §7.2. |
+| ARCH-109 PWA catalogue cache | **Complete.** Cache-first loading of the Apps Script payload is integrated on `main`; production promotion is not claimed by this checkpoint. |
+| ARCH-110 Integration and failure rehearsal | **Parked — not started.** |
+| ARCH-111 One-repository consolidation and origin preparation | **Parked — not started.** |
+| ARCH-112 Production cutover and fallback window | **Parked — not started.** |
+| GATE-150 Persistent maintenance-store decision | **Parked — not entered**, §7.1. |
+| GATE-200 Evidence and runner entry gate | **Parked — not entered**, §7.2. |
 
-**Paused means preserved** (delivery principle 21): the migrations, loader, authoring tooling, publisher, their tests, their CI coverage, their documentation and their completion evidence all stay exactly as delivered. Nothing in the paused set is on the active Stage-1 critical path, and nothing in it may be deployed before GATE-150.
+**Paused means preserved** (delivery principle 21): the migrations, loader, authoring tooling, publisher, their tests, their CI coverage, their documentation and their completion evidence all stay exactly as delivered. No paused package is currently on an active delivery path, and nothing in the future-migration set may be deployed before GATE-150.
 
-**No active Stage-1 package may create** a Supabase project, a Neon project, any other hosted database, a database user, a database credential or a database workflow.
+**While parked, no work package may create** a Supabase project, a Neon project, any other hosted database, a database user, a database credential or a database workflow.
 
 ### ARCH-101 — Baseline capture and CI foundation
 
@@ -274,7 +289,7 @@ At Stage 1 completion:
 
 ### ARCH-104 — Prepared manual-configuration session (Cloudflare only)
 
-**Status: Not started. Re-scoped by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §10 to Cloudflare-only manual configuration and connected deployment preparation.**
+**Status: Parked after repository preparation.** PR #20 added the static-asset build, development `noindex` handling, and manual deployment/rollback workflows; PR #21 pinned Wrangler 4.136.1 for least-privilege deployment compatibility. Connected development deployment, production setup, rollback rehearsal and cutover were not completed or accepted. No production cutover occurred.
 
 **Purpose:** ARCH-104 is the **single guided manual configuration session** for Stage 1: the Cloudflare and repository setup the revised path needs, completed in one user session after agents have prepared exact instructions.
 
@@ -631,7 +646,7 @@ The live PWA receives no database credential.
 
 ### ARCH-110 — Stage-1 integration and failure rehearsal
 
-**Status: Not started. Re-scoped by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §10 to the revised path's integration checkpoint.**
+**Status: Parked — not started.** Resume only after an explicit owner decision to restart Cloudflare delivery work.
 
 **Purpose:** Prove the integrated revised Stage-1 system — cache behaviour, Apps Script failure fallback, Cloudflare delivery, deployment rollback and cutover readiness — before the production-origin change.
 
@@ -669,6 +684,8 @@ The live PWA receives no database credential.
 
 ### ARCH-111 — Guarded one-repository consolidation and Cloudflare origin preparation
 
+**Status: Parked — not started.** Repository consolidation and origin preparation are not required for the current operating model.
+
 **Purpose:** Reach the desired single-source repository model without weakening the current public boundary, and implement and test the client-state export/import required by the production-origin change (GitHub Pages → Cloudflare Workers, [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2, `TARGET_ARCHITECTURE.md` §15.0).
 
 **Preconditions:**
@@ -704,6 +721,8 @@ The live PWA receives no database credential.
 ---
 
 ### ARCH-112 — Production cutover and fallback window
+
+**Status: Parked — not started.** GitHub Pages remains the production origin; no Cloudflare production cutover is authorised.
 
 **Purpose:** Switch production only after explicit approval. This package performs the origin change itself (`TARGET_ARCHITECTURE.md` §15.0 steps 3–8), building on the export/import capability ARCH-111 built and tested.
 
