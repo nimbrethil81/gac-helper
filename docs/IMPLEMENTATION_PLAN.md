@@ -4,7 +4,9 @@
 
 **Planning baseline:** `main` at `1e6bdc55b4619eccb4a2ca7103a79d0a831476c1`.
 
-**Architecture authority:** [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) v0.4, informed by the accepted platform decisions in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md).
+**Architecture authority:** [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) v0.5, informed by the accepted platform decisions in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md) as re-baselined by [`docs/decisions/ADR-ARCH-113-stage1-rebaseline.md`](decisions/ADR-ARCH-113-stage1-rebaseline.md).
+
+**Active Stage-1 path.** Google Sheets (canonical catalogue and human authoring) → Apps Script `action=data` and `action=roster` → cache-first PWA → Cloudflare Workers development and production delivery. **No active work package requires a hosted database of any provider.** The completed database schema, migration loader, authoring tooling and publisher are preserved as **paused** future-migration assets behind GATE-150 (§7.1). See §5.0 for what is active and what is paused.
 
 **Scope.** This document defines the ordered delivery plan, dependencies, manual configuration, acceptance gates and rollback points for implementing the target architecture. It does not redefine the architecture and does not describe current shipped behaviour. Current behaviour remains authoritative in [`SPEC.md`](SPEC.md).
 
@@ -34,6 +36,7 @@
 18. **Later refinement does not normally reopen completed work.** A later package may amend an earlier package's output through additive migrations or documented follow-up changes; both packages' records cross-reference the amendment, and the earlier package remains `Complete`. This is not absolute: if later evidence shows the earlier package fundamentally failed its own acceptance criteria, exposed a security issue, or produced unsafe external state, reopening it is appropriate. Ordinary implementation refinement discovered by a downstream package — as ARCH-106 amending ARCH-105's schema constraints once real data was loaded — is not grounds to reopen the earlier package.
 19. **Discovery volume and publication volume are independent.** Bootstrap discovery may be large, but canonical publication remains evidence-qualified, usefulness-filtered and deliberately bounded.
 20. **Curated data is the trusted bootstrap seed.** Automated evidence may challenge an authored baseline, but bootstrap disagreement creates a reviewable proposal rather than a silent overwrite.
+21. **Paused is not abandoned.** A completed work package whose operational deployment is deferred keeps its `Complete` status, its evidence, its tests and its CI coverage. It is not reverted, rewritten, downgraded to a draft, or described as failed. Its deferred operational steps are recorded against the gate that will resume them ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §8).
 
 ---
 
@@ -68,36 +71,62 @@ These facts constrain the implementation. None may be silently assumed away.
 
 | Stage | Outcome | User involvement | Production effect |
 |---|---|---|---|
-| **1. Canonical platform, authoring and publication** | Database-backed canonical store, safe human authoring, immutable static catalogue, offline cache, tested cutover and guarded one-repository deployment | One concentrated configuration session plus explicit cutover approval | Replaces Sheet catalogue runtime only after full acceptance |
+| **1. Cache-first catalogue and Cloudflare delivery** | Cache-first PWA catalogue loading against Apps Script, Cloudflare development/production delivery, guarded one-repository consolidation, and a tested production-origin cutover with client-state migration | One concentrated Cloudflare configuration session plus explicit cutover approval | Moves the app to a new origin; the catalogue source is unchanged |
 | **2. Maintenance engine, report-only** | Evidence ingestion, mapping, assessments and policy findings tested against real cycles | Evidence-source decision and review of validation results | None; current catalogue cannot change |
 | **3. Bounded autonomous publication capability** | Idempotent scheduling, automatic validated publication, concise reporting and recovery proved without unrestricted expansion | Approval to begin controlled bootstrap | Eligible maintenance releases may become current only within the proved bounded path |
 | **4. 5v5 bootstrap and calibration** | Broad 5v5 discovery, shadow comparison with curated data and bounded promotion waves | Review and acceptance of the 5v5 bootstrap report | Small evidence-qualified 5v5 batches may become current |
 | **5. 3v3 bootstrap and calibration** | Independent 3v3 discovery, calibration and bounded promotion waves | Review and acceptance of the 3v3 bootstrap report | Small evidence-qualified 3v3 batches may become current |
 
-Before Stage 2 there is one **evidence and runner entry gate**. It is a go/no-go check, not an additional build stage.
+Before Stage 2 there are two gates: **GATE-150** (persistent maintenance-store provider, §7.1) and **GATE-200** (evidence and runner entry, §7). Both are go/no-go checks, not additional build stages, and both must be resolved before Stage 2 implementation begins.
 
 ---
 
-# Stage 1 — Canonical platform, authoring and publication
+# Stage 1 — Cache-first catalogue and Cloudflare delivery
 
 ## 4. Stage 1 objective
 
-Deliver a complete, independently useful replacement for the Sheet-backed catalogue path while preserving the existing product contract and a simple fallback.
+Make the live application resilient to a catalogue-fetch failure, and move production delivery onto Cloudflare Workers, without changing where the catalogue comes from or how the owner authors it.
 
 At Stage 1 completion:
 
-- Postgres-compatible storage is the canonical maintenance and authoring store;
-- human catalogue changes do not require SQL;
-- all current IDs, names, notes, modes, configuration and scoring survive migration;
-- the application consumes a validated static catalogue artifact;
-- the catalogue loads from a known-good local cache before background refresh;
-- Apps Script remains only for roster proxying;
-- the old `action=data` route and Sheet remain available during the fallback window;
-- the public artifact remains fail-closed;
+- Google Sheets remains the canonical catalogue and the owner's authoring workbench, unchanged;
+- Apps Script continues to serve both `action=data` and `action=roster`, unchanged;
+- the PWA validates the `action=data` payload, caches it, and renders the last known-good catalogue before any network work;
+- a refresh failure — offline, timeout, HTTP error, Apps Script failure or an invalid 200 body — retains and renders the cached catalogue instead of an error state;
+- the application is served from Cloudflare Workers, with separate development and production deployments;
+- production deployment is manual, from a reviewed, merged pull request, and is verified over HTTP afterwards;
+- a production deployment can be rolled back to a verified known-good prior version;
+- the public artifact remains fail-closed and allow-listed;
 - repository consolidation has been completed only if its safety gates pass;
-- no evidence ingestion or autonomous maintenance has been implemented.
+- the owner's browser state has survived the origin change, with the GitHub Pages origin retained as the fallback through the acceptance window;
+- no hosted database, database credential, evidence ingestion or autonomous maintenance exists.
 
 ## 5. Stage 1 work packages
+
+### 5.0 Active and paused packages
+
+[ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselines the active Stage-1 path. No completion history below is changed by it: ARCH-101, ARCH-102, ARCH-103, ARCH-105, ARCH-106, ARCH-107 and ARCH-108 Phase A were delivered and verified as recorded.
+
+| Package | Role after the re-baseline |
+|---|---|
+| ARCH-101 Baseline capture and CI | **Complete — active foundation.** CI still guards every change. |
+| ARCH-102 Platform decisions and threat model | **Complete.** Partly superseded by ADR-ARCH-113; Cloudflare delivery, the manual gate, manual operation, cache validation principles, client-state precautions and the threat model remain in force. |
+| ARCH-103 Migration and golden-contract capture | **Complete — reusable future asset.** The capture also serves as active-path recovery evidence and is still verified by `npm run baseline:verify` in CI. |
+| ARCH-104 Manual configuration session | **Active, re-scoped to Cloudflare only.** |
+| ARCH-105 Database schema and permissions | **Complete — paused future-migration asset.** Never applied to a hosted project. |
+| ARCH-106 Migration loader and reconciliation | **Complete — paused future-migration asset.** |
+| ARCH-107 Human authoring and manual release path | **Complete — paused future-migration asset.** Operational sign-off pauses with ARCH-108 Phase B. |
+| ARCH-108 Catalogue generator, validator and publisher | **Phase A complete — paused.** Phase B connected verification moves behind GATE-150. |
+| ARCH-109 PWA catalogue cache | **Active, re-scoped** to cache-first loading of the Apps Script payload. |
+| ARCH-110 Integration and failure rehearsal | **Active, re-scoped** to the revised path's integration checkpoint. |
+| ARCH-111 One-repository consolidation and origin preparation | **Active**, unchanged in purpose. |
+| ARCH-112 Production cutover and fallback window | **Active**, unchanged in purpose. |
+| GATE-150 Persistent maintenance-store decision | **New**, §7.1. |
+| GATE-200 Evidence and runner entry gate | Unchanged, §7.2. |
+
+**Paused means preserved** (delivery principle 21): the migrations, loader, authoring tooling, publisher, their tests, their CI coverage, their documentation and their completion evidence all stay exactly as delivered. Nothing in the paused set is on the active Stage-1 critical path, and nothing in it may be deployed before GATE-150.
+
+**No active Stage-1 package may create** a Supabase project, a Neon project, any other hosted database, a database user, a database credential or a database workflow.
 
 ### ARCH-101 — Baseline capture and CI foundation
 
@@ -148,6 +177,8 @@ At Stage 1 completion:
 ---
 
 ### ARCH-102 — Platform decisions and threat model
+
+> **Partly superseded.** [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) withdraws this package's database-hosting, static-catalogue-publication and Supabase-configuration decisions. Its Cloudflare delivery decision, manual production gate, mandatory-manual-operation rule, cache validation principles, client-state cutover precautions, threat model and `SECURITY DEFINER` controls all remain in force. The completion evidence below is the factual record of what was decided on 2026-09-21 and is not rewritten; ADR-ARCH-113 §2 lists exactly what it supersedes.
 
 **Purpose:** Resolve the implementation decisions that affect Stage 1 structure before cloud configuration.
 
@@ -241,57 +272,65 @@ At Stage 1 completion:
 
 ---
 
-### ARCH-104 — Prepared manual-configuration session
+### ARCH-104 — Prepared manual-configuration session (Cloudflare only)
 
-**Purpose:** ARCH-104 is the **single guided manual configuration session** for Stage 1: nearly all required cloud and repository setup, completed in one user session after agents have prepared exact instructions and after [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) has resolved every field this session needs.
+**Status: Not started. Re-scoped by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §10 to Cloudflare-only manual configuration and connected deployment preparation.**
 
-**Before any creation step, this session must re-check** — per ADR-ARCH-102 §12 — current GitHub Free plan-feature limits (Environments, private-repository Pages), Supabase's current free-tier project-slot limit and pausing behaviour, Supabase's current hosted-region availability (London), Cloudflare Workers' current static-assets versioning semantics and free-tier limits, and the current recurring cost of the selected tiers. Any material change from the ADR's assumptions is reported to the control thread before configuration proceeds, not silently absorbed.
+**Purpose:** ARCH-104 is the **single guided manual configuration session** for Stage 1: the Cloudflare and repository setup the revised path needs, completed in one user session after agents have prepared exact instructions.
 
-**The remaining free Supabase project may be created only after** this re-check confirms cost and account limits, and building on the owner authorization already recorded in ADR-ARCH-102 §1.3 — this session does not re-seek that authorization, only re-verifies the facts it depended on. The resulting slot choice remains revisitable through a future migration per ADR-ARCH-102 §1.4: this session does not treat the allocation as permanent.
+**Explicitly out of scope.** This session does **not** create a Supabase project, a Neon project, any other hosted database, a database user, a database role, a database connection secret, a Supabase workflow, or any database-backed publication target. Provisioning a persistent store is GATE-150's, under a separate owner decision. An agent preparing this session must not reintroduce those steps.
+
+**Before any creation step, this session must re-check** — per [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §11 — current GitHub Free plan-feature limits (Environments, private-repository Pages), Cloudflare Workers' current static-assets and versions/deployments semantics including rollback limitations and retention, Cloudflare's current free-tier request/asset limits for two Workers, and the current recurring cost of the selected tiers. The Supabase-specific re-checks from ADR-ARCH-102 §12 (items 3, 4, 5 and 8) no longer apply. Any material change from the recorded assumptions is reported to the control thread before configuration proceeds, not silently absorbed.
 
 **Preparation performed by the agent before the session:**
 
-- produce a step-by-step checklist using the selected provider's current UI terminology;
-- list every secret and permission with its exact purpose, per the ADR-ARCH-102 §7 role/secret inventory;
+- produce a step-by-step checklist using Cloudflare's and GitHub's current UI terminology;
+- list every secret and variable with its exact purpose and least-privilege scope;
 - provide validation actions after each group;
-- identify which values are safe to expose to the static app and which are publisher/admin only;
-- prepare migrations and workflows so configuration can be tested immediately;
-- prepare the manual-trigger workflows (`workflow_dispatch`) for authoring, candidate/review, publication and rollback runs (ADR-ARCH-102 §8) so they can be exercised in this session;
-- include a recovery/export check before leaving the session.
+- identify which values are safe to expose to the static app and which are deploy-only;
+- prepare the deployment workflows so configuration can be tested immediately;
+- prepare the manual-trigger workflows (`workflow_dispatch`) for development deployment, production deployment and deployment rollback so they can be exercised in this session;
+- confirm the existing `publish-catalogue.yml` workflow remains manual-only and unrun, and requires no secret in this session.
 
 **Expected user actions in the single session:**
 
-- create the Supabase Free project in the London region (subject to the re-check above);
-- create only the Stage-1 database roles from ADR-ARCH-102 §7 — migration/admin (never stored in GitHub Actions), authoring, publisher, and read-only backup/export if the Stage-1 recovery implementation needs it; no Stage-2 role is created;
-- add repository secrets (database connection, publisher, Cloudflare deploy token, artifact-storage config); GitHub Environments are **not** configured, since repository secrets plus manual `workflow_dispatch` are the Stage-1 production gate (ADR-ARCH-102 §1.6, §3);
-- configure the Cloudflare Workers development and production static-hosting/publication targets;
+- create the Cloudflare Workers **development** and **production** deployments for the PWA;
+- apply the development Worker's mandatory controls: `noindex`, no credentials, no personal identifiers, preview-not-access-controlled ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.5);
+- create a least-scope Cloudflare API token able to deploy only the selected Workers;
+- add the repository secrets and variables the deployment workflows need (Cloudflare API token, account ID, Worker names, production base URL); GitHub Environments are **not** configured, since repository secrets plus manual `workflow_dispatch` are the production gate ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.6, §3);
 - configure or approve the guarded one-repository deployment route;
-- confirm backup/export capability and the database health-preflight/resume behaviour (ADR-ARCH-102 §10.2);
-- approve required workflow permissions, including the production-deployment concurrency group;
-- exercise each manual-trigger workflow at least once in a safe (report-only / non-production) mode;
-- retain the existing live-repository token (`LIVE_REPO_PAT`) until the ARCH-112 fallback retirement.
+- approve required workflow permissions, including a production-deployment concurrency group so two deployment runs cannot overlap;
+- exercise the development deployment, the production deployment and the rollback workflow at least once in a safe (non-cutover) mode;
+- retain the existing live-repository token (`LIVE_REPO_PAT`) and the GitHub Pages deployment until the ARCH-112 fallback retirement.
 
 **Reserved for later:**
 
-- an evidence-provider credential cannot be supplied until the Stage 2 gate identifies a provider; no Stage-2 database role (evidence ingester, maintenance analyst, deterministic applier) is created in this session;
-- Stage 1 should nevertheless reserve the environment/secret naming convention so later setup is a single value addition, not new infrastructure.
+- no database credential of any kind is created here; a persistent-store connection secret is created only after GATE-150 selects a provider;
+- an evidence-provider credential cannot be supplied until GATE-200 identifies a provider;
+- the secret naming convention may be reserved so later setup is a single value addition, not new infrastructure.
 
 **Acceptance:**
 
-- harmless read-only connection tests succeed;
-- publisher credentials cannot perform admin/schema operations;
+- a development deployment succeeds and the deployed app loads from the development Worker;
+- the development Worker returns `noindex` and serves no credential or personal data;
+- a production deployment succeeds from a reviewed, merged commit and is verified over HTTP afterwards;
+- a deployment rollback returns the production Worker to the prior verified version;
+- the deploy token cannot perform account-wide or non-deployment operations;
 - public/app configuration contains no privileged secret;
-- a database export or documented recovery check succeeds;
-- each manual-trigger workflow (authoring, candidate/review, publication, rollback) runs successfully in a safe mode;
-- no production cutover occurs.
+- no database, database credential or database workflow is created;
+- no production cutover occurs — the live origin remains GitHub Pages until ARCH-112.
 
-**Rollback:** Remove newly added secrets or disable new workflows; existing application remains unchanged.
+**Rollback:** Remove newly added secrets or disable new workflows; the existing GitHub Pages application remains unchanged and live.
 
-**Depends on:** ARCH-102 (complete) and prepared implementation from ARCH-105/ARCH-108 far enough to validate connections. The session occurs once those packages are ready, not at the beginning of Stage 1.
+**Depends on:** ARCH-102 (complete) and ADR-ARCH-113. It no longer depends on ARCH-105/ARCH-108 being ready, because no database connection is validated here; it should occur once ARCH-109's deployment needs are understood.
 
 ---
 
 ### ARCH-105 — Core database schema and permissions
+
+> **Paused future-migration asset.** Delivered and verified as recorded below; its hosted deployment and operationalisation are deferred behind GATE-150 (§7.1) by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md). It is not on the active Stage-1 critical path, and it is not abandoned, reverted or rewritten. The completion evidence below is unchanged.
+
+
 
 **Purpose:** Implement the provider-neutral schema defined by the target architecture.
 
@@ -304,7 +343,7 @@ At Stage 1 completion:
 - `tests/database-schema.test.js` applies the migrations to disposable PostgreSQL, proves role boundaries and negative writes, exercises stable-identity/uniqueness/lifecycle constraints, audits foreign-key indexes and absence of `SECURITY DEFINER`, runs both rollback scripts, and reapplies from empty. No hosted database or external service is contacted.
 - Operational details and the role matrix are recorded in [`docs/database/ARCH-105.md`](database/ARCH-105.md).
 
-**Status: Complete.** Hosted connection/configuration remains ARCH-104; migration loading and captured-anomaly reconciliation remain ARCH-106.
+**Status: Complete — paused.** Migration loading and captured-anomaly reconciliation were completed by ARCH-106. Hosted connection and configuration are no longer ARCH-104's: they move to GATE-150, which must also select the provider these migrations would be applied to.
 
 **Schema areas:**
 
@@ -349,13 +388,17 @@ The live PWA receives no database credential.
 - no Stage-2 role (evidence ingester, maintenance analyst, deterministic applier) exists as a login credential;
 - any retained `SECURITY DEFINER` function has negative permission tests proving other roles cannot execute it or write the tables it protects directly.
 
-**Rollback:** Restore the pre-migration database or recreate from ordered migrations. No app uses it yet.
+**Rollback:** Restore the pre-migration database or recreate from ordered migrations. No app uses it, and no hosted database exists.
 
-**Depends on:** ARCH-102 (complete). Connection verification uses ARCH-104.
+**Depends on:** ARCH-102 (complete). Connection verification moves to GATE-150 and is no longer ARCH-104's, since ARCH-104 creates no database.
 
 ---
 
 ### ARCH-106 — Migration loader and reconciliation
+
+> **Paused future-migration asset.** Delivered and verified as recorded below; its hosted deployment and operationalisation are deferred behind GATE-150 (§7.1) by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md). It is not on the active Stage-1 critical path, and it is not abandoned, reverted or rewritten. The completion evidence below is unchanged.
+
+
 
 **Purpose:** Transform the captured Sheet data into the canonical schema without changing public identity.
 
@@ -404,7 +447,7 @@ The live PWA receives no database credential.
 - No external service was contacted or modified: no Google Sheet, Apps Script deployment, hosted Supabase project, Cloudflare target, GitHub setting or secret, and no deployment.
 - **Control-thread independent re-verification (2026-09-21):** ARCH-106 involves schema/constraint amendments and identity-mapping rules, so it received full independent verification under principle 17 rather than the lighter package 9/16 gate. From a clean checkout of the branch (`0778fad`, dependencies freshly installed), the control thread independently reran `npm run check`, `npm test` (88/88 passing), `npm run migrate:reconcile` (READY, 0 blockers), `npm run migrate:verify` (PASSED, 0 unexplained differences, exactly the 2 declared deltas) and `npm run migrate:load -- --twice` (0 rows inserted on the second load), and checked every plan acceptance criterion and non-negotiable compatibility rule above against the generated reports by hand. Merged into `main` as a merge commit after tests passed on the merged tree.
 
-**Status: Complete.** Every acceptance criterion passed and independently reconfirmed. ARCH-104, ARCH-107 and ARCH-108 remain unstarted.
+**Status: Complete — paused.** Every acceptance criterion passed and was independently reconfirmed. (ARCH-107 and ARCH-108 Phase A have since been delivered; ARCH-104 is re-scoped and remains unstarted.)
 
 **Rollback:** Drop/recreate the unconnected database and rerun. Sheet remains authoritative.
 
@@ -413,6 +456,10 @@ The live PWA receives no database credential.
 ---
 
 ### ARCH-107 — Human authoring and manual release path
+
+> **Paused future-migration asset.** Delivered and verified as recorded below; its hosted deployment and operationalisation are deferred behind GATE-150 (§7.1) by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md). It is not on the active Stage-1 critical path, and it is not abandoned, reverted or rewritten. The completion evidence below is unchanged.
+
+
 
 **Purpose:** Ensure routine maintenance remains easier than direct database editing.
 
@@ -463,13 +510,15 @@ The live PWA receives no database credential.
 
 **Rollback:** Reject the candidate or create a compensating reviewed authoring change. No live pointer moves.
 
-**Depends on:** ARCH-105 and ARCH-106. Not operationally proven until ARCH-108 (see Verification approach above).
+**Depends on:** ARCH-105 and ARCH-106. Not operationally proven until ARCH-108's connected verification, which is paused behind GATE-150.
 
 ---
 
 ### ARCH-108 — Catalogue generator, validator and publisher
 
-**Status: Implementation ready for ARCH-104 and connected verification.** Phase A implements the generator, validators, lifecycle amendment, immutable artifact/pointer builder, locked two-transaction publication protocol, adapters, HTTP verification, reconciliation, compatible rollback, manual-only workflow and command entry points. Local PGlite and simulated static-deployment evidence is recorded in [`docs/database/ARCH-108.md`](database/ARCH-108.md). It includes the ARCH-107 example/reversal integration proof, but does not claim real Cloudflare, connected Supabase, independent-session contention or production-workflow overlap. Those Phase-B items remain mandatory after ARCH-104, so ARCH-108 is not Complete and ARCH-107 is not yet operationally signed off.
+> **Paused future-migration asset.** Phase A is delivered as recorded; Phase B (connected verification) is deferred behind GATE-150 (§7.1) by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md). Nothing below is reverted or rewritten. The checked-in `.github/workflows/publish-catalogue.yml` workflow and the `catalogue:*` commands remain present, manual-only and unrun; they are not part of the active Stage-1 path and must not be run against any production target.
+
+**Status: Phase A complete; Phase B paused.** Phase A implements the generator, validators, lifecycle amendment, immutable artifact/pointer builder, locked two-transaction publication protocol, adapters, HTTP verification, reconciliation, compatible rollback, manual-only workflow and command entry points. Local PGlite and simulated static-deployment evidence is recorded in [`docs/database/ARCH-108.md`](database/ARCH-108.md). It includes the ARCH-107 example/reversal integration proof, but does not claim real Cloudflare, a connected hosted database, independent-session contention or production-workflow overlap. Those Phase-B items remain mandatory before this path is ever deployed, but they are no longer Stage-1 work: they move behind GATE-150, together with the provider decision that determines what they would be verified against. ARCH-107's operational sign-off pauses with them.
 
 **Purpose:** Generate immutable app-compatible artifacts safely, and implement the revised distributed publication protocol across the database and Cloudflare Workers.
 
@@ -514,102 +563,107 @@ The live PWA receives no database credential.
 - rollback selects only a compatible payload schema;
 - previous artifacts remain available.
 
-**Verification approach:** Full independent verification under principle 17 — this package implements the publication, concurrency, rollback and distributed-state logic that principle 17 names explicitly. Its verification pass also signs off ARCH-107's acceptance criteria (see ARCH-107's "Operationally proven only alongside ARCH-108" note).
+**Verification approach:** Full independent verification under principle 17 — this package implements the publication, concurrency, rollback and distributed-state logic that principle 17 names explicitly. That pass runs at GATE-150 resumption and also signs off ARCH-107's acceptance criteria (see ARCH-107's "Operationally proven only alongside ARCH-108" note).
 
 **Rollback:** Repoint to the previous compatible release, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §5. Database history remains intact.
 
-**Depends on:** ARCH-105, ARCH-106 and the platform decisions from ARCH-102 (complete). ARCH-107 consumes it.
+**Depends on:** ARCH-105, ARCH-106 and the platform decisions from ARCH-102 (complete). ARCH-107 consumes it. Phase B additionally depends on GATE-150.
 
 ---
 
-### ARCH-109 — PWA catalogue cache and split endpoints
+### ARCH-109 — Cache-first catalogue loading
 
-**Purpose:** Make the live-round application genuinely cache-first while retaining the roster proxy.
+**Status: Not started. Re-scoped by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §10 to validated, cache-first loading of the Apps Script `action=data` payload.**
+
+**Purpose:** Make the live-round application genuinely cache-first against the catalogue source it already uses, so a temporary connection failure or an Apps Script failure cannot cost the owner a round.
+
+**The catalogue source does not change.** The PWA keeps fetching `action=data` from the existing Apps Script deployment, and keeps using `action=roster` for roster import. There is no static catalogue pointer, no versioned artifact, no release and no checksum on this path; this package must not introduce one or assume one exists.
 
 **Changes expected in current files:**
 
 - `app.js`:
-  - replace the single `API_URL` with separate catalogue and roster-proxy configuration; the catalogue URL points at the Cloudflare Worker's current-version pointer, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4;
-  - add a versioned catalogue cache key;
-  - validate HTTP status, schema version and required payload fields;
-  - render the cached known-good catalogue first;
-  - refresh in the background;
-  - preserve cache on invalid/failed responses;
-  - make incompatibility understandable without discarding usable data;
+  - replace the single hard-coded `API_URL` with explicit catalogue and roster-proxy configuration, even though both currently resolve to the same Apps Script deployment, so the two concerns can fail and evolve independently;
+  - add a versioned local cache key for the catalogue payload;
+  - validate the response before use: HTTP status, JSON parse, and the required top-level fields of the `SPEC.md` §5 contract;
+  - persist only a validated payload;
+  - render the cached known-good catalogue first, then refresh in the background;
+  - preserve the cache on any failed or invalid refresh, and surface staleness unobtrusively rather than as an error state;
+  - keep a first-ever launch with no cache and no reachable catalogue understandable and explicit;
   - retain existing roster behaviour and timeout;
 - `service-worker.js`:
   - make cache lifecycle explicit;
   - remove obsolete shell caches;
-  - avoid trapping catalogue versions incorrectly;
+  - avoid trapping a stale catalogue response;
   - preserve offline shell startup;
 - tests:
-  - cached cold start;
-  - successful refresh;
-  - failed refresh;
-  - invalid response;
-  - incompatible payload version;
-  - roster endpoint remains separate;
-  - active round and persisted identity remain intact.
+  - cached cold start with no network;
+  - successful refresh replaces the cache;
+  - failed refresh (offline, timeout, HTTP error) retains and renders the cache;
+  - invalid 200 body is rejected and the cache is retained;
+  - a payload missing required contract fields is rejected;
+  - roster endpoint remains separate and unchanged;
+  - an active round and persisted identity survive a refresh failure.
 
 **Must not:**
 
 - redesign the interface;
 - change counter/allocation/scoring behaviour;
-- move roster calls into the database platform;
-- delete compatibility with current localStorage state.
+- introduce a static catalogue artifact, pointer, release or checksum;
+- introduce any database or database-backed catalogue path;
+- change the Apps Script code, the Sheet, or either route's URL semantics;
+- delete compatibility with current `localStorage` state.
 
 **Acceptance:**
 
 - an offline cold launch after one successful sync reaches a usable round;
-- a network failure never replaces a good catalogue;
-- a bad 200 response is rejected;
-- roster import still uses Apps Script;
+- a network or Apps Script failure never replaces a good catalogue, and never shows an error screen when a cached catalogue exists;
+- a bad 200 response is rejected and the previous catalogue remains in use;
+- roster import still uses Apps Script and is unaffected by catalogue failures;
 - current test suite and new cache tests pass.
 
-**Verification approach:** Local-only and git-revertible (client-side cache/fetch logic, no cloud or production impact) — package tests, CI and a scope/diff review are sufficient to land it, per principle 16. Its offline/cold-start and cache-invalidation behaviour is independently re-exercised as part of ARCH-110's integrated rehearsal (items 9–10) rather than in a separate verification pass here.
+**Verification approach:** Local-only and git-revertible (client-side cache/fetch logic, no cloud or production impact) — package tests, CI and a scope/diff review are sufficient to land it, per principle 16. Its offline/cold-start and cache-invalidation behaviour is independently re-exercised as part of ARCH-110's integrated rehearsal rather than in a separate verification pass here.
 
-**Rollback:** Restore the Apps Script catalogue URL. Existing `action=data` remains live.
+**Rollback:** Revert the package. The app returns to its current direct-fetch behaviour against the unchanged `action=data` route.
 
-**Depends on:** ARCH-108 for the final contract. Test scaffolding may start earlier.
+**Depends on:** ARCH-101. It no longer depends on ARCH-108, because the payload contract is the existing `action=data` contract in `SPEC.md` §5, not a generated artifact.
 
 ---
 
-### ARCH-110 — Development reconciliation and failure rehearsal
+### ARCH-110 — Stage-1 integration and failure rehearsal
 
-**Purpose:** Prove the integrated Stage 1 system before production or repository consolidation.
+**Status: Not started. Re-scoped by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §10 to the revised path's integration checkpoint.**
+
+**Purpose:** Prove the integrated revised Stage-1 system — cache behaviour, Apps Script failure fallback, Cloudflare delivery, deployment rollback and cutover readiness — before the production-origin change.
 
 **Required exercises:**
 
-1. golden-payload parity;
-2. entity-count reconciliation;
-3. counter-ID and defence-name preservation;
-4. fixture-roster availability equivalence;
-5. defence snapshot completeness/unresolved behaviour;
-6. board and scoring equivalence;
-7. zero-counter defence behaviour;
-8. human authoring dry run and candidate generation;
-9. offline cold launch;
-10. invalid-payload rejection;
-11. simultaneous publication;
-12. stale-base rejection;
-13. artifact-write failure;
-14. pointer-write failure;
-15. database unavailable while the PWA continues from static/cache;
-16. rollback to a prior artifact;
-17. rollback to Sheet-backed `action=data`;
-18. production-deployment concurrency: a forced overlapping production deployment run is serialised (not lost or corrupted) by the GitHub Actions concurrency group ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.2);
-19. reconciliation after each named distributed-publication failure window — Cloudflare deployment failure, HTTP verification failure, and database finalization failure — each resolved correctly and idempotently by the reconciliation command ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.1–§4.2);
-20. database health preflight and safe stop: a maintenance operation run against a paused/unavailable Supabase project reports the exact owner action needed to resume it, and the same logical run resumes idempotently afterward ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.2).
+1. **Cold start from cache:** an offline cold launch after one successful sync reaches a usable round.
+2. **Successful refresh:** a valid `action=data` response replaces the cache and renders.
+3. **Connection failure:** an offline or timed-out refresh retains and renders the last known-good catalogue.
+4. **Apps Script failure:** an HTTP error, an Apps Script error page, and a 200 response whose body is not a valid catalogue are each rejected, with the cache retained in every case.
+5. **Roster independence:** roster import still works when the catalogue refresh is failing, and vice versa.
+6. **Contract equivalence:** the cache-first app renders the same counters, defences, board configuration and scoring as the current app from the same `action=data` payload.
+7. **Zero-counter defence behaviour** remains safe and explicit.
+8. **Development deployment:** a build deploys to the development Worker, which returns `noindex` and contains no credential or personal data.
+9. **Production deployment:** a reviewed, merged commit deploys to the production Worker and is verified over HTTP afterwards — the app loads, the expected build is served, and a catalogue fetch against `action=data` succeeds **from the Cloudflare origin** ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §11 item 6).
+10. **Deployment failure:** a forced failed deployment leaves the previously deployed version live and verifiable.
+11. **Deployment rollback:** production returns to a verified known-good prior version, and the rollback is itself verified.
+12. **Deployment concurrency:** a forced overlapping production deployment run is serialised, not lost or interleaved.
+13. **Fail-closed public artifact:** a deliberately added private file does not reach the deployed artifact.
+14. **Client-state readiness:** export on the old origin and import on the new origin round-trip roster, boards, templates, used counters and preferences (exercising ARCH-111's implementation).
+15. **Origin fallback:** the GitHub Pages origin still serves the current app, unmodified, and remains a usable fallback.
+
+**Explicitly out of scope, and moved to GATE-150** as future paused-path verification requirements: database-connected verification, database role and permission verification, migration reconciliation against a hosted database, database-backed publication, the `READY`/`DEPLOYED` distributed-publication failure windows, publication reconciliation, release rollback, and database health preflight/resume behaviour. Those exercises remain mandatory *for that path*, recorded in §7.1 and in [`docs/database/ARCH-108.md`](database/ARCH-108.md)'s Phase-B list. They are not Stage-1 exit criteria.
 
 **Deliverable:** A signed-off Stage 1 validation report containing evidence, not just pass/fail claims.
 
-**Verification approach:** Full independent verification — this is Stage 1's integration checkpoint under principle 16, and is where ARCH-107 and ARCH-109 (landed on package tests plus a scope/diff review) receive their independent re-verification, alongside ARCH-108's own full verification.
+**Verification approach:** Full independent verification — this is Stage 1's integration checkpoint under principle 16, and is where ARCH-109 (landed on package tests plus a scope/diff review) receives its independent re-verification.
 
 **Acceptance:** Every mandatory check passes or has an explicit user-approved exception recorded in the architecture.
 
 **Rollback:** No production state has changed.
 
-**Depends on:** ARCH-106 through ARCH-109.
+**Depends on:** ARCH-104, ARCH-109 and ARCH-111's export/import implementation.
 
 ---
 
@@ -620,16 +674,16 @@ The live PWA receives no database credential.
 **Preconditions:**
 
 - CI is green;
-- development reconciliation is complete;
+- the ARCH-110 integration rehearsal is complete, or its deployment-related exercises are complete where this package supplies the export/import they depend on;
 - fail-closed artifact generation exists;
-- secrets and personal identifiers are excluded;
+- secrets, personal identifiers and the paused database assets are excluded from the public artifact;
 - the current live repository remains recoverable.
 
 **Required behaviour:**
 
 - `main` remains the authoritative source;
 - only a generated/allow-listed public artifact is deployed;
-- internal docs, migrations, tests, evidence and change files cannot be published accidentally;
+- internal docs, migrations, tests, migration evidence, authoring change files and the paused database tooling cannot be published accidentally;
 - production deployment is explicit, uses a tested commit/artifact, and is gated by repository secrets plus manual `workflow_dispatch` rather than a GitHub Environment ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.6);
 - environment configuration remains external;
 - **the live URL changes deliberately, not incidentally**: client-state export is implemented and tested on the old (GitHub Pages) origin, and client-state import is implemented and tested on the new (Cloudflare Workers) origin, per `TARGET_ARCHITECTURE.md` §15.0 steps 1–2; the actual cutover (steps 3–8) remains ARCH-112's;
@@ -645,7 +699,7 @@ The live PWA receives no database credential.
 
 **Rollback:** Re-enable the current `deploy-to-live.yaml` path and public repository.
 
-**Depends on:** ARCH-101, ARCH-102 (complete) and ARCH-110.
+**Depends on:** ARCH-101, ARCH-102 (complete) and ARCH-104. Its export/import implementation feeds ARCH-110 exercise 14, so the two packages interleave rather than strictly sequencing.
 
 ---
 
@@ -656,42 +710,43 @@ The live PWA receives no database credential.
 **Pre-cutover evidence:**
 
 - Stage 1 validation report approved;
-- database backup/export current;
-- migration and artifact hashes recorded;
-- prior live commit and Apps Script URL recorded;
-- rollback rehearsed;
-- no unresolved Critical/Major migration finding;
-- production artifact reviewed.
+- prior live commit, the Apps Script deployment URL and the old origin URL recorded;
+- client-state export taken and verified importable;
+- deployment rollback rehearsed;
+- the GitHub Pages origin confirmed intact and serving;
+- production artifact reviewed and fail-closed.
 
 **Cutover:**
 
-1. freeze Sheet authoring briefly;
-2. rerun export/reconciliation for changes since ARCH-103;
-3. apply the final idempotent delta;
-4. export client state from the old (GitHub Pages) origin;
-5. publish the production static catalogue and deploy the new Cloudflare Workers origin, verified per the [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.1 protocol (candidate → `READY` → deploy → HTTP-verify → `DEPLOYED`);
-6. import client state and re-import the roster by ally code on the new origin;
-7. confirm boards, templates, used counters, preferences and offline behaviour on the new origin;
-8. confirm roster import;
-9. confirm active/saved board compatibility;
-10. confirm offline reload;
-11. start the one-complete-GAC-event fallback window.
+1. export client state from the old (GitHub Pages) origin;
+2. deploy the new Cloudflare Workers production origin from a reviewed, merged commit;
+3. verify the deployment over HTTP: the app loads, the expected build is served, and a catalogue fetch against `action=data` succeeds from the new origin;
+4. import client state on the new origin and re-import the roster by ally code;
+5. confirm boards, templates, used counters, preferences and offline behaviour on the new origin;
+6. confirm roster import;
+7. confirm active/saved board compatibility;
+8. confirm offline reload from cache;
+9. start the one-complete-GAC-event fallback window.
+
+No Sheet freeze, export/reconciliation rerun or catalogue delta is required: the catalogue source is unchanged, and both origins read the same `action=data` payload throughout.
 
 **During fallback:**
 
-- the old GitHub Pages origin, the Sheet and Apps Script `action=data` all remain intact and unmodified;
-- new canonical authoring occurs only through the target path;
-- emergency rollback may restore the old catalogue URL and/or the old origin entirely;
-- no evidence automation begins.
+- the old GitHub Pages origin, the Sheet and both Apps Script routes all remain intact and unmodified;
+- authoring continues in the Google Sheet exactly as before;
+- emergency rollback may return the production Worker to a prior verified deployment, or direct the owner back to the old origin entirely;
+- no evidence automation begins, and no hosted database is created.
 
 **Stage 1 exit gate:**
 
-- one complete GAC event succeeds on production;
-- the owner has completed at least one real authoring change without SQL;
+- one complete GAC event succeeds on production from the Cloudflare origin;
+- the owner has made at least one real catalogue change in the Sheet and seen it reach the live app;
 - no catalogue/roster/offline regression remains;
+- a catalogue-refresh failure has been observed, or deliberately induced, without costing a usable catalogue;
 - only at this gate are the old GitHub Pages deployment and `LIVE_REPO_PAT` retired, per `TARGET_ARCHITECTURE.md` §15.0 step 8;
-- rollback is still available;
-- only then may `action=data` be retired and the Sheet archived.
+- deployment rollback is still available.
+
+**`action=data` is not retired and the Sheet is not archived at this gate.** Both remain the live catalogue path. Retiring either requires a replacement catalogue path that is live and accepted, which requires GATE-150 ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §7).
 
 **Depends on:** ARCH-110 and ARCH-111, or an approved consolidation exception.
 
@@ -704,25 +759,66 @@ The live PWA receives no database credential.
 | ARCH-101 | — | — |
 | ARCH-102 | ARCH-101 | ARCH-103 |
 | ARCH-103 | ARCH-101 | ARCH-102 |
-| ARCH-104 | ARCH-102 (complete) plus prepared connection code | Scheduled once, validates ARCH-105/108 |
-| ARCH-105 | ARCH-102 (complete) | Migration-tool preparation |
-| ARCH-106 | ARCH-103, ARCH-105 | ARCH-107 design |
-| ARCH-107 | ARCH-105, ARCH-106, ARCH-108 | Documentation/tests |
-| ARCH-108 | ARCH-102, ARCH-105, ARCH-106 | ARCH-109 scaffolding |
-| ARCH-109 | ARCH-108 contract | ARCH-107 |
-| ARCH-110 | ARCH-106–109 | — |
-| ARCH-111 | ARCH-101/102/110 | — |
-| ARCH-112 | ARCH-110/111 or approved exception | — |
+| ARCH-104 (active, Cloudflare only) | ARCH-102 (complete), ADR-ARCH-113 | ARCH-109 |
+| ARCH-105 (paused) | ARCH-102 (complete) | — |
+| ARCH-106 (paused) | ARCH-103, ARCH-105 | — |
+| ARCH-107 (paused) | ARCH-105, ARCH-106, ARCH-108 | — |
+| ARCH-108 Phase A (paused) | ARCH-102, ARCH-105, ARCH-106 | — |
+| ARCH-108 Phase B (paused) | GATE-150 | — |
+| ARCH-109 (active) | ARCH-101 | ARCH-104 |
+| ARCH-110 (active) | ARCH-104, ARCH-109, ARCH-111 export/import | — |
+| ARCH-111 (active) | ARCH-101, ARCH-102, ARCH-104 | ARCH-110 |
+| ARCH-112 (active) | ARCH-110 and ARCH-111, or an approved exception | — |
+| GATE-150 | Stage 1 delivered | GATE-200 |
 
-Only ARCH-112 may switch production.
+Only ARCH-112 may switch production. The paused packages have no active dependents: nothing in ARCH-104, ARCH-109, ARCH-110, ARCH-111 or ARCH-112 waits on them, and none of them may be resumed before GATE-150.
 
 ---
 
-# Evidence and runner entry gate
+# Gates before Stage 2
 
-## 7. GATE-200 — Source and execution feasibility
+## 7. Gate overview
 
-This gate occurs after Stage 1 and before Stage 2 implementation commitment. It may be investigated earlier, but it cannot introduce infrastructure or bypass Stage 1 priorities.
+Two independent gates sit between Stage 1 and Stage 2 implementation. They may be investigated in either order or in parallel, and **both** must be resolved before Stage 2 begins. Neither may introduce infrastructure or bypass Stage 1 priorities.
+
+| Gate | Question | Blocks |
+|---|---|---|
+| GATE-150 (§7.1) | Which persistent maintenance store, at what cost, and does the paused database implementation still work against it? | Any deployment of the paused database path, and Stage 2 |
+| GATE-200 (§7.2) | Does permitted, sufficiently granular, acceptably priced GAC evidence exist, and what runs the ingestion? | Stages 2 and 3 |
+
+### 7.1 GATE-150 — Persistent maintenance-store decision
+
+Added by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §9. This gate governs the paused database path: nothing in ARCH-105–ARCH-108 may be deployed, connected or operationalised until it produces an explicit `GO`, `GO WITH LIMITS` or `STOP`.
+
+**Questions to answer with fresh evidence:**
+
+1. Which persistent maintenance store is selected — Neon, another managed Postgres provider, a self-hosted instance, or a reconsidered Supabase project? **No provider is selected today; Neon is a candidate, not a decision.**
+2. What are its current cost, free-tier limits, storage limits, connection limits and region availability?
+3. What is its pausing/inactivity behaviour, and what resume action does it require?
+4. Does it satisfy `TARGET_ARCHITECTURE.md` §17's "no new recurring cost unless explicitly approved" rule, or does it need an explicit cost decision?
+5. Is the checked-in schema portable to it without provider-specific rework?
+6. Does the catalogue's canonical home move there, or does Google Sheets remain canonical with the database serving maintenance only?
+7. Which of ADR-ARCH-102's superseded assumptions still need re-verification for the selected provider?
+
+**Required revalidation before any deployment of the paused path:**
+
+- apply the ordered migrations to the selected provider and verify the role boundary, grants and RLS on it;
+- re-run the migration loader and reconciliation against the then-current Sheet data, not the 2026-09-21 capture alone;
+- complete ARCH-108's Phase-B connected verification list in [`docs/database/ARCH-108.md`](database/ARCH-108.md), which also completes ARCH-107's operational sign-off;
+- re-exercise the distributed-publication failure windows, publication reconciliation, release rollback and the database health preflight/resume behaviour — the exercises removed from ARCH-110's active scope;
+- define the encrypted off-site logical-backup destination, retention and restore testing that ADR-ARCH-102 §10.1 deliberately deferred.
+
+**Gate output:** a recorded decision naming the provider (or declining to select one), its cost assessment, the revalidation results, and an explicit `GO`, `GO WITH LIMITS` or `STOP`.
+
+**No-go rule:** If no acceptable persistent store exists, the paused path stays paused. Stage 1 is unaffected, because the live application does not depend on it.
+
+**Relationship to GATE-200:** If GATE-200 returns `STOP AFTER STAGE 1`, GATE-150 is moot — there is no automated maintenance to store anything for.
+
+---
+
+### 7.2 GATE-200 — Source and execution feasibility
+
+This gate occurs after Stage 1 and before Stage 2 implementation commitment, alongside GATE-150 (§7.1). It may be investigated earlier, but it cannot introduce infrastructure or bypass Stage 1 priorities.
 
 **Questions to answer with fresh evidence:**
 
@@ -748,7 +844,7 @@ This gate occurs after Stage 1 and before Stage 2 implementation commitment. It 
 - recommended runner;
 - explicit `GO`, `GO WITH LIMITS` or `STOP AFTER STAGE 1`.
 
-**No-go rule:** If permitted, sufficiently granular and acceptably priced evidence does not exist, do not implement Stages 2 or 3.
+**No-go rule:** If permitted, sufficiently granular and acceptably priced evidence does not exist, do not implement Stages 2 or 3. In that case GATE-150 is moot and the paused database path remains paused indefinitely.
 
 ---
 
@@ -772,7 +868,7 @@ Produce explainable maintenance proposals from real evidence without changing th
 
 **Acceptance:** The same source cycle cannot be ingested twice; parser changes are versioned; malformed data fails closed.
 
-**Depends on:** GATE-200 = `GO` or `GO WITH LIMITS`.
+**Depends on:** GATE-200 = `GO` or `GO WITH LIMITS`, and GATE-150 = `GO` or `GO WITH LIMITS`.
 
 ---
 
@@ -852,7 +948,7 @@ Produce explainable maintenance proposals from real evidence without changing th
 
 **Acceptance:** A user can manually trigger a report-only run and receive the same candidate and findings that the scheduled path would produce from the same inputs. No Stage 2 code path can update `catalogue_state` or the production pointer, even with an analyst credential.
 
-**Depends on:** ARCH-205 and Stage 1 publisher.
+**Depends on:** ARCH-205 and the publisher revalidated at GATE-150.
 
 ---
 
@@ -1071,18 +1167,20 @@ After Stage 5, the same bounded pipeline enters steady-state operation. Mass-cha
 
 ## 16. Manual configuration plan
 
-The goal is one substantial session in Stage 1.
+The goal is one substantial session in Stage 1 (ARCH-104), and it is **Cloudflare-only**.
 
 | Configuration | Stage 1 session | Later action |
 |---|---|---|
-| Database project/region | Create Supabase Free (London) and verify, after re-checking cost/limits | None unless provider changes |
-| Database roles/credentials | Configure only Stage-1 roles: migration/admin (manual only, never in GitHub Actions), authoring, publisher, and read-only backup/export if needed | Populate Stage-2 evidence/analyst/applier credentials only after GATE-200 |
+| Persistent database project/region | **Not created.** No Supabase, Neon or other hosted database exists on the active path | Provider selected and provisioned only at GATE-150, under a separate owner decision |
+| Database roles/credentials | **None created.** No database user, role or connection secret | Created with the provider at GATE-150; Stage-2 evidence/analyst/applier roles only after GATE-200 |
 | Production gate | Repository secrets plus manual `workflow_dispatch`; GitHub Environments are not used (unavailable for a private repo on GitHub Free) | None |
-| Repository secrets | Database, publisher, Cloudflare deploy token, artifact storage, roster proxy config | Add provider secret value after GATE-200 |
-| Static hosting | Configure Cloudflare Workers development and production publication targets | None |
-| Workflow permissions | Configure CI, candidate and explicit production workflows, including the production-deployment concurrency group | Enable scheduled workflow only in Stage 3 |
+| Repository secrets and variables | Cloudflare deploy token, account ID, Worker names, production base URL | Add a persistent-store secret only after GATE-150; add an evidence-provider secret only after GATE-200 |
+| Static hosting | Configure the Cloudflare Workers development and production deployments for the PWA, including the development Worker's `noindex` and content constraints | None |
+| Workflow permissions | Configure CI and the explicit manual deployment/rollback workflows, including the production-deployment concurrency group | Enable any scheduled workflow only in Stage 3, after both gates |
 | Repository consolidation | Configure target route and fallback | Retire old live repo only after ARCH-112 acceptance |
-| Backup/recovery | Verify export, documented restore, and the database health preflight/resume behaviour | Periodic verification through automation where possible |
+| Recovery | Confirm deployment rollback works and the GitHub Pages fallback is intact; the Google Sheet plus the committed ARCH-103 capture are the catalogue's recovery evidence | Database backup/restore procedures belong to GATE-150 |
+
+**Cost assumption for the active path:** no new recurring paid service. The only providers involved are Cloudflare Workers (two deployments, assumed free tier), Google Apps Script (existing, free) and GitHub Free Actions. Cloudflare's current free-tier limits are re-checked in ARCH-104 before they are relied upon.
 
 If provider UI or account restrictions force another substantial manual setup later, stop and present the reason before expanding the programme.
 
@@ -1090,9 +1188,11 @@ If provider UI or account restrictions force another substantial manual setup la
 
 ## 17. Manual and on-demand operations
 
-Two separate on-demand paths are required.
+**On the active path**, the on-demand operations are deployment operations: deploy to development, deploy to production (verified over HTTP afterwards), and roll a production deployment back to a verified prior version. Each is manually triggered, records who triggered it, and is the same command any future automation would reuse. Catalogue changes need none of them — the owner edits the Google Sheet and the change is live through `action=data`.
 
-### 17.1 Human authoring
+The two paths below are **paused** with the database path and resume at GATE-150.
+
+### 17.1 Human authoring (paused)
 
 The owner or control chat can initiate an authoring run at any time:
 
@@ -1103,9 +1203,9 @@ The owner or control chat can initiate an authoring run at any time:
 5. generate and validate an `AUTHORING` candidate;
 6. publish only after the normal publication gates pass.
 
-Human authoring is independent of the maintenance schedule.
+Human authoring is independent of the maintenance schedule. Until GATE-150, the active human authoring path is editing the Google Sheet directly.
 
-### 17.2 Maintenance review
+### 17.2 Maintenance review (paused)
 
 The owner or control chat can trigger a maintenance review outside the schedule.
 
@@ -1223,29 +1323,33 @@ Use these states:
 - `Blocked`
 - `Validation`
 - `Complete`
+- `Paused`
 - `Abandoned`
 
-Initial status:
+`Paused` means delivered or partially delivered work whose remaining operational steps are deferred behind a gate, preserved intact (delivery principle 21). It is distinct from `Blocked`, which means work that should be proceeding but cannot, and from `Abandoned`, which means work that will not be completed.
 
-| Item | Status |
-|---|---|
-| ARCH-101 | Complete |
-| ARCH-102 | Complete |
-| ARCH-103 | Complete |
-| ARCH-104 | Not started |
-| ARCH-105 | Complete |
-| ARCH-106 | Complete |
-| ARCH-107 | Complete |
-| ARCH-108 | Not started |
-| ARCH-109 | Not started |
-| ARCH-110 | Not started |
-| ARCH-111 | Not started |
-| ARCH-112 | Not started |
-| GATE-200 | Not started |
-| ARCH-201–207 | Not started |
-| ARCH-301–304 | Not started |
-| ARCH-401–403 | Not started |
-| ARCH-501–503 | Not started |
+Current status:
+
+| Item | Status | Note |
+|---|---|---|
+| ARCH-101 | Complete | Active foundation |
+| ARCH-102 | Complete | Partly superseded by ADR-ARCH-113 |
+| ARCH-103 | Complete | Reusable future asset; also active-path recovery evidence |
+| ARCH-104 | Not started | Active, re-scoped to Cloudflare only |
+| ARCH-105 | Complete | Paused future-migration asset |
+| ARCH-106 | Complete | Paused future-migration asset |
+| ARCH-107 | Complete | Paused future-migration asset; operational sign-off at GATE-150 |
+| ARCH-108 | Phase A complete; Phase B `Paused` | Behind GATE-150 |
+| ARCH-109 | Not started | Active, re-scoped to cache-first Apps Script loading |
+| ARCH-110 | Not started | Active, re-scoped to the revised integration checkpoint |
+| ARCH-111 | Not started | Active |
+| ARCH-112 | Not started | Active; only this package may switch production |
+| GATE-150 | Not started | New; required before the paused path resumes |
+| GATE-200 | Not started | Unchanged |
+| ARCH-201–207 | Not started | Behind both gates |
+| ARCH-301–304 | Not started | Behind both gates |
+| ARCH-401–403 | Not started | Future bootstrap policy; not a Stage-1 dependency |
+| ARCH-501–503 | Not started | Future bootstrap policy; not a Stage-1 dependency |
 
 Only one implementation work package should normally be `In progress` at a time. Documentation preparation or independent read-only evidence gathering may overlap where the dependency table permits.
 
@@ -1265,6 +1369,8 @@ This programme does not include:
 - tactical-note generation by AI;
 - autonomous banner or undersize publication in the initial engine;
 - long-lived Sheet/database dual-write;
+- creating any hosted database, database user or database credential before GATE-150;
+- retiring `action=data`, archiving the Google Sheet, or restricting either, while the PWA depends on them;
 - public distribution or multi-user administration;
 - adding paid services without an explicit cost decision.
 
@@ -1276,12 +1382,13 @@ These remain separate roadmap or architectural decisions.
 
 The programme is complete only when:
 
-- Stage 1 has replaced the catalogue runtime and survived its fallback window;
+- Stage 1 has moved delivery to Cloudflare, made catalogue loading cache-first, and survived its fallback window;
+- GATE-150 has selected a persistent maintenance store and the paused database path has been revalidated against it;
 - Stage 2 has validated real evidence in report-only mode;
 - Stage 3 has proved bounded scheduling and autonomous publication without authorising unrestricted expansion;
 - Stage 4 has completed and received explicit `5V5` bootstrap acceptance;
 - Stage 5 has completed and received explicit `3V3` bootstrap and steady-state acceptance;
-- production works from cached static catalogue data without database availability;
+- production works from a cached, validated catalogue without any remote system being reachable;
 - human authoring remains available and documented;
 - every autonomous change is reproducible and policy-enforced;
 - failures and anomalies do not partially publish;

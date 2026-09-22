@@ -2,6 +2,8 @@
 
 This document is the operational entry point for the unconnected Stage-1 database schema. The accepted model and role boundaries remain authoritative in [`TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md) and [`ADR-ARCH-102-platform.md`](../decisions/ADR-ARCH-102-platform.md).
 
+> **Status note (2026-09-22): paused future-migration asset.** [`ADR-ARCH-113`](../decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselines the active Stage-1 path onto Google Sheets authoring, the Apps Script `action=data` catalogue, cache-first PWA loading and Cloudflare delivery. No hosted database is part of active Stage-1 work, and no database provider is selected. The work recorded in this document is complete and preserved unchanged; its hosted deployment and operationalisation are deferred behind **GATE-150** ([`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) §7.1), which must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate this implementation against it. Nothing below is reverted, rewritten or downgraded.
+
 ## Contents
 
 - `supabase/migrations/20260921101325_arch_105_core_schema.sql` creates the private `gac` schema, enum types, 21 tables, referential and lifecycle constraints, indexes, triggers and row-level security.
@@ -13,7 +15,7 @@ Two ordered follow-up migrations owned by ARCH-106 correct constraints in this s
 
 ARCH-108 later adds lifecycle state to profile members and defence catalogue values, plus the narrow retained-release rollback transition. This is an additive refinement under delivery principle 18, not a reopening of ARCH-105; see [`ARCH-108.md`](ARCH-108.md). `gac_authoring` still receives no `DELETE` grant.
 
-The migrations create no login credential, secret or catalogue seed data. They do not connect to the hosted Supabase project. ARCH-104 will create the separate login credentials that assume the checked-in `NOLOGIN` group roles.
+The migrations create no login credential, secret or catalogue seed data. They connect to no hosted project, and no hosted project exists. The separate login credentials that assume the checked-in `NOLOGIN` group roles are created only when this path is resumed at GATE-150, against the provider that gate selects — not by ARCH-104, which is now Cloudflare-only.
 
 ## Role boundary
 
@@ -39,6 +41,6 @@ The test runner uses `@electric-sql/pglite` pinned in `package-lock.json`; it do
 
 ## Hosted application and rollback
 
-ARCH-104 applies these ordered migrations through the normal Supabase migration history after its time-sensitive provider checks and credential setup. Do not paste individual statements selectively into the hosted project.
+When this path is resumed at GATE-150, these ordered migrations are applied through the selected provider's normal migration history, after its time-sensitive provider checks and credential setup. Do not paste individual statements selectively into a hosted project.
 
 Before any future connected application, take the recovery action required by the active environment. To reverse an unconnected/disposable application, execute every `.down.sql` file in reverse migration order: the two ARCH-106 follow-ups first, then the permissions rollback, then the core-schema rollback. No application currently reads this database, so rollback does not affect the live PWA.
