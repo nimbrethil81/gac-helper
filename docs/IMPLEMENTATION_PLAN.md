@@ -4,7 +4,7 @@
 
 **Planning baseline:** `main` at `1e6bdc55b4619eccb4a2ca7103a79d0a831476c1`.
 
-**Architecture authority:** [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) v0.3, informed by the accepted platform decisions in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md).
+**Architecture authority:** [`TARGET_ARCHITECTURE.md`](TARGET_ARCHITECTURE.md) v0.4, informed by the accepted platform decisions in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md).
 
 **Scope.** This document defines the ordered delivery plan, dependencies, manual configuration, acceptance gates and rollback points for implementing the target architecture. It does not redefine the architecture and does not describe current shipped behaviour. Current behaviour remains authoritative in [`SPEC.md`](SPEC.md).
 
@@ -14,12 +14,12 @@
 
 ## 1. Delivery principles
 
-1. The programme has exactly **three user-facing stages**.
+1. The programme has exactly **five user-facing stages**. Steady-state autonomous maintenance is the operating state after Stage 5, not a sixth stage.
 2. Work packages inside a stage are execution checkpoints, not additional stages.
 3. Nearly all GitHub, database and hosting configuration is concentrated into one Stage 1 session.
 4. Stage 1 is independently valuable and may remain the final delivered state if useful evidence cannot be obtained.
 5. Stage 2 is report-only. It cannot alter the current live catalogue.
-6. Stage 3 activates bounded autonomous publication only after Stage 2 acceptance.
+6. Stage 3 proves scheduling and bounded autonomous publication only after Stage 2 acceptance; it does not authorise unrestricted catalogue expansion.
 7. The current Sheet-backed application remains recoverable throughout Stage 1 and for at least one complete GAC event after cutover.
 8. The production app is never switched during an ordinary coding task. Cutover is its own explicitly approved work package.
 9. Each work package begins from fresh repository evidence and ends with a reviewed diff, relevant tests and an updated status in this document. The depth of verification at the end of a package is set by principles 16–18, not applied uniformly.
@@ -32,6 +32,8 @@
 16. **Verification scales with blast radius, not with package count.** A work package that is local-only, git-revertible and has no external state, production, cost, credential or permission impact may land once: package acceptance tests pass; CI passes; a scope/diff review confirms no unintended changes; its documentation records results, known limitations and deferred integration checks; and the worktree is clean. Full independent verification for such a package is deferred to its stage's integration checkpoint (ARCH-110 for Stage 1, ARCH-207 for Stage 2, ARCH-304 for Stage 3), which re-exercises it there instead of twice.
 17. **Full independent verification is risk-triggered**, expressed as criteria rather than a fixed package list, and applies whenever a package involves: cloud configuration, credentials, permissions, RLS or another trust-boundary change; an operation that creates cost or mutates external state; publication, concurrency, rollback or distributed-state logic; a destructive or difficult-to-reverse data operation; a production deployment, URL migration, cutover or autonomous-activation step; or a stage exit gate. A nominally local package that turns out to introduce any of these risks automatically escalates to full verification, regardless of how it was originally scoped.
 18. **Later refinement does not normally reopen completed work.** A later package may amend an earlier package's output through additive migrations or documented follow-up changes; both packages' records cross-reference the amendment, and the earlier package remains `Complete`. This is not absolute: if later evidence shows the earlier package fundamentally failed its own acceptance criteria, exposed a security issue, or produced unsafe external state, reopening it is appropriate. Ordinary implementation refinement discovered by a downstream package — as ARCH-106 amending ARCH-105's schema constraints once real data was loaded — is not grounds to reopen the earlier package.
+19. **Discovery volume and publication volume are independent.** Bootstrap discovery may be large, but canonical publication remains evidence-qualified, usefulness-filtered and deliberately bounded.
+20. **Curated data is the trusted bootstrap seed.** Automated evidence may challenge an authored baseline, but bootstrap disagreement creates a reviewable proposal rather than a silent overwrite.
 
 ---
 
@@ -68,9 +70,11 @@ These facts constrain the implementation. None may be silently assumed away.
 |---|---|---|---|
 | **1. Canonical platform, authoring and publication** | Database-backed canonical store, safe human authoring, immutable static catalogue, offline cache, tested cutover and guarded one-repository deployment | One concentrated configuration session plus explicit cutover approval | Replaces Sheet catalogue runtime only after full acceptance |
 | **2. Maintenance engine, report-only** | Evidence ingestion, mapping, assessments and policy findings tested against real cycles | Evidence-source decision and review of validation results | None; current catalogue cannot change |
-| **3. Scheduled bounded autonomy** | Idempotent scheduling, automatic validated publication, concise reporting and recovery | Activation approval; later involvement only for failures or genuine escalation | Eligible maintenance releases may become current |
+| **3. Bounded autonomous publication capability** | Idempotent scheduling, automatic validated publication, concise reporting and recovery proved without unrestricted expansion | Approval to begin controlled bootstrap | Eligible maintenance releases may become current only within the proved bounded path |
+| **4. 5v5 bootstrap and calibration** | Broad 5v5 discovery, shadow comparison with curated data and bounded promotion waves | Review and acceptance of the 5v5 bootstrap report | Small evidence-qualified 5v5 batches may become current |
+| **5. 3v3 bootstrap and calibration** | Independent 3v3 discovery, calibration and bounded promotion waves | Review and acceptance of the 3v3 bootstrap report | Small evidence-qualified 3v3 batches may become current |
 
-Before Stage 2 there is one **evidence and runner entry gate**. It is a go/no-go check, not a fourth build stage.
+Before Stage 2 there is one **evidence and runner entry gate**. It is a go/no-go check, not an additional build stage.
 
 ---
 
@@ -882,11 +886,11 @@ Review:
 
 ---
 
-# Stage 3 — Scheduling and bounded autonomous publication
+# Stage 3 — Scheduling and bounded autonomous publication capability
 
 ## 10. Stage 3 objective
 
-Run eligible maintenance cycles unattended, publish only validated changes, and involve the user only for failure or genuine escalation.
+Prove that eligible maintenance cycles can run unattended and publish only validated, bounded changes. Stage 3 establishes machinery safe enough for controlled bootstrap runs; it does not authorise unrestricted catalogue expansion or steady-state autonomous maintenance.
 
 ## 11. Stage 3 work packages
 
@@ -910,13 +914,15 @@ Run eligible maintenance cycles unattended, publish only validated changes, and 
 
 ---
 
-### ARCH-302 — Autonomous publication activation
+### ARCH-302 — Bounded autonomous publication activation
 
 - enable production pointer updates only for eligible `MAINTENANCE` releases;
 - retain publication lock and base-release checks;
 - refuse anomaly-blocked runs;
 - support `APPROVED_OVERRIDE` only through explicit human action;
 - preserve authored locks and note authority;
+- enforce absolute and proportional catalogue-change ceilings;
+- prevent bootstrap publication outside the active format, approved promotion wave and configured batch limit;
 - publish versioned artifact before pointer.
 
 **Acceptance:** A forced mid-publication failure leaves the previous artifact current.
@@ -972,13 +978,98 @@ Prove:
 - reporting remains concise;
 - failure injection leaves production usable;
 - rollback is demonstrated;
-- the user approves routine autonomous operation.
+- batch limits and mass-change circuit breakers are demonstrated;
+- the user approves a controlled `5V5` bootstrap, not yet routine steady-state operation.
 
 **Rollback:** Disable scheduling and repoint to the last human-approved compatible release.
 
 ---
 
-## 12. Manual configuration plan
+# Stage 4 — `5V5` bootstrap and calibration
+
+## 12. Stage 4 objective
+
+Discover the full `5V5` catalogue opportunity in shadow mode, calibrate the maintenance engine against the curated seed catalogue, and promote only differentiated, evidence-qualified candidates in small waves.
+
+Large discovery batches are expected and permitted. They do not enlarge a publication wave or weaken any evidence, usefulness, authority, anomaly or validation threshold.
+
+## 13. Stage 4 work packages
+
+### ARCH-401 — `5V5` shadow discovery and baseline comparison
+
+- run a complete `5V5` discovery pass without canonical or pointer writes;
+- retain every discovered defence, candidate matchup and rejected/held outcome with provenance;
+- compare rediscovered counters, rankings and proposed values with the curated `5V5` catalogue;
+- exercise curated counters as regression cases, including experience-backed downgrades and exceptions;
+- classify agreement, disagreement, new coverage, duplicate/no-value proposals and insufficient evidence;
+- record source, sample size, recency, observed performance, banner evidence and confidence for every candidate.
+
+**Acceptance:** The full pass is reproducible; no discovery becomes canonical; unresolved or weak evidence remains staged; the comparison exposes systematic bias, false positives and missing evidence rather than hiding them in aggregate scores.
+
+### ARCH-402 — `5V5` calibration and bounded promotion waves
+
+- tune only evidence-backed policy parameters exposed by ARCH-401;
+- require a candidate to add reliability, banner efficiency, accessibility, undersize potential or otherwise missing coverage;
+- route every curated-data disagreement to review rather than silently overwriting it;
+- leave banner values unknown in staging when evidence is insufficient; never manufacture false precision;
+- rank eligible candidates by evidence and user value;
+- publish in small waves capped by both absolute count and catalogue percentage;
+- trip a review stop when churn, disagreement, mapping failure or source-volume change exceeds its circuit breaker;
+- preserve complete release, finding and rollback provenance for every promoted change.
+
+**Acceptance:** No `AUTHORED_LOCKED` value changes; no curated bootstrap judgement is silently overwritten; every new canonical record has supporting evidence and provenance; low-confidence candidates remain staged; repeated or oversized waves stop safely; previous releases remain recoverable.
+
+### ARCH-403 — `5V5` bootstrap acceptance
+
+Produce a compact report containing:
+
+- discovered defences and candidate matchups;
+- promoted, rejected and held volumes;
+- confidence distribution and evidence/sample-size distribution;
+- agreement and disagreement rates with curated data;
+- representative high-impact additions, changes, false positives and unresolved gaps;
+- publication-wave sizes and all circuit-breaker events;
+- rollback references and the proposed transition of the remaining `5V5` backlog to steady-state maintenance after Stage 5.
+
+**Stage 4 exit gate:** Every Stage-4 acceptance criterion has passed, the report shows credible calibration and controlled catalogue growth, rollback is demonstrated, and the user explicitly accepts the `5V5` bootstrap.
+
+**Rollback:** Stop further `5V5` promotion waves and repoint to the last accepted compatible release. Preserve staged evidence and decisions for audit.
+
+---
+
+# Stage 5 — `3V3` bootstrap and calibration
+
+## 14. Stage 5 objective
+
+Repeat the controlled bootstrap independently for `3V3`. Passing Stage 4 does not waive `3V3` validation because composition patterns, sample sizes, banner behaviour and matchup volatility can differ materially from `5V5`.
+
+## 15. Stage 5 work packages
+
+### ARCH-501 — `3V3` shadow discovery and baseline comparison
+
+Run the ARCH-401 discovery, provenance, curated-regression and disagreement analysis for `3V3`, without canonical or pointer writes.
+
+**Acceptance:** The complete `3V3` shadow pass is reproducible and independently exposes weak evidence, bias, false positives and unresolved mappings.
+
+### ARCH-502 — `3V3` calibration and bounded promotion waves
+
+Apply the ARCH-402 evidence, usefulness, curated-protection, banner-precision, batch-ceiling, circuit-breaker, provenance and rollback requirements using independently calibrated `3V3` policy parameters.
+
+**Acceptance:** Every promoted `3V3` record satisfies the Stage-4 quality controls under the independently calibrated `3V3` policy; low-confidence and oversized changes remain staged or stop for review.
+
+### ARCH-503 — `3V3` bootstrap acceptance and steady-state transition
+
+Produce the same acceptance report as ARCH-403 for `3V3`, including representative differences from `5V5` calibration.
+
+**Stage 5 exit gate:** Every Stage-5 acceptance criterion has passed, rollback is demonstrated, and the user explicitly accepts the `3V3` bootstrap and transition to steady-state autonomous maintenance.
+
+**Rollback:** Stop further `3V3` promotion waves and repoint to the last accepted compatible release. Accepted `5V5` bootstrap results remain intact.
+
+After Stage 5, the same bounded pipeline enters steady-state operation. Mass-change circuit breakers, authority rules, provenance requirements and publication ceilings remain active; catalogue completeness never becomes a publication target.
+
+---
+
+## 16. Manual configuration plan
 
 The goal is one substantial session in Stage 1.
 
@@ -997,11 +1088,11 @@ If provider UI or account restrictions force another substantial manual setup la
 
 ---
 
-## 13. Manual and on-demand operations
+## 17. Manual and on-demand operations
 
 Two separate on-demand paths are required.
 
-### 13.1 Human authoring
+### 17.1 Human authoring
 
 The owner or control chat can initiate an authoring run at any time:
 
@@ -1014,7 +1105,7 @@ The owner or control chat can initiate an authoring run at any time:
 
 Human authoring is independent of the maintenance schedule.
 
-### 13.2 Maintenance review
+### 17.2 Maintenance review
 
 The owner or control chat can trigger a maintenance review outside the schedule.
 
@@ -1033,7 +1124,7 @@ This capability is required in Stage 2 for report-only analysis and retained in 
 
 ---
 
-## 14. Control-chat operating model
+## 18. Control-chat operating model
 
 This conversation is the programme control thread.
 
@@ -1047,7 +1138,7 @@ The control thread owns:
 - the next self-contained handoff prompt;
 - decisions to pause, rollback, cut over or activate autonomy.
 
-### 14.1 Coding breakouts
+### 18.1 Coding breakouts
 
 Each coding session receives a self-contained prompt for one work package or an explicitly bounded part of one.
 
@@ -1070,7 +1161,7 @@ The control thread also states the recommended effort level outside the prompt w
 
 After a breakout returns, the control thread independently refreshes repository evidence before accepting completion or preparing the next task.
 
-### 14.2 Deep-analysis breakouts
+### 18.2 Deep-analysis breakouts
 
 Use a read-only analysis breakout when a decision needs substantial research, comparison or failure-mode testing before code is appropriate.
 
@@ -1082,7 +1173,7 @@ Analysis prompts must:
 - return concrete options, trade-offs and a recommended decision;
 - identify time-sensitive facts that require current verification.
 
-### 14.3 Manual steps
+### 18.3 Manual steps
 
 Whenever the user must configure GitHub, the database host, static hosting, Apps Script or another external service, the control thread provides:
 
@@ -1098,7 +1189,7 @@ Do not distribute avoidable configuration across later stages. Prepare the full 
 
 ---
 
-## 15. Agent execution protocol
+## 19. Agent execution protocol
 
 Each work package should be handed to a coding agent separately using a self-contained prompt.
 
@@ -1122,7 +1213,7 @@ A work package may be split into smaller coding tasks when needed, but the packa
 
 ---
 
-## 16. Status tracking
+## 20. Status tracking
 
 Use these states:
 
@@ -1153,12 +1244,14 @@ Initial status:
 | GATE-200 | Not started |
 | ARCH-201–207 | Not started |
 | ARCH-301–304 | Not started |
+| ARCH-401–403 | Not started |
+| ARCH-501–503 | Not started |
 
 Only one implementation work package should normally be `In progress` at a time. Documentation preparation or independent read-only evidence gathering may overlap where the dependency table permits.
 
 ---
 
-## 17. Explicit exclusions
+## 21. Explicit exclusions
 
 This programme does not include:
 
@@ -1179,13 +1272,15 @@ These remain separate roadmap or architectural decisions.
 
 ---
 
-## 18. Definition of programme complete
+## 22. Definition of programme complete
 
 The programme is complete only when:
 
 - Stage 1 has replaced the catalogue runtime and survived its fallback window;
 - Stage 2 has validated real evidence in report-only mode;
-- Stage 3 has completed two unattended eligible cycles;
+- Stage 3 has proved bounded scheduling and autonomous publication without authorising unrestricted expansion;
+- Stage 4 has completed and received explicit `5V5` bootstrap acceptance;
+- Stage 5 has completed and received explicit `3V3` bootstrap and steady-state acceptance;
 - production works from cached static catalogue data without database availability;
 - human authoring remains available and documented;
 - every autonomous change is reproducible and policy-enforced;
