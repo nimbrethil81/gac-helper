@@ -217,6 +217,66 @@ test("Cleared marks the defensive team cleared and offers a temporary Undo", (t)
     assert.equal(h.run("JSON.stringify(usedTeams)"), JSON.stringify(["SOME_OTHER_COUNTER"]));
 });
 
+function configureTwoRecommendedFrontBottomTeams(h) {
+    h.run(`
+        board = createRoundBoard("KYBER", "5v5", ${JSON.stringify(twoTeamFrontBottomConfig())}, "opponent", "round", "now");
+        board.teams.find(t => t.territory === "FRONT_BOTTOM" && t.index === 0).name = "Leia Organa";
+        board.teams.find(t => t.territory === "FRONT_BOTTOM" && t.index === 1).name = "Jedi Master Luke";
+        gacData = { "5v5": {
+            "Leia Organa": [{ counterId: "JABBA", counter: "Jabba", tier: "S", bannerScore: 62, undersize: 0 }],
+            "Jedi Master Luke": [{ counterId: "JML", counter: "JML", tier: "S", bannerScore: 61, undersize: 0 }]
+        } };
+        counterDefinitions = { JABBA: { name: "Jabba", required: [] }, JML: { name: "JML", required: [] } };
+        usedTeams = [];
+    `);
+}
+
+test("Cleared advances to the next uncleared defence in the existing squad ordering", () => {
+    const h = harness();
+    configureTwoRecommendedFrontBottomTeams(h);
+
+    h.run("toggleTeamCleared('opponent', 'FRONT_BOTTOM', 0)");
+
+    assert.equal(h.run("board.teams.find(t => t.territory === 'FRONT_BOTTOM' && t.index === 0).cleared"), true);
+    assert.equal(h.run("focusedTeamKey"), "FRONT_BOTTOM:1");
+    assert.equal(h.run("pendingUndo.kind"), "cleared");
+
+    h.run("undoPendingAction()");
+    assert.equal(h.run("board.teams.find(t => t.territory === 'FRONT_BOTTOM' && t.index === 0).cleared"), false);
+    assert.equal(h.run("focusedTeamKey"), "FRONT_BOTTOM:1");
+});
+
+test("Used + Cleared preserves used state and advances to the next uncleared defence", () => {
+    const h = harness();
+    configureTwoRecommendedFrontBottomTeams(h);
+
+    h.run("markUsedAndCleared('opponent', 'FRONT_BOTTOM', 0, 'JABBA')");
+
+    assert.equal(h.run("usedTeams.includes('JABBA')"), true);
+    assert.equal(h.run("board.teams.find(t => t.territory === 'FRONT_BOTTOM' && t.index === 0).cleared"), true);
+    assert.equal(h.run("focusedTeamKey"), "FRONT_BOTTOM:1");
+    assert.equal(h.run("pendingUndo.kind"), "usedCleared");
+});
+
+test("Mark Used does not change the active defence", () => {
+    const h = harness();
+    configureTwoRecommendedFrontBottomTeams(h);
+    h.run("focusedTeamKey = 'FRONT_BOTTOM:0'; markCounterUsedFromBoard('JABBA')");
+
+    assert.equal(h.run("focusedTeamKey"), "FRONT_BOTTOM:0");
+    assert.equal(h.run("usedTeams.includes('JABBA')"), true);
+});
+
+test("clearing the final recommended defence leaves no invalid selection", () => {
+    const h = harness();
+    configureTwoRecommendedFrontBottomTeams(h);
+    h.run("board.teams.find(t => t.territory === 'FRONT_BOTTOM' && t.index === 1).cleared = true; focusedTeamKey = 'FRONT_BOTTOM:0'");
+
+    assert.doesNotThrow(() => h.run("toggleTeamCleared('opponent', 'FRONT_BOTTOM', 0)"));
+    assert.equal(h.run("focusedTeamKey"), null);
+    assert.equal(h.run("pendingUndo.kind"), "cleared");
+});
+
 test("Cleared Undo restores exactly the prior defence state and leaves unrelated state untouched", (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const h = harness();
