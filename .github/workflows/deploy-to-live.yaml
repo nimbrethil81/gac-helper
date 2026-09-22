@@ -24,14 +24,16 @@ jobs:
 
       # Step 3: Sync only the files explicitly approved for public release.
       #
-      # Everything not explicitly included is removed from the live repo.
-      # Protect the live checkout's .git directory so rsync does not delete
-      # the repository metadata when --delete-excluded is used.
+      # Everything not explicitly included is removed from the live repo,
+      # except the live-owned README. Protect the live checkout's .git
+      # directory so rsync does not delete the repository metadata when
+      # --delete-excluded is used.
       - name: Sync allow-listed public files to live
         run: |
           rsync -av --delete --delete-excluded \
             --filter='P /.git' \
             --filter='P /.git/**' \
+            --filter='P /README.md' \
             --include='/index.html' \
             --include='/app.js' \
             --include='/styles.css' \
@@ -39,7 +41,6 @@ jobs:
             --include='/service-worker.js' \
             --include='/icon-192.png' \
             --include='/icon-512.png' \
-            --include='/README.md' \
             --include='/changelog.md' \
             --exclude='*' \
             dev/ live/
