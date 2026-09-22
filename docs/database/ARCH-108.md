@@ -1,6 +1,10 @@
 # ARCH-108 catalogue publication — Phase A implementation record
 
-**Status: Implementation ready for ARCH-104 and connected verification.** This is not an ARCH-108 completion claim. No hosted database or Cloudflare target was contacted, configured or changed.
+**Status: Phase A complete; connected verification paused.** This is not an ARCH-108 completion claim. Connected verification was previously sequenced after ARCH-104; it now sits behind GATE-150 (see the status note below). No hosted database or Cloudflare target was contacted, configured or changed.
+
+> **Status note (2026-09-22): paused future-migration asset.** [`ADR-ARCH-113`](../decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselines the active Stage-1 path onto Google Sheets authoring, the Apps Script `action=data` catalogue, cache-first PWA loading and Cloudflare delivery. No hosted database is part of active Stage-1 work, and no database provider is selected. The work recorded in this document is complete and preserved unchanged; its hosted deployment and operationalisation are deferred behind **GATE-150** ([`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) §7.1), which must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate this implementation against it. Nothing below is reverted, rewritten or downgraded.
+
+> The "Connected configuration interface (paused)" table below describes the **paused connected path**. ARCH-104 is re-scoped to Cloudflare-only configuration and creates no database secret; `SUPABASE_PUBLISHER_DATABASE_URL` is superseded by whatever connection secret the GATE-150 provider requires. The Cloudflare rows remain accurate for the active deployment work. `.github/workflows/publish-catalogue.yml` and the `catalogue:*` commands stay in the repository, manual-only and unrun, and are not part of the active Stage-1 path.
 
 ## Implemented
 
@@ -30,7 +34,7 @@ npm run catalogue:publish  -- --commit <sha> --reason <reason> [--change-ids <id
 
 `catalogue:publish` is the entire manual prepare → stage → deploy → HTTP verify → finalise path. The workflow also exposes publish, reconcile and rollback choices. `AUTHORING` requires at least one referenced `APPLIED` change and records it in `catalogue_release_authoring_changes`.
 
-For offline Phase-A command rehearsal, add `--simulate --data-dir .local/arch108`; this uses persistent PGlite plus the filesystem deployment adapter under `dist/public` and never reads provider credentials or contacts a network. Omit `--simulate` for the connected ARCH-104 path.
+For offline Phase-A command rehearsal, add `--simulate --data-dir .local/arch108`; this uses persistent PGlite plus the filesystem deployment adapter under `dist/public` and never reads provider credentials or contacts a network. Omit `--simulate` for the connected path, when that path is resumed.
 
 ## Local evidence
 
@@ -50,9 +54,9 @@ PGlite serialises access through its local connection model and therefore does *
 - Rollback accepts only a prior `SUPERSEDED` release with payload schema 1 and an exact retained-artifact checksum. It deploys and verifies that artifact before moving the database pointer and appends rollback provenance.
 - Schema rollback is non-destructive: lifecycle-column removal refuses to run while retired child rows exist. The release-transition rollback refuses an in-progress two-`DEPLOYED` state.
 
-## ARCH-104 configuration interface
+## Connected configuration interface (paused)
 
-ARCH-104 must supply values without committing them:
+When this path is resumed, the following values must be supplied without committing them. The database row is superseded by whatever connection secret the GATE-150 provider requires; the Cloudflare rows remain accurate and are ARCH-104's:
 
 | Kind | Exact name | Requirement |
 |---|---|---|
@@ -62,7 +66,7 @@ ARCH-104 must supply values without committing them:
 | GitHub variable | `CLOUDFLARE_PRODUCTION_WORKER_NAME` | Existing production Worker name. |
 | GitHub variable | `CATALOGUE_PRODUCTION_BASE_URL` | HTTPS origin used for post-deployment pointer/artifact verification. |
 
-Time-sensitive provider assumptions to re-check in ARCH-104: the chosen [Supabase connection method](https://supabase.com/docs/guides/database/connecting-to-postgres)'s IPv4/SSL and session behaviour; custom-role connection-string form; Cloudflare's current [static-asset](https://developers.cloudflare.com/workers/static-assets/) and [version/deployment](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/) semantics and retention; [rollback](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/) limitations; Wrangler 4.136 command/JSON output; [CI token](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) scopes; and repository Actions secret/variable availability. The implementation pins Wrangler and records the returned Cloudflare deployment identifier.
+Time-sensitive provider assumptions to re-check before resuming this path (the Cloudflare items are re-checked in ARCH-104): the chosen [Supabase connection method](https://supabase.com/docs/guides/database/connecting-to-postgres)'s IPv4/SSL and session behaviour; custom-role connection-string form; Cloudflare's current [static-asset](https://developers.cloudflare.com/workers/static-assets/) and [version/deployment](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/) semantics and retention; [rollback](https://developers.cloudflare.com/workers/configuration/versions-and-deployments/rollbacks/) limitations; Wrangler 4.136 command/JSON output; [CI token](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) scopes; and repository Actions secret/variable availability. The implementation pins Wrangler and records the returned Cloudflare deployment identifier.
 
 ## Phase B — connected verification still required
 

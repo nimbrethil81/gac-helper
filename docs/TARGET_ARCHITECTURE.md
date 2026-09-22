@@ -1,12 +1,46 @@
 # SWGOH GAC Helper — Target Architecture
 
-**Status:** Proposed design v0.4, revised after independent peer review, the accepted ARCH-102 platform decisions, and the accepted bootstrap/calibration safety design. Not yet fully implemented.
+**Status:** Proposed design v0.5, revised after independent peer review, the accepted ARCH-102 platform decisions, the accepted bootstrap/calibration safety design, and the accepted ARCH-113 Stage-1 delivery re-baseline. Not yet fully implemented.
 
-**Scope.** This document defines the proposed target architecture for modernising GAC Helper's canonical data platform, authoring model, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
+**Scope.** This document defines the proposed target architecture for modernising GAC Helper's catalogue delivery, authoring model, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
 
-**Platform decisions.** The Stage-1 host, environment, publication, secret, role and threat-model decisions referenced throughout this document (Cloudflare Workers as production static host, Supabase Free/London as the Stage-1 canonical database, the distributed publication protocol, the Stage-1 role inventory, and the accompanying threat and recovery model) are recorded authoritatively in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md). This document reflects those accepted decisions; the ADR owns their justification, rejected alternatives, and re-verification requirements.
+**Platform decisions.** The Stage-1 host, environment, publication, secret, role and threat-model decisions are recorded in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md), as re-baselined by [`docs/decisions/ADR-ARCH-113-stage1-rebaseline.md`](decisions/ADR-ARCH-113-stage1-rebaseline.md). ADR-ARCH-113 supersedes ADR-ARCH-102's database-hosting, static-catalogue-publication and Supabase-configuration decisions, and leaves everything else in that ADR in force — Cloudflare delivery, the manual production gate, mandatory manual operation, the cache validation principles, the client-state cutover precautions and the threat model. Read both: ADR-ARCH-102 owns the justification, rejected alternatives and threat model; ADR-ARCH-113 owns what is active now and what is paused.
 
 **Update this document when** an architectural decision below is accepted, revised or rejected during review or implementation. Once the target architecture ships, move enduring current-state facts into `SPEC.md` and either retire this document or reduce it to decisions not captured elsewhere.
+
+---
+
+## 0. Active path and paused path
+
+This document describes two things. They must not be confused.
+
+**The active Stage-1 path** — the work being delivered now:
+
+```text
+Google Sheets (canonical catalogue, human authoring)
+        |
+        v
+Apps Script  action=data          Apps Script  action=roster
+   (catalogue API)                   (Comlink roster proxy)
+        |                                    |
+        +----------------+-------------------+
+                         v
+        PWA: fetch, validate, cache, render cache-first
+                         ^
+                         |
+   Cloudflare Workers static assets — development and production
+                         ^
+                         |
+   Private GitHub repository -> reviewed, merged PR -> manual deployment
+```
+
+Google Sheets is the canonical authored catalogue. Apps Script serves both the catalogue and the roster proxy. Cloudflare Workers serves the PWA from two deployments. The PWA validates and caches the Apps Script payload and renders the last known-good catalogue first. The existing public GitHub Pages app remains the fallback through the cutover window.
+
+**The paused future database-backed maintenance evolution** — §§4–13 below, plus the database-backed parts of §§14–16:
+
+A Postgres-compatible canonical store, evidence and assessment tables, a version-controlled human authoring path, a deterministic policy applier and an immutable static catalogue artifact with a release pointer. This design is complete, largely implemented and preserved unchanged. It is **not** active Stage-1 work. It requires a new persistent-store provider decision at **GATE-150** ([`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) §7.1) before any part of it is deployed, and it stays behind that gate until automated evidence-driven maintenance is actually being built.
+
+Sections that describe the paused path carry a status note saying so. Where an active-path behaviour differs from the paused design, the active behaviour is stated explicitly and wins.
 
 This design intentionally optimises for:
 
@@ -28,7 +62,9 @@ The current PWA is static. Authored counter data lives in Google Sheets, which i
 
 The current app renders player state from local storage, but the catalogue itself is not currently cache-first: a failed catalogue fetch prevents normal startup. Correcting that is part of the target architecture, not an existing capability.
 
-The current arrangement has served the product well, but it limits safe autonomous maintenance:
+The current arrangement serves human authoring well. A single author edits a Sheet and the change is live immediately, with no capture, review, release or deployment step. That is why Google Sheets remains the canonical catalogue and the authoring workbench on the active path (ADR-ARCH-113 §1). Two weaknesses are addressed inside that arrangement rather than by replacing it: the catalogue is not cache-first, and production hosting must move off GitHub Pages.
+
+What the current arrangement does limit is safe *autonomous* maintenance:
 
 - identity and duplicate rules are not enforced relationally;
 - defence teams lack stable identities;
@@ -38,15 +74,23 @@ The current arrangement has served the product well, but it limits safe autonomo
 - an autonomous process would need authority that is difficult to bound safely in a spreadsheet;
 - replacing the Sheet without replacing its authoring capability would make routine maintenance harder.
 
-The target architecture replaces Google Sheets as the runtime data platform with a Postgres-compatible canonical store, a version-controlled human-change path and an immutable static catalogue artifact. Evidence, assessment, canonical mutation and publication are separate steps so observations cannot become live product knowledge without policy enforcement and whole-catalogue validation.
+The paused future evolution (§0) would replace Google Sheets as the runtime data platform with a Postgres-compatible canonical store, a version-controlled human-change path and an immutable static catalogue artifact. Evidence, assessment, canonical mutation and publication are separate steps so observations cannot become live product knowledge without policy enforcement and whole-catalogue validation. That design exists because autonomous maintenance needs it — not because human authoring does.
 
-Repository consolidation remains a desired target, but it is not a prerequisite for the data-platform migration. It must preserve the current fail-closed public deployment boundary and may proceed only after automated checks exist.
+The active Stage-1 path therefore takes only what the product needs now:
 
-This document does not itself authorise database creation, repository consolidation, migration, deployment or autonomous publication. Each requires approved implementation work.
+- **cache-first catalogue loading in the PWA** (§2.8), so a temporary connection or Apps Script failure cannot break a live round;
+- **Cloudflare Workers delivery** with separate development and production deployments (§14), because the account is GitHub Free and private-repository GitHub Pages is unavailable;
+- **a deliberate production-origin cutover** with one-time client-state export/import (§15.0), because browser state is origin-keyed.
+
+Repository consolidation remains a desired target. It must preserve the current fail-closed public deployment boundary and may proceed only after automated checks exist.
+
+This document does not itself authorise database creation, repository consolidation, migration, deployment or autonomous publication. Each requires approved implementation work. Creating any hosted database — Supabase, Neon or otherwise — additionally requires GATE-150.
 
 ---
 
 ## 2. Architectural principles
+
+**Applicability.** §2.8 (cache-first live application) is active Stage-1 design. §§2.1–2.7 and 2.9 describe the paused database-backed maintenance evolution (§0); they govern catalogue identity, evidence handling and publication once that path is revalidated at GATE-150, and they constrain no active Stage-1 work package. §2.6's "human authoring remains first-class" is, however, satisfied on the active path in the simplest possible way: the human authors the Google Sheet directly.
 
 ### 2.1 Strategic identity over observed composition
 
@@ -132,13 +176,22 @@ A publication either succeeds as one validated release or changes nothing. Candi
 
 Rollback selects a prior compatible immutable artifact; it does not reverse individual mutations.
 
-### 2.8 Static, cache-first live application
+### 2.8 Cache-first live application
 
-The PWA must not depend on a running database during a live GAC round.
+The PWA must not depend on any remote system being reachable during a live GAC round.
 
-The live app consumes a versioned static catalogue artifact and a small current-version pointer from the same reliable static-delivery path as the app. It renders a validated cached catalogue first and refreshes in the background. A failed refresh never overwrites a known-good cache or blocks an offline round.
+**On the active path**, the live app fetches the Apps Script `action=data` payload, validates it, caches it, and renders the **last known-good cached catalogue first**, refreshing in the background. Specifically:
 
-The database is the maintenance and authoring store, not the live app's runtime dependency.
+- a validated payload is persisted locally under a versioned cache key;
+- startup renders the cached catalogue immediately, without waiting for the network;
+- a refresh failure — offline, timeout, HTTP error, Apps Script failure, or a 200 response whose body is not a valid catalogue — **retains and renders the last known-good catalogue** and reports the stale state unobtrusively;
+- a failed or invalid refresh never overwrites the cache, and never replaces the UI with an error screen when a usable catalogue exists;
+- an incompatible payload is refused cleanly rather than partially applied;
+- an error body is never treated as a catalogue.
+
+Only a first-ever launch with no cache and no reachable catalogue is an unusable state, and it says so plainly.
+
+**On the paused path**, the same principles apply to a versioned static artifact and a current-version pointer served from the same static-delivery path as the app (§9.3). The database would be the maintenance and authoring store, never the live app's runtime dependency. Either way, the live application holds no database credential and makes no database call.
 
 ### 2.9 Cost restraint and provider neutrality
 
@@ -150,7 +203,52 @@ Evidence availability may prove a larger cost or feasibility constraint than the
 
 ---
 
-## 3. Target topology
+## 3. Topology
+
+### 3.1 Active Stage-1 topology
+
+Components on the active path:
+
+- **Google Sheets:** the canonical authored catalogue and the owner's day-to-day authoring workbench. It is in the runtime path and stays there. It must not be made private, restricted or removed while the PWA depends on `action=data` ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §7).
+- **Google Apps Script:** retained for **both** routes — `action=data` (catalogue API) and `action=roster` (Comlink proxy). Neither is retired in Stage 1.
+- **Comlink:** existing read-only roster source, unchanged.
+- **PWA:** fetches, validates, caches and renders the `action=data` payload cache-first (§2.8).
+- **Cloudflare Workers static assets:** serves the PWA from two deployments — a **development Worker** (publicly reachable, `noindex`, no credentials or personal data, treated as a preview rather than an access-controlled environment) and a **production Worker** (what the live app is served from, updated only through an explicit manual `workflow_dispatch` from a reviewed, merged pull request). See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2, §1.5, §1.6, §3.
+- **GitHub (Free plan):** the private development repository remains the source of truth — source, tests, documentation, deployment workflows, and the paused database assets. Repository secrets plus explicit manual `workflow_dispatch` triggers are the production gate, in place of GitHub Environments (not available for a private repository on GitHub Free); see [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3.
+- **Existing public `gac-helper` repository and its GitHub Pages deployment:** retained, unchanged, as the fallback production route through the Stage-1 acceptance window (§14–§15); retired only at the ARCH-112 exit gate.
+
+The active data flow:
+
+```text
+Owner edits Google Sheet
+        |
+        v
+Apps Script action=data  --------+        Apps Script action=roster --> Comlink
+        |                        |                 |
+        v                        |                 v
+PWA fetch and validate           |        PWA roster import (unchanged)
+        |                        |
+   valid? --no--> keep cached known-good catalogue, report stale
+        |
+       yes
+        |
+        v
+Replace cache, render; subsequent launches render cache first
+```
+
+Catalogue delivery and application deployment are independent. A catalogue change is a Sheet edit and needs no deployment; an application change is a deployment and needs no catalogue action.
+
+### 3.2 Future database-backed topology
+
+> **Status: paused.** §3.2 and §§4–13 describe the database-backed maintenance evolution. No part of it is active Stage-1 work, and none of it may be deployed before GATE-150 selects a persistent maintenance-store provider and the paused implementation is revalidated against it. The design and its implementation are preserved unchanged, not abandoned ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §8).
+
+Additional components this evolution would introduce:
+
+- **A Postgres-compatible database** holding the canonical catalogue, evidence, assessments, findings, authoring records and release metadata. **No provider is selected.** Supabase was previously selected and that selection is withdrawn; Neon is a candidate, not a decision. Development and schema rehearsal use a local, disposable Postgres instance, as they do today.
+- **A deterministic maintenance runner:** scheduled ingestion and rule-based analysis, with AI invoked only for bounded semantic cases. Selection remains deferred to the Stage 2 evidence gate (§20).
+- **Immutable versioned catalogue artifacts and a current-version pointer,** served as static assets from the same Worker as the PWA.
+
+Under that evolution, Google Sheets would leave the runtime path and `action=data` would be retired — but only after a planned, reversible cutover with its own acceptance window. Neither happens in Stage 1.
 
 The desired eventual repository shape is illustrative:
 
@@ -167,7 +265,7 @@ gac-helper/
 
 The database remains canonical after approved changes are applied. Files under `data/` are auditable inputs or change requests, not a second mutable catalogue.
 
-The target data flow is:
+Its data flow would be:
 
 ```text
 Human change request          External GAC evidence
@@ -196,20 +294,15 @@ Validated authoring loader     Immutable observations
                     PWA cache then background refresh
 ```
 
-Target components:
-
-- **GitHub (Free plan):** source, change files, schema migrations, policy, tests and deployment workflows. Repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 production gate, in place of GitHub Environments (not available for a private repository on GitHub Free); see [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3.
-- **Postgres-compatible database — Supabase Free, London region (Stage-1 canonical, subject to ARCH-104 re-verification):** canonical catalogue, evidence, assessments, findings, authoring records and release metadata. Selected as the current use of the account's one remaining free project slot; reversible through a separate approved plan if another owner-operated application later needs the slot more. Development and schema rehearsal use a local, disposable Postgres instance; exactly one hosted project is canonical. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.3–§1.4, §3.
-- **Static hosting — Cloudflare Workers static assets:** the PWA plus immutable versioned catalogue artifacts and a small current-version pointer, replacing GitHub Pages as the production host because the account is GitHub Free and private-repository Pages is not available on it. A separate, publicly reachable development Worker (marked `noindex`, carrying no credentials or personal data, treated as a preview rather than an access-controlled environment) serves unpublished/candidate artifacts for inspection. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2, §1.5, §3, §4.
-- **Deterministic maintenance runner:** scheduled ingestion and rule-based analysis, with AI invoked only for bounded semantic cases. Selection remains deferred to the Stage 2 evidence gate (§20).
-- **Google Apps Script:** retained initially only as the roster proxy to Comlink; its `action=data` route is retired after a proved fallback period.
-- **Comlink:** existing read-only roster source unless separately replaced.
-- **Google Sheets:** migration source and temporary cutover fallback, not part of the target steady-state runtime.
-- **Existing public `gac-helper` repository and its GitHub Pages deployment:** retained, unchanged, as a fallback production route through the Stage-1 acceptance window defined in §14–§15; not part of the target steady-state runtime, and retired only at the ARCH-112 exit gate.
+Its components are those in §3.1 plus the database, the maintenance runner and the static catalogue artifacts listed above. Google Sheets would become a migration source and temporary cutover fallback rather than the runtime catalogue, and Apps Script would reduce to `action=roster`. That reduction is the end state of a future, separately approved cutover — not a Stage-1 outcome.
 
 ---
 
 ## 4. Data domains
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
 
 The schema has six domains:
 
@@ -225,6 +318,10 @@ All timestamps are timezone-aware. Stable public codes are immutable after publi
 ---
 
 ## 5. Canonical catalogue model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
 
 ### 5.1 `units`
 
@@ -384,6 +481,12 @@ Allocation and Battle Order must handle a zero-candidate defence safely.
 
 ## 6. Human authoring model
 
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+On the active path, human authoring is editing the Google Sheet directly. The change-file, loader and authority-state model below is implemented (ARCH-107) and paused.
+
+
+
 Human authoring uses reviewed, version-controlled change files or an equivalent agent-generated interface. It must be usable without direct SQL.
 
 A change contains:
@@ -411,6 +514,10 @@ Initial migration seeds may contain the complete legacy catalogue. After cutover
 ---
 
 ## 7. Evidence model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
 
 ### 7.1 Evidence-source entry gate
 
@@ -480,6 +587,10 @@ AI may lower mapping confidence because of semantic ambiguity but may not raise 
 ---
 
 ## 8. Assessment and maintenance model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
 
 ### 8.1 `matchup_assessments`
 
@@ -563,6 +674,12 @@ A `PUBLISH` decision is a proposal, not permission to write canonical state. The
 
 ## 9. Publication model
 
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+The active path publishes no catalogue artifact and maintains no release pointer: a catalogue change is a Sheet edit, visible through `action=data` immediately. The `READY`/`DEPLOYED` protocol below is implemented (ARCH-108 Phase A) and paused. Its principles — verify after deploying, never advertise an unverified release, recover idempotently — still govern *application* deployment to Cloudflare (§14).
+
+
+
 ### 9.1 `catalogue_releases`
 
 Each release records:
@@ -639,6 +756,12 @@ Rollback may select only a release compatible with the deployed app.
 
 ## 10. Deterministic application configuration
 
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+On the active path, board configuration and scoring rules remain Sheet tabs served by `action=data`, exactly as `SPEC.md` describes.
+
+
+
 ### 10.1 `gac_board_config`
 
 Stores league, mode, territory, territory type, team count and ordering.
@@ -656,6 +779,12 @@ Matchup and defence notes are human-authored only in the initial design. Statist
 ---
 
 ## 11. Autonomous decision policy
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+Every safeguard in this section — evidence thresholds, authority states, hysteresis, anomaly circuit breakers and the bootstrap/steady-state separation in §11.13 — remains accepted policy for if and when automated maintenance is activated. None of it is a Stage-1 dependency, and no Stage-1 work package activates any of it.
+
+
 
 The machine-readable policy lives in version control, for example `maintenance/policy.yaml`. Automation may apply it but cannot change it.
 
@@ -813,6 +942,10 @@ Only completion of both bootstrap stages authorises steady-state autonomous main
 
 ## 12. Publication validation
 
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
+
 ### 12.1 Structural validation
 
 The validator proves:
@@ -848,6 +981,15 @@ If any validation fails, publish nothing.
 
 ## 13. Security and authority boundaries
 
+**Active path.** Two boundaries apply now and are absolute:
+
+- **The live PWA never holds a database credential**, of any kind, in any environment. On the active path no database exists at all, and the app makes only unauthenticated HTTP reads against Apps Script and against its own Cloudflare origin.
+- **The development Worker is a public, unauthenticated preview surface.** No credential, ally code, real roster data or owner-identifying provenance may ever be served from it ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.5).
+
+The only Stage-1 secrets are the Cloudflare deploy token and the existing `LIVE_REPO_PAT`. No database role, connection string or evidence-provider credential exists ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §2).
+
+**Paused path.** The role model below applies when the database path is revalidated at GATE-150. It is preserved unchanged, including the `SECURITY DEFINER` controls in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §9.1.
+
 Use least-privilege roles or equivalent narrow operations:
 
 - **Authoring loader:** applies reviewed human changes through validation; cannot change schema or policy.
@@ -880,24 +1022,28 @@ Retrieved third-party content is untrusted data. Instructions embedded in it are
 
 The desired endpoint remains one authoritative repository with explicit development and production environments. The private development repository (this one) remains the authoritative source throughout; it is never made public as part of this consolidation.
 
-The account is GitHub Free. GitHub Environments with required reviewers, and GitHub Pages served from a private repository, are not available on that plan. Repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 substitute production gate, and Cloudflare Workers static assets — not private-repository GitHub Pages — is the selected production static host. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1–§3 for the full decision and its rejected alternatives, and §12 for the plan-feature facts ARCH-104 must re-verify before relying on them.
+The account is GitHub Free. GitHub Environments with required reviewers, and GitHub Pages served from a private repository, are not available on that plan. Repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 substitute production gate, and Cloudflare Workers static assets — not private-repository GitHub Pages — is the selected production static host. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1–§3 for the full decision and its rejected alternatives, and [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §11 for the reduced set of plan-feature and provider facts ARCH-104 must re-verify before relying on them.
 
-Because the production host changes, **the production URL changes.** This is not a side effect to be absorbed silently: the origin change is its own explicit migration, requiring client-state export/import so a player's roster, boards, templates, used counters and preferences survive the move. It is sequenced as ARCH-111/ARCH-112, detailed in §15.4, and depends on the manual authoring, review, publication and rollback runs (§16, "Manual run entry points") being operable end to end before any player-facing cutover.
+**Two Cloudflare deployments.** A development Worker and a production Worker are maintained separately (§3.1). The development Worker is where an application change is inspected before promotion; the production Worker is updated only by an explicit manual `workflow_dispatch` from a reviewed, merged pull request. They can drift, and the development Worker's content constraints apply permanently.
 
-**Manual operation is mandatory**, not merely available. Every stage of this architecture must support a manual authoring run, a manual candidate/review run, a manual publication run and a manual rollback run, independent of any schedule; see §16, "Manual run entry points". Scheduling, where it exists in Stage 3, is an additional trigger for the same underlying commands, never the only way to operate the system.
+**Deployment is distributed state, even without a database.** Removing the database from the live catalogue path removes the cross-system *publication* protocol; it does not remove deployment concerns. A Cloudflare deployment can fail or partially propagate, so every production deployment is verified over HTTP afterwards — the app loads, the expected build is served, and a catalogue fetch against `action=data` succeeds from that origin — and every deployment must be reversible to a verified known-good prior version. See [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §6.
+
+Because the production host changes, **the production URL changes.** This is not a side effect to be absorbed silently: the origin change is its own explicit migration, requiring client-state export/import so a player's roster, boards, templates, used counters and preferences survive the move. It is sequenced as ARCH-111/ARCH-112, detailed in §15.0, and depends on cache-first catalogue behaviour, Apps Script failure fallback, and the deployment and rollback runs being operable end to end before any player-facing cutover.
+
+**Manual operation is mandatory**, not merely available. On the active path this means a manual development deployment, a manual production deployment and a manual deployment rollback, each independent of any schedule; see §16, "Manual run entry points". The manual authoring, candidate/review and database publication runs pause with the database path. Scheduling, where it eventually exists, is an additional trigger for the same underlying commands, never the only way to operate the system.
 
 Prerequisites for consolidation:
 
 - CI runs the complete test and validation suite;
 - public deployment remains fail-closed and allow-listed;
-- private docs, tests, database code, personal identifiers and secrets cannot enter the public artifact;
+- private docs, tests, database code, migration evidence, personal identifiers and secrets cannot enter the public artifact;
 - environment configuration and secrets are external to source;
 - production remains an explicit promotion of a tested commit or artifact;
 - the current live repository remains recoverable until the consolidated route is proved.
 
-Repository consolidation is not required before database migration and must not be combined atomically with catalogue cutover. It may be completed within Stage 1 through a later internal checkpoint so manual configuration remains concentrated without removing the fallback prematurely.
+Repository consolidation is completed within Stage 1 (ARCH-111) as the preparation for the origin cutover (ARCH-112), and must not be combined atomically with that cutover. Since the active path performs no catalogue-platform migration, consolidation and the origin change are the substance of the remaining Stage-1 delivery rather than a follow-on to a database cutover.
 
-The existing public `gac-helper` repository and its GitHub Pages deployment remain an untouched fallback through the Stage-1 acceptance window: they are not modified, degraded or pre-emptively retired by adopting Cloudflare Workers for the new production host. They are retired, and `LIVE_REPO_PAT` revoked, only at the approved ARCH-112 exit gate — see §15.4.
+The existing public `gac-helper` repository and its GitHub Pages deployment remain an untouched fallback through the Stage-1 acceptance window: they are not modified, degraded or pre-emptively retired by adopting Cloudflare Workers for the new production host. They are retired, and `LIVE_REPO_PAT` revoked, only at the approved ARCH-112 exit gate — see §15.0.
 
 ---
 
@@ -905,9 +1051,11 @@ The existing public `gac-helper` repository and its GitHub Pages deployment rema
 
 Migration optimises for recoverability rather than prolonged dual-write.
 
+**Active Stage-1 cutover is the production-origin change in §15.0 — and only that.** The catalogue-platform migration in §15.1–§15.4 is paused with the database path (§0); its artifacts and reconciliation evidence are already captured and preserved, and it is revalidated at GATE-150 rather than executed now. The catalogue itself does not move in Stage 1: the new Cloudflare origin fetches the same `action=data` payload from the same Apps Script deployment as the current GitHub Pages origin.
+
 ### 15.0 Production-origin change (ARCH-111/ARCH-112)
 
-The catalogue-platform migration described in §15.1–§15.4 changes the *data source*. Separately, and only as its own explicitly approved migration, the production **hosting origin** changes from GitHub Pages to Cloudflare Workers (§14), which also changes the production URL. Because all player-specific state lives in browser `localStorage` keyed to the origin (`SPEC.md` §3.4), a bare origin change would silently strand a player's roster, boards, templates, used counters and preferences. The origin change is therefore sequenced as its own migration, ARCH-111/ARCH-112, and is not performed as a side effect of any other work package:
+The production **hosting origin** changes from GitHub Pages to Cloudflare Workers (§14), which also changes the production URL. Because all player-specific state lives in browser `localStorage` keyed to the origin (`SPEC.md` §3.4), a bare origin change would silently strand a player's roster, boards, templates, used counters and preferences. The origin change is therefore its own explicitly approved migration, ARCH-111/ARCH-112, and is not performed as a side effect of any other work package:
 
 1. implement and test client-state export on the old origin;
 2. implement and test client-state import on the new origin;
@@ -918,7 +1066,13 @@ The catalogue-platform migration described in §15.1–§15.4 changes the *data 
 7. keep the old origin unchanged through at least one complete GAC event;
 8. retire the old deployment and `LIVE_REPO_PAT` only at the approved exit gate.
 
-No step of this sequence is performed by the catalogue-platform work packages (ARCH-105–ARCH-110); it is authorised only by ARCH-111/ARCH-112 under their own explicit approval.
+No step of this sequence is performed by any other work package; it is authorised only by ARCH-111/ARCH-112 under their own explicit approval.
+
+The one-time client-state export/import is the owner's, performed once, on the two origins. The roster is re-imported by ally code on the new origin through the unchanged `action=roster` route.
+
+### Catalogue-platform migration (paused)
+
+> **Status: paused.** §15.1–§15.4 describe the catalogue-platform migration that moves the canonical catalogue off Google Sheets. It is not active Stage-1 work and is gated behind GATE-150. Its required artifacts (§15.1) are already captured and committed, and the reconciliation and identity-preservation requirements below remain binding on any future attempt.
 
 ### 15.1 Required artifacts
 
@@ -942,7 +1096,7 @@ This protects persisted `usedTeams`, `defenceTemplate:5v5`, `defenceTemplate:3v3
 
 ### 15.3 Mandatory reconciliation and acceptance
 
-Stage 1 must prove:
+Any future catalogue-platform migration must prove (these were Stage-1 criteria before the re-baseline; they are now GATE-150's):
 
 1. new payload equals the captured Apps Script payload in all current product semantics, allowing only documented ordering or additive provenance fields;
 2. entity counts reconcile to the Sheet export, with every discrepancy explained;
@@ -981,54 +1135,66 @@ A long-lived dual-write system is not required.
 
 ## 16. Minimal implementation sequence
 
-The programme uses five stages. A small evidence gate sits before Stage 2; it is not an additional build stage and requires no infrastructure programme.
+The programme uses five stages. Two gates sit before Stage 2 — the persistent maintenance-store gate (GATE-150) and the evidence and runner entry gate (GATE-200). Neither is an additional build stage, and neither requires an infrastructure programme.
 
-### Stage 1 — Canonical platform, authoring and publication
+### Stage 1 — Cache-first catalogue and Cloudflare delivery
 
-Manual configuration is concentrated into one coordinated session (ARCH-104), which creates only the Stage-1 roles and secrets in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §7 — Stage-2 evidence/analyst/applier credentials are not created:
+Stage 1 delivers the revised active path: Google Sheets authoring, Apps Script catalogue and roster routes, a cache-first PWA, and Cloudflare Workers development and production delivery.
 
-- create the Supabase Free project (London region) and least-privilege Stage-1 roles;
-- configure repository secrets (no GitHub Environments; manual `workflow_dispatch` gates production instead);
-- configure the Cloudflare Workers development and production static catalogue publication targets;
-- confirm the guarded route toward one repository.
+Manual configuration is concentrated into one coordinated session (ARCH-104), which is **Cloudflare-only**:
+
+- create the Cloudflare Workers development and production deployments for the PWA;
+- create a least-scope Cloudflare deploy token and the repository secrets/variables the deployment workflows need;
+- configure the manual production-deployment gate (repository secrets plus `workflow_dispatch`; no GitHub Environments, which GitHub Free does not offer for a private repository);
+- confirm the guarded route toward one repository, retaining the existing GitHub Pages fallback.
+
+**No database project, database user, database secret or database workflow is created.** Creating any hosted database requires GATE-150 and a separate owner decision.
+
+Agent implementation then:
+
+- keeps CI green as the precondition for everything else (already in place);
+- adds validated, cache-first catalogue loading to the PWA against the Apps Script `action=data` payload, with explicit configuration for the catalogue and roster routes;
+- proves that a refresh failure retains and renders the last known-good catalogue;
+- makes the service-worker cache lifecycle explicit without trapping stale catalogue data;
+- rehearses the integrated path — cache behaviour, Apps Script failure fallback, development and production deployment, deployment rollback and cutover readiness (ARCH-110);
+- completes repository consolidation and client-state export/import only after CI and fail-closed public artifact generation are proved (ARCH-111);
+- performs the production-origin cutover and runs the fallback window (ARCH-112).
 
 ### Manual run entry points
 
-Manual operation is mandatory, not optional, throughout every stage (see §14). The following are always available as directly runnable commands and/or `workflow_dispatch` workflows, independent of any schedule, and are the exact code path a future scheduled trigger reuses:
+Manual operation is mandatory, not optional (see §14). On the **active path** the following are always available as directly runnable commands and/or `workflow_dispatch` workflows, independent of any schedule, and are the exact code path any future scheduled trigger reuses:
+
+- a **manual development deployment** — deploy the current application build to the development Worker for inspection;
+- a **manual production deployment** — deploy a reviewed, merged commit to the production Worker, verified over HTTP afterwards (§14);
+- a **manual deployment rollback** — return the production Worker to a verified known-good prior version.
+
+Paused with the database path, and restored with it at GATE-150:
 
 - a **manual authoring run** — prepare, dry-run, apply and optionally publish a human catalogue change without SQL (§6);
 - a **manual candidate/review run** — a report-only maintenance review outside the schedule, with report-only as the default (§8, Stage 2);
 - a **manual publication run** — the `READY`/`DEPLOYED` protocol in §9.2, invoked explicitly;
-- a **manual rollback run** — repoint to a prior compatible release, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §5.
+- a **manual release rollback run** — repoint to a prior compatible release, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §5.
 
 Every manual run records who/what triggered it and remains idempotent for the same logical unit of work. Full detail is in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §8.
 
-Agent implementation then:
-
-- adds CI first;
-- applies the complete schema;
-- creates the authoring loader and authority states;
-- migrates and reconciles the current catalogue;
-- builds the deterministic validator and locked publisher;
-- creates versioned static artifacts and the current pointer;
-- adds cache-first catalogue loading and schema validation to the PWA;
-- splits catalogue and roster-proxy URLs;
-- retains Apps Script for `action=roster` only;
-- completes repository consolidation only after CI and fail-closed publication are proved;
-- executes every `15.3 acceptance check.
-
 Exit criterion:
 
-> GAC Helper runs from a validated static catalogue, works from cache offline, supports safe human authoring without SQL, preserves all current IDs/names/notes/state, and can roll back to both the prior release and the former Sheet-backed path.
+> GAC Helper is served from the Cloudflare production Worker, renders a validated cached catalogue first, survives an Apps Script or connection failure without losing a usable catalogue, preserves all current IDs/names/notes and player state across the origin change, and can roll back both the deployment and the origin itself.
 
 Rollback:
 
-- repoint to the previous static release; or
-- restore the unchanged Apps Script `action=data` URL during the fallback window.
+- roll the production Worker back to the previous verified deployment; or
+- return to the unchanged GitHub Pages origin during the fallback window.
+
+Google Sheets, `action=data` and `action=roster` are unchanged throughout Stage 1, so no catalogue rollback is required — there is no catalogue change to reverse.
+
+### Persistent maintenance-store gate (GATE-150)
+
+Before any part of the paused database path is deployed, and before Stage 2 implementation begins, GATE-150 must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate the paused implementation against it. It is independent of the evidence gate below; both must be resolved before Stage 2. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) §7.1 and [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §9.
 
 ### Evidence and runner entry gate
 
-Before Stage 2, perform the `7.1 spike with one representative real cycle. Prefer a deterministic scheduled runner such as an existing CI platform. Prove any required authenticated access rather than assuming a ChatGPT scheduled task can provide it.
+Before Stage 2, perform the evidence-source spike in §7.1 of this document with one representative real cycle. Prefer a deterministic scheduled runner such as an existing CI platform. Prove any required authenticated access rather than assuming a ChatGPT scheduled task can provide it.
 
 If the gate fails, stop after Stage 1.
 
@@ -1052,7 +1218,7 @@ Exit criterion:
 
 Rollback:
 
-> Disable the engine. Stage 1 authoring and publication remain unaffected.
+> Disable the engine. Stage 1 delivery and Sheet authoring remain unaffected.
 
 ### Stage 3 — Scheduling and bounded autonomous publication capability
 
@@ -1118,16 +1284,24 @@ After Stage 5, the system enters steady-state autonomous maintenance. This is th
 
 Stage 1 should be viable with no new recurring paid service under normal personal use, subject to current provider limits verified at implementation.
 
-Potential cost areas:
+**Active Stage-1 cost areas.** The active path adds no service beyond what already exists:
 
-- database storage, inactivity and project limits;
+- Cloudflare Workers request and static-asset limits for two deployments (development and production), assumed free-tier and re-checked at ARCH-104;
+- Google Apps Script execution quotas for `action=data` and `action=roster`, unchanged from today's usage and already free;
+- GitHub Free Actions minutes for CI and the manual deployment workflows.
+
+**No database cost is incurred**, because no hosted database exists on the active path. The previously assumed Supabase Free project is not created ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §1).
+
+**Paused and future cost areas**, assessed when they arrive rather than assumed now:
+
+- persistent maintenance-store storage, inactivity/pausing and project limits — owned by GATE-150, with no provider selected;
 - static artifact storage and deployment;
 - scheduled compute;
 - evidence-provider subscription or API access;
 - AI API usage, if ever needed;
 - backups and retention.
 
-The database is removed from the live PWA path so host pausing does not block a round. A documented wake/recovery procedure is still required for authoring and maintenance.
+The database is kept out of the live PWA path in both designs, so provider pausing can never block a round. Whatever provider GATE-150 selects, a documented wake/recovery procedure is required for authoring and maintenance before that path is operationalised.
 
 No paid evidence source, AI API or worker is introduced without an explicit decision stating:
 
@@ -1163,8 +1337,10 @@ Retention periods are set after measuring real volume. Do not add premature arch
 
 ## 19. Decisions proposed for lock
 
-1. Postgres-compatible relational storage is the canonical maintenance and authoring store.
-2. Google Sheets is not part of the target steady-state runtime.
+Items marked **[paused]** belong to the database-backed evolution (§0) and are not active Stage-1 commitments. Items marked **[superseded]** were accepted under ADR-ARCH-102 and are withdrawn by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md); they are retained here so the decision history stays readable. Everything unmarked is in force.
+
+1. **[paused]** Postgres-compatible relational storage is the canonical maintenance and authoring store — under the future database-backed evolution only, and only once GATE-150 selects a provider.
+2. **[superseded]** Google Sheets is not part of the target steady-state runtime. On the active Stage-1 path, Google Sheets **is** the canonical catalogue and the human authoring workbench, and it remains in the runtime path. It leaves the runtime only under a future, separately approved catalogue-platform migration.
 3. Human authoring remains first-class and does not require SQL.
 4. Human judgement uses explicit `AUTHORED_LOCKED`, `AUTHORED_BASELINE` and `ASSESSED` authority states.
 5. Tactical notes are stored explicitly and remain human-authored initially.
@@ -1176,39 +1352,47 @@ Retention periods are set after measuring real volume. Do not add premature arch
 11. Evidence and assessments are append-only.
 12. The analyst proposes; a deterministic applier enforces policy and writes canonical changes.
 13. Banner and undersize are not autonomously published until suitable evidence semantics are proved.
-14. Published catalogues are immutable, schema-versioned static JSON artifacts.
-15. Publication is single-writer, base-release-aware and pointer-based.
-16. The live PWA renders a validated cached catalogue first and has no database dependency.
+14. **[paused]** Published catalogues are immutable, schema-versioned static JSON artifacts. The active path publishes no artifact; the catalogue is the `action=data` response.
+15. **[paused]** Publication is single-writer, base-release-aware and pointer-based.
+16. The live PWA renders a validated cached catalogue first and has no database dependency. On the active path this applies to the validated, cached Apps Script `action=data` payload (§2.8).
 17. Maintenance policy is version-controlled and outside AI write authority.
 18. `OBSERVE` is silent; only genuine `ESCALATE` cases ask the user.
 19. The first implementation requires no paid AI API.
 20. Evidence-provider feasibility and cost are a Stage 2 entry gate.
-21. Apps Script remains initially for roster proxying only.
+21. **[superseded]** Apps Script remains initially for roster proxying only. Apps Script is retained for **both** `action=data` and `action=roster`, and `action=data` is not retired in Stage 1. Neither the Sheet nor the Apps Script deployment may be made private, restricted or removed while the PWA depends on `action=data`.
 22. One repository remains the desired target, but consolidation requires CI, fail-closed public output and a recoverable fallback.
 23. The programme has five implementation stages with manual configuration concentrated in Stage 1; Stages 4 and 5 are format-specific bootstrap/calibration stages, after which the system enters steady-state maintenance without a sixth stage.
-24. Cloudflare Workers static assets is the selected production static host, replacing GitHub Pages, because the GitHub account is Free and private-repository Pages is unavailable ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1).
-25. Supabase Free in the London region is the selected Stage-1 canonical database, using the account's one remaining free project slot, subject to ARCH-104 re-verification of cost and account limits before manual creation ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3).
-26. The Supabase-slot allocation is reversible through a separate approved plan if another owner-operated application later needs the slot more ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.4).
+24. Cloudflare Workers static assets is the selected production host for the PWA, replacing GitHub Pages, because the GitHub account is Free and private-repository Pages is unavailable ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1). Separate development and production deployments are maintained.
+25. **[superseded]** Supabase Free in the London region is the selected Stage-1 canonical database. No Supabase project is created, and no database provider is selected; the choice moves to GATE-150 ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §1, §9).
+26. **[superseded as moot]** The Supabase-slot allocation is reversible. No allocation exists.
 27. GitHub repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 production gate, in place of GitHub Environments ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.6).
 28. Manual operation — authoring, candidate/review, publication and rollback runs — is mandatory in every stage; scheduling is an additional trigger for the same commands, never the only way to operate the system ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.7, §8).
 29. Publication across the database and Cloudflare Workers uses the `READY`/`DEPLOYED` two-phase protocol with HTTP verification and idempotent reconciliation, not a cross-system atomic transaction ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4).
-30. Stage-1 backup/recovery reconstructs canonical state from ordered migrations, append-only authoring change files, immutable published artifacts and release metadata — not from raw `pg_dump` files committed to Git; an encrypted off-site logical-backup destination is selected later, at GATE-200 or the relevant Stage-2 package ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.1).
-31. No daily keep-alive is used to defeat Supabase free-tier pausing; every maintenance operation instead preflights database health, stops safely if paused, reports the owner action needed to resume it, and resumes idempotently ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.2).
-32. Only the Stage-1 roles Stage 1 actually exercises (migration/admin, authoring, publisher, and read-only backup/export if needed) are created in Stage 1; Stage-2 roles (evidence ingester, maintenance analyst, deterministic applier) are not created until Stage 2 ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §7).
+30. **[paused]** Database backup/recovery reconstructs canonical state from ordered migrations, append-only authoring change files, immutable published artifacts and release metadata — not from raw `pg_dump` files committed to Git; an encrypted off-site logical-backup destination is selected later. On the active path the recovery evidence is the Google Sheet itself plus the committed ARCH-103 capture.
+31. **[paused]** No daily keep-alive is used to defeat free-tier database pausing; every maintenance operation instead preflights database health, stops safely if paused, reports the owner action needed to resume it, and resumes idempotently. Revalidated against whichever provider GATE-150 selects.
+32. **[superseded]** Stage-1 database roles are created in Stage 1. **No** database role or credential of any kind is created in Stage 1 ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §1, §2).
 33. Bootstrap and steady-state maintenance are distinct operating modes; `5V5` and `3V3` are bootstrapped and accepted independently.
 34. The migrated hand-authored catalogue is protected seed/calibration data: automated evidence may challenge it, but bootstrap disagreements cannot silently overwrite it.
 35. Large discovery batches are permitted, but publication remains evidence-qualified, usefulness-filtered and bounded by absolute and proportional change ceilings.
 36. Every bootstrap mode requires a shadow pass, regression comparison, acceptance report and explicit human gate before completion.
+37. The active Stage-1 path is Google Sheets → Apps Script → cache-first PWA → Cloudflare development/production delivery. No active Stage-1 work package requires a hosted database of any provider.
+38. A catalogue refresh failure retains and renders the last known-good catalogue; it never blanks the UI, never overwrites the cache with an invalid response, and never blocks an offline round (§2.8).
+39. The completed database schema, migration loader, authoring tooling and publisher are preserved as paused future-migration assets. They are not deleted, reverted, downgraded or rewritten ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §8).
+40. GATE-150 must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate the paused database implementation before any part of that path is deployed. Neon is a candidate, not a selection.
+41. The live PWA never holds a database credential, in any environment, under either path.
+42. Removing the database from the live catalogue path does not remove distributed-state concerns: deployment status, post-deploy HTTP verification, deployment rollback, two live origins during cutover and a shared Apps Script dependency all remain ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §6).
 
 ---
 
 ## 20. Decisions deferred to implementation evidence
 
-The database host/region, the static artifact storage/pointer mechanism, and the production-hosting selection are now settled by [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) (§19 items 24–32), subject to the re-verification it requires at ARCH-104. The following remain genuinely open:
+The production-hosting selection is settled by [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2 and remains in force. The database host/region and the static artifact storage/pointer mechanism are **no longer settled**: [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) withdraws the Supabase selection and removes the static artifact from the active path. The following remain genuinely open:
 
+- **the persistent maintenance-store provider, its cost and its free-tier constraints** — no provider is selected, Neon is a candidate only, and the decision belongs to GATE-150 together with revalidation of the paused implementation against whatever is chosen;
+- **whether the catalogue's canonical home ever moves off Google Sheets**, and if so on what cutover terms — GATE-150;
 - exact one-repository consolidation mechanics (the target hosting is decided; how the consolidated repository route is wired up is not);
 - evidence provider, retrieval contract and recurring cost (GATE-200);
-- **encrypted off-site logical-backup destination, retention and restore testing for Stage-2 evidence and assessment history** — deliberately not preselected by ADR-ARCH-102 §10.1, and explicitly not "commit raw dumps to Git"; owned by GATE-200 or the relevant Stage-2 work package;
+- **encrypted off-site logical-backup destination, retention and restore testing for Stage-2 evidence and assessment history** — deliberately not preselected by ADR-ARCH-102 §10.1, and explicitly not "commit raw dumps to Git"; owned by GATE-150/GATE-200 or the relevant Stage-2 work package;
 - exact observation idempotency key;
 - final deterministic runner;
 - exact confidence formula and source-quality weights;
@@ -1249,6 +1433,8 @@ It also keeps AI available for genuinely semantic ambiguity while making ordinar
 
 ## 22. ARCH-102 resolution (v0.3)
 
+> **Partly superseded by v0.5 (§24).** This section is retained as the historical record of the v0.3 resolution. Its Supabase, static-artifact and database-publication items are withdrawn by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md); its Cloudflare, manual-gate, manual-operation, backup-principle and client-state-migration items remain in force.
+
 v0.3 records the accepted ARCH-102 platform decisions from [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md):
 
 - selected Cloudflare Workers static assets as the production static host, and Supabase Free (London) as the Stage-1 canonical database, both subject to ARCH-104 re-verification;
@@ -1260,7 +1446,7 @@ v0.3 records the accepted ARCH-102 platform decisions from [ADR-ARCH-102](decisi
 - recorded mandatory `SECURITY DEFINER` controls for any such function retained in the schema;
 - recorded the production-origin change (GitHub Pages → Cloudflare Workers) as its own explicit ARCH-111/ARCH-112 client-state migration, with the existing public repository and GitHub Pages deployment retained as an untouched fallback through the Stage-1 acceptance window and retired only at the approved exit gate.
 
-This section, §14, §15.0, §16, §19 items 24–32 and §20 reflect that resolution. The ADR itself remains the authoritative source for justification, rejected alternatives, the full threat model, and the time-sensitive assumptions ARCH-104 must re-check.
+This section, §14, §15.0, §16, §19 items 24–32 and §20 reflected that resolution; §24 records where v0.5 has since changed them. ADR-ARCH-102 remains the authoritative source for justification, rejected alternatives and the full threat model, and ADR-ARCH-113 §11 now owns the reduced list of time-sensitive assumptions ARCH-104 must re-check.
 
 ---
 
@@ -1275,3 +1461,21 @@ v0.4 records the accepted safeguards for the first large automated catalogue pas
 - strengthened mass-change circuit breakers so abnormal catalogue churn becomes a review batch rather than an automatic release;
 - added independent `5V5` and `3V3` bootstrap/calibration stages with shadow runs, regression checks, acceptance reports and human gates;
 - defined steady-state autonomous maintenance as the operating state after Stage 5, not a sixth implementation stage.
+
+---
+
+## 24. Stage-1 delivery re-baseline (v0.5)
+
+v0.5 records the accepted re-baseline in [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md), taken after the decision not to create a third Supabase Free project:
+
+- made the active Stage-1 path **Google Sheets → Apps Script → cache-first PWA → Cloudflare development/production delivery**, with Google Sheets retained as the canonical catalogue and the human authoring workbench;
+- retained Apps Script for **both** `action=data` and `action=roster`, and deferred any retirement of `action=data` until a replacement catalogue path is live and accepted;
+- replaced the static catalogue artifact and release pointer, on the active path, with validated cache-first loading of the Apps Script payload, whose refresh failures retain and render the last known-good catalogue;
+- removed Supabase, and any hosted database, from active Stage-1 work: no project, credential, hosted migration, database authoring path or database-backed publication path;
+- preserved the completed schema, migration loader, authoring tooling and publisher as paused future-migration assets, with their completion history and documentation intact;
+- added **GATE-150**, which must select a persistent maintenance-store provider (Neon is a candidate, not a selection), assess its cost and free-tier constraints, and revalidate the paused database implementation before deployment;
+- kept the GitHub Pages site as the temporary cutover fallback, and kept the production-origin change and one-time client-state export/import as explicit ARCH-111/ARCH-112 work;
+- kept the v0.4 bootstrap/calibration safeguards intact as future automated-maintenance policy, explicitly **not** a Stage-1 dependency;
+- recorded that the revised path is simpler only because the database left the live catalogue path — deployment status, rollback and post-deploy verification still matter (§14, ADR-ARCH-113 §6).
+
+§0, §2.8, §3, §13, §14, §15, §16, §17, §19 and §20 reflect this re-baseline. ADR-ARCH-102 remains authoritative for everything it decided that ADR-ARCH-113 does not supersede.

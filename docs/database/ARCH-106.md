@@ -2,6 +2,8 @@
 
 This document is the operational entry point for the ARCH-106 migration loader. The accepted model remains authoritative in [`TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md); the canonical schema and Stage-1 role boundary remain authoritative in [`ARCH-105.md`](ARCH-105.md); the immutable source evidence remains [`data/exports/20260921T085937Z/`](../../data/exports/20260921T085937Z/).
 
+> **Status note (2026-09-22): paused future-migration asset.** [`ADR-ARCH-113`](../decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselines the active Stage-1 path onto Google Sheets authoring, the Apps Script `action=data` catalogue, cache-first PWA loading and Cloudflare delivery. No hosted database is part of active Stage-1 work, and no database provider is selected. The work recorded in this document is complete and preserved unchanged; its hosted deployment and operationalisation are deferred behind **GATE-150** ([`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) §7.1), which must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate this implementation against it. Nothing below is reverted, rewritten or downgraded.
+
 **Status: complete.** The loader, reconciliation, compatibility verification, tests and documentation are finished, and the committed decision file records an explicit outcome for every source discrepancy. The three conditions ARCH-106 first reported as blockers were resolved by owner decision on 2026-09-21 and are described in [Owner decisions](#owner-decisions); two of them are implemented as ordered follow-up migrations that correct the ARCH-105 schema. `npm run migrate:load` now succeeds from the committed decision file with no override or flag.
 
 ## Contents
@@ -212,7 +214,7 @@ A failed load needs no rollback step of its own: the whole load is one transacti
 
 ## Deferred and out of scope
 
-- No hosted database, Supabase project, Cloudflare target, repository secret or deployment was contacted or changed. Hosted configuration remains ARCH-104.
+- No hosted database, Supabase project, Cloudflare target, repository secret or deployment was contacted or changed. Hosted configuration is deferred to GATE-150.
 - No Stage-2 role, backup role or evidence automation was added.
 - `RENAME_UNIT_ID_TO_UPPERCASE` and `SPLIT_DEFENCE_IDENTITY_FOR_MIRRORS` remain implemented as rejected alternatives, so the decisions stay reversible, but neither is in effect. Choosing `RENAME_UNIT_ID_TO_UPPERCASE` would be a public catalogue contract change and would need a client-state migration that is deliberately not written.
 - The mismatch between the stored `Any` spelling and the client's `defenceTeams["ANY"]` wildcard lookup in `threatFor()` is a pre-existing live-application condition. ARCH-106 reproduces current behaviour exactly and deliberately does not fix it; changing the published spelling would be a product change.

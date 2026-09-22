@@ -2,6 +2,8 @@
 
 This document is the operational entry point for the ARCH-107 human authoring path. The accepted model remains authoritative in [`TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md) section 6; the canonical schema and Stage-1 role boundary remain authoritative in [`ARCH-105.md`](ARCH-105.md); the deterministic identity, mode and authority rules remain authoritative in [`ARCH-106.md`](ARCH-106.md) and `data/migration/arch-106-decisions.json`; scoring bounds remain authoritative in [`SCORING_REFERENCE.md`](../SCORING_REFERENCE.md).
 
+> **Status note (2026-09-22): paused future-migration asset.** [`ADR-ARCH-113`](../decisions/ADR-ARCH-113-stage1-rebaseline.md) re-baselines the active Stage-1 path onto Google Sheets authoring, the Apps Script `action=data` catalogue, cache-first PWA loading and Cloudflare delivery. No hosted database is part of active Stage-1 work, and no database provider is selected. The work recorded in this document is complete and preserved unchanged; its hosted deployment and operationalisation are deferred behind **GATE-150** ([`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md) §7.1), which must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate this implementation against it. Nothing below is reverted, rewritten or downgraded.
+
 **Status: implemented, not operationally proven.** The change-file schema, validator, idempotent loader, dry run and tests are complete and green. ARCH-107 stops at a *candidate canonical state*. Turning that candidate into a validated release through the normal publisher is ARCH-108's, and until ARCH-108 exists this package's `create AUTHORING candidates through the normal publisher` acceptance bullet cannot be demonstrated. See [Boundary with ARCH-108](#boundary-with-arch-108).
 
 ## Contents
@@ -32,7 +34,7 @@ npm run db:test                              # ARCH-105, ARCH-106 and ARCH-107 d
 
 `author:dry-run` also accepts `--out <path>` for the human-readable report and `--json <path>` for the machine-readable candidate, which carries the complete canonical diff, payload diff and projected candidate payload. Neither is committed: a candidate is generated on demand from the change file and the database, so a stale copy cannot drift into the repository.
 
-When the database is empty, both commands build the baseline first by applying the committed migrations and running the ARCH-106 load. They never contact Supabase, Cloudflare, GitHub, Google Sheets or Apps Script, need no Docker, and use no credential or connection string. This is the same disposable/local pattern ARCH-105 and ARCH-106 use; hosted configuration remains ARCH-104.
+When the database is empty, both commands build the baseline first by applying the committed migrations and running the ARCH-106 load. They never contact Supabase, Cloudflare, GitHub, Google Sheets or Apps Script, need no Docker, and use no credential or connection string. This is the same disposable/local pattern ARCH-105 and ARCH-106 use; hosted configuration is deferred to GATE-150.
 
 ## Why JSON rather than YAML
 
@@ -162,7 +164,7 @@ A test snapshots every `gac` table, constraint, policy, grant and role, plus the
 4. **Dry run.** `npm run author:dry-run -- --change <path>` reports the exact canonical rows that would change, column by column, and the exact payload paths that would change, then rolls back. Add `--json <path>` for the machine-readable candidate.
 5. **Review.** The owner reads the diff. Nothing has been written at this point.
 6. **Apply.** `npm run author:apply -- --change <path>` commits the change to the development database and records the author, reason and change ID in `gac.authoring_changes`.
-7. **Publish.** ARCH-108 turns the candidate canonical state into a validated `AUTHORING` release; its connected operation remains gated on ARCH-104.
+7. **Publish.** ARCH-108 turns the candidate canonical state into a validated `AUTHORING` release; its connected operation remains gated on GATE-150.
 
 To reverse a change before publication, author a compensating change file that retires what was created, as `arch-107-example-counter-revert.change.json` does. Nothing is ever deleted, so the history stays intact and the reversal is itself a recorded authoring change.
 
@@ -179,7 +181,7 @@ The ARCH-108 projection also filters retired archetypes, profiles, members, matc
 - **A retired attack identity still projects into `counterDefinitions`.** The payload diff uses ARCH-106's compatibility projection, which predates retirement and does not filter retired archetypes or profiles. Retiring a matchup does remove the counter from `counters`, which is what a player sees. ARCH-108's generator must filter retired archetypes and profiles; this is recorded in [Boundary with ARCH-108](#boundary-with-arch-108) and asserted by a test so it cannot be forgotten.
 - **The locked-value boundary is loader-enforced, not database-enforced**, as described above.
 - **`unit_type`, `battle_type`, `unit_id` and `archetype_code` cannot be changed.** The last two are immutable by database trigger. `unit_type` and `battle_type` shape identity and mode validation, and changing either would need existing profiles and matchups re-validated, which no trigger does on an archetype update; ARCH-107 refuses rather than creating a silent inconsistency.
-- **No hosted database.** Everything targets a disposable or local PGlite database. There is no connected environment to author against until ARCH-104 runs.
+- **No hosted database.** Everything targets a disposable or local PGlite database. There is no connected environment to author against, and none is created until this path is resumed at GATE-150.
 
 ## Boundary with ARCH-108
 
