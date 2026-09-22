@@ -1,0 +1,54 @@
+name: Deploy Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Worker target
+        type: choice
+        required: true
+        default: development
+        options:
+          - development
+          - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gac-helper-${{ inputs.target }}-deployment
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: inputs.target != 'production' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_DEVELOPMENT_BASE_URL: ${{ vars.CLOUDFLARE_DEVELOPMENT_BASE_URL }}
+      CLOUDFLARE_PRODUCTION_BASE_URL: ${{ vars.CLOUDFLARE_PRODUCTION_BASE_URL }}
+      TARGET: ${{ inputs.target }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:worker
+      - name: Deploy selected Worker
+        run: |
+          if [ "$TARGET" = "production" ]; then
+            npx wrangler deploy --env production
+          else
+            npx wrangler deploy
+          fi
+      - name: Verify deployed Worker
+        run: |
+          if [ "$TARGET" = "production" ]; then
+            node scripts/verify-worker-deployment.js "$CLOUDFLARE_PRODUCTION_BASE_URL" false
+          else
+            node scripts/verify-worker-deployment.js "$CLOUDFLARE_DEVELOPMENT_BASE_URL" true
+          fi
