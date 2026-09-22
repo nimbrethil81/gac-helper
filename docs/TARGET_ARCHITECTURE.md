@@ -1,6 +1,6 @@
 # SWGOH GAC Helper — Target Architecture
 
-**Status:** Proposed design v0.3, revised after independent peer review and after the accepted ARCH-102 platform decisions. Not yet implemented.
+**Status:** Proposed design v0.4, revised after independent peer review, the accepted ARCH-102 platform decisions, and the accepted bootstrap/calibration safety design. Not yet fully implemented.
 
 **Scope.** This document defines the proposed target architecture for modernising GAC Helper's canonical data platform, authoring model, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
 
@@ -99,6 +99,12 @@ Before proposing a new archetype, the system must attempt:
 The maintenance objective is:
 
 > Maximise useful counter coverage while minimising redundant catalogue entries.
+
+Completeness is deliberately not the publication objective:
+
+> **Completeness is a discovery goal, not a publication goal. Canonical counter data must meet evidence and quality thresholds regardless of catalogue coverage.**
+
+Broad discovery may therefore produce a large staged backlog without creating any corresponding obligation to publish it. A small catalogue of differentiated, reliable counters is preferable to a large catalogue padded with mediocre or weakly evidenced alternatives.
 
 ### 2.5 Omission over unsupported precision
 
@@ -776,7 +782,32 @@ Initial examples use both percentages and absolute floors, such as:
 - unusually high mapping failure;
 - implausible source-volume change.
 
-An anomaly preserves evidence and blocks routine publication. A human may deliberately publish through `APPROVED_OVERRIDE` only after the waived anomaly, approver and reason are recorded.
+An anomaly preserves evidence and blocks routine publication. A human may deliberately publish through `APPROVED_OVERRIDE` only after the waived anomaly, approver and reason are recorded. Bootstrap runs also enforce a configurable maximum number and proportion of canonical additions or changes per publication wave; exceeding either limit creates a review batch rather than an oversized release.
+
+### 11.13 Bootstrap and steady-state operating modes
+
+The first full catalogue passes are not ordinary maintenance runs. The system has two explicit operating modes:
+
+- **Bootstrap mode** — broad discovery and calibration for one squad format at a time, first `5V5` and then `3V3`. Discovery may be large, but candidates remain staged and publication occurs only in small, evidence-ranked waves.
+- **Steady-state maintenance mode** — the recurring same-format cycle entered only after both bootstrap stages have passed their human acceptance gates.
+
+Bootstrap mode keeps discovery, candidate generation, validation and publication as separate states. A discovery pass may identify hundreds of missing defences or possible matchups without making any canonical change. Promotion requires the ordinary evidence, usefulness, validation and anomaly rules plus the bootstrap-specific batch ceiling.
+
+The migrated hand-authored catalogue is the trusted seed and calibration set:
+
+- existing provenance and authority states are preserved;
+- `AUTHORED_LOCKED` values remain immutable to automation;
+- automated evidence may challenge an `AUTHORED_BASELINE` judgement, but a bootstrap disagreement becomes a reviewable proposal and is never a silent overwrite;
+- curated examples are exercised as regression and calibration cases, including prior human downgrades or other experience-backed exceptions;
+- the acceptance report distinguishes rediscovery, agreement, disagreement, genuinely new coverage and rejected noise.
+
+Evidence precedes inference. Observed matchup data is the primary basis for a candidate; semantic analysis may interpret, normalise or identify ambiguity, but it cannot manufacture a canonical counter without supporting evidence. Each candidate records its source provenance, raw and effective sample size, recency, observed performance measures, banner evidence where available, mechanical confidence and resulting decision state.
+
+Sparse evidence must remain visibly sparse. The system may retain an unknown or low-confidence banner estimate in staging, but it must not manufacture a precise player-facing value. Under the initial authority model, a new matchup that lacks an eligible banner value remains staged until human authoring or a later approved evidence contract supplies one.
+
+Each bootstrap mode begins with a complete shadow pass and ends with a compact human acceptance report covering discovery volume, promotion volume, rejection/hold volume, confidence distribution, disagreement with curated data, representative high-impact additions or changes, and any circuit-breaker events. Passing `5V5` does not validate `3V3`: composition patterns, sample sizes, banner behaviour and matchup volatility are calibrated independently.
+
+Only completion of both bootstrap stages authorises steady-state autonomous maintenance. Even then, the run-level anomaly gates and mass-change ceilings remain active so a provider, parser or mapping failure cannot rewrite a large fraction of the catalogue in one cycle.
 
 ---
 
@@ -950,7 +981,7 @@ A long-lived dual-write system is not required.
 
 ## 16. Minimal implementation sequence
 
-The programme uses three stages. A small evidence gate sits before Stage 2; it is not a fourth build stage and requires no infrastructure programme.
+The programme uses five stages. A small evidence gate sits before Stage 2; it is not an additional build stage and requires no infrastructure programme.
 
 ### Stage 1 — Canonical platform, authoring and publication
 
@@ -1023,7 +1054,7 @@ Rollback:
 
 > Disable the engine. Stage 1 authoring and publication remain unaffected.
 
-### Stage 3 — Scheduling and bounded autonomous publication
+### Stage 3 — Scheduling and bounded autonomous publication capability
 
 Implement:
 
@@ -1035,13 +1066,51 @@ Implement:
 - `APPROVED_OVERRIDE` handling;
 - proved source-outage, concurrency, rollback and restoration behaviour.
 
+Stage 3 proves that eligible changes can be scheduled and published safely, but it does not authorise unrestricted catalogue expansion or steady-state autonomous operation. The initial full-population work remains in the format-specific bootstrap stages below.
+
 Exit criterion:
 
-> Two consecutive unattended eligible cycles complete correctly, a forced mid-publication failure leaves the previous artifact current, and rollback succeeds without database availability.
+> Two consecutive unattended eligible cycles complete correctly, a forced mid-publication failure leaves the previous artifact current, rollback succeeds without database availability, and the user approves the mechanism for a controlled `5V5` bootstrap.
 
 Rollback:
 
 > Disable scheduling and repoint to the last human-approved compatible release.
+
+### Stage 4 — `5V5` bootstrap and calibration
+
+Run one broad `5V5` discovery pass in shadow mode, compare it with the curated `5V5` seed catalogue, and promote only evidence-qualified candidates in bounded waves.
+
+The stage must:
+
+- retain all discoveries and weak candidates in staging rather than forcing catalogue completeness;
+- use curated counters as regression and calibration cases;
+- review disagreements, false positives, confidence distribution and banner-data quality;
+- publish no precise banner value unsupported by eligible evidence or human authoring;
+- preserve curated provenance and prevent silent bootstrap overwrites;
+- stop each publication wave at the configured absolute and proportional change ceilings;
+- produce the bootstrap acceptance report defined in §11.13.
+
+Exit criterion:
+
+> The user accepts the `5V5` bootstrap report, every promoted record has traceable evidence and provenance, held candidates remain staged, bounded-wave and mass-change controls are proven, and the remaining `5V5` backlog can safely enter steady-state maintenance after Stage 5 authorises that operating state.
+
+Rollback:
+
+> Stop further promotion waves and repoint to the last accepted compatible release; staged evidence and rejected/held candidates remain auditable.
+
+### Stage 5 — `3V3` bootstrap and calibration
+
+Repeat Stage 4 independently for `3V3`. Stage-4 success does not waive any `3V3` calibration or acceptance requirement because composition patterns, sample sizes, banner behaviour and matchup volatility differ materially from `5V5`.
+
+Exit criterion:
+
+> The user accepts the `3V3` bootstrap report under the same evidence, provenance, bounded-wave, regression and circuit-breaker criteria as Stage 4.
+
+Rollback:
+
+> Stop further promotion waves and repoint to the last accepted compatible release; Stage-4 `5V5` results remain intact.
+
+After Stage 5, the system enters steady-state autonomous maintenance. This is the operating state produced by the five-stage programme, not a sixth implementation stage.
 
 ---
 
@@ -1116,7 +1185,7 @@ Retention periods are set after measuring real volume. Do not add premature arch
 20. Evidence-provider feasibility and cost are a Stage 2 entry gate.
 21. Apps Script remains initially for roster proxying only.
 22. One repository remains the desired target, but consolidation requires CI, fail-closed public output and a recoverable fallback.
-23. The programme has three implementation stages with manual configuration concentrated in Stage 1.
+23. The programme has five implementation stages with manual configuration concentrated in Stage 1; Stages 4 and 5 are format-specific bootstrap/calibration stages, after which the system enters steady-state maintenance without a sixth stage.
 24. Cloudflare Workers static assets is the selected production static host, replacing GitHub Pages, because the GitHub account is Free and private-repository Pages is unavailable ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1).
 25. Supabase Free in the London region is the selected Stage-1 canonical database, using the account's one remaining free project slot, subject to ARCH-104 re-verification of cost and account limits before manual creation ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3).
 26. The Supabase-slot allocation is reversible through a separate approved plan if another owner-operated application later needs the slot more ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.4).
@@ -1126,6 +1195,10 @@ Retention periods are set after measuring real volume. Do not add premature arch
 30. Stage-1 backup/recovery reconstructs canonical state from ordered migrations, append-only authoring change files, immutable published artifacts and release metadata — not from raw `pg_dump` files committed to Git; an encrypted off-site logical-backup destination is selected later, at GATE-200 or the relevant Stage-2 package ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.1).
 31. No daily keep-alive is used to defeat Supabase free-tier pausing; every maintenance operation instead preflights database health, stops safely if paused, reports the owner action needed to resume it, and resumes idempotently ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §10.2).
 32. Only the Stage-1 roles Stage 1 actually exercises (migration/admin, authoring, publisher, and read-only backup/export if needed) are created in Stage 1; Stage-2 roles (evidence ingester, maintenance analyst, deterministic applier) are not created until Stage 2 ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §7).
+33. Bootstrap and steady-state maintenance are distinct operating modes; `5V5` and `3V3` are bootstrapped and accepted independently.
+34. The migrated hand-authored catalogue is protected seed/calibration data: automated evidence may challenge it, but bootstrap disagreements cannot silently overwrite it.
+35. Large discovery batches are permitted, but publication remains evidence-qualified, usefulness-filtered and bounded by absolute and proportional change ceilings.
+36. Every bootstrap mode requires a shadow pass, regression comparison, acceptance report and explicit human gate before completion.
 
 ---
 
@@ -1188,3 +1261,17 @@ v0.3 records the accepted ARCH-102 platform decisions from [ADR-ARCH-102](decisi
 - recorded the production-origin change (GitHub Pages → Cloudflare Workers) as its own explicit ARCH-111/ARCH-112 client-state migration, with the existing public repository and GitHub Pages deployment retained as an untouched fallback through the Stage-1 acceptance window and retired only at the approved exit gate.
 
 This section, §14, §15.0, §16, §19 items 24–32 and §20 reflect that resolution. The ADR itself remains the authoritative source for justification, rejected alternatives, the full threat model, and the time-sensitive assumptions ARCH-104 must re-check.
+
+---
+
+## 23. Bootstrap/calibration resolution (v0.4)
+
+v0.4 records the accepted safeguards for the first large automated catalogue passes:
+
+- separated bootstrap mode from steady-state maintenance mode;
+- protected curated data as the trusted seed and calibration set while allowing evidence-backed disagreements to become reviewable proposals;
+- made broad discovery compatible with deliberately small, evidence-ranked publication waves;
+- required candidate-level evidence, confidence and provenance, and prohibited manufactured banner precision;
+- strengthened mass-change circuit breakers so abnormal catalogue churn becomes a review batch rather than an automatic release;
+- added independent `5V5` and `3V3` bootstrap/calibration stages with shadow runs, regression checks, acceptance reports and human gates;
+- defined steady-state autonomous maintenance as the operating state after Stage 5, not a sixth implementation stage.
