@@ -612,7 +612,11 @@ function toggleTeamCleared(side, territoryKey, index) {
             message: "Defence cleared."
         });
     }
-    render();
+    if (side !== "my" && team.cleared && !wasCleared) {
+        advanceToNextDefence(territoryKey);
+    } else {
+        render();
+    }
 }
 
 // Combined successful-battle action (v3.4): marks the recommended counter used
@@ -645,7 +649,27 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
         prevCleared, wasUsed,
         message: "Used + Cleared recorded."
     });
-    render();
+    if (side !== "my" && !prevCleared) {
+        advanceToNextDefence(territoryKey);
+    } else {
+        render();
+    }
+}
+
+// Advance through the existing Next Up ordering after a successful clear. Squad
+// and fleet are deliberately separate tracks, so a squad clear advances to the
+// next squad recommendation and a fleet clear to the next fleet recommendation.
+// If no eligible recommendation remains, the normal empty/completed state renders.
+function advanceToNextDefence(clearedTerritoryKey) {
+    const territory = board && board.territories.find(t => t.territory === clearedTerritoryKey);
+    const order = computeBattleOrder(computeRoundPlan());
+    const next = territory && territory.type === "FLEET" ? order.fleet : order.squad;
+
+    if (next) {
+        focusBoardTeam(next.territory, next.index);
+    } else {
+        render();
+    }
 }
 
 // Replaces whatever Undo offer is pending (if any) with a new one and arms its
@@ -2451,6 +2475,9 @@ function renderBoardSetup() {
 
 function renderBoard() {
     roundPlan = computeRoundPlan();   // live re-solve: falls out of render-on-state-change
+    const pendingUndoHtml = focusedTeamKey && pendingUndo && pendingUndo.side === "opponent"
+        ? ""
+        : renderPendingUndo("opponent");
 
     const overlapBanner = roundPlan && roundPlan.overlap
         ? `<div class="roster-msg roster-msg-ok board-overlap">🔀 Shared counters detected — recommendations below account for the overlap.</div>`
@@ -2465,7 +2492,7 @@ function renderBoard() {
     const territories = board.territories.map(t => renderTerritory(t, board, "opponent")).join("");
     // Next Up sits at the very top of the board so it is the first thing seen
     // on entering the Round screen mid-match.
-    return renderNextUp() + header + renderPendingUndo("opponent") + overlapBanner + territories;
+    return renderNextUp() + header + pendingUndoHtml + overlapBanner + territories;
 }
 
 function renderMyBoard() {
@@ -2557,12 +2584,16 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     // block so the Next Up card can scroll to and highlight the whole group.
     const isFocused = side !== "my" && focusedTeamKey === territoryKey + ":" + team.index;
     const focusClass = isFocused ? (focusFlash ? "focused focus-flash" : "focused") : "";
+    const pendingUndoHtml = isFocused && pendingUndo && pendingUndo.side === side
+        ? renderPendingUndo(side)
+        : "";
     const customName = team.name === NOT_IN_CATALOGUE ? `
 <input class="board-custom-name" type="text" maxlength="80" placeholder="Optional team name"
     value="${escapeHtml(team.customName || "")}" oninput="setCustomTeamName('${side}', '${territoryKey}', ${team.index}, this.value)">
 ` : "";
 
     return `
+${pendingUndoHtml}
 <div class="board-team-block ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
 <div class="board-team ${team.cleared ? "cleared" : ""}">
     <select class="board-team-select" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">
