@@ -88,6 +88,7 @@ let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
 let focusFlash = false;                 // one-shot: true only for the render immediately after a Next Up tap
+let expandedCounterCards = new Set();   // keys of recommendation cards showing their suggested squad; UI-only, never persisted
 
 // Temporary Undo for Cleared and Used + Cleared (v3.4). One in-memory slot, not
 // persisted: a page reload naturally drops the offer while the underlying
@@ -284,6 +285,7 @@ function discardBoard() {
     activeBoardSide = "opponent";
     boardModeDraft = null;
     focusedTeamKey = null;
+    expandedCounterCards = new Set();
     clearPendingUndo();
     localStorage.removeItem(BOARD_KEY);
     localStorage.removeItem(MY_BOARD_KEY);
@@ -505,6 +507,7 @@ function createBoard() {
     board.defenceSnapshot = captureDefenceSnapshot(mode, savedDefence);
     activeBoardSide = "opponent";
     boardModeDraft = null;
+    expandedCounterCards = new Set();
     saveBoard("opponent");
     saveBoard("my");
 
@@ -2043,6 +2046,50 @@ function defenceReason(counterId) {
     return `${list} ${names.length === 1 ? "is" : "are"} on defence.`;
 }
 
+// ─── SUGGESTED SQUAD (Round card disclosure) ──────────────────────────────────
+// Expands a recommendation card's counterId into the catalogue's suggested
+// attacking composition, purely for display — this never affects selection,
+// scoring, or the spent/on-defence tracking above (only required[] feeds that,
+// unchanged). Returns null when there is nothing usable to show, so the card
+// can skip the disclosure affordance entirely rather than open onto emptiness.
+function counterCompositionForDisplay(counterId, modeKey) {
+    const def = counterDefinitions[counterId];
+    const required = (def && def.required) || [];
+    const recommended = (def && def.recommended) || [];
+    if (required.length === 0 && recommended.length === 0) return null;
+
+    // Battle size is only defined for the two squad formats; fleet composition
+    // (and anything else) shows the named units with no flex claim rather than
+    // guessing at a ship-count slot total.
+    const battleSize = modeKey === "3v3" ? 3 : modeKey === "5v5" ? 5 : null;
+    const explicitCount = required.length + recommended.length;
+    const flex = battleSize != null ? battleSize - explicitCount : 0;
+
+    return {
+        required: required.map(id => ({ id, name: getCharacterName(id) })),
+        recommended: recommended.map(id => ({ id, name: getCharacterName(id) })),
+        flex: flex > 0 ? flex : 0   // negative (overspecified/malformed) collapses to no flex line
+    };
+}
+
+// Per-character availability note for the expanded squad list, built entirely
+// from state the app already tracks (ownedCharacters, spentCharacters(), the
+// defence snapshot) rather than a second availability engine. Returns null for
+// an available character so its row shows no note.
+function isCharacterOnDefence(characterId) {
+    const snapshot = board && board.defenceSnapshot;
+    if (!validDefenceSnapshot(snapshot, board && board.mode)) return false;
+    return snapshot.characterIds.includes(characterId);
+}
+
+function characterAvailabilityNote(characterId) {
+    if (!ownedCharacters.includes(characterId)) return "Not owned";
+    const holder = spentCharacters().get(characterId);
+    if (holder) return `Used with ${getCounterName(holder)}`;
+    if (isCharacterOnDefence(characterId)) return "On defence";
+    return null;
+}
+
 function getCounterStatus(counterId) {
     const { owned } = getOwnership(counterId);
     if (!owned) return "not-owned";
@@ -2607,7 +2654,7 @@ ${pendingUndoHtml}
 </div>
 ${customName}
 ${team.cleared ? "" : renderAttemptControl(side, territoryKey, team)}
-${side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team)}
+${side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey)}
 </div>
 `;
 }
@@ -2753,7 +2800,7 @@ function adjustedScore(counter) {
     return full + drop;
 }
 
-function renderTeamRecommendation(side, territoryKey, team) {
+function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     if (!roundPlan || team.cleared || !team.name) return "";
 
     const info = roundPlan.reasons[territoryKey + ":" + team.index];
@@ -2768,6 +2815,8 @@ function renderTeamRecommendation(side, territoryKey, team) {
     <div class="board-rec-undersize">
         <strong>${us.total} banners</strong> if you undersize · drop up to ${us.drop} for +${us.bonus}
     </div>` : "";
+        const squadKey = territoryKey + ":" + team.index + ":" + c.counterId;
+        const squadDisclosure = renderSquadDisclosure(squadKey, c.counterId, modeKey);
         // Used + Cleared is the normal successful-counter path, so it leads and is
         // visually primary; Mark used alone stays for when the two states genuinely
         // don't change together (e.g. recording a used counter before the defence
@@ -2780,6 +2829,7 @@ function renderTeamRecommendation(side, territoryKey, team) {
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
     <div class="board-rec-reason">${info.reason}</div>${undersizeLine}
+    ${squadDisclosure}
     <div class="board-rec-actions">
         <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
         <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
@@ -2791,6 +2841,59 @@ function renderTeamRecommendation(side, territoryKey, team) {
     return `
 <div class="board-rec board-rec-none">
     <div class="board-rec-reason">${info.reason}</div>${blocked}
+</div>
+`;
+}
+
+// ─── SUGGESTED SQUAD DISCLOSURE (Round card, informational only) ──────────────
+// Purely a way to inspect the catalogue's proposed attacking composition for a
+// recommendation card. It never selects the counter, marks anything used, or
+// changes the recommendation itself — toggleCounterCardExpanded() only flips a
+// local, unpersisted UI flag and re-renders. It is a native <button>, separate
+// from the card's action buttons below it, so it never intercepts their clicks
+// and is keyboard/touch accessible for free via aria-expanded.
+function toggleCounterCardExpanded(key) {
+    if (expandedCounterCards.has(key)) {
+        expandedCounterCards.delete(key);
+    } else {
+        expandedCounterCards.add(key);
+    }
+    render();
+}
+
+function renderSquadDisclosure(key, counterId, modeKey) {
+    const comp = counterCompositionForDisplay(counterId, modeKey);
+    if (!comp) return "";   // nothing usable yet — no affordance rather than an empty panel
+
+    const expanded = expandedCounterCards.has(key);
+    return `
+<button type="button" class="board-rec-disclosure" aria-expanded="${expanded ? "true" : "false"}" onclick="toggleCounterCardExpanded('${key}')">
+    <span>Suggested squad</span>
+    <span class="board-rec-chevron ${expanded ? "open" : ""}">▾</span>
+</button>
+${expanded ? renderSuggestedSquad(comp) : ""}
+`;
+}
+
+function renderSquadMemberRow(member, isRecommended) {
+    const note = characterAvailabilityNote(member.id);
+    const tag = isRecommended ? `<span class="squad-member-tag">Recommended</span>` : "";
+    const noteHtml = note ? `<span class="squad-member-note">${escapeHtml(note)}</span>` : "";
+    return `<div class="squad-member-row${isRecommended ? " squad-member-recommended" : ""}">${escapeHtml(member.name)}${tag}${noteHtml}</div>`;
+}
+
+function renderSuggestedSquad(comp) {
+    const rows = [
+        ...comp.required.map(m => renderSquadMemberRow(m, false)),
+        ...comp.recommended.map(m => renderSquadMemberRow(m, true))
+    ].join("");
+    const flexRow = comp.flex > 0
+        ? `<div class="squad-member-row squad-flex">+ ${comp.flex} flex</div>`
+        : "";
+
+    return `
+<div class="board-rec-squad">
+    ${rows}${flexRow}
 </div>
 `;
 }
