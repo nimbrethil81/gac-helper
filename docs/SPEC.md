@@ -490,8 +490,17 @@ The search order (teams by ascending candidate count, candidates by tier then un
 - A **Used + Cleared** button — the normal successful-counter action and the most prominent of the three — that commits the recommended counter to `usedTeams` and marks the team cleared in one operation, then triggers a re-solve and the same-track auto-advance described above. Its temporary Undo (same ~6-second window as Cleared) restores both to their exact prior values: if the counter was already used before the tap, Undo leaves it used and restores only the team to uncleared, rather than blindly toggling either flag.
 - A **Mark used** button, kept alongside it, that commits only the counter to `usedTeams` immediately and triggers a re-solve, for when used-state and cleared-state don't change together. The state is shared with the Counters screen (see [§6.2](#62-used-team-tracking)).
 - Compact **On defence** reference rows for otherwise relevant counters blocked by the snapshot. These appear below the usable recommendation (or beneath the no-recommendation reason), so blocked counters remain visible without appearing actionable.
+- A **Suggested squad** disclosure — collapsed by default — that expands inline to show the recommended counter's catalogued attacking composition (see below). Purely informational: expanding or collapsing it never selects the counter, marks anything used, clears the team, or changes the recommendation.
 
 Teams with no recommendation receive a distinct plain-English reason for catalogue, ownership, used, On defence, spent-unit, or allocation conflicts.
+
+**Suggested squad disclosure.** Each recommendation card with usable `counterDefinitions[counterId]` composition data (`required` and/or `recommended` non-empty) shows a tappable, keyboard-accessible disclosure control (`aria-expanded`) reading "Suggested squad". A counter with no composition rows shows no disclosure at all, rather than an expandable panel with nothing in it — the catalogue's `Counter_Composition` sheet is filled in incrementally, so this keeps the feature safe to ship ahead of full data coverage. Expanded state is local, in-memory UI state only (never persisted); it resets whenever a round is created or reset, and each card's key includes its counterId, so a team whose selected counter changes always opens collapsed.
+
+Expanded content lists:
+- Each `required[]` character by name (resolved via `characterDefinitions`, falling back to the raw ID if unresolved, matching the app's existing catalogue-fallback convention).
+- Each `recommended[]` character by name, visually distinguished and labelled "Recommended".
+- A named member's current availability note — "Not owned", "On defence", or "Used with `<counter>`" — reusing the same `ownedCharacters`, `spentCharacters()`, and defence-snapshot state the rest of Round Mode already tracks, rather than a second availability engine. A character with no note is available.
+- A trailing **"+ N flex"** row when the battle size (3 for 3v3, 5 for 5v5; fleet and other formats show no flex row) exceeds the number of explicitly listed required-plus-recommended members. No flex row appears when the explicit count meets or exceeds the battle size — including when catalogue data is overspecified, which is treated as malformed and never produces a negative count.
 
 **Scope.** The engine runs against every unlocked territory, squad and fleet alike. Each team draws candidates from its own catalogue, and the shared ownership, used-state, and exclusivity logic applies uniformly.
 

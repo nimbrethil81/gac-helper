@@ -865,6 +865,80 @@ body {
     font-size: 14px;
 }
 
+/* ─── ROUND: SUGGESTED SQUAD DISCLOSURE ───────────────────────────────
+   Informational-only expand/collapse for a recommendation card's proposed
+   attacking composition. Kept as its own full-width button, separate from
+   the card's action buttons, so tapping it can never be mistaken for Mark
+   used / Used + Cleared, and so it meets the app's touch-target sizing
+   without needing a tiny icon target. */
+
+.board-rec-disclosure {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 40px;
+    margin-top: 2px;
+    padding: 8px 4px;
+
+    background: none;
+    border: none;
+    border-top: 1px solid #22324a;
+
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: bold;
+    text-align: left;
+    cursor: pointer;
+}
+
+.board-rec-chevron {
+    display: inline-block;
+    transition: transform 0.15s ease;
+}
+
+.board-rec-chevron.open {
+    transform: rotate(180deg);
+}
+
+.board-rec-squad {
+    margin: 2px 0 4px;
+    padding: 2px 4px 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.squad-member-row {
+    font-size: 13px;
+    color: var(--text);
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.squad-member-recommended {
+    color: var(--muted);
+}
+
+.squad-member-tag {
+    font-size: 11px;
+    font-weight: bold;
+    color: var(--jedi-blue);
+}
+
+.squad-member-note {
+    font-size: 11px;
+    color: var(--b-tier);
+}
+
+.squad-flex {
+    color: var(--muted);
+    font-style: italic;
+}
+
 /* ─── ROUND: TEMPORARY UNDO (v3.4) ────────────────────────────────── */
 
 .board-undo-notice {
