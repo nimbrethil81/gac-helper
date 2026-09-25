@@ -1,4 +1,4 @@
-const CACHE_NAME = 'swgoh-shell-v18';
+const CACHE_NAME = 'swgoh-shell-v19';
 const FILES = [
   './',
   './index.html',
