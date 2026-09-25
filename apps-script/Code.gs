@@ -99,7 +99,15 @@ function buildDataPayload() {
 
   //
   // COUNTER DEFINITIONS
+  // Strategic_Reserve is optional and read by header, exactly like Character_
+  // Definitions' External_ID (v3.6): if the column is absent the field is simply
+  // omitted below, which parseReserveFlag/isHighReserve on the client reads as
+  // Normal. This keeps the column safe to add incrementally, ahead of the sheet
+  // being updated for every counter.
   //
+  const counterDefsHeaders = counterDefsData[0];
+  const cdReserve = counterDefsHeaders.indexOf("Strategic_Reserve"); // -1 if not present yet
+
   for (let i = 1; i < counterDefsData.length; i++) {
     const row = counterDefsData[i];
     const counterId = String(row[0]).trim();
@@ -110,6 +118,9 @@ function buildDataPayload() {
       required:    [],
       recommended: []
     };
+    if (cdReserve >= 0 && parseReserveFlag(row[cdReserve])) {
+      output.counterDefinitions[counterId].strategicReserve = true;
+    }
   }
 
   //
@@ -203,6 +214,16 @@ function parseUndersize(raw) {
   const n = Number(raw);
   if (!isFinite(n) || n <= 0) return 0;
   return Math.floor(n);
+}
+
+// Parse Counter_Definitions' optional Strategic_Reserve column (v3.6) into a
+// boolean. Checkbox TRUE, and the strings "TRUE"/"YES"/"Y"/"1" (case-insensitive),
+// read as High reserve; anything else — including blank, "FALSE", "No", or a
+// missing column entirely — reads as Normal, so an un-authored or half-typed
+// cell never accidentally marks a counter as strategic.
+function parseReserveFlag(raw) {
+  if (raw === true) return true;
+  return ["TRUE", "YES", "Y", "1"].indexOf(String(raw).trim().toUpperCase()) >= 0;
 }
 
 // ─── BOARD CONFIG (GAC_Board_Config tab) ────────────────────────────────────

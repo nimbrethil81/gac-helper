@@ -32,6 +32,12 @@ The current allocation engine can choose undersized counters when they bank more
 
 An orthogonal attribute capturing how much manual effort a counter needs (e.g. auto-able vs must-play-manually), for the "I need to get my battles done" moment. It is deliberately **not a ranking input** — folding effort into the engine's objective would corrupt the win/banner goal by silently down-ranking strong-but-fiddly counters. Instead it would be *displayed* (a card indicator) and/or drive a *filter* ("auto-able only", reusing the existing available-counters filter idiom), narrowing the candidate pool by the player's effort budget while leaving the ranking untouched. It is a structured, machine-usable layer that *complements* rather than replaces the free-text `Notes` column, which already carries specific manual-play instructions (e.g. "play Jabba manually so auto doesn't waste the insta-kill on Leia"). A small, self-contained future feature: one sheet column, one Apps Script field, a display line and/or a filter toggle.
 
+### Full-board strategic-reserve optimisation
+
+*Candidate*
+
+The allocation engine's strategic-reserve penalty (see [`SPEC.md`](docs/SPEC.md#68-allocation-engine)) is a mild, local ranking nudge: it makes a High-reserve counter (e.g. Darth Bane) slightly less likely to be picked ahead of a comparable alternative while any part of the board is still hidden, but it never predicts which specific hidden defence a reserved counter should be saved for, and it never reassigns counters once teams are visible. A future iteration could use the *fully revealed* board to solve for the globally best allocation across all defences at once — potentially recommending that an already-used-elsewhere counter should have gone to a different team, or confirming a reserved counter's eventual assignment — but that is a materially larger optimisation problem than today's per-render greedy/branch-and-bound solve and is deliberately out of scope until real-play feedback shows the local nudge is insufficient.
+
 ### First Attack lane-priority review
 
 *Candidate*

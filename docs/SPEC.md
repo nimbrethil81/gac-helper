@@ -158,6 +158,8 @@ A consequence of the open-ended formulas is that the tab reports a row extent fa
 
 **Counter_Definitions** — the identity registry for counter teams. One row per counter, holding its stable `Counter_ID` and display name. Identity only; membership lives in Counter_Composition. Fleet counters live here too, their membership being ships and capital ships rather than characters.
 
+An optional `Strategic_Reserve` column marks a counter definition as a premium/flexible attacking resource worth preserving while the opponent's board is still partially hidden (see [§6.8](#68-allocation-engine)). It is read by header, exactly like `Character_Definitions`' `External_ID`: `TRUE`/`YES`/`Y`/`1` (case-insensitive) or a checked checkbox mark a counter High reserve; a blank cell, any other value, or the column being absent entirely reads as Normal. This is a property of the counter **definition**, not of a character — the same character in a different composition is unaffected unless that definition is separately marked.
+
 **Counter_Composition** — the membership table. One row per unit in a counter team, recording the `Counter_ID`, the `Character_ID`, and whether that unit is `REQUIRED` or `RECOMMENDED`. This normalised structure allows data validation on the character column to prevent invalid IDs at entry time. For a fleet counter, the `Character_ID`s reference `SHIP`/`CAPITAL_SHIP` units.
 
 **Character_Definitions** — the master unit registry. One row per playable unit, holding its stable `Character_ID`, display name, `Unit_Type` (`CHARACTER`, `SHIP`, or `CAPITAL_SHIP`), and `External_ID`. This is the source for the roster screen, for validation, and for import matching.
@@ -261,6 +263,8 @@ Returns a single JSON object with seven top-level keys. This contract is the bou
   }
 }
 ```
+
+A definition carries `strategicReserve: true` only when its `Strategic_Reserve` cell is set (see [§4.1](#41-sheet-structure)); the field is otherwise omitted, which the client reads identically to `false`.
 
 **characterDefinitions** — keyed by `Character_ID`:
 
@@ -467,12 +471,15 @@ Not-in-catalogue placeholder teams contribute no candidates and receive an expla
 **Solver.** A scarcity-first ordered search with branch-and-bound pruning enumerates valid assignments over the eligible teams. The objective is lexicographic:
 
 1. Maximise **coverage** — the number of teams that receive an assignment.
-2. Then minimise summed **tier rank** — prefer stronger (more reliable) tiers (S over A over B over C). See [§4.1](#41-sheet-structure) for Tier as a reliability measure.
-3. Then maximise summed **undersize-adjusted banner score** — the achievable best per counter: its full-squad banner score plus its safe droppable-unit count (`Banner Score` + `Undersize`), since +1 banner is bankable per unit dropped.
+2. Then minimise summed **tier rank** — prefer stronger (more reliable) tiers (S over A over B over C). See [§4.1](#41-sheet-structure) for Tier as a reliability measure. While the strategic-reserve penalty below is active, a High-reserve counter's tier rank for this comparison is one step worse than its authored tier (see below).
+3. Then, only while the strategic-reserve penalty is active, minimise the number of High-reserve counters used in the plan.
+4. Then maximise summed **undersize-adjusted banner score** — the achievable best per counter: its full-squad banner score plus its safe droppable-unit count (`Banner Score` + `Undersize`), since +1 banner is bankable per unit dropped.
 
 Because the adjustment sits *below* tier in the ordering, it only ever reorders counters **within a tier** — a higher-tier (more reliable) counter is never displaced by a lower-tier one chasing undersize banners, keeping tier an inviolable safety floor. When two same-tier counters reach the *same* adjusted total (e.g. 64 full-squad/no-drop versus 62 full-squad/drop-2), the engine prefers the one relying on **less undersizing**, since it banks the same total with no risk.
 
 The undersize adjustment affects *ranking* only. The recommendation card's headline still shows the **full-squad** banner score — the figure banked by a straight, no-risk play — with the undersize upside on its own line (see [§6.1](#61-counter-lookup) and the per-team display below). Because the engine may therefore pick a counter whose headline is lower than a same-tier rival's, the team's **reason line explains an undersize-driven pick** — e.g. "Chosen for its undersize potential (64 vs 63)." — so a lower headline never reads as an error; no such note appears when undersizing did not change the pick.
+
+**Strategic reserve.** Some counter definitions carry `strategicReserve: true` (the `Strategic_Reserve` catalogue column — see [§4.1](#41-sheet-structure) and [§5](#5-api-contract)), marking a premium/flexible attacking resource worth preserving while the opponent's board is still partially hidden — initially, Darth Bane. The penalty activates only in Round Mode, and only while `roundHasHiddenZones()` finds at least one board territory still locked behind the reveal chain ([§6.7](#67-round-boards)); it never applies on the Counters screen, and it stops applying the moment the whole board is unlocked. While active, it treats a High-reserve counter as **one tier weaker** for the tier-rank comparison above, then, if that leaves two candidates tied, prefers spending fewer High-reserve counters overall. This is a mild tie-break, not an override: a High-reserve counter still out-ranks any non-reserve alternative more than one tier behind it, so the engine never promotes a materially weaker or speculative counter merely to preserve a stronger one. A High-reserve counter that the engine did not choose for a team remains visible on that team's card as a compact, still-selectable alternative (using the same Mark used action as any other counter), each carrying a "⚠ Consider holding — strong flexible counter and hidden zones remain." note; the chosen counter carries the same note when it is itself High reserve. This is a ranking nudge and an advisory note only — it never hides, disables, or blocks a counter, and it does not attempt to predict which specific hidden defence a reserved counter should be saved for (full-board counter optimisation is out of scope; see [`ROADMAP.md`](../ROADMAP.md)).
 
 Two exclusivity constraints are enforced natively:
 

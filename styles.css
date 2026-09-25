@@ -812,6 +812,24 @@ body {
     font-weight: bold;
 }
 
+/* Strategic reserve (v3.6): a still-available, still-selectable High-reserve
+   counter that lost out to a comparable pick, shown as a compact reference row
+   like .board-rec-blocked, but never dimmed/greyed and never described as
+   blocked — reuses .nextup-warning for the hold note. */
+.board-rec-reserve-alt {
+    margin-top: 4px;
+    padding-top: 7px;
+    border-top: 1px solid #22324a;
+    font-size: 13px;
+}
+
+.board-rec-reserve-alt-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .board-rec-line {
     font-size: 14px;
     display: flex;
