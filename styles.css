@@ -150,6 +150,13 @@ body {
     margin-bottom: 0;
 }
 
+.round-format-label {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--muted);
+    margin-bottom: 6px;
+}
+
 .round-board-switch {
     border: 1px solid #22324a;
 }
