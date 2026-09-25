@@ -61,8 +61,8 @@ let baseIdToUnit = {};                  // base_id -> { characterId, unitType }
 let catalogueStatus = null;             // quiet cache/refresh status; never blocks a usable catalogue
 let currentMode = "5v5";
 let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 5v5/3v3 chosen; used for board setup when the toggle is on Fleet
-let boardModeDraft = null;              // squad format picked on the setup card while the toggle is on Fleet
-let currentView = "counters";
+let boardModeDraft = null;              // GAC format chosen on the round setup card; owned by the round once set
+let currentView = "round";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 let spentCharsCache = { key: null, map: new Map() };  // derived from usedTeams + counterDefinitions (v3.2)
 let searchText = "";
@@ -428,12 +428,14 @@ function setLeague(value) {
 }
 
 // The opponent board is always a squad-format board (5v5 or 3v3) plus the fleet
-// territory. "Fleet" is a browsing view on the Counters screen, never a whole-
-// board format — so when the toggle is on Fleet, the board takes the squad
-// format chosen on the setup card, falling back to the last squad format used.
+// territory. A round owns its own GAC format, chosen explicitly on the setup
+// card (seeded from the Counters toggle on entry — see setView) rather than
+// tracking the Counters toggle live. "Fleet" is a browsing view on the
+// Counters screen, never a whole-board format, so it never supplies the
+// fallback itself.
 function boardMode() {
-    if (currentMode !== "FLEET") return currentMode;
-    return boardModeDraft || lastSquadMode;
+    if (boardModeDraft) return boardModeDraft;
+    return currentMode !== "FLEET" ? currentMode : lastSquadMode;
 }
 
 function setBoardModeDraft(mode) {
@@ -2060,6 +2062,12 @@ function setView(view) {
     }
     if (view === "round") {
         loadBoard();           // defensive re-read on entry
+        // Seed the setup card's GAC format from the Counters toggle for
+        // convenience, once, on first entry into a fresh setup. From then on
+        // the round owns its own format until it is created or discarded.
+        if (!board && !boardModeDraft) {
+            boardModeDraft = currentMode !== "FLEET" ? currentMode : lastSquadMode;
+        }
     }
     render();
 }
@@ -2433,22 +2441,16 @@ function renderBoardSetup() {
 
     const fmt = boardMode();
 
-    // On Fleet, "Fleet" isn't a whole-board format, so the setup card lets the
-    // player pick the squad format for this board. On 5v5/3v3 it's inherited
-    // silently from the toggle, exactly as before.
-    const formatBlock = currentMode === "FLEET"
-        ? `
-    <div class="roster-import-helper">
-        Choose your league, then pick the match format for the squad territories.
-    </div>
-    <div class="mode-toggle board-format-choice">
+    // A round owns its own GAC format, chosen explicitly here rather than
+    // inherited live from the Counters screen toggle (see boardMode/setView).
+    const formatBlock = `
+    <div class="round-format-label">GAC format</div>
+    <div class="mode-toggle board-format-choice" aria-label="GAC format">
         <button class="mode-button ${fmt === "5v5" ? "active" : ""}" onclick="setBoardModeDraft('5v5')">5v5</button>
         <button class="mode-button ${fmt === "3v3" ? "active" : ""}" onclick="setBoardModeDraft('3v3')">3v3</button>
-    </div>`
-        : `
+    </div>
     <div class="roster-import-helper">
         Choose your league, then set up both current-round boards. Opponent Board starts empty; My Board is filled from your saved ${fmt} defence template.
-        Format is taken from the Counters screen toggle — currently <strong>${fmt}</strong>.
     </div>`;
 
     const savedTemplate = loadDefenceTemplate(fmt);
