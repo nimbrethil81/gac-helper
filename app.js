@@ -549,6 +549,19 @@ function isTerritoryUnlocked(tDef, bd) {
     return true;
 }
 
+// Strategic reserve (v3.6): whether any territory on the opponent board is still
+// locked behind the reveal chain above — i.e. an enemy zone the player cannot yet
+// see. This is the sole hidden-zone signal the allocation engine uses to activate
+// the strategic-reserve ranking penalty and warning (see solveAllocation and
+// buildReasons below); it reuses isTerritoryUnlocked rather than adding a second
+// notion of "revealed", and only ever reads the Round board, never the Counters
+// screen's own state.
+function roundHasHiddenZones(bd) {
+    const target = bd || board;
+    if (!target) return false;
+    return target.territories.some(tDef => !isTerritoryUnlocked(tDef, target));
+}
+
 // Which counter catalogue a territory draws from: fleet territories use the
 // FLEET catalogue; squad territories use the board's frozen squad format.
 function territoryModeKey(tDef, bd) {
@@ -971,6 +984,32 @@ function requiredChars(counterId) {
     return (def && def.required) || [];
 }
 
+// Strategic reserve (v3.6): a counter definition authored with
+// `strategicReserve: true` (Counter_Definitions' optional Strategic_Reserve
+// column — see docs/SPEC.md §4.1) is a premium/flexible attacking resource worth
+// preserving while the opponent's board is still partially hidden — e.g. Darth
+// Bane. Absence reads as Normal, so older catalogue entries are unaffected.
+// This is a property of the counter DEFINITION, not of the character: the same
+// character in a different composition is unaffected unless that definition is
+// separately marked.
+function isHighReserve(counterId) {
+    const def = counterDefinitions[counterId];
+    return !!(def && def.strategicReserve);
+}
+
+// A High-reserve counter is ranked as if it were one tier weaker while hidden
+// zones remain (see roundHasHiddenZones), so an adequate non-reserve counter of
+// the same or an adjacent tier is preferred, but a reserve counter still beats
+// alternatives more than one tier behind it. This is a mild, single-step penalty,
+// not an override: it can never make a reserve counter lose to something more
+// than one tier worse, and it does nothing at all once reserveActive is false.
+const RESERVE_TIER_PENALTY = 1;
+
+function effectiveTierRank(counter, reserveActive) {
+    const base = tierSortValue(counter.tier);
+    return (reserveActive && isHighReserve(counter.counterId)) ? base + RESERVE_TIER_PENALTY : base;
+}
+
 // Every visible, uncleared, named board team plus its available counters.
 function buildEligibleTeams() {
     const eligible = [];
@@ -1014,10 +1053,14 @@ function buildEligibleTeams() {
 }
 
 // Scarcity-first ordered search with pruning. Objective (Option A, lexicographic):
-// maximise teams covered, then prefer stronger tiers, then higher banner totals.
-// The first complete path is the greedy scarcity-first answer, so even if the
-// node budget is exhausted the result is never worse than greedy.
-function solveAllocation(teams) {
+// maximise teams covered, then prefer stronger tiers, then (while hidden zones
+// remain) fewer strategic-reserve counters spent, then higher banner totals.
+// The reserve step is a no-op whenever reserveActive is false — every plan scores
+// reserveCount 0, so behaviour is byte-for-byte unchanged outside Round Mode's
+// hidden-zone window (see roundHasHiddenZones). The first complete path is the
+// greedy scarcity-first answer, so even if the node budget is exhausted the
+// result is never worse than greedy.
+function solveAllocation(teams, reserveActive) {
     const order = teams.slice().sort((a, b) => a.candidates.length - b.candidates.length);
 
     let best = null;
@@ -1028,14 +1071,15 @@ function solveAllocation(teams) {
     const usedChars = new Set();
     const assign = {};
 
-    function isBetter(cov, tier, ban) {
+    function isBetter(cov, tier, reserveCount, ban) {
         if (!best) return true;
         if (cov !== best.coverage) return cov > best.coverage;
         if (tier !== best.tierSum) return tier < best.tierSum;
+        if (reserveCount !== best.reserveCount) return reserveCount < best.reserveCount;
         return ban > best.bannerSum;
     }
 
-    function dfs(i, cov, tier, ban) {
+    function dfs(i, cov, tier, reserveCount, ban) {
         nodes++;
         if (nodes > NODE_BUDGET) return;
 
@@ -1044,15 +1088,15 @@ function solveAllocation(teams) {
         if (best && bound < best.coverage) return;
 
         if (i === order.length) {
-            if (isBetter(cov, tier, ban)) {
-                best = { assign: { ...assign }, coverage: cov, tierSum: tier, bannerSum: ban };
+            if (isBetter(cov, tier, reserveCount, ban)) {
+                best = { assign: { ...assign }, coverage: cov, tierSum: tier, reserveCount, bannerSum: ban };
             }
             return;
         }
 
         const t = order[i];
         const cands = t.candidates.slice().sort((a, b) => {
-            const d = tierSortValue(a.tier) - tierSortValue(b.tier);
+            const d = effectiveTierRank(a, reserveActive) - effectiveTierRank(b, reserveActive);
             if (d !== 0) return d;
             const adj = adjustedScore(b) - adjustedScore(a);
             if (adj !== 0) return adj;
@@ -1070,7 +1114,9 @@ function solveAllocation(teams) {
             req.forEach(ch => usedChars.add(ch));
             assign[t.key] = c;
 
-            dfs(i + 1, cov + 1, tier + tierSortValue(c.tier), ban + adjustedScore(c));
+            dfs(i + 1, cov + 1, tier + effectiveTierRank(c, reserveActive),
+                reserveCount + (reserveActive && isHighReserve(c.counterId) ? 1 : 0),
+                ban + adjustedScore(c));
 
             delete assign[t.key];
             usedCounters.delete(c.counterId);
@@ -1078,11 +1124,11 @@ function solveAllocation(teams) {
         }
 
         // Branch where this team is left uncovered.
-        dfs(i + 1, cov, tier, ban);
+        dfs(i + 1, cov, tier, reserveCount, ban);
     }
 
-    dfs(0, 0, 0, 0);
-    return best || { assign: {}, coverage: 0, tierSum: 0, bannerSum: 0 };
+    dfs(0, 0, 0, 0, 0);
+    return best || { assign: {}, coverage: 0, tierSum: 0, reserveCount: 0, bannerSum: 0 };
 }
 
 // Detect when undersizing is what won a counter its recommendation (v2.9). Returns
@@ -1111,7 +1157,18 @@ function undersizeDrovePick(team, chosen) {
 }
 
 // Plain-language reason for each team, grounded in the plan's real alternatives.
-function buildReasons(eligible, assign) {
+// Strategic reserve (v3.6): the team's available High-reserve candidates that
+// are neither the chosen counter nor already committed to another team in this
+// plan — i.e. still genuinely available, just not the top pick. Surfaced so a
+// counter like Bane never silently disappears from the board just because a
+// comparable non-reserve option ranked ahead of it; it stays visible, marked,
+// and one tap away via the same Mark used action as any other counter.
+function reserveAlternatives(t, assignedByCounter, reserveActive) {
+    if (!reserveActive) return [];
+    return t.candidates.filter(c => isHighReserve(c.counterId) && !assignedByCounter[c.counterId]);
+}
+
+function buildReasons(eligible, assign, reserveActive) {
     const reasons = {};
 
     const teamByKey = {};
@@ -1130,11 +1187,12 @@ function buildReasons(eligible, assign) {
 
     eligible.forEach(t => {
         if (t.custom) {
-            reasons[t.key] = { counter: null, reason: "Not in the catalogue — no recommendations for this team.", defenceBlocked: [] };
+            reasons[t.key] = { counter: null, reason: "Not in the catalogue — no recommendations for this team.", defenceBlocked: [], reserveWarning: false, reserveAlternatives: [] };
             return;
         }
 
         const chosen = assign[t.key] || null;
+        const reserveAlts = reserveAlternatives(t, assignedByCounter, reserveActive);
 
         if (chosen) {
             let reason;
@@ -1168,7 +1226,11 @@ function buildReasons(eligible, assign) {
             const undersizeNote = undersizeDrovePick(t, chosen);
             if (undersizeNote) reason += " " + undersizeNote;
 
-            reasons[t.key] = { counter: chosen, reason, defenceBlocked: t.defenceBlocked || [] };
+            reasons[t.key] = {
+                counter: chosen, reason, defenceBlocked: t.defenceBlocked || [],
+                reserveWarning: reserveActive && isHighReserve(chosen.counterId),
+                reserveAlternatives: reserveAlts
+            };
             return;
         }
 
@@ -1208,7 +1270,10 @@ function buildReasons(eligible, assign) {
                 reason = clashText || "No workable assignment without weakening another team.";
             }
         }
-        reasons[t.key] = { counter: null, reason, defenceBlocked: t.defenceBlocked || [] };
+        reasons[t.key] = {
+            counter: null, reason, defenceBlocked: t.defenceBlocked || [],
+            reserveWarning: false, reserveAlternatives: reserveAlts
+        };
     });
 
     return reasons;
@@ -1226,10 +1291,17 @@ function computeRoundPlan() {
     }));
     const overlap = Object.values(counts).some(n => n >= 2);
 
-    const solved = solveAllocation(eligible.filter(t => !t.custom));
-    const reasons = buildReasons(eligible, solved.assign);
+    // Strategic reserve activates only in Round Mode, and only while at least one
+    // enemy zone remains hidden behind the reveal chain (see roundHasHiddenZones).
+    // Once the whole board is visible this is false and every reserve-related
+    // field below reads as a no-op, so ranking and display fall back exactly to
+    // pre-existing behaviour.
+    const reserveActive = roundHasHiddenZones(board);
 
-    return { eligible, overlap, assign: solved.assign, reasons };
+    const solved = solveAllocation(eligible.filter(t => !t.custom), reserveActive);
+    const reasons = buildReasons(eligible, solved.assign, reserveActive);
+
+    return { eligible, overlap, assign: solved.assign, reasons, reserveActive };
 }
 
 // ─── BATTLE ORDER (v3.0) ──────────────────────────────────────────────────────
@@ -2800,6 +2872,23 @@ function adjustedScore(counter) {
     return full + drop;
 }
 
+// Strategic reserve (v3.6): shown on a card whose counter is High reserve while
+// hidden zones remain (see roundHasHiddenZones). It never hides, disables or
+// blocks the counter — it is advisory text alongside the normal recommendation.
+const RESERVE_WARNING_TEXT = "Consider holding — strong flexible counter and hidden zones remain.";
+
+function renderReserveAlternatives(alts) {
+    return alts.map(c => `
+    <div class="board-rec-reserve-alt">
+        <div class="board-rec-reserve-alt-line">
+            🎯 ${escapeHtml(c.counter)}
+            <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
+            <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
+        </div>
+        <div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>
+    </div>`).join("");
+}
+
 function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     if (!roundPlan || team.cleared || !team.name) return "";
 
@@ -2807,6 +2896,7 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     if (!info) return "";
     const blocked = (info.defenceBlocked || []).map(c => `
     <div class="board-rec-blocked"><span>On defence</span> ${escapeHtml(c.counter)}</div>`).join("");
+    const reserveAltsHtml = renderReserveAlternatives(info.reserveAlternatives || []);
 
     if (info.counter) {
         const c = info.counter;
@@ -2815,6 +2905,8 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     <div class="board-rec-undersize">
         <strong>${us.total} banners</strong> if you undersize · drop up to ${us.drop} for +${us.bonus}
     </div>` : "";
+        const reserveWarningLine = info.reserveWarning ? `
+    <div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>` : "";
         const squadKey = territoryKey + ":" + team.index + ":" + c.counterId;
         const squadDisclosure = renderSquadDisclosure(squadKey, c.counterId, modeKey);
         // Used + Cleared is the normal successful-counter path, so it leads and is
@@ -2828,19 +2920,19 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="board-rec-reason">${info.reason}</div>${undersizeLine}
+    <div class="board-rec-reason">${info.reason}</div>${undersizeLine}${reserveWarningLine}
     ${squadDisclosure}
     <div class="board-rec-actions">
         <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
         <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
-    </div>${blocked}
+    </div>${blocked}${reserveAltsHtml}
 </div>
 `;
     }
 
     return `
 <div class="board-rec board-rec-none">
-    <div class="board-rec-reason">${info.reason}</div>${blocked}
+    <div class="board-rec-reason">${info.reason}</div>${blocked}${reserveAltsHtml}
 </div>
 `;
 }
