@@ -420,7 +420,7 @@ The two axes combine into four card states, computed by `getCounterStatus()`:
 
 ### 6.6 Round Screen
 
-The Round screen is the live-match workspace, reached from the middle position of the bottom navigation bar. It consolidates three related concerns in a single scrolling view:
+The Round screen is the live-match workspace, reached from the middle position of the bottom navigation bar, and is the screen shown by default when the app opens. There is no persisted "last screen" — each fresh load starts on Round; the user can navigate to Counters or Roster within the session as normal. It consolidates three related concerns in a single scrolling view:
 
 1. A **round summary card** with the used-team count, defence-filtering status, and the confirmed Reset Round action. It reports the number of canonical units frozen as unavailable. If no saved defence existed for the selected format, it warns that defence availability is not being filtered; unresolved legacy/custom identities produce a partial-filter warning. Reset clears used teams, banner tracking, Opponent Board and My Board together; saved 5v5/3v3 defence templates are deliberately preserved.
 2. An **Opponent Board / My Board** switch, defaulting to Opponent Board, above the paired current-round boards (see [§6.7](#67-round-boards)). Opponent Board retains allocation and Battle Order; My Board records the opponent's progress against the player's defence.
