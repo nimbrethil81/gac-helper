@@ -5,7 +5,7 @@
   "description": "SWGOH GAC Helper development repository test and check commands.",
   "scripts": {
     "test": "node --test",
-    "check": "for f in app.js service-worker.js workers/*.mjs scripts/*.js tests/*.js; do node --check \"$f\" || exit 1; done",
+    "check": "for f in app.js service-worker.js scripts/*.js tests/*.js; do node --check \"$f\" || exit 1; done",
     "baseline:verify": "node scripts/verify-baseline.js",
     "db:test": "node --test tests/database-schema.test.js tests/migration-loader.test.js tests/authoring-loader.test.js",
     "migrate:reconcile": "node scripts/migration-reconcile.js",
@@ -23,12 +23,7 @@
     "catalogue:finalise": "node scripts/catalogue-publish.js finalise",
     "catalogue:reconcile": "node scripts/catalogue-publish.js reconcile",
     "catalogue:rollback": "node scripts/catalogue-publish.js rollback",
-    "catalogue:publish": "node scripts/catalogue-publish.js publish",
-    "build:worker": "node scripts/build-worker-assets.js",
-    "deploy:development": "npm run build:worker && wrangler deploy",
-    "deploy:production": "npm run build:worker && wrangler deploy --env production",
-    "rollback:development": "wrangler rollback",
-    "rollback:production": "wrangler rollback --env production"
+    "catalogue:publish": "node scripts/catalogue-publish.js publish"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
