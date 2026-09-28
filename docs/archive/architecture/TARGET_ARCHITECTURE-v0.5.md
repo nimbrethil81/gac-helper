@@ -1,0 +1,1481 @@
+# SWGOH GAC Helper — Target Architecture
+
+**Status:** Proposed design v0.5, revised after independent peer review, the accepted ARCH-102 platform decisions, the accepted bootstrap/calibration safety design, and the accepted ARCH-113 Stage-1 delivery re-baseline. Not yet fully implemented.
+
+**Scope.** This document defines the proposed target architecture for modernising GAC Helper's catalogue delivery, authoring model, repository and deployment model, and autonomous counter maintenance. It is a future-state design authority, not a description of the shipped system. The current system remains defined by [`SPEC.md`](SPEC.md), and prioritisation remains in [`ROADMAP.md`](../ROADMAP.md).
+
+**Platform decisions.** The Stage-1 host, environment, publication, secret, role and threat-model decisions are recorded in [`docs/decisions/ADR-ARCH-102-platform.md`](decisions/ADR-ARCH-102-platform.md), as re-baselined by [`docs/decisions/ADR-ARCH-113-stage1-rebaseline.md`](decisions/ADR-ARCH-113-stage1-rebaseline.md). ADR-ARCH-113 supersedes ADR-ARCH-102's database-hosting, static-catalogue-publication and Supabase-configuration decisions, and leaves everything else in that ADR in force — Cloudflare delivery, the manual production gate, mandatory manual operation, the cache validation principles, the client-state cutover precautions and the threat model. Read both: ADR-ARCH-102 owns the justification, rejected alternatives and threat model; ADR-ARCH-113 owns what is active now and what is paused.
+
+**Update this document when** an architectural decision below is accepted, revised or rejected during review or implementation. Once the target architecture ships, move enduring current-state facts into `SPEC.md` and either retire this document or reduce it to decisions not captured elsewhere.
+
+---
+
+## 0. Active path and paused path
+
+This document describes two things. They must not be confused.
+
+**The active Stage-1 path** — the work being delivered now:
+
+```text
+Google Sheets (canonical catalogue, human authoring)
+        |
+        v
+Apps Script  action=data          Apps Script  action=roster
+   (catalogue API)                   (Comlink roster proxy)
+        |                                    |
+        +----------------+-------------------+
+                         v
+        PWA: fetch, validate, cache, render cache-first
+                         ^
+                         |
+   Cloudflare Workers static assets — development and production
+                         ^
+                         |
+   Private GitHub repository -> reviewed, merged PR -> manual deployment
+```
+
+Google Sheets is the canonical authored catalogue. Apps Script serves both the catalogue and the roster proxy. Cloudflare Workers serves the PWA from two deployments. The PWA validates and caches the Apps Script payload and renders the last known-good catalogue first. The existing public GitHub Pages app remains the fallback through the cutover window.
+
+**The paused future database-backed maintenance evolution** — §§4–13 below, plus the database-backed parts of §§14–16:
+
+A Postgres-compatible canonical store, evidence and assessment tables, a version-controlled human authoring path, a deterministic policy applier and an immutable static catalogue artifact with a release pointer. This design is complete, largely implemented and preserved unchanged. It is **not** active Stage-1 work. It requires a new persistent-store provider decision at **GATE-150** ([`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) §7.1) before any part of it is deployed, and it stays behind that gate until automated evidence-driven maintenance is actually being built.
+
+Sections that describe the paused path carry a status note saying so. Where an active-path behaviour differs from the paused design, the active behaviour is stated explicitly and wins.
+
+This design intentionally optimises for:
+
+- a single-user hobby application;
+- minimal or zero additional running cost;
+- low ongoing human administration;
+- a compact, useful counter catalogue rather than exhaustive squad permutations;
+- a first-class human authoring path alongside bounded autonomous maintenance;
+- conservative, enforceable and auditable automation;
+- strong offline behaviour during live GAC rounds;
+- simple rollback and recovery rather than enterprise-scale migration choreography;
+- the fewest sensible implementation stages, with manual cloud configuration concentrated into one session.
+
+---
+
+## 1. Context and problem
+
+The current PWA is static. Authored counter data lives in Google Sheets, which is both the canonical data store and the owner's authoring surface. Google Apps Script converts the Sheet to JSON and separately proxies roster requests to Comlink. Development and live code are held in separate repositories with a manually triggered, allow-listed promotion workflow.
+
+The current app renders player state from local storage, but the catalogue itself is not currently cache-first: a failed catalogue fetch prevents normal startup. Correcting that is part of the target architecture, not an existing capability.
+
+The current arrangement serves human authoring well. A single author edits a Sheet and the change is live immediately, with no capture, review, release or deployment step. That is why Google Sheets remains the canonical catalogue and the authoring workbench on the active path (ADR-ARCH-113 §1). Two weaknesses are addressed inside that arrangement rather than by replacing it: the catalogue is not cache-first, and production hosting must move off GitHub Pages.
+
+What the current arrangement does limit is safe *autonomous* maintenance:
+
+- identity and duplicate rules are not enforced relationally;
+- defence teams lack stable identities;
+- a statistical observation can too easily be confused with a canonical team identity;
+- updates overwrite judgements without retaining evidence or assessment history;
+- publication is not naturally atomic;
+- an autonomous process would need authority that is difficult to bound safely in a spreadsheet;
+- replacing the Sheet without replacing its authoring capability would make routine maintenance harder.
+
+The paused future evolution (§0) would replace Google Sheets as the runtime data platform with a Postgres-compatible canonical store, a version-controlled human-change path and an immutable static catalogue artifact. Evidence, assessment, canonical mutation and publication are separate steps so observations cannot become live product knowledge without policy enforcement and whole-catalogue validation. That design exists because autonomous maintenance needs it — not because human authoring does.
+
+The active Stage-1 path therefore takes only what the product needs now:
+
+- **cache-first catalogue loading in the PWA** (§2.8), so a temporary connection or Apps Script failure cannot break a live round;
+- **Cloudflare Workers delivery** with separate development and production deployments (§14), because the account is GitHub Free and private-repository GitHub Pages is unavailable;
+- **a deliberate production-origin cutover** with one-time client-state export/import (§15.0), because browser state is origin-keyed.
+
+Repository consolidation remains a desired target. It must preserve the current fail-closed public deployment boundary and may proceed only after automated checks exist.
+
+This document does not itself authorise database creation, repository consolidation, migration, deployment or autonomous publication. Each requires approved implementation work. Creating any hosted database — Supabase, Neon or otherwise — additionally requires GATE-150.
+
+---
+
+## 2. Architectural principles
+
+**Applicability.** §2.8 (cache-first live application) is active Stage-1 design. §§2.1–2.7 and 2.9 describe the paused database-backed maintenance evolution (§0); they govern catalogue identity, evidence handling and publication once that path is revalidated at GATE-150, and they constrain no active Stage-1 work package. §2.6's "human authoring remains first-class" is, however, satisfied on the active path in the simplest possible way: the human authors the Google Sheet directly.
+
+### 2.1 Strategic identity over observed composition
+
+The canonical catalogue stores strategic team identities, not every squad permutation seen in source data.
+
+> Prefer the smallest set of canonical identities that preserves strategically meaningful differences.
+
+Observed compositions may justify a new identity only when variation materially changes at least one of:
+
+- leader or defining core;
+- roster-resource contention;
+- matchup behaviour or reliability;
+- recommendation value;
+- recognition as a genuinely separate game archetype.
+
+A different flex unit alone does not justify a new identity.
+
+### 2.2 One team registry
+
+Attacking counters and defensive teams are both strategic team archetypes. One `team_archetypes` registry replaces separate counter and defence registries.
+
+A matchup assigns one archetype the defence role and another the attack role for a particular GAC mode.
+
+### 2.3 Evidence, judgement and publication are separate
+
+An observation or source win rate does not become live knowledge directly. The pipeline is:
+
+1. ingest immutable source evidence;
+2. map it to existing canonical identities where possible;
+3. calculate mechanical measures and confidence;
+4. create assessments and findings;
+5. make a policy decision;
+6. have a deterministic applier re-check policy and create canonical mutations;
+7. generate and validate a complete candidate catalogue;
+8. publish an immutable artifact atomically.
+
+The semantic analyst proposes. It never writes canonical catalogue tables or the live-release pointer.
+
+### 2.4 Consolidation over proliferation
+
+Before proposing a new archetype, the system must attempt:
+
+1. exact existing identity;
+2. existing identity with different flex members;
+3. existing identity with different recommended members;
+4. undersized or expanded observation of an existing profile;
+5. existing identity requiring a profile update;
+6. only then, a genuinely new archetype.
+
+The maintenance objective is:
+
+> Maximise useful counter coverage while minimising redundant catalogue entries.
+
+Completeness is deliberately not the publication objective:
+
+> **Completeness is a discovery goal, not a publication goal. Canonical counter data must meet evidence and quality thresholds regardless of catalogue coverage.**
+
+Broad discovery may therefore produce a large staged backlog without creating any corresponding obligation to publish it. A small catalogue of differentiated, reliable counters is preferable to a large catalogue padded with mediocre or weakly evidenced alternatives.
+
+### 2.5 Omission over unsupported precision
+
+Where evidence is insufficient, the safe result is normally `OBSERVE`, not a speculative catalogue change or a question for the user.
+
+Uncertainty becomes a human task only when it is materially relevant, sufficiently evidenced to require a decision now, and not safely resolvable by policy.
+
+### 2.6 Human authoring remains first-class
+
+Autonomy complements rather than replaces the owner.
+
+Routine additions and corrections must not require hand-written SQL. Human-authored changes use version-controlled change files or an equivalent validated interface, pass through the same deterministic validator, and create the same immutable release type as automated changes.
+
+Human authority is explicit per field:
+
+- `AUTHORED_LOCKED` — automation may propose a change but cannot apply it;
+- `AUTHORED_BASELINE` — automation may change it only with high confidence and full policy compliance;
+- `ASSESSED` — routine autonomous maintenance is permitted.
+
+Migrated Sheet values begin as `AUTHORED_BASELINE` unless deliberately locked. Tactical notes are always human-authored in the initial design.
+
+### 2.7 Atomic, reversible publication
+
+A publication either succeeds as one validated release or changes nothing. Candidate generation is based on an identified base release. Publication refuses to proceed if the current release has moved.
+
+Rollback selects a prior compatible immutable artifact; it does not reverse individual mutations.
+
+### 2.8 Cache-first live application
+
+The PWA must not depend on any remote system being reachable during a live GAC round.
+
+**On the active path**, the live app fetches the Apps Script `action=data` payload, validates it, caches it, and renders the **last known-good cached catalogue first**, refreshing in the background. Specifically:
+
+- a validated payload is persisted locally under a versioned cache key;
+- startup renders the cached catalogue immediately, without waiting for the network;
+- a refresh failure — offline, timeout, HTTP error, Apps Script failure, or a 200 response whose body is not a valid catalogue — **retains and renders the last known-good catalogue** and reports the stale state unobtrusively;
+- a failed or invalid refresh never overwrites the cache, and never replaces the UI with an error screen when a usable catalogue exists;
+- an incompatible payload is refused cleanly rather than partially applied;
+- an error body is never treated as a catalogue.
+
+Only a first-ever launch with no cache and no reachable catalogue is an unusable state, and it says so plainly.
+
+**On the paused path**, the same principles apply to a versioned static artifact and a current-version pointer served from the same static-delivery path as the app (§9.3). The database would be the maintenance and authoring store, never the live app's runtime dependency. Either way, the live application holds no database credential and makes no database call.
+
+### 2.9 Cost restraint and provider neutrality
+
+The logical model is Postgres-compatible and must not depend on a proprietary hosting feature without a justified need.
+
+The target avoids requiring a paid AI API. Exact matching, thresholds, confidence bounds, policy checks and publication are deterministic. AI is used only for genuinely semantic work such as ambiguous identity mapping, strategic-distinction assessment and explanations.
+
+Evidence availability may prove a larger cost or feasibility constraint than the AI runner. No maintenance engine is committed until the evidence source, permitted retrieval method, useful granularity and recurring cost are verified.
+
+---
+
+## 3. Topology
+
+### 3.1 Active Stage-1 topology
+
+Components on the active path:
+
+- **Google Sheets:** the canonical authored catalogue and the owner's day-to-day authoring workbench. It is in the runtime path and stays there. It must not be made private, restricted or removed while the PWA depends on `action=data` ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §7).
+- **Google Apps Script:** retained for **both** routes — `action=data` (catalogue API) and `action=roster` (Comlink proxy). Neither is retired in Stage 1.
+- **Comlink:** existing read-only roster source, unchanged.
+- **PWA:** fetches, validates, caches and renders the `action=data` payload cache-first (§2.8).
+- **Cloudflare Workers static assets:** serves the PWA from two deployments — a **development Worker** (publicly reachable, `noindex`, no credentials or personal data, treated as a preview rather than an access-controlled environment) and a **production Worker** (what the live app is served from, updated only through an explicit manual `workflow_dispatch` from a reviewed, merged pull request). See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2, §1.5, §1.6, §3.
+- **GitHub (Free plan):** the private development repository remains the source of truth — source, tests, documentation, deployment workflows, and the paused database assets. Repository secrets plus explicit manual `workflow_dispatch` triggers are the production gate, in place of GitHub Environments (not available for a private repository on GitHub Free); see [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1, §3.
+- **Existing public `gac-helper` repository and its GitHub Pages deployment:** retained, unchanged, as the fallback production route through the Stage-1 acceptance window (§14–§15); retired only at the ARCH-112 exit gate.
+
+The active data flow:
+
+```text
+Owner edits Google Sheet
+        |
+        v
+Apps Script action=data  --------+        Apps Script action=roster --> Comlink
+        |                        |                 |
+        v                        |                 v
+PWA fetch and validate           |        PWA roster import (unchanged)
+        |                        |
+   valid? --no--> keep cached known-good catalogue, report stale
+        |
+       yes
+        |
+        v
+Replace cache, render; subsequent launches render cache first
+```
+
+Catalogue delivery and application deployment are independent. A catalogue change is a Sheet edit and needs no deployment; an application change is a deployment and needs no catalogue action.
+
+### 3.2 Future database-backed topology
+
+> **Status: paused.** §3.2 and §§4–13 describe the database-backed maintenance evolution. No part of it is active Stage-1 work, and none of it may be deployed before GATE-150 selects a persistent maintenance-store provider and the paused implementation is revalidated against it. The design and its implementation are preserved unchanged, not abandoned ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §8).
+
+Additional components this evolution would introduce:
+
+- **A Postgres-compatible database** holding the canonical catalogue, evidence, assessments, findings, authoring records and release metadata. **No provider is selected.** Supabase was previously selected and that selection is withdrawn; Neon is a candidate, not a decision. Development and schema rehearsal use a local, disposable Postgres instance, as they do today.
+- **A deterministic maintenance runner:** scheduled ingestion and rule-based analysis, with AI invoked only for bounded semantic cases. Selection remains deferred to the Stage 2 evidence gate (§20).
+- **Immutable versioned catalogue artifacts and a current-version pointer,** served as static assets from the same Worker as the PWA.
+
+Under that evolution, Google Sheets would leave the runtime path and `action=data` would be retired — but only after a planned, reversible cutover with its own acceptance window. Neither happens in Stage 1.
+
+The desired eventual repository shape is illustrative:
+
+```text
+gac-helper/
+  app/                 PWA
+  maintenance/         ingestion, mapping, assessment and publication code
+  db/                  portable schema, migrations and database functions
+  data/                reviewed human-authored change files and migration seeds
+  catalogue/           generated static catalogue artifacts or manifests
+  docs/                product, architecture and operational authorities
+  tests/               contract, migration, policy and end-to-end tests
+```
+
+The database remains canonical after approved changes are applied. Files under `data/` are auditable inputs or change requests, not a second mutable catalogue.
+
+Its data flow would be:
+
+```text
+Human change request          External GAC evidence
+        |                              |
+        v                              v
+Validated authoring loader     Immutable observations
+        |                              |
+        |                    Deterministic mapping first
+        |                              |
+        |                    Semantic proposal if ambiguous
+        |                              |
+        +-----------> Findings and assessments
+                               |
+                    Deterministic policy applier
+                               |
+                      Canonical catalogue state
+                               |
+                 Candidate built from base release
+                               |
+                Whole-catalogue validation and lock
+                               |
+                 Immutable versioned static artifact
+                               |
+                  Current-version pointer updated
+                               |
+                    PWA cache then background refresh
+```
+
+Its components are those in §3.1 plus the database, the maintenance runner and the static catalogue artifacts listed above. Google Sheets would become a migration source and temporary cutover fallback rather than the runtime catalogue, and Apps Script would reduce to `action=roster`. That reduction is the end state of a future, separately approved cutover — not a Stage-1 outcome.
+
+---
+
+## 4. Data domains
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
+
+The schema has six domains:
+
+1. **Canonical catalogue** — units, strategic identities, profiles and matchups.
+2. **Accepted catalogue values** — the current tier, banner, undersize, threat and notes used to generate releases.
+3. **Human authoring** — idempotent reviewed changes and their application history.
+4. **Evidence and assessment** — source observations, mappings, assessments and findings.
+5. **Publication** — immutable release metadata, provenance and current-release state.
+6. **Application configuration** — board and scoring rules outside autonomous counter authority.
+
+All timestamps are timezone-aware. Stable public codes are immutable after publication. Internal relational keys may use UUIDs.
+
+---
+
+## 5. Canonical catalogue model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
+
+### 5.1 `units`
+
+One row per playable character, ship or capital ship.
+
+| Field | Purpose |
+|---|---|
+| `unit_id` | Stable internal readable key, preserving today's `Character_ID` |
+| `display_name` | Current user-facing name |
+| `external_id` | Game/Comlink base ID used only as a translation adapter |
+| `unit_type` | `CHARACTER`, `SHIP` or `CAPITAL_SHIP` |
+| `active` | Unit lifecycle state |
+| `created_at`, `updated_at` | Audit timestamps |
+
+Constraints:
+
+- `unit_id` is unique and immutable.
+- `external_id` is unique when present.
+- every required member of a published profile has a non-empty `external_id`;
+- automation may identify a missing unit but may not create or alter `external_id` without a trusted, human-approved source;
+- display-name changes do not change identity.
+
+### 5.2 `team_archetypes`
+
+One row per strategic team identity, regardless of attack or defence use.
+
+| Field | Purpose |
+|---|---|
+| `archetype_id` | Internal relational key |
+| `archetype_code` | Stable readable unique code |
+| `display_name` | User-facing identity |
+| `battle_type` | `SQUAD` or `FLEET` |
+| `status` | `ACTIVE`, `RETIRED` or `MERGED` |
+| `merged_into_id` | Successor identity for a merged row |
+| `identity_reason` | Controlled reason the identity exists |
+| `identity_reason_detail` | Required explanation for `OTHER_APPROVED` |
+| `created_by` | `HUMAN` or `AUTOMATION` |
+| `created_at`, `updated_at` | Audit timestamps |
+
+Initial `identity_reason` values:
+
+- `DISTINCT_LEADER`
+- `DISTINCT_CORE`
+- `DISTINCT_RESOURCE_CONFLICT`
+- `DISTINCT_MATCHUP_BEHAVIOUR`
+- `NEW_GAME_ARCHETYPE`
+- `LEGACY_MIGRATION`
+- `OTHER_APPROVED`
+
+At migration, every attack archetype preserves today's `Counter_ID` exactly as `archetype_code`. Existing display names and public mode strings remain byte-identical during cutover so persisted client state is not orphaned.
+
+### 5.3 `team_profiles`
+
+An archetype answers “what strategic team is this?” A profile answers “what does this team require in this role and format?”
+
+| Field | Purpose |
+|---|---|
+| `profile_id` | Internal key |
+| `archetype_id` | Parent identity |
+| `mode` | `ANY`, `3V3`, `5V5` or `FLEET` internally |
+| `usage_role` | `ATTACK` or `DEFENCE` |
+| `flex_slots` | Number of canonical flex positions |
+| `members_complete` | Whether membership is exhaustive for availability filtering |
+| `status` | `ACTIVE` or `RETIRED` |
+| `created_at`, `updated_at` | Audit timestamps |
+
+Unique on `(archetype_id, mode, usage_role)`.
+
+A mode-specific profile overrides `ANY`. Existing squad counter compositions migrate once as `ANY` attack profiles because they are currently shared across 3v3 and 5v5. A mode-specific row is introduced only where evidence or authoring proves the required core differs.
+
+`REQUIRED`, `RECOMMENDED` and `flex_slots` intentionally reproduce the current model. They do not express faction-constrained flex slots or alternative-member groups; those remain notes/recommended-member guidance until real cases justify a more complex schema.
+
+The app-facing payload continues to use the exact existing mode strings `3v3`, `5v5` and `FLEET`. Internal enum casing must never leak into persisted client keys.
+
+### 5.4 `team_profile_members`
+
+| Field | Purpose |
+|---|---|
+| `profile_id` | Parent profile |
+| `unit_id` | Member unit |
+| `member_role` | `REQUIRED` or `RECOMMENDED` |
+| `is_leader` | Canonical leader flag |
+| `sort_order` | Stable display order |
+
+Unique on `(profile_id, unit_id)`.
+
+Required-member changes receive stronger scrutiny because they affect ownership, resource conflicts and characters committed to defence.
+
+### 5.5 `matchups`
+
+One canonical relationship between a defence archetype and a counter archetype in a mode.
+
+| Field | Purpose |
+|---|---|
+| `matchup_id` | Internal key |
+| `mode` | `3V3`, `5V5` or `FLEET` |
+| `defence_archetype_id` | Defending identity |
+| `counter_archetype_id` | Attacking identity |
+| `status` | `ACTIVE` or `RETIRED` |
+| `created_at`, `updated_at` | Audit timestamps |
+| `retired_at` | Retirement timestamp |
+| `retired_reason` | Evidence-backed reason |
+| `retired_by_run_id` | Maintenance run where applicable |
+
+Hard uniqueness:
+
+```text
+(mode, defence_archetype_id, counter_archetype_id)
+```
+
+### 5.6 `matchup_catalogue_values`
+
+The current accepted player-facing values for a matchup.
+
+| Field | Purpose |
+|---|---|
+| `matchup_id` | One-to-one parent |
+| `tier` | `S`, `A`, `B` or `C` |
+| `banner_score` | Full-squad, first-attempt, clean-clear expected value |
+| `undersize` | Safe droppable-unit count |
+| `notes` | Human-authored tactical advice |
+| `tier_authority` | `AUTHORED_LOCKED`, `AUTHORED_BASELINE` or `ASSESSED` |
+| `banner_authority` | Same authority states |
+| `undersize_authority` | Same authority states |
+| `source_assessment_id` | Assessment supporting an assessed value |
+| `source_finding_id` | Applied finding where relevant |
+| `updated_at` | Audit timestamp |
+
+Notes are human-authored only in the initial architecture and have no autonomous authority state.
+
+A high-confidence assessment may update `AUTHORED_BASELINE` tier values through the deterministic applier. `AUTHORED_LOCKED` values can produce findings but cannot be changed autonomously.
+
+Banner and undersize remain human-authored during the initial autonomous implementation because the proposed aggregate evidence cannot reliably derive their current product meanings. Automation may create `OBSERVE` or `ESCALATE` findings about them but may not publish changes until a later evidence contract proves that first-attempt, team-size and clean-win semantics are available.
+
+### 5.7 `defence_catalogue_values`
+
+One current value row per defence archetype and applicable mode.
+
+| Field | Purpose |
+|---|---|
+| `archetype_id`, `mode` | Defence identity and format |
+| `threat` | `LOW`, `NORMAL`, `HIGH` or `EXTREME` |
+| `notes` | Human-authored defence guidance |
+| `threat_authority` | `AUTHORED_LOCKED`, `AUTHORED_BASELINE` or `ASSESSED` |
+| `source_assessment_id`, `source_finding_id` | Provenance |
+| `updated_at` | Audit timestamp |
+
+A mode-specific row overrides `ANY`.
+
+### 5.8 Counter-less defence identities
+
+A defence archetype may exist without a published counter. The app-facing catalogue includes it so the user can place it on a board, receive its threat classification, and see an explicit “no counters in the catalogue yet” result.
+
+Allocation and Battle Order must handle a zero-candidate defence safely.
+
+---
+
+## 6. Human authoring model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+On the active path, human authoring is editing the Google Sheet directly. The change-file, loader and authority-state model below is implemented (ARCH-107) and paused.
+
+
+
+Human authoring uses reviewed, version-controlled change files or an equivalent agent-generated interface. It must be usable without direct SQL.
+
+A change contains:
+
+- stable change ID;
+- author and timestamp;
+- intended entity and operation;
+- expected current/base release;
+- structured values;
+- authority state for judgement fields;
+- concise reason.
+
+The loader is idempotent and records applied changes in `authoring_changes`. It validates identifiers, relationships, enums, banner bounds and required external IDs before mutating canonical state.
+
+Human publication uses the same candidate generator and validator as maintenance publication, with:
+
+- `maintenance_run_id = NULL`;
+- `release_reason = AUTHORING`;
+- full provenance back to the authoring change.
+
+Initial migration seeds may contain the complete legacy catalogue. After cutover, routine files should describe discrete changes rather than duplicate the full database.
+
+`Score_Meanings` is not migrated as runtime data. Its enduring guidance remains in `SCORING_REFERENCE.md`.
+
+---
+
+## 7. Evidence model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
+
+### 7.1 Evidence-source entry gate
+
+Stage 2 may not begin until a short spike identifies:
+
+1. the exact provider and dataset;
+2. a stable retrieval method;
+3. evidence that automated retrieval is permitted;
+4. the available dimensions and aggregation semantics;
+5. representative sample sizes by matchup and mode;
+6. recurring cost;
+7. retry, rate-limit and source-outage behaviour.
+
+If no lawful, sufficiently useful and acceptably priced source exists, the programme stops after Stage 1. The canonical platform and improved authoring/publication model remain independently valuable.
+
+### 7.2 `evidence_sources`
+
+| Field | Purpose |
+|---|---|
+| `source_id` | Internal key |
+| `source_code` | Stable provider code |
+| `name` | Display name |
+| `active` | Ingestion state |
+| `priority` | Deterministic precedence |
+| `terms_checked_at` | Date retrieval permission was last confirmed |
+| `retrieval_contract_version` | Parser/source contract version |
+
+### 7.3 `evidence_observations`
+
+One immutable retrieved source grouping.
+
+| Field | Purpose |
+|---|---|
+| `observation_id` | Internal key |
+| `source_id` | Provider |
+| `maintenance_run_id` | Ingestion run |
+| `source_cycle_key` | Provider's exact cycle identifier |
+| `mode` | Relevant GAC mode |
+| `observed_defence_signature` | Deterministic external-unit-ID signature |
+| `observed_attack_signature` | Deterministic external-unit-ID signature |
+| `source_url` | Traceable location |
+| `source_data` | Original useful fields as JSONB |
+| `content_hash` | Idempotency key |
+| `retrieved_at` | Retrieval timestamp |
+
+Do not freeze guessed provider measures into the Stage 1 schema. Normalised battle counts, wins and other measures are added in Stage 2 only after the provider contract is known. Raw source semantics remain preserved in `source_data`.
+
+Individual battles or distribution buckets are added only if the selected source supplies them and a supported assessment needs them.
+
+### 7.4 `evidence_mappings`
+
+| Field | Purpose |
+|---|---|
+| `observation_id` | Source observation |
+| `defence_archetype_id` | Mapped defence |
+| `counter_archetype_id` | Mapped counter |
+| `mapping_confidence` | Numeric mechanical bound from 0 to 1 |
+| `mapping_method` | `EXACT`, `RULE` or `AI` |
+| `mapping_outcome` | `CANONICAL`, `FLEX_VARIANT`, `UNDERSIZED_VARIANT`, `EXPANDED_VARIANT` or `UNRESOLVED` |
+| `observed_attack_unit_count` | Supports safe interpretation of team size |
+| `mapping_notes` | Concise rationale |
+
+A strict subset of an existing profile maps as `UNDERSIZED_VARIANT` and cannot justify a new archetype or required-core change. Added members consume flex slots first and map as `EXPANDED_VARIANT` where appropriate.
+
+AI may lower mapping confidence because of semantic ambiguity but may not raise it above the mechanical bound.
+
+---
+
+## 8. Assessment and maintenance model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
+
+### 8.1 `matchup_assessments`
+
+Append-only assessment of a matchup.
+
+| Field | Purpose |
+|---|---|
+| `assessment_id` | Internal key |
+| `matchup_id` | Assessed relationship |
+| `maintenance_run_id` | Producing run |
+| `normalised_measures` | Provider-independent measures as JSONB |
+| `proposed_tier` | Proposed `S`, `A`, `B` or `C` |
+| `proposed_banner_score` | Advisory only until evidence eligibility is proven |
+| `proposed_undersize` | Advisory only until evidence eligibility is proven |
+| `confidence_score` | Numeric mechanical confidence from 0 to 1 |
+| `evidence_summary` | Concise evidence explanation |
+| `reasoning_summary` | Policy/semantic reasoning |
+| `method_version` | Algorithm version |
+| `created_at` | Timestamp |
+
+Confidence bands are derived for display rather than stored independently.
+
+### 8.2 `defence_assessments`
+
+Append-only assessment of a defence archetype and mode, containing provider-supported measures, proposed threat, confidence, reasoning, method version and run provenance.
+
+Threat remains deliberately coarse and serves battle ordering rather than a general meta ranking.
+
+### 8.3 `maintenance_runs`
+
+| Field | Purpose |
+|---|---|
+| `run_id` | Internal key |
+| `cycle_key` | One completed three-round GAC event identifier |
+| `mode` | `3V3`, `5V5` or `FLEET` |
+| `attempt` | Retry/supersession number |
+| `triggered_at`, `evidence_ready_at`, `completed_at` | Lifecycle timestamps |
+| `status` | Run state/result |
+| `policy_version` | Enforced policy revision |
+| `analyst_version` | Semantic component version, if used |
+| `source_snapshot` | Retrieval metadata |
+| `published_release_id` | Resulting release where applicable |
+
+`cycle_key` uses a documented stable form such as `S{season}-E{event}` and represents a completed GAC event, not one battle round. Source round data may be aggregated into the event.
+
+A partial unique constraint permits only one active attempt for `(cycle_key, mode)` while retaining failed and superseded attempts.
+
+Fleet is a peer mode, not a boolean attached to squad runs.
+
+### 8.4 `maintenance_findings`
+
+Initial finding types:
+
+- `NEW_ARCHETYPE`
+- `NEW_MATCHUP`
+- `TIER_CHANGE`
+- `BANNER_CHANGE`
+- `UNDERSIZE_CHANGE`
+- `THREAT_CHANGE`
+- `COMPOSITION_CHANGE`
+- `NOTE_CHANGE`
+- `POSSIBLE_DUPLICATE`
+- `STALE_MATCHUP`
+- `RETIREMENT_CANDIDATE`
+- `MISSING_UNIT`
+
+Core fields include run, type, subject, structured proposed change, mechanical confidence, decision, reasoning, proposed policy version, enforced policy version and application result.
+
+Decision meanings:
+
+| Decision | Meaning | Human action |
+|---|---|---|
+| `PUBLISH` | Eligible for deterministic application and candidate validation | None |
+| `OBSERVE` | Potentially meaningful but insufficient | None |
+| `ESCALATE` | Material decision cannot safely be resolved by policy | User decision |
+| `REJECT` | Noise, invalid evidence, duplication or disproven hypothesis | None |
+
+A `PUBLISH` decision is a proposal, not permission to write canonical state. The deterministic applier re-evaluates policy.
+
+---
+
+## 9. Publication model
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+The active path publishes no catalogue artifact and maintains no release pointer: a catalogue change is a Sheet edit, visible through `action=data` immediately. The `READY`/`DEPLOYED` protocol below is implemented (ARCH-108 Phase A) and paused. Its principles — verify after deploying, never advertise an unverified release, recover idempotently — still govern *application* deployment to Cloudflare (§14).
+
+
+
+### 9.1 `catalogue_releases`
+
+Each release records:
+
+| Field | Purpose |
+|---|---|
+| `release_id` | Internal key |
+| `version` | Monotonic public version |
+| `payload_schema_version` | App compatibility contract |
+| `base_release_id` | Release used to construct the candidate |
+| `previous_release_id` | Explicit published chain |
+| `maintenance_run_id` | Producing run, nullable for migration/authoring |
+| `release_reason` | `MIGRATION`, `AUTHORING`, `MAINTENANCE` or `APPROVED_OVERRIDE` |
+| `scope` | Release metadata |
+| `status` | `CANDIDATE`, `PUBLISHED`, `SUPERSEDED` or `REJECTED` |
+| `payload` | Complete generated JSON |
+| `checksum` | Integrity/idempotency |
+| `created_at`, `published_at` | Lifecycle timestamps |
+
+The payload includes:
+
+- payload schema and catalogue versions;
+- units and external-ID mapping;
+- attack and defence identities;
+- resolved profiles and compositions;
+- matchups;
+- tier, banner, undersize and notes;
+- threat and defence notes;
+- board configuration and scoring;
+- provenance references ignored by the PWA but retained for audit.
+
+### 9.2 `catalogue_state` and concurrency
+
+A singleton row holds `current_release_id`.
+
+Publication spans two independent systems — the database and Cloudflare Workers — and is **not** one atomic transaction across them. It uses a `READY`/`DEPLOYED` release lifecycle with HTTP verification between phases, defined precisely in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.1:
+
+1. generate and validate a candidate against an explicit base release (no writes yet);
+2. in a short database transaction: take the advisory lock, re-check the base release, allocate the monotonic version, insert an immutable release with `status = READY`, and commit **without** moving `current_release_id`;
+3. write the immutable artifact and static pointer;
+4. deploy artifact and pointer together as one Cloudflare Worker version;
+5. verify over HTTP — pointer, artifact, payload schema version, catalogue version, checksum;
+6. in a second short database transaction, mark the release `DEPLOYED` and move `current_release_id`;
+7. record the deployed commit SHA and the Cloudflare version/deployment identifier on the release row.
+
+Recovery for every failure window in this sequence (Cloudflare deployment failure, HTTP verification failure, database finalization failure) is defined in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4.2, including an idempotent reconciliation command and a GitHub Actions concurrency group that prevents two production deployments running simultaneously. A failed artifact write does not advertise the new release. A failed pointer write, or a verification failure, leaves clients on the prior artifact and leaves the release `READY` rather than `DEPLOYED`.
+
+### 9.3 Static artifact and client contract
+
+Static artifacts are served as Cloudflare Workers static assets, from the same Worker that serves the PWA (see [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4). The mechanism provides:
+
+- immutable versioned URLs;
+- a tiny current-version pointer;
+- the safely-ordered, verified publication sequence in §9.2 (not a single cross-system atomic transaction);
+- compatibility with the existing static host;
+- retention of prior compatible releases;
+- no database dependency for ordinary PWA reads.
+
+The static deployed pointer is authoritative for what the phone currently sees. The database's `current_release_id` records the verified-deployed state as understood by the publication tooling, and is expected to agree with the static pointer once step 6 above completes.
+
+The PWA:
+
+- validates `payload_schema_version` and required fields before use;
+- renders a cached known-good payload first;
+- refreshes in the background;
+- never overwrites the cache with an invalid response;
+- keeps the cached payload when the pointer, artifact or network is unavailable;
+- refuses an incompatible major schema version cleanly;
+- checks HTTP status and never treats an error body as a catalogue.
+
+Rollback may select only a release compatible with the deployed app.
+
+---
+
+## 10. Deterministic application configuration
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+On the active path, board configuration and scoring rules remain Sheet tabs served by `action=data`, exactly as `SPEC.md` describes.
+
+
+
+### 10.1 `gac_board_config`
+
+Stores league, mode, territory, territory type, team count and ordering.
+
+### 10.2 `gac_scoring_rules`
+
+Stores the deterministic scoring rules currently represented by `GAC_Scoring`.
+
+The maintenance system has no authority over either domain. Changes use the human authoring path.
+
+### 10.3 Tactical notes
+
+Matchup and defence notes are human-authored only in the initial design. Statistical evidence may produce a `NOTE_CHANGE` finding, but it cannot mutate notes or publish generated tactical advice.
+
+---
+
+## 11. Autonomous decision policy
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+Every safeguard in this section — evidence thresholds, authority states, hysteresis, anomaly circuit breakers and the bootstrap/steady-state separation in §11.13 — remains accepted policy for if and when automated maintenance is activated. None of it is a Stage-1 dependency, and no Stage-1 work package activates any of it.
+
+
+
+The machine-readable policy lives in version control, for example `maintenance/policy.yaml`. Automation may apply it but cannot change it.
+
+The initial engine's primary value is maintenance of existing knowledge: tier drift, threat calibration, duplicate detection, staleness and coverage gaps. Rapid discovery after a new character release remains primarily served by human authoring because strong population evidence will not yet exist.
+
+### 11.1 Eligibility and weighting
+
+Evidence remains mode-specific. Provisional recency weighting:
+
+- current completed same-format event: 60%;
+- previous same-format event: 25%;
+- earlier same-format evidence: 15%.
+
+Both raw and effective sample sizes are recorded. Exact weights remain tunable after report-only runs.
+
+### 11.2 Confidence
+
+Mechanical confidence considers volume, consistency, recency, mapping certainty, source quality and stability.
+
+Only one numeric score from 0 to 1 is canonical per assessment or mapping. Display bands are derived. AI can lower the bound, never raise it.
+
+### 11.3 New archetypes
+
+The system tries every existing-identity interpretation first.
+
+Initial parameters:
+
+- fewer than 25 relevant observations: reject/ignore;
+- 25–99: observe;
+- 100 or more plus a permitted strategic distinction: eligible for proposal;
+- maximum five proposed new archetypes per run.
+
+An official new leader may establish identity earlier, but its matchups still require performance evidence. Creation occurs only through the deterministic applier.
+
+### 11.4 New matchups and usefulness
+
+Initial evidence guidance:
+
+| Relevant attempts | Default outcome |
+|---:|---|
+| Fewer than 20 | Reject/ignore |
+| 20–49 | Observe |
+| 50–99 | Observe unless exceptionally strong and stable |
+| 100+ | Eligible for proposal |
+| 250+ | Strong |
+| 1,000+ | Very strong |
+
+An ordinary matchup initially requires about 80% weighted win rate. An S-tier candidate normally requires about 90%.
+
+A new matchup must improve reliability, resource diversity, accessibility, banners, safe undersize or coverage. Redundant statistically valid matchups remain evidence rather than cluttering the catalogue.
+
+### 11.5 Tier and authority
+
+Tier continues to mean reliability, not banner efficiency.
+
+Population evidence is a proxy for the product's personal reliability judgement, not an identical concept.
+
+Initial candidate bands:
+
+- S: about 90% or better;
+- A: about 80–89.9%;
+- B: about 65–79.9%;
+- C: below that only when strategically useful.
+
+`AUTHORED_LOCKED` tier cannot change autonomously. `AUTHORED_BASELINE` may change only with high confidence, mechanical support and no material caveat. `ASSESSED` may change routinely within policy.
+
+Hysteresis limits normal movement to one tier per run. Larger movement stages or escalates.
+
+### 11.6 Banner and undersize
+
+Banner score retains its current product meaning: full-squad, first-attempt, clean-clear expected value. Undersize remains the safe recommended drop count, not the largest observed stunt clear.
+
+Neither value is autonomously publishable in the initial engine because aggregate win-rate and average-banner evidence cannot reliably remove cleanup attempts, losses, team-size effects or non-clean wins.
+
+Automation may create evidence-backed `OBSERVE` or `ESCALATE` findings. Autonomous publication becomes eligible only after a later, reviewed evidence contract supplies the necessary attempt-number, fielded-unit and clean-win semantics.
+
+Any future banner change that crosses the mode's First Attack messiness threshold requires high confidence and explicit validation.
+
+### 11.7 Threat
+
+Threat uses `LOW`, `NORMAL`, `HIGH` and `EXTREME`. It may draw on provider-supported hold rate, attacking strength, banners conceded, cleanup rate and failed first attempts.
+
+`AUTHORED_LOCKED` threat remains fixed. Other threat values move slowly and never follow popularity alone.
+
+### 11.8 Composition mapping and change
+
+A strict subset of a known attack profile is an undersized variant. An expanded composition consumes flex slots before suggesting a profile change. Ordinary member variation is presumed to be flex or recommended-member variation first.
+
+Required-core changes need high confidence because they affect roster availability and committed-defence filtering.
+
+### 11.9 Duplicate detection and merging
+
+Duplicate detection is proactive. Automatic merging is initially limited to provably equivalent migration duplicates. Other merge proposals escalate because they alter stable identities and dependent relationships.
+
+### 11.10 Staleness and retirement
+
+Absence is not immediate invalidity.
+
+Initial same-format-event guidance:
+
+- one to two events: no action;
+- about three: mark stale internally;
+- four to five: review candidate;
+- longer: retirement eligibility only with supporting meta evidence.
+
+Retirement preserves history. It is stricter than addition.
+
+### 11.11 Conflicting sources
+
+Sources remain separate and are not averaged blindly. Policy records priority, reliability and semantic compatibility.
+
+Immature disagreement becomes `OBSERVE`. It escalates only if it blocks an important decision that cannot wait.
+
+### 11.12 Run-level anomalies and override
+
+Publication stops when the run resembles a parser or mapping failure.
+
+Initial examples use both percentages and absolute floors, such as:
+
+- more than five proposed new archetypes;
+- tier changes exceeding the greater of 25% or a configured absolute count;
+- retirements exceeding the greater of 10% or a configured absolute count;
+- widespread banner movement in one direction;
+- unusually high mapping failure;
+- implausible source-volume change.
+
+An anomaly preserves evidence and blocks routine publication. A human may deliberately publish through `APPROVED_OVERRIDE` only after the waived anomaly, approver and reason are recorded. Bootstrap runs also enforce a configurable maximum number and proportion of canonical additions or changes per publication wave; exceeding either limit creates a review batch rather than an oversized release.
+
+### 11.13 Bootstrap and steady-state operating modes
+
+The first full catalogue passes are not ordinary maintenance runs. The system has two explicit operating modes:
+
+- **Bootstrap mode** — broad discovery and calibration for one squad format at a time, first `5V5` and then `3V3`. Discovery may be large, but candidates remain staged and publication occurs only in small, evidence-ranked waves.
+- **Steady-state maintenance mode** — the recurring same-format cycle entered only after both bootstrap stages have passed their human acceptance gates.
+
+Bootstrap mode keeps discovery, candidate generation, validation and publication as separate states. A discovery pass may identify hundreds of missing defences or possible matchups without making any canonical change. Promotion requires the ordinary evidence, usefulness, validation and anomaly rules plus the bootstrap-specific batch ceiling.
+
+The migrated hand-authored catalogue is the trusted seed and calibration set:
+
+- existing provenance and authority states are preserved;
+- `AUTHORED_LOCKED` values remain immutable to automation;
+- automated evidence may challenge an `AUTHORED_BASELINE` judgement, but a bootstrap disagreement becomes a reviewable proposal and is never a silent overwrite;
+- curated examples are exercised as regression and calibration cases, including prior human downgrades or other experience-backed exceptions;
+- the acceptance report distinguishes rediscovery, agreement, disagreement, genuinely new coverage and rejected noise.
+
+Evidence precedes inference. Observed matchup data is the primary basis for a candidate; semantic analysis may interpret, normalise or identify ambiguity, but it cannot manufacture a canonical counter without supporting evidence. Each candidate records its source provenance, raw and effective sample size, recency, observed performance measures, banner evidence where available, mechanical confidence and resulting decision state.
+
+Sparse evidence must remain visibly sparse. The system may retain an unknown or low-confidence banner estimate in staging, but it must not manufacture a precise player-facing value. Under the initial authority model, a new matchup that lacks an eligible banner value remains staged until human authoring or a later approved evidence contract supplies one.
+
+Each bootstrap mode begins with a complete shadow pass and ends with a compact human acceptance report covering discovery volume, promotion volume, rejection/hold volume, confidence distribution, disagreement with curated data, representative high-impact additions or changes, and any circuit-breaker events. Passing `5V5` does not validate `3V3`: composition patterns, sample sizes, banner behaviour and matchup volatility are calibrated independently.
+
+Only completion of both bootstrap stages authorises steady-state autonomous maintenance. Even then, the run-level anomaly gates and mass-change ceilings remain active so a provider, parser or mapping failure cannot rewrite a large fraction of the catalogue in one cycle.
+
+---
+
+## 12. Publication validation
+
+> **Status: paused future database-backed maintenance evolution** (§0, §3.2). Not active Stage-1 work; gated behind GATE-150. Preserved unchanged as a future migration asset.
+
+
+
+### 12.1 Structural validation
+
+The validator proves:
+
+- no orphan IDs or duplicate matchup keys;
+- valid lifecycle transitions;
+- every required member references a compatible unit with a unique non-empty external ID;
+- valid profiles, roles, modes, tiers and threats;
+- banner and undersize values within mode limits;
+- no invalid active reference to a retired or merged identity;
+- payload schema and checksum validity;
+- release/base/version consistency;
+- run-level anomaly gates.
+
+### 12.2 Product-contract validation
+
+The validator also proves:
+
+- app-facing mode keys are exactly `5v5`, `3v3` and `FLEET`;
+- exactly one positive finite `SETTING_DEFENCE / ANY / ANY` rule exists;
+- every league/mode has the required territories in canonical order and exactly one Fleet territory;
+- banner ceilings and undersize limits match `SCORING_REFERENCE.md`;
+- required counter IDs and defence display names do not disappear without an explicit compatible rename migration;
+- counter-less defence identities are handled deliberately;
+- board and scoring configuration can produce the current app contract;
+- the complete PWA payload can be generated;
+- provenance exists for each assessed value;
+- the candidate remains compatible with persisted client state.
+
+If any validation fails, publish nothing.
+
+---
+
+## 13. Security and authority boundaries
+
+**Active path.** Two boundaries apply now and are absolute:
+
+- **The live PWA never holds a database credential**, of any kind, in any environment. On the active path no database exists at all, and the app makes only unauthenticated HTTP reads against Apps Script and against its own Cloudflare origin.
+- **The development Worker is a public, unauthenticated preview surface.** No credential, ally code, real roster data or owner-identifying provenance may ever be served from it ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.5).
+
+The only Stage-1 secrets are the Cloudflare deploy token and the existing `LIVE_REPO_PAT`. No database role, connection string or evidence-provider credential exists ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §2).
+
+**Paused path.** The role model below applies when the database path is revalidated at GATE-150. It is preserved unchanged, including the `SECURITY DEFINER` controls in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §9.1.
+
+Use least-privilege roles or equivalent narrow operations:
+
+- **Authoring loader:** applies reviewed human changes through validation; cannot change schema or policy.
+- **Evidence ingester:** inserts observations and run metadata only.
+- **Maintenance analyst:** inserts mappings, assessments and findings only.
+- **Deterministic applier:** re-evaluates policy and performs permitted canonical mutations.
+- **Publisher:** generates, validates and records releases; changes the current pointer only through the publication transaction.
+- **Migration/admin:** used only for approved schema and migration work.
+
+The live PWA needs no database role because it reads static public catalogue artifacts.
+
+The analyst and maintenance runner cannot write:
+
+- units or external IDs;
+- archetypes, profiles or matchups;
+- accepted catalogue values;
+- board or scoring configuration;
+- policy or schema;
+- releases or current-release state;
+- notes;
+- credentials or permissions.
+
+The deterministic applier demotes a finding to `OBSERVE` when enforced policy fails and records why. It checks the policy version itself rather than trusting the analyst's claim.
+
+Retrieved third-party content is untrusted data. Instructions embedded in it are never followed, and no retrieval path can alter schema, policy, credentials, permissions, application code or the release pointer.
+
+---
+
+## 14. Repository and environments
+
+The desired endpoint remains one authoritative repository with explicit development and production environments. The private development repository (this one) remains the authoritative source throughout; it is never made public as part of this consolidation.
+
+The account is GitHub Free. GitHub Environments with required reviewers, and GitHub Pages served from a private repository, are not available on that plan. Repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 substitute production gate, and Cloudflare Workers static assets — not private-repository GitHub Pages — is the selected production static host. See [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1–§3 for the full decision and its rejected alternatives, and [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §11 for the reduced set of plan-feature and provider facts ARCH-104 must re-verify before relying on them.
+
+**Two Cloudflare deployments.** A development Worker and a production Worker are maintained separately (§3.1). The development Worker is where an application change is inspected before promotion; the production Worker is updated only by an explicit manual `workflow_dispatch` from a reviewed, merged pull request. They can drift, and the development Worker's content constraints apply permanently.
+
+**Deployment is distributed state, even without a database.** Removing the database from the live catalogue path removes the cross-system *publication* protocol; it does not remove deployment concerns. A Cloudflare deployment can fail or partially propagate, so every production deployment is verified over HTTP afterwards — the app loads, the expected build is served, and a catalogue fetch against `action=data` succeeds from that origin — and every deployment must be reversible to a verified known-good prior version. See [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §6.
+
+Because the production host changes, **the production URL changes.** This is not a side effect to be absorbed silently: the origin change is its own explicit migration, requiring client-state export/import so a player's roster, boards, templates, used counters and preferences survive the move. It is sequenced as ARCH-111/ARCH-112, detailed in §15.0, and depends on cache-first catalogue behaviour, Apps Script failure fallback, and the deployment and rollback runs being operable end to end before any player-facing cutover.
+
+**Manual operation is mandatory**, not merely available. On the active path this means a manual development deployment, a manual production deployment and a manual deployment rollback, each independent of any schedule; see §16, "Manual run entry points". The manual authoring, candidate/review and database publication runs pause with the database path. Scheduling, where it eventually exists, is an additional trigger for the same underlying commands, never the only way to operate the system.
+
+Prerequisites for consolidation:
+
+- CI runs the complete test and validation suite;
+- public deployment remains fail-closed and allow-listed;
+- private docs, tests, database code, migration evidence, personal identifiers and secrets cannot enter the public artifact;
+- environment configuration and secrets are external to source;
+- production remains an explicit promotion of a tested commit or artifact;
+- the current live repository remains recoverable until the consolidated route is proved.
+
+Repository consolidation is completed within Stage 1 (ARCH-111) as the preparation for the origin cutover (ARCH-112), and must not be combined atomically with that cutover. Since the active path performs no catalogue-platform migration, consolidation and the origin change are the substance of the remaining Stage-1 delivery rather than a follow-on to a database cutover.
+
+The existing public `gac-helper` repository and its GitHub Pages deployment remain an untouched fallback through the Stage-1 acceptance window: they are not modified, degraded or pre-emptively retired by adopting Cloudflare Workers for the new production host. They are retired, and `LIVE_REPO_PAT` revoked, only at the approved ARCH-112 exit gate — see §15.0.
+
+---
+
+## 15. Migration and cutover
+
+Migration optimises for recoverability rather than prolonged dual-write.
+
+**Active Stage-1 cutover is the production-origin change in §15.0 — and only that.** The catalogue-platform migration in §15.1–§15.4 is paused with the database path (§0); its artifacts and reconciliation evidence are already captured and preserved, and it is revalidated at GATE-150 rather than executed now. The catalogue itself does not move in Stage 1: the new Cloudflare origin fetches the same `action=data` payload from the same Apps Script deployment as the current GitHub Pages origin.
+
+### 15.0 Production-origin change (ARCH-111/ARCH-112)
+
+The production **hosting origin** changes from GitHub Pages to Cloudflare Workers (§14), which also changes the production URL. Because all player-specific state lives in browser `localStorage` keyed to the origin (`SPEC.md` §3.4), a bare origin change would silently strand a player's roster, boards, templates, used counters and preferences. The origin change is therefore its own explicitly approved migration, ARCH-111/ARCH-112, and is not performed as a side effect of any other work package:
+
+1. implement and test client-state export on the old origin;
+2. implement and test client-state import on the new origin;
+3. export before cutover;
+4. deploy and verify the new Cloudflare origin;
+5. import state and re-import the roster by ally code;
+6. verify boards, templates, used counters, preferences, and offline behaviour;
+7. keep the old origin unchanged through at least one complete GAC event;
+8. retire the old deployment and `LIVE_REPO_PAT` only at the approved exit gate.
+
+No step of this sequence is performed by any other work package; it is authorised only by ARCH-111/ARCH-112 under their own explicit approval.
+
+The one-time client-state export/import is the owner's, performed once, on the two origins. The roster is re-imported by ally code on the new origin through the unchanged `action=roster` route.
+
+### Catalogue-platform migration (paused)
+
+> **Status: paused.** §15.1–§15.4 describe the catalogue-platform migration that moves the canonical catalogue off Google Sheets. It is not active Stage-1 work and is gated behind GATE-150. Its required artifacts (§15.1) are already captured and committed, and the reconciliation and identity-preservation requirements below remain binding on any future attempt.
+
+### 15.1 Required artifacts
+
+Before mutation:
+
+- commit a timestamped export of every relevant Sheet tab as a private migration artifact;
+- capture the current Apps Script `action=data` response as a golden payload;
+- record current counts, identifiers, names, modes and required-member external-ID coverage;
+- retain the current Sheet and `action=data` route unchanged through at least one complete GAC event after production cutover.
+
+### 15.2 Identity preservation
+
+At cutover:
+
+- every attack `archetype_code` equals today's `Counter_ID`;
+- defence display names remain byte-identical;
+- app-facing modes remain exactly `5v5`, `3v3` and `FLEET`;
+- no rename occurs without a versioned client-state migration.
+
+This protects persisted `usedTeams`, `defenceTemplate:5v5`, `defenceTemplate:3v3`, `boardData` and `myBoardData` state.
+
+### 15.3 Mandatory reconciliation and acceptance
+
+Any future catalogue-platform migration must prove (these were Stage-1 criteria before the re-baseline; they are now GATE-150's):
+
+1. new payload equals the captured Apps Script payload in all current product semantics, allowing only documented ordering or additive provenance fields;
+2. entity counts reconcile to the Sheet export, with every discrepancy explained;
+3. every current `Counter_ID` survives;
+4. every defence display name survives;
+5. every defence identity maps to exactly one archetype or is explicitly unresolved;
+6. fixture-roster ownership and availability results are identical;
+7. required-unit external-ID coverage is not reduced;
+8. board territory order, type and count are identical;
+9. scoring preconditions and documented worked examples remain correct;
+10. current tests plus payload, caching and compatibility tests pass in CI;
+11. an offline cold PWA launch can complete a representative round from cache;
+12. a deliberately rejected candidate changes nothing;
+13. a published test release can be rolled back successfully;
+14. the owner can add one counter through the human authoring path and publish it without SQL.
+
+### 15.4 Cutover sequence
+
+1. apply the complete reviewed schema;
+2. load the migration seed;
+3. resolve reported duplicates and ambiguous identities;
+4. generate the legacy-migration candidate;
+5. pass the reconciliation suite;
+6. publish a static development artifact;
+7. adapt the PWA to separate catalogue and roster-proxy URLs;
+8. validate cache-first and offline behaviour;
+9. validate production promotion and rollback;
+10. cut production to the static catalogue;
+11. retain Sheet/`action=data` fallback for at least one complete GAC event;
+12. archive the Sheet and retire only `action=data` after acceptance;
+13. retain Apps Script `action=roster`.
+
+A long-lived dual-write system is not required.
+
+---
+
+## 16. Minimal implementation sequence
+
+The programme uses five stages. Two gates sit before Stage 2 — the persistent maintenance-store gate (GATE-150) and the evidence and runner entry gate (GATE-200). Neither is an additional build stage, and neither requires an infrastructure programme.
+
+### Stage 1 — Cache-first catalogue and Cloudflare delivery
+
+Stage 1 delivers the revised active path: Google Sheets authoring, Apps Script catalogue and roster routes, a cache-first PWA, and Cloudflare Workers development and production delivery.
+
+Manual configuration is concentrated into one coordinated session (ARCH-104), which is **Cloudflare-only**:
+
+- create the Cloudflare Workers development and production deployments for the PWA;
+- create a least-scope Cloudflare deploy token and the repository secrets/variables the deployment workflows need;
+- configure the manual production-deployment gate (repository secrets plus `workflow_dispatch`; no GitHub Environments, which GitHub Free does not offer for a private repository);
+- confirm the guarded route toward one repository, retaining the existing GitHub Pages fallback.
+
+**No database project, database user, database secret or database workflow is created.** Creating any hosted database requires GATE-150 and a separate owner decision.
+
+Agent implementation then:
+
+- keeps CI green as the precondition for everything else (already in place);
+- adds validated, cache-first catalogue loading to the PWA against the Apps Script `action=data` payload, with explicit configuration for the catalogue and roster routes;
+- proves that a refresh failure retains and renders the last known-good catalogue;
+- makes the service-worker cache lifecycle explicit without trapping stale catalogue data;
+- rehearses the integrated path — cache behaviour, Apps Script failure fallback, development and production deployment, deployment rollback and cutover readiness (ARCH-110);
+- completes repository consolidation and client-state export/import only after CI and fail-closed public artifact generation are proved (ARCH-111);
+- performs the production-origin cutover and runs the fallback window (ARCH-112).
+
+### Manual run entry points
+
+Manual operation is mandatory, not optional (see §14). On the **active path** the following are always available as directly runnable commands and/or `workflow_dispatch` workflows, independent of any schedule, and are the exact code path any future scheduled trigger reuses:
+
+- a **manual development deployment** — deploy the current application build to the development Worker for inspection;
+- a **manual production deployment** — deploy a reviewed, merged commit to the production Worker, verified over HTTP afterwards (§14);
+- a **manual deployment rollback** — return the production Worker to a verified known-good prior version.
+
+Paused with the database path, and restored with it at GATE-150:
+
+- a **manual authoring run** — prepare, dry-run, apply and optionally publish a human catalogue change without SQL (§6);
+- a **manual candidate/review run** — a report-only maintenance review outside the schedule, with report-only as the default (§8, Stage 2);
+- a **manual publication run** — the `READY`/`DEPLOYED` protocol in §9.2, invoked explicitly;
+- a **manual release rollback run** — repoint to a prior compatible release, per [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §5.
+
+Every manual run records who/what triggered it and remains idempotent for the same logical unit of work. Full detail is in [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §8.
+
+Exit criterion:
+
+> GAC Helper is served from the Cloudflare production Worker, renders a validated cached catalogue first, survives an Apps Script or connection failure without losing a usable catalogue, preserves all current IDs/names/notes and player state across the origin change, and can roll back both the deployment and the origin itself.
+
+Rollback:
+
+- roll the production Worker back to the previous verified deployment; or
+- return to the unchanged GitHub Pages origin during the fallback window.
+
+Google Sheets, `action=data` and `action=roster` are unchanged throughout Stage 1, so no catalogue rollback is required — there is no catalogue change to reverse.
+
+### Persistent maintenance-store gate (GATE-150)
+
+Before any part of the paused database path is deployed, and before Stage 2 implementation begins, GATE-150 must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate the paused implementation against it. It is independent of the evidence gate below; both must be resolved before Stage 2. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) §7.1 and [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §9.
+
+### Evidence and runner entry gate
+
+Before Stage 2, perform the evidence-source spike in §7.1 of this document with one representative real cycle. Prefer a deterministic scheduled runner such as an existing CI platform. Prove any required authenticated access rather than assuming a ChatGPT scheduled task can provide it.
+
+If the gate fails, stop after Stage 1.
+
+### Stage 2 — Maintenance engine in report-only mode
+
+Implement:
+
+- idempotent evidence ingestion;
+- deterministic canonical mapping first;
+- bounded semantic review for ambiguous cases;
+- append-only assessments and findings;
+- deterministic policy application against a non-current candidate;
+- anomaly and failure injection;
+- full provenance.
+
+No Stage 2 release becomes current.
+
+Exit criterion:
+
+> Across at least two representative completed same-format events, findings are explainable and credible, authored locks are respected, and injected source/parser/policy failures block candidate acceptance.
+
+Rollback:
+
+> Disable the engine. Stage 1 delivery and Sheet authoring remain unaffected.
+
+### Stage 3 — Scheduling and bounded autonomous publication capability
+
+Implement:
+
+- event completion and evidence-readiness detection;
+- idempotent execution and safe retry;
+- static artifact publication;
+- concise success reporting;
+- alerts only for failure or `ESCALATE`;
+- `APPROVED_OVERRIDE` handling;
+- proved source-outage, concurrency, rollback and restoration behaviour.
+
+Stage 3 proves that eligible changes can be scheduled and published safely, but it does not authorise unrestricted catalogue expansion or steady-state autonomous operation. The initial full-population work remains in the format-specific bootstrap stages below.
+
+Exit criterion:
+
+> Two consecutive unattended eligible cycles complete correctly, a forced mid-publication failure leaves the previous artifact current, rollback succeeds without database availability, and the user approves the mechanism for a controlled `5V5` bootstrap.
+
+Rollback:
+
+> Disable scheduling and repoint to the last human-approved compatible release.
+
+### Stage 4 — `5V5` bootstrap and calibration
+
+Run one broad `5V5` discovery pass in shadow mode, compare it with the curated `5V5` seed catalogue, and promote only evidence-qualified candidates in bounded waves.
+
+The stage must:
+
+- retain all discoveries and weak candidates in staging rather than forcing catalogue completeness;
+- use curated counters as regression and calibration cases;
+- review disagreements, false positives, confidence distribution and banner-data quality;
+- publish no precise banner value unsupported by eligible evidence or human authoring;
+- preserve curated provenance and prevent silent bootstrap overwrites;
+- stop each publication wave at the configured absolute and proportional change ceilings;
+- produce the bootstrap acceptance report defined in §11.13.
+
+Exit criterion:
+
+> The user accepts the `5V5` bootstrap report, every promoted record has traceable evidence and provenance, held candidates remain staged, bounded-wave and mass-change controls are proven, and the remaining `5V5` backlog can safely enter steady-state maintenance after Stage 5 authorises that operating state.
+
+Rollback:
+
+> Stop further promotion waves and repoint to the last accepted compatible release; staged evidence and rejected/held candidates remain auditable.
+
+### Stage 5 — `3V3` bootstrap and calibration
+
+Repeat Stage 4 independently for `3V3`. Stage-4 success does not waive any `3V3` calibration or acceptance requirement because composition patterns, sample sizes, banner behaviour and matchup volatility differ materially from `5V5`.
+
+Exit criterion:
+
+> The user accepts the `3V3` bootstrap report under the same evidence, provenance, bounded-wave, regression and circuit-breaker criteria as Stage 4.
+
+Rollback:
+
+> Stop further promotion waves and repoint to the last accepted compatible release; Stage-4 `5V5` results remain intact.
+
+After Stage 5, the system enters steady-state autonomous maintenance. This is the operating state produced by the five-stage programme, not a sixth implementation stage.
+
+---
+
+## 17. Cost model
+
+Stage 1 should be viable with no new recurring paid service under normal personal use, subject to current provider limits verified at implementation.
+
+**Active Stage-1 cost areas.** The active path adds no service beyond what already exists:
+
+- Cloudflare Workers request and static-asset limits for two deployments (development and production), assumed free-tier and re-checked at ARCH-104;
+- Google Apps Script execution quotas for `action=data` and `action=roster`, unchanged from today's usage and already free;
+- GitHub Free Actions minutes for CI and the manual deployment workflows.
+
+**No database cost is incurred**, because no hosted database exists on the active path. The previously assumed Supabase Free project is not created ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §1).
+
+**Paused and future cost areas**, assessed when they arrive rather than assumed now:
+
+- persistent maintenance-store storage, inactivity/pausing and project limits — owned by GATE-150, with no provider selected;
+- static artifact storage and deployment;
+- scheduled compute;
+- evidence-provider subscription or API access;
+- AI API usage, if ever needed;
+- backups and retention.
+
+The database is kept out of the live PWA path in both designs, so provider pausing can never block a round. Whatever provider GATE-150 selects, a documented wake/recovery procedure is required for authoring and maintenance before that path is operationalised.
+
+No paid evidence source, AI API or worker is introduced without an explicit decision stating:
+
+- expected monthly cost;
+- what capability it unlocks;
+- why existing paid/free tools are insufficient;
+- the cheaper fallback.
+
+Provider prices, limits, task capabilities and access terms are time-sensitive and must be rechecked during the evidence gate.
+
+---
+
+## 18. Observability and reproducibility
+
+Each run and release must answer:
+
+- what source snapshot was used;
+- which retrieval, method, analyst and policy versions ran;
+- how many observations mapped, failed or remained ambiguous;
+- what findings were proposed, observed, escalated, rejected or applied;
+- what policy the applier actually enforced;
+- which anomaly and validation gates ran;
+- which assessment and finding produced each assessed published value;
+- what base release was used;
+- whether the static artifact and pointer were published;
+- how to restore the previous compatible release.
+
+Routine successful output remains concise. `OBSERVE` is silent by default. Only failures and genuine `ESCALATE` cases demand attention.
+
+Retention periods are set after measuring real volume. Do not add premature archival infrastructure.
+
+---
+
+## 19. Decisions proposed for lock
+
+Items marked **[paused]** belong to the database-backed evolution (§0) and are not active Stage-1 commitments. Items marked **[superseded]** were accepted under ADR-ARCH-102 and are withdrawn by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md); they are retained here so the decision history stays readable. Everything unmarked is in force.
+
+1. **[paused]** Postgres-compatible relational storage is the canonical maintenance and authoring store — under the future database-backed evolution only, and only once GATE-150 selects a provider.
+2. **[superseded]** Google Sheets is not part of the target steady-state runtime. On the active Stage-1 path, Google Sheets **is** the canonical catalogue and the human authoring workbench, and it remains in the runtime path. It leaves the runtime only under a future, separately approved catalogue-platform migration.
+3. Human authoring remains first-class and does not require SQL.
+4. Human judgement uses explicit `AUTHORED_LOCKED`, `AUTHORED_BASELINE` and `ASSESSED` authority states.
+5. Tactical notes are stored explicitly and remain human-authored initially.
+6. One `team_archetypes` registry covers attacking and defensive identities.
+7. Shared squad composition uses an `ANY` profile with mode-specific override.
+8. Exact observed squads belong in evidence, not automatically in the catalogue.
+9. New team identities carry a deliberately high burden of proof.
+10. Matchups are unique by mode, defence archetype and counter archetype.
+11. Evidence and assessments are append-only.
+12. The analyst proposes; a deterministic applier enforces policy and writes canonical changes.
+13. Banner and undersize are not autonomously published until suitable evidence semantics are proved.
+14. **[paused]** Published catalogues are immutable, schema-versioned static JSON artifacts. The active path publishes no artifact; the catalogue is the `action=data` response.
+15. **[paused]** Publication is single-writer, base-release-aware and pointer-based.
+16. The live PWA renders a validated cached catalogue first and has no database dependency. On the active path this applies to the validated, cached Apps Script `action=data` payload (§2.8).
+17. Maintenance policy is version-controlled and outside AI write authority.
+18. `OBSERVE` is silent; only genuine `ESCALATE` cases ask the user.
+19. The first implementation requires no paid AI API.
+20. Evidence-provider feasibility and cost are a Stage 2 entry gate.
+21. **[superseded]** Apps Script remains initially for roster proxying only. Apps Script is retained for **both** `action=data` and `action=roster`, and `action=data` is not retired in Stage 1. Neither the Sheet nor the Apps Script deployment may be made private, restricted or removed while the PWA depends on `action=data`.
+22. One repository remains the desired target, but consolidation requires CI, fail-closed public output and a recoverable fallback.
+23. The programme has five implementation stages with manual configuration concentrated in Stage 1; Stages 4 and 5 are format-specific bootstrap/calibration stages, after which the system enters steady-state maintenance without a sixth stage.
+24. Cloudflare Workers static assets is the selected production host for the PWA, replacing GitHub Pages, because the GitHub account is Free and private-repository Pages is unavailable ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1). Separate development and production deployments are maintained.
+25. **[superseded]** Supabase Free in the London region is the selected Stage-1 canonical database. No Supabase project is created, and no database provider is selected; the choice moves to GATE-150 ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §1, §9).
+26. **[superseded as moot]** The Supabase-slot allocation is reversible. No allocation exists.
+27. GitHub repository secrets plus explicit manual `workflow_dispatch` triggers are the Stage-1 production gate, in place of GitHub Environments ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.6).
+28. Manual operation — authoring, candidate/review, publication and rollback runs — is mandatory in every stage; scheduling is an additional trigger for the same commands, never the only way to operate the system ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.7, §8).
+29. Publication across the database and Cloudflare Workers uses the `READY`/`DEPLOYED` two-phase protocol with HTTP verification and idempotent reconciliation, not a cross-system atomic transaction ([ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §4).
+30. **[paused]** Database backup/recovery reconstructs canonical state from ordered migrations, append-only authoring change files, immutable published artifacts and release metadata — not from raw `pg_dump` files committed to Git; an encrypted off-site logical-backup destination is selected later. On the active path the recovery evidence is the Google Sheet itself plus the committed ARCH-103 capture.
+31. **[paused]** No daily keep-alive is used to defeat free-tier database pausing; every maintenance operation instead preflights database health, stops safely if paused, reports the owner action needed to resume it, and resumes idempotently. Revalidated against whichever provider GATE-150 selects.
+32. **[superseded]** Stage-1 database roles are created in Stage 1. **No** database role or credential of any kind is created in Stage 1 ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §1, §2).
+33. Bootstrap and steady-state maintenance are distinct operating modes; `5V5` and `3V3` are bootstrapped and accepted independently.
+34. The migrated hand-authored catalogue is protected seed/calibration data: automated evidence may challenge it, but bootstrap disagreements cannot silently overwrite it.
+35. Large discovery batches are permitted, but publication remains evidence-qualified, usefulness-filtered and bounded by absolute and proportional change ceilings.
+36. Every bootstrap mode requires a shadow pass, regression comparison, acceptance report and explicit human gate before completion.
+37. The active Stage-1 path is Google Sheets → Apps Script → cache-first PWA → Cloudflare development/production delivery. No active Stage-1 work package requires a hosted database of any provider.
+38. A catalogue refresh failure retains and renders the last known-good catalogue; it never blanks the UI, never overwrites the cache with an invalid response, and never blocks an offline round (§2.8).
+39. The completed database schema, migration loader, authoring tooling and publisher are preserved as paused future-migration assets. They are not deleted, reverted, downgraded or rewritten ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §8).
+40. GATE-150 must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate the paused database implementation before any part of that path is deployed. Neon is a candidate, not a selection.
+41. The live PWA never holds a database credential, in any environment, under either path.
+42. Removing the database from the live catalogue path does not remove distributed-state concerns: deployment status, post-deploy HTTP verification, deployment rollback, two live origins during cutover and a shared Apps Script dependency all remain ([ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §6).
+
+---
+
+## 20. Decisions deferred to implementation evidence
+
+The production-hosting selection is settled by [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md) §1.2 and remains in force. The database host/region and the static artifact storage/pointer mechanism are **no longer settled**: [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) withdraws the Supabase selection and removes the static artifact from the active path. The following remain genuinely open:
+
+- **the persistent maintenance-store provider, its cost and its free-tier constraints** — no provider is selected, Neon is a candidate only, and the decision belongs to GATE-150 together with revalidation of the paused implementation against whatever is chosen;
+- **whether the catalogue's canonical home ever moves off Google Sheets**, and if so on what cutover terms — GATE-150;
+- exact one-repository consolidation mechanics (the target hosting is decided; how the consolidated repository route is wired up is not);
+- evidence provider, retrieval contract and recurring cost (GATE-200);
+- **encrypted off-site logical-backup destination, retention and restore testing for Stage-2 evidence and assessment history** — deliberately not preselected by ADR-ARCH-102 §10.1, and explicitly not "commit raw dumps to Git"; owned by GATE-150/GATE-200 or the relevant Stage-2 work package;
+- exact observation idempotency key;
+- final deterministic runner;
+- exact confidence formula and source-quality weights;
+- threshold tuning after report-only runs;
+- retention periods;
+- later payload-schema evolution;
+- whether future evidence can safely support autonomous banner or undersize updates;
+- whether more expressive composition alternatives are ever needed.
+
+These are deferred because current evidence is insufficient, not because they may be silently improvised during implementation.
+
+---
+
+## 21. Peer-review resolution
+
+v0.2 accepts the peer review's central findings:
+
+- added human authoring and authority states;
+- added explicit notes storage;
+- removed the database from the live PWA path;
+- separated semantic proposal from deterministic application;
+- deferred autonomous banner and undersize mutation;
+- added evidence-provider and runner gating;
+- added release locking, base-release checks and payload schema versions;
+- preserved current identifiers and client-state contracts;
+- strengthened product validation and migration acceptance;
+- retained Apps Script only for roster proxying.
+
+It modifies three recommendations:
+
+- human-authored values are not all permanently immutable; only `AUTHORED_LOCKED` values are;
+- version-controlled authoring files are change inputs, not a second canonical catalogue;
+- repository consolidation remains the desired target, but is guarded and sequenced rather than coupled atomically to database cutover.
+
+It also keeps AI available for genuinely semantic ambiguity while making ordinary ingestion, mapping, policy enforcement and publication deterministic.
+
+---
+
+## 22. ARCH-102 resolution (v0.3)
+
+> **Partly superseded by v0.5 (§24).** This section is retained as the historical record of the v0.3 resolution. Its Supabase, static-artifact and database-publication items are withdrawn by [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md); its Cloudflare, manual-gate, manual-operation, backup-principle and client-state-migration items remain in force.
+
+v0.3 records the accepted ARCH-102 platform decisions from [ADR-ARCH-102](decisions/ADR-ARCH-102-platform.md):
+
+- selected Cloudflare Workers static assets as the production static host, and Supabase Free (London) as the Stage-1 canonical database, both subject to ARCH-104 re-verification;
+- replaced GitHub Environments with repository secrets plus manual `workflow_dispatch` as the Stage-1 production gate, reflecting the GitHub Free plan;
+- replaced the single-transaction publication model with the `READY`/`DEPLOYED` two-phase, HTTP-verified protocol and its recovery/reconciliation procedure, because a database transaction and a Cloudflare deployment cannot be made atomic together;
+- required manual authoring, candidate/review, publication and rollback runs in every stage, with scheduling as an additional trigger only;
+- ruled out committing raw `pg_dump` backups to Git and ruled out a daily Supabase keep-alive, replacing both with an explicit Stage-1 reconstruction model and a preflight/fail-safe/resume pattern for maintenance operations;
+- limited Stage-1 role/credential creation to the roles Stage 1 actually exercises, deferring evidence ingester, maintenance analyst and deterministic-applier credentials to Stage 2;
+- recorded mandatory `SECURITY DEFINER` controls for any such function retained in the schema;
+- recorded the production-origin change (GitHub Pages → Cloudflare Workers) as its own explicit ARCH-111/ARCH-112 client-state migration, with the existing public repository and GitHub Pages deployment retained as an untouched fallback through the Stage-1 acceptance window and retired only at the approved exit gate.
+
+This section, §14, §15.0, §16, §19 items 24–32 and §20 reflected that resolution; §24 records where v0.5 has since changed them. ADR-ARCH-102 remains the authoritative source for justification, rejected alternatives and the full threat model, and ADR-ARCH-113 §11 now owns the reduced list of time-sensitive assumptions ARCH-104 must re-check.
+
+---
+
+## 23. Bootstrap/calibration resolution (v0.4)
+
+v0.4 records the accepted safeguards for the first large automated catalogue passes:
+
+- separated bootstrap mode from steady-state maintenance mode;
+- protected curated data as the trusted seed and calibration set while allowing evidence-backed disagreements to become reviewable proposals;
+- made broad discovery compatible with deliberately small, evidence-ranked publication waves;
+- required candidate-level evidence, confidence and provenance, and prohibited manufactured banner precision;
+- strengthened mass-change circuit breakers so abnormal catalogue churn becomes a review batch rather than an automatic release;
+- added independent `5V5` and `3V3` bootstrap/calibration stages with shadow runs, regression checks, acceptance reports and human gates;
+- defined steady-state autonomous maintenance as the operating state after Stage 5, not a sixth implementation stage.
+
+---
+
+## 24. Stage-1 delivery re-baseline (v0.5)
+
+v0.5 records the accepted re-baseline in [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md), taken after the decision not to create a third Supabase Free project:
+
+- made the active Stage-1 path **Google Sheets → Apps Script → cache-first PWA → Cloudflare development/production delivery**, with Google Sheets retained as the canonical catalogue and the human authoring workbench;
+- retained Apps Script for **both** `action=data` and `action=roster`, and deferred any retirement of `action=data` until a replacement catalogue path is live and accepted;
+- replaced the static catalogue artifact and release pointer, on the active path, with validated cache-first loading of the Apps Script payload, whose refresh failures retain and render the last known-good catalogue;
+- removed Supabase, and any hosted database, from active Stage-1 work: no project, credential, hosted migration, database authoring path or database-backed publication path;
+- preserved the completed schema, migration loader, authoring tooling and publisher as paused future-migration assets, with their completion history and documentation intact;
+- added **GATE-150**, which must select a persistent maintenance-store provider (Neon is a candidate, not a selection), assess its cost and free-tier constraints, and revalidate the paused database implementation before deployment;
+- kept the GitHub Pages site as the temporary cutover fallback, and kept the production-origin change and one-time client-state export/import as explicit ARCH-111/ARCH-112 work;
+- kept the v0.4 bootstrap/calibration safeguards intact as future automated-maintenance policy, explicitly **not** a Stage-1 dependency;
+- recorded that the revised path is simpler only because the database left the live catalogue path — deployment status, rollback and post-deploy verification still matter (§14, ADR-ARCH-113 §6).
+
+§0, §2.8, §3, §13, §14, §15, §16, §17, §19 and §20 reflect this re-baseline. ADR-ARCH-102 remains authoritative for everything it decided that ADR-ARCH-113 does not supersede.
