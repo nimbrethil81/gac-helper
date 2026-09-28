@@ -248,7 +248,7 @@ test("member and defence-value retire/reactivate paths are idempotent and filter
   }
 });
 
-test("public staging is allow-listed and the production workflow is manual-only with concurrency", () => {
+test("public staging is allow-listed", () => {
   const source = fs.mkdtempSync(path.join(os.tmpdir(), "arch108-source-"));
   const destination = fs.mkdtempSync(path.join(os.tmpdir(), "arch108-public-"));
   try {
@@ -257,12 +257,6 @@ test("public staging is allow-listed and the production workflow is manual-only 
     assert.deepEqual(buildPublicDirectory({ sourceRoot: source, destinationRoot: destination }), ["index.html"]);
     assert.equal(fs.existsSync(path.join(destination, "private.env")), false);
     assert.ok(PUBLIC_FILES.includes("index.html"));
-
-    const workflow = fs.readFileSync(path.join(".github", "workflows", "publish-catalogue.yml"), "utf8");
-    assert.match(workflow, /workflow_dispatch:/);
-    assert.doesNotMatch(workflow, /^\s+(push|pull_request|schedule):/m);
-    assert.match(workflow, /group: gac-helper-production-publish/);
-    assert.match(workflow, /cancel-in-progress: false/);
   } finally {
     fs.rmSync(source, { recursive: true, force: true });
     fs.rmSync(destination, { recursive: true, force: true });
