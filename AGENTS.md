@@ -43,7 +43,7 @@ When roadmap work ships, remove it from ROADMAP, describe the resulting behaviou
 5. The owner reviews and merges the pull request.
 6. An agent must not merge its own pull request unless the owner explicitly instructs it to do so.
 
-Pushing a branch or merging into `main` does **not** deploy the public application. Production deployment is a separate, manually triggered GitHub Action that syncs an allow-listed set of files to the live repository. No agent may trigger that deployment or modify the live repository unless a task explicitly authorises it.
+Pushing a branch or merging into `main` does **not** deploy the public application. Production deployment is a separate, manually triggered `Deploy Pages Live` GitHub Action. It builds an allow-listed Pages artifact from `main` and deploys that artifact to GitHub Pages. No agent may trigger production deployment unless a task explicitly authorises it.
 
 ## Development rules
 
@@ -53,8 +53,8 @@ Pushing a branch or merging into `main` does **not** deploy the public applicati
 - Do not invent sheet columns, IDs, scoring values, API behaviour or persistence rules.
 - Do not silently change API contracts or persisted schemas; handle compatibility deliberately.
 - Preserve mobile-first and cache/offline behaviour.
-- Do not deploy to the live repository unless explicitly asked.
-- Do not add internal documentation to the live deployment allow-list unless explicitly asked.
+- Do not trigger `Deploy Pages Live` unless explicitly asked.
+- Keep internal documentation, tests, Apps Script and paused architecture assets outside the live Pages artifact unless explicitly asked.
 
 ## Before finishing
 
