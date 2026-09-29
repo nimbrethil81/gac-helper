@@ -1,15 +1,21 @@
 # SWGOH GAC Helper — Target Architecture
 
-**Status:** v0.6 current architecture, re-baselined 2026-09-28. The application-delivery architecture below is current; the database/evidence/automation architecture remains parked future design.  
-**Current platform authority:** [`docs/decisions/ADR-ARCH-114-github-pages-public-repos.md`](decisions/ADR-ARCH-114-github-pages-public-repos.md).  
+**Status:** v0.7 current architecture, re-baselined 2026-09-29. The application-delivery architecture below is current; the database/evidence/automation architecture remains parked future design.  
+**Current platform authority:** [`docs/decisions/ADR-ARCH-115-one-repo-pages-delivery.md`](decisions/ADR-ARCH-115-one-repo-pages-delivery.md).  
 **Current behaviour authority:** [`SPEC.md`](SPEC.md).  
 **Prior detailed design:** [`docs/archive/architecture/TARGET_ARCHITECTURE-v0.5.md`](archive/architecture/TARGET_ARCHITECTURE-v0.5.md).
 
 ## 0. Current position
 
-GAC Helper is a single-user hobby PWA whose canonical counter catalogue is authored in Google Sheets and served through Google Apps Script. Development and live application code remain in two public GitHub repositories, each with its own GitHub Pages site. Changes are developed and tested in `gac-helper-dev` and promoted deliberately to the stripped `gac-helper` production repository by the manual `Deploy to Live` workflow.
+GAC Helper is a single-user hobby PWA. Its canonical counter catalogue is authored in Google Sheets and served through Google Apps Script.
 
-The larger database-backed, evidence-driven counter-maintenance programme is **parked**. Its completed schema, migration, authoring and publishing assets are preserved in the repository, but no hosted database, evidence source, scheduled runner or autonomous catalogue mutation is active.
+Application source, tests, documentation, Apps Script and paused future-architecture assets now live in a single public repository: `nimbrethil81/gac-helper`.
+
+Production is hosted at the repository's GitHub Pages site. Merging to `main` does **not** publish production automatically. Production publication is a separate, manually triggered `Deploy Pages Live` GitHub Action that builds and deploys an explicit allow-listed Pages artifact from `main`.
+
+The previous stripped live repository has been retained separately as `gac-helper-archive` for recovery/history only. It is not part of the active delivery path.
+
+The larger database-backed, evidence-driven counter-maintenance programme remains **parked**. Its completed schema, migration, authoring and publishing assets are preserved in the repository, but no hosted database, evidence source, scheduled runner or autonomous catalogue mutation is active.
 
 ```text
 Google Sheet (canonical catalogue / human authoring)
@@ -22,32 +28,34 @@ Google Apps Script
                  v
         cache-first PWA
                  |
-      +----------+----------+
-      |                     |
-gac-helper-dev          gac-helper
-GitHub Pages DEV        GitHub Pages LIVE
-      |                     ^
-      +--- Deploy to Live --+
-          manual gate
+                 v
+        nimbrethil81/gac-helper
+        source / tests / docs / CI
+                 |
+         manual Deploy Pages Live
+                 |
+                 v
+        GitHub Pages LIVE
 ```
 
 ## 1. Architectural goals
 
 The current architecture optimises for:
 
-- simple, low-cost operation for a hobby application;
-- a clear DEV → LIVE promotion boundary;
+- simple, low-cost operation for a single-user hobby application;
+- one canonical repository rather than source/artifact repository duplication;
+- an explicit human production-promotion boundary;
+- a stripped, allow-listed public Pages artifact even though the source repository is public;
 - strong offline/cache behaviour during a GAC round;
 - easy human catalogue authoring;
 - minimal credential and cloud-service surface area;
-- retention of tested future-migration assets without making them active dependencies;
-- conservative, auditable automation if autonomous maintenance is deliberately revived later.
+- retention of tested future-migration assets without making them active dependencies.
 
 ## 2. Current application and data topology
 
 ### 2.1 Canonical catalogue and human authoring
 
-Google Sheets remains the canonical catalogue and the day-to-day human authoring workbench. A normal human-directed catalogue update is a deliberate edit to the Sheet; it does not require an application deployment, database release or generated static catalogue artifact.
+Google Sheets remains the canonical catalogue and the day-to-day human authoring workbench.
 
 Google Apps Script remains responsible for:
 
@@ -56,7 +64,7 @@ Google Apps Script remains responsible for:
 
 Neither route may be retired while the current PWA depends on it.
 
-### 2.2 Cache-first live application
+### 2.2 Cache-first application
 
 The PWA must not depend on a remote catalogue fetch succeeding during a live GAC round.
 
@@ -72,71 +80,78 @@ The app therefore:
 
 This remains an enduring architecture principle independent of hosting provider.
 
-### 2.3 Development repository and DEV Pages
+### 2.3 Repository and source of truth
 
-`nimbrethil81/gac-helper-dev` is public and is the source/development repository. It contains source, tests, documentation, Apps Script, CI, current product work and the paused future-architecture assets.
+`nimbrethil81/gac-helper` is the sole active source repository. It is public and contains:
 
-Its GitHub Pages site is the normal development/test origin. DEV is intentionally public; it must nevertheless contain no credentials, ally codes, private roster data or other information that relies on obscurity for protection.
+- application source;
+- tests and CI;
+- documentation;
+- Apps Script source;
+- current product work;
+- paused database/catalogue-maintenance assets.
 
-### 2.4 Production repository and LIVE Pages
+There is no active separate development repository or production-artifact repository.
 
-`nimbrethil81/gac-helper` remains the stripped production repository and GitHub Pages LIVE origin.
+`gac-helper-archive` is retained only as a historical/recovery copy of the former stripped live repository. Normal development and deployment must not write to it.
 
-The live repository intentionally contains only the allow-listed application artifact plus its live-owned README. Internal tests, docs, Apps Script and future architecture assets stay in the development repository and are not promoted by ordinary deployment.
+### 2.4 Production deployment
 
-### 2.5 Promotion to production
+Production is served by GitHub Pages from a GitHub Actions deployment artifact.
 
-Application deployment is intentionally separate from catalogue authoring.
+The manual `Deploy Pages Live` workflow:
 
-The manual `Deploy to Live` GitHub Action in `gac-helper-dev`:
+1. can run only against `main` in `nimbrethil81/gac-helper`;
+2. checks out the selected source commit;
+3. builds `_site` from an explicit allow-list of public PWA files;
+4. configures and uploads the Pages artifact;
+5. deploys it to the `github-pages` environment.
 
-1. checks out the development repository;
-2. checks out the live repository using the existing deployment credential;
-3. synchronises only the explicit public allow-list;
-4. commits/pushes the resulting live artifact when it changed.
+The allow-list currently includes the public PWA shell/assets and `changelog.md`; internal docs, tests, Apps Script and paused architecture assets are not included.
 
-Production promotion remains a deliberate human action. An ordinary coding/documentation task must not trigger it unless explicitly authorised.
+An ordinary push, PR merge or documentation change does **not** publish production. Production promotion remains a deliberate human action.
 
-### 2.6 Repository model
+### 2.5 Development/testing model
 
-The two-repository model is retained deliberately for now.
+There is no permanent separate DEV Pages origin.
 
-It provides:
+Normal change flow is:
 
-- independent DEV and LIVE GitHub Pages origins;
-- a simple promotion boundary;
-- a stripped live artifact;
-- no requirement for a second hosting provider merely to create a second environment URL.
+1. branch from `main`;
+2. implement and validate;
+3. open PR and run CI;
+4. owner merges to `main`;
+5. perform local/browser/device validation where useful;
+6. owner explicitly runs `Deploy Pages Live` when the change should ship;
+7. verify LIVE after deployment.
 
-One-repository consolidation is not an active objective. It may be reconsidered only when a concrete benefit justifies replacing the second Pages origin with another mechanism.
+A second persistent DEV site is not currently justified for a single-user hobby application. If that need becomes material later, it should be introduced deliberately rather than recreating repository duplication by default.
 
 ## 3. Hosting and platform decisions
 
-GitHub Pages is the active static host for both DEV and LIVE.
+GitHub Pages is the active production host.
 
-Cloudflare Workers are **not** part of the active application-delivery architecture. The former development Worker was deleted on 2026-09-28. Cloudflare-oriented workflows/configuration may remain temporarily as historical/prepared assets until a separate bounded cleanup confirms they have no remaining role.
+Cloudflare Workers are **not** part of the active application-delivery architecture. The former development Worker and Worker deployment machinery have been removed.
 
-Because the LIVE origin remains the existing GitHub Pages origin:
+The production URL remains:
 
-- no production-origin cutover is planned;
-- no one-time `localStorage` export/import is required for hosting;
-- no Cloudflare fallback window or Worker rollback rehearsal is required;
-- ordinary hosting rollback remains a source/deployment concern within the two-repository Pages model.
+`https://nimbrethil81.github.io/gac-helper/`
+
+The 2026-09-29 repository consolidation reused the same LIVE URL. Desktop Chrome and iPhone Safari were manually verified after cutover. iPhone Safari initially showed a stale loading shell on first normal-mode access, while Private Browsing loaded correctly; a later normal reload also loaded successfully without clearing site data. No code rollback was required.
 
 ## 4. Security and public-repository boundary
 
-The development repository is public. Security therefore relies on correct content boundaries, not repository privacy.
+The repository is public. Security therefore relies on correct content boundaries, not repository privacy.
 
 Standing rules:
 
 - no secrets or credentials are committed;
-- deployment credentials remain GitHub secrets rather than repository content;
 - no ally code, real roster data, authentication material or unrelated personal identifier is committed as an operational artifact;
-- public DEV content is treated as fully discoverable;
-- the stripped live deployment remains allow-listed and fail-closed;
+- public repository content is treated as fully discoverable;
+- the live Pages deployment remains allow-listed and fail-closed;
 - future cloud/database credentials, if any, must never be made available to the PWA.
 
-Before the 2026-09-28 visibility change, the repository was reviewed and a full-history Gitleaks scan across 195 commits reported no leaks.
+The former cross-repository `LIVE_REPO_PAT` deployment path is no longer required by active architecture.
 
 ## 5. Current catalogue architecture principles
 
@@ -154,18 +169,6 @@ The following principles from v0.5 remain accepted and continue to guide catalog
 ## 6. Parked future database-backed maintenance architecture
 
 The detailed relational/evidence/automation design from v0.5 is preserved verbatim at [`docs/archive/architecture/TARGET_ARCHITECTURE-v0.5.md`](archive/architecture/TARGET_ARCHITECTURE-v0.5.md), with implementation records in `docs/database/` and the existing migration/scripts/tests directories.
-
-The preserved design includes:
-
-- a Postgres-compatible canonical catalogue model for units, team archetypes, profiles, matchups and accepted values;
-- explicit authored authority states (`AUTHORED_LOCKED`, `AUTHORED_BASELINE`, `ASSESSED`);
-- version-controlled human authoring without routine SQL;
-- append-only evidence, mapping, assessment and finding records;
-- deterministic policy application and anomaly circuit breakers;
-- immutable/versioned publication concepts;
-- independent 5v5 and 3v3 bootstrap/calibration stages;
-- bounded publication waves rather than catalogue-completeness pressure;
-- provenance, rollback and failure-injection requirements.
 
 These remain useful future design, but they are **not active dependencies or instructions to resume work**.
 
@@ -196,11 +199,11 @@ If these gates do not pass, the current Sheet-backed human-authoring model remai
 
 ## 7. Current versus historical decisions
 
-[`ADR-ARCH-114`](decisions/ADR-ARCH-114-github-pages-public-repos.md) is the current authority for hosting/repository decisions.
+[`ADR-ARCH-115`](decisions/ADR-ARCH-115-one-repo-pages-delivery.md) is the current authority for repository and application-delivery decisions.
 
-[`ADR-ARCH-113`](decisions/ADR-ARCH-113-stage1-rebaseline.md) remains authoritative for Google Sheets, Apps Script, cache-first behaviour, no active hosted database, preservation of paused assets and future automation gates; its Cloudflare/private-repository/consolidation decisions are superseded.
+[`ADR-ARCH-114`](decisions/ADR-ARCH-114-github-pages-public-repos.md) remains the historical record of the interim two-public-repository Pages model and is superseded for repository topology and deployment.
 
-[`ADR-ARCH-102`](decisions/ADR-ARCH-102-platform.md) is historical for the original Cloudflare/platform selection. Its security, least-privilege, manual-gate and future-publication reasoning remains useful where not contradicted by later ADRs.
+[`ADR-ARCH-113`](decisions/ADR-ARCH-113-stage1-rebaseline.md) remains authoritative for Google Sheets, Apps Script, cache-first behaviour, no active hosted database, preservation of paused assets and future automation gates where not superseded by later ADRs.
 
 See [`docs/decisions/README.md`](decisions/README.md) for the status map.
 
@@ -212,15 +215,16 @@ See [`docs/decisions/README.md`](decisions/README.md) for the status map.
 - changing hosting, repository topology, catalogue runtime source, persistent store or autonomous-publication authority requires an explicit architecture decision;
 - provider prices/limits and external-service behaviour are time-sensitive and must be rechecked when a future decision depends on them.
 
-## 9. v0.6 re-baseline record — 2026-09-28
+## 9. v0.7 re-baseline record — 2026-09-29
 
-v0.6 records these changes from v0.5:
+v0.7 records these changes from v0.6:
 
-- `gac-helper-dev` became public after repository review and a 195-commit Gitleaks scan reported no leaks;
-- GitHub Pages was enabled and manually verified for DEV;
-- the DEV Cloudflare Worker was deleted;
-- LIVE remained on the existing `gac-helper` GitHub Pages origin;
-- the two-repository model was explicitly retained for now because it provides two independent Pages sites and a clear promotion boundary;
-- Cloudflare delivery, one-repository consolidation and production-origin/client-state cutover ceased to be active architecture goals;
-- Google Sheets, Apps Script, cache-first loading, paused database assets and future automation safeguards remained unchanged;
-- detailed v0.5 future architecture was preserved in the archive rather than discarded.
+- the former live `gac-helper` repository was renamed to `gac-helper-archive` and retained as recovery history;
+- the former source `gac-helper-dev` repository was renamed to `gac-helper`;
+- GitHub Pages source was switched to GitHub Actions;
+- the manually triggered `Deploy Pages Live` workflow successfully deployed an allow-listed artifact from `main`;
+- the existing LIVE URL remained `https://nimbrethil81.github.io/gac-helper/`;
+- desktop Chrome and iPhone Safari were verified after cutover;
+- the old repo-to-repo `Deploy to Live` workflow became obsolete and is retired;
+- the application now uses one active repository while preserving an explicit manual production-promotion boundary;
+- Google Sheets, Apps Script, cache-first loading, paused database assets and future automation safeguards remain unchanged.
