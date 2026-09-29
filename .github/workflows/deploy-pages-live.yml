@@ -1,0 +1,59 @@
+name: Deploy Pages Live
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-live
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Migration safety guard: this workflow must remain inert until the source
+    # repository has been renamed to nimbrethil81/gac-helper.
+    if: github.repository == 'nimbrethil81/gac-helper' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Build allow-listed Pages artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir _site
+          for file in \
+            index.html \
+            app.js \
+            styles.css \
+            manifest.json \
+            service-worker.js \
+            icon-192.png \
+            icon-512.png \
+            changelog.md
+          do
+            test -f "$file"
+            cp "$file" _site/
+          done
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
