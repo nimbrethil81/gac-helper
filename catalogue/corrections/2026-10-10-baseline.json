@@ -7,7 +7,7 @@
   "corrections": [
     {
       "id": "C1",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "title": "Defence_Teams Mode \"Any\" → \"ANY\" (8 rows)",
       "resolves": ["DEFENCE_MODE_CASE"],
       "runtimeEffect": "These threat ratings start applying through the ANY wildcard (app.js threatFor: exact mode first, then \"ANY\"). Battle Order changes wherever these defences are on a board: Lord Vader HIGH (5v5, 3v3), The Stranger EXTREME (5v5, 3v3), Ahsoka Tano HIGH (5v5, 3v3), Carth Onasi LOW (5v5), Jedi Master Kenobi HIGH (5v5, 3v3), Leviathan EXTREME (FLEET), Profundity HIGH (FLEET), Executor HIGH (FLEET). Today all eight read NORMAL.",

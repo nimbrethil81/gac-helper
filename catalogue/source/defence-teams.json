@@ -1,18 +1,18 @@
 {
   "schema": 1,
   "defenceTeams": [
-    { "defence": "Ahsoka Tano", "mode": "Any", "threat": "HIGH" },
-    { "defence": "Carth Onasi", "mode": "Any", "threat": "LOW" },
+    { "defence": "Ahsoka Tano", "mode": "ANY", "threat": "HIGH" },
+    { "defence": "Carth Onasi", "mode": "ANY", "threat": "LOW" },
     { "defence": "Cassian Andor (Undercover)", "mode": "5v5", "threat": "HIGH", "notes": "Rebel Fighter: Cassian lead, Vel Sartha, Cinta Kaz, Kleya Marki, Luthen Rael; all R7 in captured board." },
     { "defence": "Emperor Palpatine (Duel's End Vader)", "mode": "5v5", "threat": "HIGH", "notes": "Palpatine lead + Duel's End Vader (omicron) + Mara Jade; Tarkin confirmed for this variant; fifth unknown." },
-    { "defence": "Executor", "mode": "Any", "threat": "HIGH" },
+    { "defence": "Executor", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Gungan", "mode": "5v5", "threat": "HIGH" },
-    { "defence": "Jedi Master Kenobi", "mode": "Any", "threat": "HIGH" },
+    { "defence": "Jedi Master Kenobi", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Kelleran Beq", "mode": "3v3", "threat": "HIGH" },
-    { "defence": "Leviathan", "mode": "Any", "threat": "EXTREME" },
-    { "defence": "Lord Vader", "mode": "Any", "threat": "HIGH" },
+    { "defence": "Leviathan", "mode": "ANY", "threat": "EXTREME" },
+    { "defence": "Lord Vader", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Major Partagaz", "mode": "5v5", "threat": "HIGH", "notes": "ISB: Partagaz lead, Director Krennic, Dedra Meero, KX Security Droid, Imperial Probe Droid; all R7 in captured board." },
-    { "defence": "Profundity", "mode": "Any", "threat": "HIGH" },
-    { "defence": "The Stranger", "mode": "Any", "threat": "EXTREME" }
+    { "defence": "Profundity", "mode": "ANY", "threat": "HIGH" },
+    { "defence": "The Stranger", "mode": "ANY", "threat": "EXTREME" }
   ]
 }
