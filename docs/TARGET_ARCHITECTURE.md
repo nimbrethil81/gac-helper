@@ -3,6 +3,7 @@
 **Status:** v0.7 current architecture, re-baselined 2026-09-29. The application-delivery architecture below is current; the database/evidence/automation architecture remains parked future design.  
 **Current platform authority:** [`docs/decisions/ADR-ARCH-115-one-repo-pages-delivery.md`](decisions/ADR-ARCH-115-one-repo-pages-delivery.md).  
 **Current behaviour authority:** [`SPEC.md`](SPEC.md).  
+**Accepted future catalogue target:** [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](decisions/ADR-ARCH-116-git-native-catalogue.md) (not yet implemented).  
 **Prior detailed design:** [`docs/archive/architecture/TARGET_ARCHITECTURE-v0.5.md`](archive/architecture/TARGET_ARCHITECTURE-v0.5.md).
 
 ## 0. Current position
@@ -165,6 +166,12 @@ The following principles from v0.5 remain accepted and continue to guide catalog
 - **Deterministic policy constrains semantic/AI analysis.** Semantic analysis may propose; deterministic validation/policy must control canonical mutation.
 - **Publication must be reversible and validated** if/when a future generated catalogue replaces direct Sheet serving.
 - **Cost/provider restraint.** Do not create paid or hosted infrastructure until the capability requiring it is ready and its cost/limits have been rechecked.
+
+### 5.1 Accepted catalogue target — Git-native static catalogue
+
+On 2026-10-10 the owner accepted [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md) as the future catalogue architecture: canonical catalogue source as version-controlled JSON in this repository, compiled deterministically to a validated, checksummed static release on the existing Pages site and published only through `Deploy Pages Live`, with no hosted database. Apps Script is then retained only for `action=roster`. The ADR owns the source schema, the seven-key compatibility contract, release/rollback and cutover checks.
+
+It is **not implemented**. Sections 0–4 above, and `SPEC.md`, describe the shipped Sheet/Apps Script runtime until a separately owner-approved cutover. The database-backed catalogue-publication path in §6 is no longer the intended route to a generated catalogue.
 
 ## 6. Parked future database-backed maintenance architecture
 
