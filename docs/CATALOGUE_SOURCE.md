@@ -32,13 +32,20 @@ The compiler and validator use only Node built-ins: no `npm ci`, network access,
 
 ## Migration baseline
 
-`catalogue/source/` is the **unmodified** import of the read-only snapshot `data/snapshots/20261010T070702Z`. The Sheet was confirmed unchanged at 12:44 UTC the same day, and its compiled checksum equals the live `action=data` capture (`IMPORT_REPORT.md`). The import refuses rather than lose data:
+Catalogue version 1 is the **unmodified** import of the read-only snapshot `data/snapshots/20261010T070702Z`. The Sheet was confirmed unchanged at 12:44 UTC the same day, and its compiled checksum equals the live `action=data` capture (`IMPORT_REPORT.md`). The import refuses rather than lose data:
 - when the Sheet, `Code.gs` emulation and capture disagree;
 - when Apps Script would silently skip rows or drop roles;
 - when it would synthesise placeholder counters;
 - when a mode cannot be represented.
 
-Known defects are carried verbatim. The release validator is unchanged and still fails on them, so this version is **not publishable**. A test enforces that the committed source equals the import plus only `APPROVED` corrections, so no undeclared edit can land during migration.
+Known defects were carried verbatim into version 1, and the unchanged release validator rejects it. The owner then approved corrections C1–C5 in `catalogue/corrections/2026-10-10-baseline.json`. Each is applied in its own commit with its own release record, versions 2–6. The current source passes the release gate.
+
+Tests enforce that:
+- the committed source equals the import plus only `APPROVED` corrections;
+- the compiled payload differs from the live capture by exactly the declared paths of those corrections;
+- `release.json` advances one version per applied correction.
+
+So no undeclared edit can land during migration.
 
 The Sheet remains the live authority and the preserved migration baseline: it is not edited by this work. Corrections are made only in Git, after approval.
 
