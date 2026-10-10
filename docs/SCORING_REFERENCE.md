@@ -140,7 +140,7 @@ Board config: three 5-team squad territories + one 3-team fleet territory = 18 t
 
 With the one-off first-attack bonus, the theoretical opening ceiling is **2083**. This is close to the community "soft max" of roughly 2079–2080 for Kyber 3v3 and provides a useful sanity check on the configured team counts and scoring values.
 
-The figure is only as correct as the **`GAC_Board_Config`** team counts: the scoring calculation multiplies out whatever the sheet specifies, so incorrect counts there would mis-state the ceiling.
+The figure is only as correct as the board configuration's team counts (`catalogue/source/board-config.json`): the scoring calculation multiplies out whatever it specifies, so incorrect counts there would mis-state the ceiling.
 
 ---
 
@@ -148,7 +148,7 @@ The figure is only as correct as the **`GAC_Board_Config`** team counts: the sco
 
 `OWN_UNITS` and `ENEMY_UNITS` represent separate scoring inputs: the number of the player's own units eligible for per-unit survival bonuses and the number of enemy units defeated in a perfect clear. For the current battle formats they are equal.
 
-If the `GAC_Scoring` sheet carries explicit unit-count rows, use:
+If the scoring rules (`catalogue/source/scoring.json`) carry explicit unit-count rows, use:
 
 ```
 OWN_UNITS    FLEET  ANY  7

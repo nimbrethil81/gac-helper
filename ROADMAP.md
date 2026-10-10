@@ -6,12 +6,6 @@
 
 ## Planned
 
-### Git-native catalogue
-
-*Planned — decision and contracts: [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](docs/decisions/ADR-ARCH-116-git-native-catalogue.md)*
-
-Move the shared counter catalogue from Google Sheets to reviewed, version-controlled JSON source in this repository, compiled to a validated static catalogue published only through the manual Pages deployment, with no hosted database. The read-only integrity/parity gate ([`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md)), the source import, compiler and owner-approved baseline corrections, and the static release build with manual Pages publication and rollback ([`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md)) are in place. The app loader, cache v2 migration and service-worker bypass are also on `main` ([cutover](docs/CATALOGUE_SOURCE.md#cutover)). Remaining work: owner approval of the readiness evidence (including iPhone Safari and installed-PWA checks), the live `Deploy Pages Live` cutover, and then updating `SPEC.md`. Database-backed, evidence-driven maintenance stays parked behind its restart gates.
-
 ### Per-battle undersize advisor
 
 *Planned*
@@ -30,7 +24,7 @@ The current allocation engine can choose undersized counters when they bank more
 
 *Candidate*
 
-An orthogonal attribute capturing how much manual effort a counter needs (e.g. auto-able vs must-play-manually), for the "I need to get my battles done" moment. It is deliberately **not a ranking input** — folding effort into the engine's objective would corrupt the win/banner goal by silently down-ranking strong-but-fiddly counters. Instead it would be *displayed* (a card indicator) and/or drive a *filter* ("auto-able only", reusing the existing available-counters filter idiom), narrowing the candidate pool by the player's effort budget while leaving the ranking untouched. It is a structured, machine-usable layer that *complements* rather than replaces the free-text `Notes` column, which already carries specific manual-play instructions (e.g. "play Jabba manually so auto doesn't waste the insta-kill on Leia"). A small, self-contained future feature: one sheet column, one Apps Script field, a display line and/or a filter toggle.
+An orthogonal attribute capturing how much manual effort a counter needs (e.g. auto-able vs must-play-manually), for the "I need to get my battles done" moment. It is deliberately **not a ranking input** — folding effort into the engine's objective would corrupt the win/banner goal by silently down-ranking strong-but-fiddly counters. Instead it would be *displayed* (a card indicator) and/or drive a *filter* ("auto-able only", reusing the existing available-counters filter idiom), narrowing the candidate pool by the player's effort budget while leaving the ranking untouched. It is a structured, machine-usable layer that *complements* rather than replaces the free-text `Notes` column, which already carries specific manual-play instructions (e.g. "play Jabba manually so auto doesn't waste the insta-kill on Leia"). A small, self-contained future feature: one catalogue field, a display line and/or a filter toggle.
 
 ### Full-board strategic-reserve optimisation
 

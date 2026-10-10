@@ -1,6 +1,6 @@
 # Git-native catalogue source
 
-**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The app on `main` (v3.6, issue #43) reads the static release. The live app keeps reading the Google Sheet through Apps Script until the owner separately approves and runs the cutover deployment ([Cutover](#cutover)).** [`SPEC.md`](SPEC.md) describes the live runtime and is updated once the cutover is deployed.
+**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The live app (v3.6, issue #43) reads the static release; [`SPEC.md`](SPEC.md) describes that runtime.** Apps Script `action=data` and the frozen Sheet are no longer read; they remain only as the cutover rollback route ([Cutover](#cutover)).
 
 **Update this document when** the source layout, commands, correction procedure, release/deployment procedure, budget or migration status changes.
 
@@ -149,7 +149,7 @@ The release file is the same size as today's `action=data` (+0.3%). It costs one
 
 App v3.6 (#43) loads the catalogue from `catalogue/current.json` and the release file it names, not from Apps Script `action=data`. Loading, the `catalogueCache:v2` migration and the service-worker bypass follow ADR-ARCH-116 §8 with the refinements in §12. Roster import is unchanged: it still goes through Apps Script `action=roster`, which calls Comlink.
 
-**Gate.** Merging the change deploys nothing. The live app switches only when the owner, after approving the readiness evidence in the #43 pull request, runs `Deploy Pages Live`. App and catalogue ship in the same artifact, so the pre-cutover app (still live until then) never sees a half-switched site. Already-installed apps pick up v3.6 on a later launch: Pages serves the shell with a 10-minute HTTP cache, and the bumped service worker (`swgoh-shell-v20`) takes over once old app windows close. Until then the old worker passes catalogue requests straight to the network without caching them, so v3.6 still works under it.
+**Deployment.** The cutover went live with the 2026-10-10 `Deploy Pages Live` run of `a52fbfc`. App and catalogue ship in the same artifact, so the site is never half-switched. Already-installed apps pick up v3.6 on a later launch. Pages serves the shell with a 10-minute HTTP cache, and the bumped service worker (`swgoh-shell-v20`) takes over once old app windows close. Until then the old worker passes catalogue requests straight to the network without caching them, so v3.6 still works under it.
 
 **After deploying.**
 1. Check that the run's verify step names the expected catalogue version and checksum.
