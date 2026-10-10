@@ -114,7 +114,7 @@
     },
     {
       "id": "C5",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "title": "Complete IG_12_AND_GROGU and PAZ_VIZSLA (Unit_Type and External_ID)",
       "resolves": ["UNIT_TYPE_INVALID", "REQUIRED_UNIT_NO_EXTERNAL_ID"],
       "references": ["https://swgoh.gg/units/ig-12-grogu/", "https://swgoh.gg/units/paz-vizsla/"],
