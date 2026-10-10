@@ -1,0 +1,2412 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/56",
+  "baseline": {
+    "commit": "e432d87e16d52fc77bb834e94f8c599092999aa0",
+    "catalogueVersion": 6,
+    "checksum": "sha256:5d95a75e5a94ea0f08d059190d2967a05c63a43c49a1b0e9bea6e898b02d2945"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-10-03-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "AMEND",
+      "title": "GAC naming cleanup: five-group defence and counter display-name identity correction",
+      "rationale": "Owner-completed naming review (issue #56). Renames 19 matchup defence keys (8 in 5v5, 11 in 3v3) and the 4 dependent defence-team/composition keys, and amends 8 counter display names, so that each displayed identity names the intended Galactic Legend or variant unambiguously and the same defence uses the same name in 5v5 and 3v3. Defence renames are exact old-key RETIRE plus new-key ADD because the stable key is name + mode; counter rows are AMEND on the stable Counter_ID. One owner-approved functional correction is included: counter PHOENIX required becomes [HERA_SYNDULLA, CAPTAIN_REX]. No counter is added, removed, reordered or retiered; no tier, bannerScore, undersize, note, threat, composition unit, Character_ID, externalId, scoring, score meaning, board configuration or FLEET row changes.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/56",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #56",
+            "publishedOrObservedAt": "2026-10-10",
+            "accessedAt": "2026-10-10",
+            "supports": "Exact owner-agreed OLD -> NEW names for the 19 matchup rows, 8 counter display names, the PHOENIX required correction, the 4 dependent defence-team/composition keys, and Option C (no saved-board migration or alias)."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/37#issuecomment-6100570685",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #37",
+            "publishedOrObservedAt": "2026-10-10",
+            "accessedAt": "2026-10-10",
+            "supports": "Owner clarification: the existing Hondo defence in 5v5 and 3v3 always meant Galactic Legend Pirate King Hondo Ohnaka; CR-2026-10-10-02-P01 (3v3 Add) is withdrawn; units.json HONDO_OHNAKA is the original Hondo and must not be renamed."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/37#issuecomment-6100592434",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #37",
+            "publishedOrObservedAt": "2026-10-10",
+            "accessedAt": "2026-10-10",
+            "supports": "Owner direction: rename rather than add, preserving counters, order, tiers, bannerScore, undersize and notes; renames are RETIRE + ADD inside one atomic owner-approved change set."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/blob/e432d87e16d52fc77bb834e94f8c599092999aa0/catalogue/source/units.json",
+            "publisher": "gac-helper catalogue source at the baseline commit",
+            "publishedOrObservedAt": "2026-10-10",
+            "accessedAt": "2026-10-10",
+            "supports": "Existing Character_IDs referenced by the unchanged compositions and by the amended PHOENIX required list exist: HERA_SYNDULLA (Hera Syndulla) and CAPTAIN_REX (Captain Rex); BO_KATAN_MANDALOR is named Bo-Katan (Mand'alor); CT_7567_REX is CT-7567 \"Rex\"."
+          }
+        ],
+        "conditions": "Display-name identity correction across 5v5 and 3v3 matchups, counters, defence-teams (ANY) and 3v3 defence compositions; FLEET unaffected. Not a matchup-performance claim: no omicron, datacron or game-version condition is asserted, and existing grades are carried over unchanged.",
+        "confidence": "High for the identities: every new name is an explicit owner decision recorded in #56/#37 and each old row was matched exactly once on the baseline with no new-name collision. The proposal makes no claim about whether the carried-over tiers, banner scores or notes are correct against the named Galactic Legends.",
+        "limitations": "Option C (owner): no saved-board migration or alias. Saved Round opponent boards, My Board and defence templates that hold a renamed old name keep it and show '<old name> (saved; not in current catalogue)' with no counters (and, on My Board, no defence composition) until the owner manually reselects the new name; choosing the new opponent team clears any manual remaining-banners override (scores, attempts and clears are not reset). Existing frozen defenceSnapshot values stay unchanged. Rollback to the old names needs the same manual reselection. Carried-over grades (for example 5v5 Pirate King Hondo Ohnaka CERE/BAYLAN/SLKR) are not revalidated here and remain backlog work. Making CAPTAIN_REX required for PHOENIX means Round availability now also needs an available Captain Rex."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Hondo"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Maul"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Maul (Mandalorian)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Finn"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Bo-Katan Mandalore"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Bo-Katan (Mand'alor)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Ahsoka Tano"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Ahsoka Tano (GL)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey (GL)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Leia Organa"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Leia Organa (GL)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Cere UFU"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Cere (Malicos)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Hondo"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Mauldalorians"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Maul (Mandalorian)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rex"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "CT-7567 Rex"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Finn"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Bo-Katan Mandalore"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Bo-Katan (Mand'alor)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Ahsoka Tano"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Ahsoka Tano (GL)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rey"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rey (GL)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Leia Organa"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Leia Organa (GL)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Emperor Palp with Vader Dual's End"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Emperor Palpatine (Duel's End Vader)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Geonosian"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Geonosians"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Cere UFU"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Cere (Malicos)"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BO_KATAN_MANDALORE"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "LEIA"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BAD_BATCH"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "VEERS"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "PHOENIX"
+          },
+          "effect": "Display name amended and required becomes [HERA_SYNDULLA, CAPTAIN_REX]; recommended and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CERE"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CERE_SK"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "MAUL"
+          },
+          "effect": "Display name amended only; members and every other field unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Ahsoka Tano",
+            "mode": "ANY"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Ahsoka Tano (GL)",
+            "mode": "ANY"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Rex",
+            "mode": "3v3"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "CT-7567 Rex",
+            "mode": "3v3"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Finn",
+            "mode": "3v3"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Finn (Zorii Resistance)",
+            "mode": "3v3"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Rey",
+            "mode": "3v3"
+          },
+          "effect": "Old key retired; replaced in this change set by the renamed ADD row with identical content."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Rey (GL)",
+            "mode": "3v3"
+          },
+          "effect": "New key added with the retired row's exact content apart from the name."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Emperor Palpatine (Duel's End Vader)"
+          },
+          "effect": "none — checked: already uses the target name; unchanged and now matches the renamed 3v3 key."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Emperor Palpatine (Duel's End Vader)",
+            "mode": "5v5"
+          },
+          "effect": "none — checked: unchanged 5v5 row; it does not become a 3v3 threat."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Emperor Palpatine (Duel's End Vader)",
+            "mode": "5v5"
+          },
+          "effect": "none — checked: unchanged 5v5 row; it does not become a 3v3 composition."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "HONDO_OHNAKA"
+          },
+          "effect": "none — checked: original non-GL Hondo; not renamed, reassigned or used for Pirate King Hondo Ohnaka."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "CAPTAIN_REX"
+          },
+          "effect": "none — checked: existing unit now referenced by PHOENIX required; unchanged."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "HERA_SYNDULLA"
+          },
+          "effect": "none — checked: existing PHOENIX required member; unchanged."
+        },
+        {
+          "file": "matchups/FLEET.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "*"
+          },
+          "effect": "none — checked: no FLEET row uses an old name; FLEET unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "8 defence keys renamed in Counters and Round pickers (Hondo, Maul, Finn, Bo-Katan Mandalore, Ahsoka Tano, Rey, Leia Organa, Cere UFU); counters, order, tiers, banners, undersize and notes identical. Ahsoka Tano (GL) keeps HIGH threat via the renamed ANY row. Picker sort position changes with the new names.",
+        "3v3": "11 defence keys renamed (Hondo, Mauldalorians, Rex, Finn, Bo-Katan Mandalore, Ahsoka Tano, Rey, Leia Organa, Emperor Palp with Vader Dual's End, Geonosian, Cere UFU); counters identical. CT-7567 Rex, Finn (Zorii Resistance) and Rey (GL) keep their exact 3v3 compositions; Ahsoka Tano (GL) keeps HIGH threat via ANY.",
+        "FLEET": "none — checked",
+        "counters": "8 attacking counter display names change in every mode (BO_KATAN_MANDALORE, LEIA, BAD_BATCH, VEERS, PHOENIX, CERE, CERE_SK, MAUL); IDs unchanged. PHOENIX now requires Hera Syndulla and Captain Rex.",
+        "roundAvailability": "PHOENIX is available only when both HERA_SYNDULLA and CAPTAIN_REX are available, and now commits Captain Rex. Saved boards/templates holding an old defence name show '(saved; not in current catalogue)' with no counters or composition until manually reselected (Option C, no migration); reselecting an opponent team clears a manual remaining-banners override; frozen defenceSnapshot unchanged.",
+        "scoring": "none — checked: scoring.json, score-meanings.json and board-config.json untouched; banner scores carried over unchanged.",
+        "strategicReserve": "none — checked: no counter's strategicReserve value changes."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"BAD_BATCH\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"BO_KATAN_MANDALORE\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"CERE\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"CERE_SK\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"LEIA\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"MAUL\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"PHOENIX\"][\"name\"]",
+        "payload[\"counterDefinitions\"][\"PHOENIX\"][\"required\"][1]",
+        "payload[\"counterDefinitions\"][\"VEERS\"][\"name\"]",
+        "payload[\"counters\"][\"3v3\"][\"Admiral Trench\"][2][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Ahsoka Tano\"]",
+        "payload[\"counters\"][\"3v3\"][\"Ahsoka Tano (GL)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Bo-Katan (Mand'alor)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Bo-Katan Mandalore\"]",
+        "payload[\"counters\"][\"3v3\"][\"CLS\"][0][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"CLS\"][2][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"CT-7567 Rex\"]",
+        "payload[\"counters\"][\"3v3\"][\"Cassian Andor (Undercover)\"][2][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Cassian Andor (Undercover)\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Cassian Andor (Undercover)\"][7][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Cere (Malicos)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Cere UFU\"]",
+        "payload[\"counters\"][\"3v3\"][\"Darth Revan with Zaalbar\"][2][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Darth Revan with Zaalbar\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Emperor Palp with Vader Dual's End\"]",
+        "payload[\"counters\"][\"3v3\"][\"Emperor Palpatine (Duel's End Vader)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Finn\"]",
+        "payload[\"counters\"][\"3v3\"][\"Finn (Zorii Resistance)\"]",
+        "payload[\"counters\"][\"3v3\"][\"GAS\"][0][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Geonosian\"]",
+        "payload[\"counters\"][\"3v3\"][\"Geonosians\"]",
+        "payload[\"counters\"][\"3v3\"][\"Grand Moff Tarkin\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Great Mothers\"][2][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Great Mothers\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Hondo\"]",
+        "payload[\"counters\"][\"3v3\"][\"Inquisitor Barriss\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jedi Master Luke\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Kelleran Beq\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Kelleran Beq\"][4][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Kelleran Beq\"][5][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Leia Organa\"]",
+        "payload[\"counters\"][\"3v3\"][\"Leia Organa (GL)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Lord Vader\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Lord Vader\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Maul (Mandalorian)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Mauldalorians\"]",
+        "payload[\"counters\"][\"3v3\"][\"Maz Kanata\"][2][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Maz Kanata\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Mon Mothma\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Omega (Fugitive)\"][4][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Pirate King Hondo Ohnaka\"]",
+        "payload[\"counters\"][\"3v3\"][\"Qui-Gon Jinn\"][0][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Reva\"][0][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Rex\"]",
+        "payload[\"counters\"][\"3v3\"][\"Rey\"]",
+        "payload[\"counters\"][\"3v3\"][\"Rey (GL)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Saw Gerrera\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Stormtrooper Luke\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Tarfful\"][1][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Tusken\"][0][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Tusken\"][5][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Admiral Raddus\"][2][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Admiral Raddus\"][3][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Admiral Raddus\"][4][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Admiral Raddus\"][6][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Ahsoka Tano\"]",
+        "payload[\"counters\"][\"5v5\"][\"Ahsoka Tano (GL)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Bo-Katan (Mand'alor)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Bo-Katan Mandalore\"]",
+        "payload[\"counters\"][\"5v5\"][\"CLS\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Carth Onasi\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Cere (Malicos)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Cere UFU\"]",
+        "payload[\"counters\"][\"5v5\"][\"Darth Malgus\"][2][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Dr Aphra\"][3][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Enoch\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Finn\"]",
+        "payload[\"counters\"][\"5v5\"][\"Finn (Zorii Resistance)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Geonosians\"][1][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Great Mothers\"][1][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Gungans\"][1][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Gungans\"][4][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Hondo\"]",
+        "payload[\"counters\"][\"5v5\"][\"Jabba\"][4][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Jedi Master Kenobi\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Jedi Master Luke\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Jedi Training Rey\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Kelleran Beq\"][1][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Leia Organa\"]",
+        "payload[\"counters\"][\"5v5\"][\"Leia Organa (GL)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Lord Vader\"][1][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Major Partagaz\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Maul\"]",
+        "payload[\"counters\"][\"5v5\"][\"Maul (Mandalorian)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Mon Mothma\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Mother Talzin\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Pirate King Hondo Ohnaka\"]",
+        "payload[\"counters\"][\"5v5\"][\"Qui-Gon Jinn\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Reva\"][0][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Reva\"][3][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Rey\"]",
+        "payload[\"counters\"][\"5v5\"][\"Rey (GL)\"]",
+        "payload[\"counters\"][\"5v5\"][\"Saw Gerrera\"][2][\"counter\"]",
+        "payload[\"counters\"][\"5v5\"][\"Tusken\"][0][\"counter\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"CT-7567 Rex\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Finn\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Finn (Zorii Resistance)\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Rex\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Rey\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Rey (GL)\"]",
+        "payload[\"defenceTeams\"][\"ANY\"][\"Ahsoka Tano\"]",
+        "payload[\"defenceTeams\"][\"ANY\"][\"Ahsoka Tano (GL)\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Hondo"
+          },
+          "before": {
+            "defence": "Hondo",
+            "counters": [
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Maul"
+          },
+          "before": {
+            "defence": "Maul",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Maul (Mandalorian)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Maul (Mandalorian)",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Finn"
+          },
+          "before": {
+            "defence": "Finn",
+            "counters": [
+              {
+                "counterId": "MOTHER_TALZIN",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Finn (Zorii Resistance)",
+            "counters": [
+              {
+                "counterId": "MOTHER_TALZIN",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Bo-Katan Mandalore"
+          },
+          "before": {
+            "defence": "Bo-Katan Mandalore",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Bo-Katan (Mand'alor)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Bo-Katan (Mand'alor)",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Ahsoka Tano"
+          },
+          "before": {
+            "defence": "Ahsoka Tano",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Ahsoka Tano (GL)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Ahsoka Tano (GL)",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey"
+          },
+          "before": {
+            "defence": "Rey",
+            "counters": [
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "BANE",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Efficient"
+              },
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "GAS",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Cleanup"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey (GL)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Rey (GL)",
+            "counters": [
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "BANE",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Efficient"
+              },
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "GAS",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Cleanup"
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Leia Organa"
+          },
+          "before": {
+            "defence": "Leia Organa",
+            "counters": [
+              {
+                "counterId": "JABBA",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Do not full auto"
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "MAUL",
+                "tier": "C",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Two shot"
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "C",
+                "bannerScore": 58,
+                "undersize": 0,
+                "notes": "2 shot"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Cleanup"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Leia Organa (GL)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Leia Organa (GL)",
+            "counters": [
+              {
+                "counterId": "JABBA",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Do not full auto"
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "MAUL",
+                "tier": "C",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Two shot"
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "C",
+                "bannerScore": 58,
+                "undersize": 0,
+                "notes": "2 shot"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Cleanup"
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Cere UFU"
+          },
+          "before": {
+            "defence": "Cere UFU",
+            "counters": [
+              {
+                "counterId": "GI",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BOSSK",
+                "tier": "C",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Two shot"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Cere (Malicos)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Cere (Malicos)",
+            "counters": [
+              {
+                "counterId": "GI",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BOSSK",
+                "tier": "C",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Two shot"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 1
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Hondo"
+          },
+          "before": {
+            "defence": "Hondo",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Mauldalorians"
+          },
+          "before": {
+            "defence": "Mauldalorians",
+            "counters": [
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "JAWAS",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Hold off AoE first turn."
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Maul (Mandalorian)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Maul (Mandalorian)",
+            "counters": [
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "JAWAS",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Hold off AoE first turn."
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rex"
+          },
+          "before": {
+            "defence": "Rex",
+            "counters": [
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "CT-7567 Rex"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "CT-7567 Rex",
+            "counters": [
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Finn"
+          },
+          "before": {
+            "defence": "Finn",
+            "counters": [
+              {
+                "counterId": "MOTHER_TALZIN",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "CERE_SK",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 1
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Finn (Zorii Resistance)",
+            "counters": [
+              {
+                "counterId": "MOTHER_TALZIN",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "CERE_SK",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 1
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Bo-Katan Mandalore"
+          },
+          "before": {
+            "defence": "Bo-Katan Mandalore",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Try dropping a unit for efficiency"
+              },
+              {
+                "counterId": "DARTH_NIHILUS",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Bo-Katan (Mand'alor)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Bo-Katan (Mand'alor)",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Try dropping a unit for efficiency"
+              },
+              {
+                "counterId": "DARTH_NIHILUS",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Ahsoka Tano"
+          },
+          "before": {
+            "defence": "Ahsoka Tano",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Ahsoka Tano (GL)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Ahsoka Tano (GL)",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 1
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rey"
+          },
+          "before": {
+            "defence": "Rey",
+            "counters": [
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 57,
+                "undersize": 0
+              },
+              {
+                "counterId": "CERE_SK",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "JML",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "ADMIRAL_RADDUS",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rey (GL)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Rey (GL)",
+            "counters": [
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 57,
+                "undersize": 0
+              },
+              {
+                "counterId": "CERE_SK",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "JML",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "ADMIRAL_RADDUS",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Leia Organa"
+          },
+          "before": {
+            "defence": "Leia Organa",
+            "counters": [
+              {
+                "counterId": "JABBA",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 51,
+                "undersize": 0,
+                "notes": "Use Savage Opress"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 50,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Leia Organa (GL)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Leia Organa (GL)",
+            "counters": [
+              {
+                "counterId": "JABBA",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 51,
+                "undersize": 0,
+                "notes": "Use Savage Opress"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 50,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Emperor Palp with Vader Dual's End"
+          },
+          "before": {
+            "defence": "Emperor Palp with Vader Dual's End",
+            "counters": [
+              {
+                "counterId": "LORD_VADER",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAD_BATCH",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0
+              },
+              {
+                "counterId": "GUNGANS",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "MALGUS",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "SAW_GERRERA",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "THE_STRANGER",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Emperor Palpatine (Duel's End Vader)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Emperor Palpatine (Duel's End Vader)",
+            "counters": [
+              {
+                "counterId": "LORD_VADER",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAD_BATCH",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0
+              },
+              {
+                "counterId": "GUNGANS",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "MALGUS",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "SAW_GERRERA",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "THE_STRANGER",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Geonosian"
+          },
+          "before": {
+            "defence": "Geonosian",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "JAWAS",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Hold off AoE first turn."
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Geonosians"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Geonosians",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0
+              },
+              {
+                "counterId": "JAWAS",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Hold off AoE first turn."
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Cere UFU"
+          },
+          "before": {
+            "defence": "Cere UFU",
+            "counters": [
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Cere (Malicos)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Cere (Malicos)",
+            "counters": [
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "BO_KATAN_MANDALORE"
+          },
+          "before": {
+            "id": "BO_KATAN_MANDALORE",
+            "name": "Bo-Katan Mandalore",
+            "required": [
+              "BO_KATAN_MANDALOR",
+              "IG_12_AND_GROGU",
+              "PAZ_VIZSLA"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "BO_KATAN_MANDALORE",
+            "name": "Bo-Katan (Mand'alor)",
+            "required": [
+              "BO_KATAN_MANDALOR",
+              "IG_12_AND_GROGU",
+              "PAZ_VIZSLA"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "LEIA"
+          },
+          "before": {
+            "id": "LEIA",
+            "name": "Leia Organa",
+            "required": [
+              "LEIA_ORGANA",
+              "CAPTAIN_DROGAN",
+              "R2_D2"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "LEIA",
+            "name": "Leia Organa (GL)",
+            "required": [
+              "LEIA_ORGANA",
+              "CAPTAIN_DROGAN",
+              "R2_D2"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "BAD_BATCH"
+          },
+          "before": {
+            "id": "BAD_BATCH",
+            "name": "Bad Batch",
+            "required": [
+              "HUNTER"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "BAD_BATCH",
+            "name": "Bad Batch (Hunter)",
+            "required": [
+              "HUNTER"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "VEERS"
+          },
+          "before": {
+            "id": "VEERS",
+            "name": "Imperial Troopers",
+            "required": [
+              "GENERAL_VEERS"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "VEERS",
+            "name": "Imperial Troopers (Veers)",
+            "required": [
+              "GENERAL_VEERS"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "PHOENIX"
+          },
+          "before": {
+            "id": "PHOENIX",
+            "name": "Phoenix",
+            "required": [
+              "HERA_SYNDULLA"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "PHOENIX",
+            "name": "Phoenix (Hera + Captain Rex)",
+            "required": [
+              "HERA_SYNDULLA",
+              "CAPTAIN_REX"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "CERE"
+          },
+          "before": {
+            "id": "CERE",
+            "name": "Cere UFU",
+            "required": [
+              "CERE_JUNDA",
+              "TARON_MALICOS"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "CERE",
+            "name": "Cere (Malicos)",
+            "required": [
+              "CERE_JUNDA",
+              "TARON_MALICOS"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "CERE_SK"
+          },
+          "before": {
+            "id": "CERE_SK",
+            "name": "Cere Starkiller",
+            "required": [
+              "CERE_JUNDA",
+              "TARON_MALICOS",
+              "STARKILLER"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "CERE_SK",
+            "name": "Cere (Malicos + Starkiller)",
+            "required": [
+              "CERE_JUNDA",
+              "TARON_MALICOS",
+              "STARKILLER"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "MAUL"
+          },
+          "before": {
+            "id": "MAUL",
+            "name": "Maul",
+            "required": [
+              "MAUL",
+              "CANDEROUS_ORDO",
+              "JANGO_FETT"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "MAUL",
+            "name": "Maul (Mandalorian)",
+            "required": [
+              "MAUL",
+              "CANDEROUS_ORDO",
+              "JANGO_FETT"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "defence-teams.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "defence": "Ahsoka Tano",
+            "mode": "ANY"
+          },
+          "before": {
+            "defence": "Ahsoka Tano",
+            "mode": "ANY",
+            "threat": "HIGH"
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-teams.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Ahsoka Tano (GL)",
+            "mode": "ANY"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Ahsoka Tano (GL)",
+            "mode": "ANY",
+            "threat": "HIGH"
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "defence": "Rex",
+            "mode": "3v3"
+          },
+          "before": {
+            "defence": "Rex",
+            "mode": "3v3",
+            "units": [
+              "CT_7567_REX",
+              "CT_5555_FIVES",
+              "CAPTAIN_REX"
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "CT-7567 Rex",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "CT-7567 Rex",
+            "mode": "3v3",
+            "units": [
+              "CT_7567_REX",
+              "CT_5555_FIVES",
+              "CAPTAIN_REX"
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "defence": "Finn",
+            "mode": "3v3"
+          },
+          "before": {
+            "defence": "Finn",
+            "mode": "3v3",
+            "units": [
+              "FINN",
+              "RESISTANCE_HERO_FINN",
+              "ZORII_BLISS"
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Finn (Zorii Resistance)",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Finn (Zorii Resistance)",
+            "mode": "3v3",
+            "units": [
+              "FINN",
+              "RESISTANCE_HERO_FINN",
+              "ZORII_BLISS"
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "defence": "Rey",
+            "mode": "3v3"
+          },
+          "before": {
+            "defence": "Rey",
+            "mode": "3v3",
+            "units": [
+              "REY",
+              "BEN_SOLO",
+              "REY_JEDI_TRAINING"
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Rey (GL)",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Rey (GL)",
+            "mode": "3v3",
+            "units": [
+              "REY",
+              "BEN_SOLO",
+              "REY_JEDI_TRAINING"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

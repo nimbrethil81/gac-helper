@@ -94,7 +94,8 @@ function gitClean(repo, paths) {
   }
 }
 
-const json = (value) => typeof value === "string" ? value : JSON.stringify(value, null, 2);
+// A payload path that a change adds or removes has no value on one side.
+const json = (value) => value === undefined ? "<absent>" : typeof value === "string" ? value : JSON.stringify(value, null, 2);
 
 function previewLines(document, correction, plan) {
   const lines = [
