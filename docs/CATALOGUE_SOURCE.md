@@ -302,6 +302,8 @@ Store or post the report where its links and decision history remain reviewable;
 
 Before handing off, re-read each proposed before row from the recorded commit, confirm all three modes have a recorded coverage result, run the shared release gate without modifying source, and check that the history links any superseded proposal rather than duplicating it. A later source change makes the proposal stale: re-reconcile it against fresh `main` and obtain approval for the resulting exact change set before #36 applies anything.
 
+Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the latest one is the history to check for duplicates. Recurring execution is currently a manual trigger only: no scheduled task is active, and any future schedule needs the owner's chosen day/time and a verified route (issue #37). The first pilot is [`CR-2026-10-10-01`](reviews/CR-2026-10-10-01.md).
+
 ## Static release on Pages
 
 `Deploy Pages Live` (manual `workflow_dispatch`, `main` only, one run at a time) builds the catalogue into the same allow-listed artifact as the app. Nothing is published by a merge, schedule or bot.
