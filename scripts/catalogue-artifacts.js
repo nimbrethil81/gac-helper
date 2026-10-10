@@ -9,7 +9,7 @@ const { PAYLOAD_SCHEMA_VERSION, checksumFor, validatePayload } = require("./cata
 
 const PUBLIC_FILES = Object.freeze([
   "index.html", "app.js", "styles.css", "manifest.json", "service-worker.js",
-  "icon-192.png", "icon-512.png", "README.md", "changelog.md"
+  "icon-192.png", "icon-512.png", "README.md"
 ]);
 
 function pointerFor(release) {
