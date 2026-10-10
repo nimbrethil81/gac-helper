@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "defenceTeams": [
-    { "defence": "Ahsoka Tano", "mode": "ANY", "threat": "HIGH" },
+    { "defence": "Ahsoka Tano (GL)", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Carth Onasi", "mode": "ANY", "threat": "LOW" },
     { "defence": "Cassian Andor (Undercover)", "mode": "5v5", "threat": "HIGH", "notes": "Rebel Fighter: Cassian lead, Vel Sartha, Cinta Kaz, Kleya Marki, Luthen Rael; all R7 in captured board." },
     { "defence": "Emperor Palpatine (Duel's End Vader)", "mode": "5v5", "threat": "HIGH", "notes": "Palpatine lead + Duel's End Vader (omicron) + Mara Jade; Tarkin confirmed for this variant; fifth unknown." },

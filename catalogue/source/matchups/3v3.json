@@ -23,7 +23,7 @@
       ]
     },
     {
-      "defence": "Ahsoka Tano",
+      "defence": "Ahsoka Tano (GL)",
       "counters": [
         { "counterId": "LEIA", "tier": "S", "bannerScore": 53, "undersize": 0 },
         { "counterId": "BANE", "tier": "A", "bannerScore": 52, "undersize": 1 }
@@ -36,7 +36,7 @@
       ]
     },
     {
-      "defence": "Bo-Katan Mandalore",
+      "defence": "Bo-Katan (Mand'alor)",
       "counters": [
         { "counterId": "SLKR", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Try dropping a unit for efficiency" },
         { "counterId": "DARTH_NIHILUS", "tier": "S", "bannerScore": 53, "undersize": 0 }
@@ -48,6 +48,13 @@
         { "counterId": "CERE", "tier": "S", "bannerScore": 55, "undersize": 0 },
         { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 57, "undersize": 0 },
         { "counterId": "PHOENIX", "tier": "S", "bannerScore": 52, "undersize": 0, "notes": "Must have Captain Rex" }
+      ]
+    },
+    {
+      "defence": "CT-7567 Rex",
+      "counters": [
+        { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 54, "undersize": 0 },
+        { "counterId": "JMK", "tier": "S", "bannerScore": 55, "undersize": 0 }
       ]
     },
     {
@@ -71,7 +78,7 @@
       ]
     },
     {
-      "defence": "Cere UFU",
+      "defence": "Cere (Malicos)",
       "counters": [
         { "counterId": "REVA", "tier": "A", "bannerScore": 55, "undersize": 0 },
         { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 53, "undersize": 0 }
@@ -119,7 +126,7 @@
       ]
     },
     {
-      "defence": "Emperor Palp with Vader Dual's End",
+      "defence": "Emperor Palpatine (Duel's End Vader)",
       "counters": [
         { "counterId": "LORD_VADER", "tier": "S", "bannerScore": 54, "undersize": 0 },
         { "counterId": "BAD_BATCH", "tier": "B", "bannerScore": 50, "undersize": 0 },
@@ -142,7 +149,7 @@
       ]
     },
     {
-      "defence": "Finn",
+      "defence": "Finn (Zorii Resistance)",
       "counters": [
         { "counterId": "MOTHER_TALZIN", "tier": "A", "bannerScore": 53, "undersize": 0, "notes": "Reliable" },
         { "counterId": "CERE_SK", "tier": "S", "bannerScore": 54, "undersize": 0 },
@@ -167,7 +174,7 @@
       ]
     },
     {
-      "defence": "Geonosian",
+      "defence": "Geonosians",
       "counters": [
         { "counterId": "CLS", "tier": "A", "bannerScore": 53, "undersize": 0 },
         { "counterId": "JAWAS", "tier": "B", "bannerScore": 50, "undersize": 0, "notes": "Hold off AoE first turn." }
@@ -202,12 +209,6 @@
         { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Preferred" },
         { "counterId": "TRAYA", "tier": "B", "bannerScore": 52, "undersize": 0, "notes": "Manual control" },
         { "counterId": "MOTHER_TALZIN", "tier": "B", "bannerScore": 52, "undersize": 0, "notes": "Manual control" }
-      ]
-    },
-    {
-      "defence": "Hondo",
-      "counters": [
-        { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong" }
       ]
     },
     {
@@ -277,7 +278,7 @@
       ]
     },
     {
-      "defence": "Leia Organa",
+      "defence": "Leia Organa (GL)",
       "counters": [
         { "counterId": "JABBA", "tier": "S", "bannerScore": 52, "undersize": 0, "notes": "Reliable" },
         { "counterId": "SEE", "tier": "S", "bannerScore": 51, "undersize": 0, "notes": "Use Savage Opress" },
@@ -295,7 +296,7 @@
       ]
     },
     {
-      "defence": "Mauldalorians",
+      "defence": "Maul (Mandalorian)",
       "counters": [
         { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0 },
         { "counterId": "JAWAS", "tier": "B", "bannerScore": 50, "undersize": 0, "notes": "Hold off AoE first turn." }
@@ -344,6 +345,12 @@
       ]
     },
     {
+      "defence": "Pirate King Hondo Ohnaka",
+      "counters": [
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong" }
+      ]
+    },
+    {
       "defence": "Queen Amidala",
       "counters": [
         { "counterId": "BANE", "tier": "S", "bannerScore": 53, "undersize": 1, "notes": "Preferred" },
@@ -374,14 +381,7 @@
       ]
     },
     {
-      "defence": "Rex",
-      "counters": [
-        { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 54, "undersize": 0 },
-        { "counterId": "JMK", "tier": "S", "bannerScore": 55, "undersize": 0 }
-      ]
-    },
-    {
-      "defence": "Rey",
+      "defence": "Rey (GL)",
       "counters": [
         { "counterId": "STARKILLER", "tier": "S", "bannerScore": 53, "undersize": 0 },
         { "counterId": "CERE", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Preferred" },

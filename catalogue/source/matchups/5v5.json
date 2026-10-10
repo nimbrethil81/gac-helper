@@ -21,7 +21,7 @@
       ]
     },
     {
-      "defence": "Ahsoka Tano",
+      "defence": "Ahsoka Tano (GL)",
       "counters": [
         { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Preferred" }
       ]
@@ -34,7 +34,7 @@
       ]
     },
     {
-      "defence": "Bo-Katan Mandalore",
+      "defence": "Bo-Katan (Mand'alor)",
       "counters": [
         { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "JABBA", "tier": "A", "bannerScore": 60, "undersize": 0 }
@@ -66,7 +66,7 @@
       ]
     },
     {
-      "defence": "Cere UFU",
+      "defence": "Cere (Malicos)",
       "counters": [
         { "counterId": "GI", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Standard" },
         { "counterId": "REVA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
@@ -119,7 +119,7 @@
       ]
     },
     {
-      "defence": "Finn",
+      "defence": "Finn (Zorii Resistance)",
       "counters": [
         { "counterId": "MOTHER_TALZIN", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
@@ -178,14 +178,6 @@
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "PHOENIX", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3, "notes": "Queen Amidala preferred" }
-      ]
-    },
-    {
-      "defence": "Hondo",
-      "counters": [
-        { "counterId": "CERE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
-        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
-        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
       ]
     },
     {
@@ -253,7 +245,7 @@
       ]
     },
     {
-      "defence": "Leia Organa",
+      "defence": "Leia Organa (GL)",
       "counters": [
         { "counterId": "JABBA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Do not full auto" },
         { "counterId": "GREAT_MOTHERS", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Strong" },
@@ -281,7 +273,7 @@
       ]
     },
     {
-      "defence": "Maul",
+      "defence": "Maul (Mandalorian)",
       "counters": [
         { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 }
       ]
@@ -308,6 +300,14 @@
       "defence": "Padme Amidala",
       "counters": [
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Pirate King Hondo Ohnaka",
+      "counters": [
+        { "counterId": "CERE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
       ]
     },
     {
@@ -339,7 +339,7 @@
       ]
     },
     {
-      "defence": "Rey",
+      "defence": "Rey (GL)",
       "counters": [
         { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Standard" },
         { "counterId": "BANE", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Efficient" },
