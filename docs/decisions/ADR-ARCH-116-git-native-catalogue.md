@@ -1,6 +1,6 @@
 # ADR ARCH-116 — Git-native static catalogue
 
-**Status:** Accepted as the **target** catalogue architecture (owner approval 2026-10-10). **Partially implemented, not cut over:** source and compiler (#41) and the static release on Pages (#42, §11) exist; the app does not read them. The shipped runtime is unchanged: Google Sheets + Apps Script `action=data`, as described in [`SPEC.md`](../SPEC.md) and [`ADR-ARCH-115`](ADR-ARCH-115-one-repo-pages-delivery.md).  
+**Status:** Accepted as the **target** catalogue architecture (owner approval 2026-10-10). **Implemented on `main`, not cut over live:** the source and compiler (#41), the static release on Pages (#42, §11) and the app loader with cache migration (#43, §12) exist. The live runtime remains Google Sheets + Apps Script `action=data`, as described in [`SPEC.md`](../SPEC.md) and [`ADR-ARCH-115`](ADR-ARCH-115-one-repo-pages-delivery.md), until the owner approves and runs the cutover deployment.  
 **Decision date:** 2026-10-10.  
 **Supersedes (on live cutover only):** the Google Sheets/Apps Script catalogue-authority decisions in ADR-ARCH-113 and ADR-ARCH-115, and the database-backed catalogue-publication path of the parked architecture programme.  
 **Does not supersede:** one-repository GitHub Pages delivery, the manual `Deploy Pages Live` gate, the allow-listed Pages artifact, cache-first loading, `action=roster`, or GATE-150/GATE-200 for any future evidence/automation work.  
@@ -192,3 +192,14 @@ The static release build follows §5, §7 and §9 with these deliberate refineme
 3. **Deployment manifest.** One extra generated file, `catalogue/manifest.json`, records the deployed commit and each served release's bytes, file SHA-256 and recording commit. Release files and the pointer stay free of timestamps and commit SHAs (§5, §9 determinism). The app does not need the manifest. It exists for the pre-deployment guard and the post-deployment HTTPS verification.
 4. **Serialisation.** Release files are compact JSON with keys sorted recursively, about the size of today's `action=data` response. Pointer and manifest are 2-space canonical JSON. Identity remains the §5 canonical seven-key checksum.
 5. **Live checks.** `Deploy Pages Live` refuses to deploy over a newer or contradicting live release, and fails after deployment unless the live catalogue files become byte-identical to the artifact within 15 minutes.
+
+## 12. Implementation amendments (#43, 2026-10-10)
+
+The app loader and service worker follow §8 with these deliberate refinements. Operator procedure, the cutover gate and rollback steps are in [`CATALOGUE_SOURCE.md`](../CATALOGUE_SOURCE.md#cutover).
+
+1. **v1 is kept for rollback.** §8 step 2 said to remove `catalogueCache:v1` once v2 is written. The app instead never writes or removes v1. The one exception is when storing v2 would exceed the storage quota: then v1 is removed and the write retried once. A §9 cutover rollback can therefore render offline straight away. v1 is read only when no valid v2 entry exists.
+2. **Identity is recomputed.** The same-version check compares the pointer checksum with a fresh SHA-256 of the cached payload, not with the stored `checksum` field. A damaged cache cannot hide a new release. A v1 cache whose payload already matches the pointer is recorded as v2 without downloading the release.
+3. **The pointer is constrained.** A pointer is accepted only with `pointerSchema` 1, a known contract, a positive integer version and `bytes`, and `path` exactly `releases/{N}-{12 hex}.json` for its own version and checksum. Nothing else is ever fetched from it. A release must be exactly `bytes` long before it is parsed.
+4. **Timeouts cover the body.** The pointer request has 10 s and the release 30 s, each including the response body, so a stalled transfer fails rather than hangs.
+5. **Quota failures don't block a verified release.** If a verified release cannot be stored, it is still applied for the session. The previous cache stays as it was, and the next launch downloads the release again. A cold start therefore does not show "Catalogue unavailable" only because storage is full.
+6. **No duplicate render.** A cached launch renders once. It renders again only if a new release was applied or the refresh failed. The interim "checking for updates" line is gone, so a same-version launch is one render and one pointer request.

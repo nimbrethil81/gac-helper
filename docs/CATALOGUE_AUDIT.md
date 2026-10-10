@@ -53,7 +53,7 @@ Exit codes: `0` passed, `1` gate failed or snapshot stale, `2` unreadable, tampe
 An operator with read access does this; it needs no credentials in the repository.
 
 1. In the Sheet, **File → Download → Microsoft Excel (.xlsx)**. Note the UTC time. Keep the file outside the repository: it contains personal tabs.
-2. Save the live `action=data` response (the app's public `CATALOGUE_API_URL`) to a file and note the UTC time.
+2. Save the live `action=data` response (the Apps Script web-app URL, the same deployment as `ROSTER_API_URL` in `app.js`, with no `action` parameter) to a file and note the UTC time.
 3. Run:
 
    ```bash

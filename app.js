@@ -1,11 +1,27 @@
 // app.js
-const APP_VERSION = "3.5";
-const CATALOGUE_API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
+const APP_VERSION = "3.6";
 const ROSTER_API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
-const CATALOGUE_CACHE_SCHEMA = 1;
-const CATALOGUE_CACHE_KEY = "catalogueCache:v1";
-const CATALOGUE_SOURCE_CONTRACT = "apps-script-action-data:v1";
+// Static catalogue (ADR-ARCH-116 §8): a small same-origin pointer names an
+// immutable, checksummed release file. Paths are relative to the app, so they
+// resolve under the /gac-helper/ Pages path as well as at a site root.
+const CATALOGUE_POINTER_URL = "catalogue/current.json";
+const CATALOGUE_BASE_URL = "catalogue/";
+const CATALOGUE_POINTER_SCHEMA = 1;
+const CATALOGUE_RELEASE_CONTRACT = "gac-catalogue-release:v1";
+const CATALOGUE_POINTER_TIMEOUT_MS = 10000;
+const CATALOGUE_RELEASE_TIMEOUT_MS = 30000;
+const CATALOGUE_PAYLOAD_KEYS = ["counters", "counterDefinitions", "characterDefinitions", "boardConfig", "scoring", "defenceTeams", "defenceCompositions"];
+const CATALOGUE_CHECKSUM_PATTERN = /^sha256:[0-9a-f]{64}$/;
+
+const CATALOGUE_CACHE_SCHEMA = 2;
+const CATALOGUE_CACHE_KEY = "catalogueCache:v2";
+// Pre-cutover Apps Script cache. Read once to migrate; never written, and only
+// removed if the v2 write would otherwise exceed the storage quota, so a
+// rollback to the Apps Script app still finds its offline catalogue.
+const LEGACY_CATALOGUE_CACHE_SCHEMA = 1;
+const LEGACY_CATALOGUE_CACHE_KEY = "catalogueCache:v1";
+const LEGACY_CATALOGUE_SOURCE_CONTRACT = "apps-script-action-data:v1";
 
 const ROSTER_SCHEMA = 2;
 const ROSTER_KEY = "rosterData";             // versioned object
@@ -1713,16 +1729,16 @@ function isValidCataloguePayload(data) {
         isPlainObject(data.defenceCompositions);
 }
 
-function readCatalogueCache() {
+function readCatalogueEntry(key, schema, sourceContract) {
     let cached;
     try {
-        cached = JSON.parse(localStorage.getItem(CATALOGUE_CACHE_KEY) || "null");
+        cached = JSON.parse(localStorage.getItem(key) || "null");
     } catch (e) {
         return null;
     }
 
-    if (!cached || cached.schema !== CATALOGUE_CACHE_SCHEMA ||
-        cached.sourceContract !== CATALOGUE_SOURCE_CONTRACT ||
+    if (!cached || cached.schema !== schema ||
+        cached.sourceContract !== sourceContract ||
         !Number.isFinite(Date.parse(cached.acceptedAt)) ||
         !isValidCataloguePayload(cached.payload)) {
         return null;
@@ -1730,20 +1746,110 @@ function readCatalogueCache() {
     return cached;
 }
 
-function writeCatalogueCache(payload) {
-    const entry = {
+// The validated v2 cache first, then a pre-cutover v1 cache (same seven-key
+// payload) so an upgrading user keeps their offline catalogue.
+function readCatalogueCache() {
+    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, CATALOGUE_RELEASE_CONTRACT);
+    if (current && CATALOGUE_CHECKSUM_PATTERN.test(current.checksum) &&
+        Number.isSafeInteger(current.catalogueVersion) && current.catalogueVersion > 0) {
+        return current;
+    }
+    return readCatalogueEntry(LEGACY_CATALOGUE_CACHE_KEY, LEGACY_CATALOGUE_CACHE_SCHEMA, LEGACY_CATALOGUE_SOURCE_CONTRACT);
+}
+
+function writeCatalogueCache(release) {
+    const text = JSON.stringify({
         schema: CATALOGUE_CACHE_SCHEMA,
-        sourceContract: CATALOGUE_SOURCE_CONTRACT,
+        sourceContract: CATALOGUE_RELEASE_CONTRACT,
         acceptedAt: new Date().toISOString(),
-        payload
-    };
+        catalogueVersion: release.catalogueVersion,
+        checksum: release.checksum,
+        payload: release.payload
+    });
     try {
-        localStorage.setItem(CATALOGUE_CACHE_KEY, JSON.stringify(entry));
+        localStorage.setItem(CATALOGUE_CACHE_KEY, text);
         return true;
     } catch (e) {
+        // Most likely the quota: give up the rollback copy rather than the
+        // current catalogue, then try once more.
+        if (localStorage.getItem(LEGACY_CATALOGUE_CACHE_KEY) !== null) {
+            try {
+                localStorage.removeItem(LEGACY_CATALOGUE_CACHE_KEY);
+                localStorage.setItem(CATALOGUE_CACHE_KEY, text);
+                return true;
+            } catch (retryError) {
+                e = retryError;
+            }
+        }
         console.warn("Couldn't save the catalogue cache", e);
         return false;
     }
+}
+
+function sortCatalogueJson(value) {
+    if (Array.isArray(value)) return value.map(sortCatalogueJson);
+    if (value && typeof value === "object") {
+        const sorted = {};
+        Object.keys(value).sort().forEach(key => { sorted[key] = sortCatalogueJson(value[key]); });
+        return sorted;
+    }
+    return value;
+}
+
+// Identity of a catalogue: SHA-256 of the canonical JSON of the seven payload
+// keys (recursively sorted keys, 2-space indent, trailing newline), exactly as
+// the release builder computes it. Throws where crypto.subtle is unavailable.
+async function catalogueChecksum(payload) {
+    const legacy = {};
+    CATALOGUE_PAYLOAD_KEYS.forEach(key => { legacy[key] = payload[key]; });
+    const canonical = JSON.stringify(sortCatalogueJson(legacy), null, 2) + "\n";
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+    return "sha256:" + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function parseCataloguePointer(pointer) {
+    if (!isPlainObject(pointer) ||
+        pointer.pointerSchema !== CATALOGUE_POINTER_SCHEMA ||
+        pointer.contract !== CATALOGUE_RELEASE_CONTRACT ||
+        !Number.isSafeInteger(pointer.catalogueVersion) || pointer.catalogueVersion < 1 ||
+        typeof pointer.checksum !== "string" || !CATALOGUE_CHECKSUM_PATTERN.test(pointer.checksum) ||
+        !Number.isSafeInteger(pointer.bytes) || pointer.bytes < 1) {
+        return null;
+    }
+    // Only the immutable release file the pointer itself identifies is fetched.
+    const expectedPath = `releases/${pointer.catalogueVersion}-${pointer.checksum.slice(7, 19)}.json`;
+    return pointer.path === expectedPath ? pointer : null;
+}
+
+// The timeout covers the body as well as the headers, so a stalled transfer on
+// venue wifi fails instead of hanging.
+async function fetchCatalogueText(url, ms, options) {
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), ms);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        if (!response || !response.ok) throw new Error("Catalogue request failed");
+        return await response.text();
+    } finally {
+        clearTimeout(t);
+    }
+}
+
+// Downloads and verifies the release a pointer names. Throws on any HTTP,
+// size, JSON, contract, shape or checksum failure.
+async function fetchCatalogueRelease(pointer) {
+    const text = await fetchCatalogueText(CATALOGUE_BASE_URL + pointer.path, CATALOGUE_RELEASE_TIMEOUT_MS);
+    if (new TextEncoder().encode(text).length !== pointer.bytes) throw new Error("Catalogue release is incomplete");
+    const releaseFile = JSON.parse(text);
+    const meta = isPlainObject(releaseFile) ? releaseFile.release : null;
+    if (!isPlainObject(meta) || meta.contract !== CATALOGUE_RELEASE_CONTRACT || meta.checksum !== pointer.checksum) {
+        throw new Error("Catalogue release does not match its pointer");
+    }
+    const payload = {};
+    CATALOGUE_PAYLOAD_KEYS.forEach(key => { payload[key] = releaseFile[key]; });
+    if (!isValidCataloguePayload(payload)) throw new Error("Catalogue release is malformed");
+    if (await catalogueChecksum(payload) !== pointer.checksum) throw new Error("Catalogue release checksum mismatch");
+    return { catalogueVersion: pointer.catalogueVersion, checksum: pointer.checksum, payload };
 }
 
 function applyCataloguePayload(data) {
@@ -1765,43 +1871,58 @@ function renderCatalogueUnavailable() {
         "<p style='padding:20px;'>Catalogue unavailable. Check your connection and try again. Your saved roster, round and other data have not been changed.</p>";
 }
 
-async function refreshCatalogue() {
-    let response;
-    let data;
+// Checks the pointer and, only for a catalogue this device has not already
+// verified, downloads the release. Returns "unchanged", "updated" or "failed";
+// on failure the catalogue already in use (if any) stays in use.
+async function refreshCatalogue(cached) {
     try {
-        response = await fetch(CATALOGUE_API_URL);
-        if (!response || !response.ok) throw new Error("Catalogue request failed");
-        data = await response.json();
-    } catch (e) {
-        return false;
-    }
+        const pointer = parseCataloguePointer(JSON.parse(
+            await fetchCatalogueText(CATALOGUE_POINTER_URL, CATALOGUE_POINTER_TIMEOUT_MS, { cache: "no-cache" })));
+        if (!pointer) return "failed";
 
-    if (!isValidCataloguePayload(data) || !writeCatalogueCache(data)) return false;
-    applyCataloguePayload(data);
-    catalogueStatus = null;
-    render();
-    maybeBackgroundSync(); // roster refresh remains independent of catalogue loading
-    return true;
+        if (cached && await catalogueChecksum(cached.payload) === pointer.checksum) {
+            // Same catalogue already on screen. A migrated v1 cache is recorded
+            // as v2 without downloading the release.
+            if (cached.schema !== CATALOGUE_CACHE_SCHEMA) {
+                writeCatalogueCache({ catalogueVersion: pointer.catalogueVersion, checksum: pointer.checksum, payload: cached.payload });
+            }
+            return "unchanged";
+        }
+
+        const release = await fetchCatalogueRelease(pointer);
+        // A verified release is used even if it can't be stored (quota); the
+        // next launch then starts from the previous cache and downloads again.
+        writeCatalogueCache(release);
+        applyCataloguePayload(release.payload);
+        return "updated";
+    } catch (e) {
+        return "failed";
+    }
 }
 
 async function loadData() {
     const cached = readCatalogueCache();
     if (cached) {
         applyCataloguePayload(cached.payload);
-        catalogueStatus = "Using saved catalogue while checking for updates.";
+        catalogueStatus = null;
         render();
         maybeBackgroundSync();
 
-        const refreshed = await refreshCatalogue();
-        if (!refreshed) {
-            catalogueStatus = "Using saved catalogue. Couldn't check for updates just now.";
-            render();
-        }
+        const outcome = await refreshCatalogue(cached);
+        if (outcome === "unchanged") return;   // nothing new: no second render
+        catalogueStatus = outcome === "updated" ? null : "Using saved catalogue. Couldn't check for updates just now.";
+        render();
         return;
     }
 
-    const refreshed = await refreshCatalogue();
-    if (!refreshed) renderCatalogueUnavailable();
+    const outcome = await refreshCatalogue(null);
+    if (outcome !== "updated") {
+        renderCatalogueUnavailable();
+        return;
+    }
+    catalogueStatus = null;
+    render();
+    maybeBackgroundSync(); // roster refresh remains independent of catalogue loading
 }
 
 // ─── EXTERNAL ID MAPPING ───────────────────────────────────────────────────────

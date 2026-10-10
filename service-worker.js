@@ -1,4 +1,4 @@
-const CACHE_NAME = 'swgoh-shell-v19';
+const CACHE_NAME = 'swgoh-shell-v20';
 const FILES = [
   './',
   './index.html',
@@ -6,6 +6,9 @@ const FILES = [
   './styles.css',
   './manifest.json'
 ];
+
+// The static catalogue lives beside the worker (e.g. /gac-helper/catalogue/).
+const CATALOGUE_PATH = new URL('catalogue/', self.location).pathname;
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));
@@ -24,9 +27,13 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const requestUrl = new URL(event.request.url);
 
-  // The Apps Script catalogue is intentionally never handled by the service
-  // worker. app.js validates and owns the only fallback cache for that data.
+  // Cross-origin requests (the Apps Script roster proxy) are never handled here.
   if (requestUrl.origin !== self.location.origin) return;
+
+  // Nor is the static catalogue: the browser fetches it directly, so the worker
+  // never caches or serves stale catalogue data. app.js validates it and owns
+  // the only catalogue cache.
+  if (requestUrl.pathname.startsWith(CATALOGUE_PATH)) return;
 
   event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });

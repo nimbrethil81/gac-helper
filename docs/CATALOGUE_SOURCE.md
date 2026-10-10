@@ -1,6 +1,6 @@
 # Git-native catalogue source
 
-**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #41 and #42, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record, corrections, the static release on Pages, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The app still reads the Google Sheet through Apps Script.** `Deploy Pages Live` publishes the static release alongside the app, but nothing reads it until a separately approved cutover; [`SPEC.md`](SPEC.md) continues to describe the Sheet runtime.
+**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The app on `main` (v3.6, issue #43) reads the static release. The live app keeps reading the Google Sheet through Apps Script until the owner separately approves and runs the cutover deployment ([Cutover](#cutover)).** [`SPEC.md`](SPEC.md) describes the live runtime and is updated once the cutover is deployed.
 
 **Update this document when** the source layout, commands, correction procedure, release/deployment procedure, budget or migration status changes.
 
@@ -129,7 +129,7 @@ To restore a previously approved release N (repeatable, and tested in `tests/cat
 3. Commit, open a PR, and let CI run. The owner merges.
 4. Run `Deploy Pages Live`. The guard reports `vCurrent → vNew`, and verify confirms that the live pointer names the new version with N's checksum.
 
-Rolling back the cutover itself (restoring the Apps Script loader in the app) is ADR §9 and is not affected.
+Rolling back the cutover itself (restoring the Apps Script loader in the app) is covered in [Cutover](#cutover).
 
 ### Performance budget
 
@@ -145,8 +145,26 @@ The budget is enforced by `catalogue:site` (`BUDGET` in `scripts/catalogue-relea
 
 The release file is the same size as today's `action=data` (+0.3%). It costs one extra pointer request of about 240 B, and a same-version launch saves the whole payload download. The client checksum work at cutover is parsing the release and hashing the 141,327-byte canonical seven-key JSON. That takes about 4 ms per release in Node 22 on the build container; `crypto.subtle` timing on iPhone Safari is a cutover measurement.
 
+## Cutover
+
+App v3.6 (#43) loads the catalogue from `catalogue/current.json` and the release file it names, not from Apps Script `action=data`. Loading, the `catalogueCache:v2` migration and the service-worker bypass follow ADR-ARCH-116 §8 with the refinements in §12. Roster import is unchanged: it still goes through Apps Script `action=roster`, which calls Comlink.
+
+**Gate.** Merging the change deploys nothing. The live app switches only when the owner, after approving the readiness evidence in the #43 pull request, runs `Deploy Pages Live`. App and catalogue ship in the same artifact, so the pre-cutover app (still live until then) never sees a half-switched site. Already-installed apps pick up v3.6 on a later launch: Pages serves the shell with a 10-minute HTTP cache, and the bumped service worker (`swgoh-shell-v20`) takes over once old app windows close. Until then the old worker passes catalogue requests straight to the network without caching them, so v3.6 still works under it.
+
+**After deploying.**
+1. Check that the run's verify step names the expected catalogue version and checksum.
+2. On a device, confirm the footer reads `v3.6` and the Counters screen loads.
+3. Relaunch while offline: the app must render from its saved catalogue and show the quiet status line.
+
+**Rolling back the cutover** (tested end to end in a browser for #43):
+1. On a branch from current `main`, `git revert` the #43 merge commit. This restores the Apps Script loader in `app.js` and gives `service-worker.js` new bytes, so installed apps update. Keep the catalogue source, `release.json` and the workflow as they are.
+2. Open a PR, let CI run, and merge.
+3. Run `Deploy Pages Live`. The static catalogue stays published and is ignored again.
+
+v3.6 never writes or removes `catalogueCache:v1`, except to make room when storing v2 would exceed the storage quota. The reverted app therefore finds its last Apps Script catalogue and works offline straight away. Saved roster, round, banner and template state is shared by both versions and is never changed by a catalogue change. The rolled-back app serves the frozen Sheet, so any Git-only catalogue releases are lost on that path (ADR §9). Do not edit or decommission the Sheet or Apps Script `action=data` while this rollback must stay available.
+
 ## Limitations
 
 - Finding locations from the shared rule set name payload paths (for example `counters["3v3"]["Grand Inquisitor"][1]`), not source line numbers.
-- App loading, the cache v2 migration, the service-worker bypass for `catalogue/` and the cutover measurements (ADR §8, §10) are not built. The app ignores the published static catalogue. The service worker does not cache it, and nothing requests it.
+- Time to first render and refresh, and iPhone Safari and installed-PWA behaviour, are measured per deployment. The #43 pull request records the pre-cutover measurements and which device checks the owner still has to make.
 - The guard and verify steps need the live Pages site to be reachable. If it is not, the run fails closed.
