@@ -27,6 +27,7 @@ const ROOT = path.resolve(__dirname, "..");
 const SOURCE_DIR = path.join(ROOT, "catalogue", "source");
 const BASELINE_DIR = path.join(ROOT, "data", "snapshots", "20261010T070702Z");
 const CORRECTIONS_DIR = path.join(ROOT, "catalogue", "corrections");
+const BASELINE_CORRECTIONS = path.join(CORRECTIONS_DIR, "2026-10-10-baseline.json");
 
 const baseline = loadSnapshot(BASELINE_DIR);
 const committed = readSource(SOURCE_DIR);
@@ -45,8 +46,10 @@ const gateKeys = (report) => report.findings
 // ─── migration baseline and approved corrections ─────────────────────────────
 
 const imported = importSnapshot(baseline, auditSnapshot(baseline));
-const corrections = (fs.existsSync(CORRECTIONS_DIR) ? fs.readdirSync(CORRECTIONS_DIR) : []).filter((file) => file.endsWith(".json")).sort()
-  .flatMap((file) => readCorrections(path.join(CORRECTIONS_DIR, file)).corrections);
+// These assertions reconstruct the one-time Sheet migration only. Later
+// schema-2 change sets are independently baseline-bound and must not be folded
+// into the historical C1-C5 parity proof.
+const corrections = readCorrections(BASELINE_CORRECTIONS).corrections;
 const approved = corrections.filter((correction) => correction.status === "APPROVED");
 const NAMES_ANY = ["Ahsoka Tano", "Carth Onasi", "Executor", "Jedi Master Kenobi", "Leviathan", "Lord Vader", "Profundity", "The Stranger"];
 const IMPORTED_GATE = [

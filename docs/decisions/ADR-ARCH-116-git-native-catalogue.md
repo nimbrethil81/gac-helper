@@ -203,3 +203,12 @@ The app loader and service worker follow §8 with these deliberate refinements. 
 4. **Timeouts cover the body.** The pointer request has 10 s and the release 30 s, each including the response body, so a stalled transfer fails rather than hangs.
 5. **Quota failures don't block a verified release.** If a verified release cannot be stored, it is still applied for the session. The previous cache stays as it was, and the next launch downloads the release again. A cold start therefore does not show "Catalogue unavailable" only because storage is full.
 6. **No duplicate render.** A cached launch renders once. It renders again only if a new release was applied or the refresh failed. The interim "checking for updates" line is gone, so a same-version launch is one render and one pointer request.
+
+## 13. Implementation amendments (#36, 2026-10-10)
+
+Routine approved counter maintenance continues to use `catalogue/corrections/*.json` and the compiler/release/Pages path above, with these safeguards. The operator contract and recovery procedure are in [`CATALOGUE_SOURCE.md`](../CATALOGUE_SOURCE.md#applying-an-approved-counter-change-set).
+
+1. **Versioned correction contract.** Historical schema-1 C1–C5 lists remain reproducible. New work uses schema 2, binding an exact `main` commit and release version/checksum to explicit Add/Amend/Retire endpoints, stable source-row keys, provenance, affected references, expected runtime impact and exact compiled-payload paths. It creates no parallel catalogue or approval store; decision history remains linked to GitHub.
+2. **Exact approval.** An approved proposal carries the owner's exact GitHub issue-comment or PR-review link and a checksum of its proposal ID, source/release baseline and ordered source changes. Editing the baseline or diff invalidates approval. Other decision states are preview-only.
+3. **Fail-closed apply.** Preview and apply run the unchanged shared release gate over the whole coherent result. They reject stale or overlapping rows, ambiguous aliases, source/release/base-ref drift and undeclared compiled impact. Apply writes one approved proposal atomically on a dedicated branch and does not version, commit, merge or deploy it.
+4. **Publication and rollback unchanged.** `catalogue:release`, owner-reviewed PR/merge and manual `Deploy Pages Live` remain separate gates. A live rollback still restores only a release on `main`'s first-parent ledger and records its checksum under a new higher version; failed deploy verification is not an automatic undo.

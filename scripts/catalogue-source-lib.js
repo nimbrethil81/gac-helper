@@ -18,6 +18,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { isDeepStrictEqual } = require("node:util");
 
+const { canonicalJson, sha256 } = require("./baseline-lib.js");
+
 const {
   CATALOGUE_TABS,
   auditPayload,
@@ -32,6 +34,10 @@ const {
 
 const SOURCE_SCHEMA = 1;
 const RELEASE_CONTRACT = "gac-catalogue-release:v1";
+const CHANGE_SET_SCHEMA = 2;
+const CHANGE_SET_CONTRACT = "gac-catalogue-change-set:v1";
+const ABSENT = "ABSENT";
+const REMOVE = "REMOVE";
 const MATCHUP_MODES = Object.freeze(["5v5", "3v3", "FLEET"]);
 
 // File → top-level array key, row fields (required / optional) and sort key.
@@ -142,6 +148,38 @@ function writeSource(directory, source) {
     const absolute = path.join(root, file);
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, `${formatSourceJson({ schema: SOURCE_SCHEMA, [spec.array]: source[file] ?? [] })}\n`);
+  }
+}
+
+// Validate the complete replacement before swapping it into place. This keeps a
+// multi-file correction from leaving a partly written source tree if a later
+// file cannot be formatted or written.
+function writeSourceAtomically(directory, source) {
+  const root = path.resolve(directory);
+  const parent = path.dirname(root);
+  fs.mkdirSync(parent, { recursive: true });
+  const stage = fs.mkdtempSync(path.join(parent, `.${path.basename(root)}-stage-`));
+  const backup = path.join(parent, `.${path.basename(root)}-backup-${process.pid}-${Date.now()}`);
+  try {
+    writeSource(stage, source);
+    const reread = readSource(stage);
+    if (reread.findings.length || !isDeepStrictEqual(reread.source, source)) {
+      throw new Error("staged source did not round-trip exactly");
+    }
+    if (!fs.existsSync(root)) {
+      fs.renameSync(stage, root);
+      return;
+    }
+    fs.renameSync(root, backup);
+    try {
+      fs.renameSync(stage, root);
+    } catch (error) {
+      fs.renameSync(backup, root);
+      throw error;
+    }
+    fs.rmSync(backup, { recursive: true, force: true });
+  } finally {
+    fs.rmSync(stage, { recursive: true, force: true });
   }
 }
 
@@ -371,10 +409,130 @@ function auditSource(source, { label = "catalogue/source", readFindings = [] } =
 
 // ─── corrections ─────────────────────────────────────────────────────────────
 
-// Apply corrections in memory. Each change names a file and the exact current
-// row ("before") it replaces with "after"; insert has no "before", delete no
-// "after". A change whose "before" is not found exactly once is refused, so a
-// stale or mistyped correction can never land.
+function stableKeyForRow(file, row) {
+  if (!row || typeof row !== "object" || Array.isArray(row)) return null;
+  if (file === "units.json" || file === "counters.json") return { id: row.id };
+  const matchup = /^matchups\/(5v5|3v3|FLEET)\.json$/.exec(file);
+  if (matchup) return { mode: matchup[1], defence: row.defence };
+  if (file === "defence-teams.json" || file === "defence-compositions.json") return { defence: row.defence, mode: row.mode };
+  if (file === "board-config.json") return { league: row.league, mode: row.mode, territory: row.territory };
+  if (file === "scoring.json") return { ruleId: row.ruleId, battleType: row.battleType, mode: row.mode };
+  if (file === "score-meanings.json") return { mode: row.mode, bannerScore: row.bannerScore };
+  return null;
+}
+
+function exactKeys(value, expected, where) {
+  const actual = value && typeof value === "object" && !Array.isArray(value) ? Object.keys(value).sort() : [];
+  const wanted = [...expected].sort();
+  if (!isDeepStrictEqual(actual, wanted)) throw new Error(`${where}: expected fields ${wanted.join(", ")}; got ${actual.join(", ") || "none"}`);
+}
+
+function nonEmptyString(value, where) {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${where}: must be a non-empty string`);
+}
+
+function validateModernCorrections(document) {
+  exactKeys(document, ["schema", "contract", "issue", "baseline", "corrections"], "change-set document");
+  if (document.contract !== CHANGE_SET_CONTRACT) throw new Error(`change-set document: unsupported contract ${JSON.stringify(document.contract)}`);
+  if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(issues|pull)\/\d+(?:#.*)?$/.test(document.issue ?? "")) {
+    throw new Error("change-set document: issue must be a GitHub issue or pull-request URL");
+  }
+  exactKeys(document.baseline, ["commit", "catalogueVersion", "checksum"], "change-set baseline");
+  if (!/^[0-9a-f]{40}$/.test(document.baseline.commit ?? "")) throw new Error("change-set baseline.commit must be a full lowercase Git commit SHA");
+  if (!Number.isSafeInteger(document.baseline.catalogueVersion) || document.baseline.catalogueVersion < 1) throw new Error("change-set baseline.catalogueVersion must be a positive integer");
+  if (!/^sha256:[0-9a-f]{64}$/.test(document.baseline.checksum ?? "")) throw new Error("change-set baseline.checksum must be sha256:<64 lowercase hex>");
+  if (!Array.isArray(document.corrections) || !document.corrections.length) throw new Error("change-set document must contain at least one correction");
+
+  const ids = new Set();
+  const touched = new Map();
+  for (const correction of document.corrections) {
+    const where = `correction ${correction?.id ?? "<missing>"}`;
+    exactKeys(correction, ["id", "status", "disposition", "title", "rationale", "approval", "provenance", "affectedReferences", "runtimeImpact", "expectedPayloadPaths", "changes"], where);
+    nonEmptyString(correction.id, `${where}.id`);
+    if (!/^[A-Z0-9][A-Z0-9._-]{2,127}$/.test(correction.id)) throw new Error(`${where}.id: use a stable uppercase proposal ID`);
+    if (ids.has(correction.id)) throw new Error(`${where}.id: duplicate correction ID`);
+    ids.add(correction.id);
+    if (!["PENDING_OWNER_APPROVAL", "APPROVED", "REJECTED", "DEFERRED"].includes(correction.status)) throw new Error(`${where}.status: invalid decision state`);
+    if (!["ADD", "AMEND", "RETIRE"].includes(correction.disposition)) throw new Error(`${where}.disposition: must be ADD, AMEND or RETIRE`);
+    nonEmptyString(correction.title, `${where}.title`);
+    nonEmptyString(correction.rationale, `${where}.rationale`);
+
+    exactKeys(correction.provenance, ["evidence", "conditions", "confidence", "limitations"], `${where}.provenance`);
+    if (!Array.isArray(correction.provenance.evidence) || !correction.provenance.evidence.length) throw new Error(`${where}.provenance.evidence: at least one source is required`);
+    for (const [index, evidence] of correction.provenance.evidence.entries()) {
+      const evidenceWhere = `${where}.provenance.evidence[${index}]`;
+      exactKeys(evidence, ["url", "publisher", "publishedOrObservedAt", "accessedAt", "supports"], evidenceWhere);
+      if (!/^https:\/\//.test(evidence.url ?? "")) throw new Error(`${evidenceWhere}.url: must be HTTPS`);
+      for (const field of ["publisher", "publishedOrObservedAt", "accessedAt", "supports"]) nonEmptyString(evidence[field], `${evidenceWhere}.${field}`);
+      if (!/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2}Z)?$/.test(evidence.publishedOrObservedAt)) throw new Error(`${evidenceWhere}.publishedOrObservedAt: use a UTC date or timestamp`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(evidence.accessedAt)) throw new Error(`${evidenceWhere}.accessedAt: use a UTC date`);
+    }
+    for (const field of ["conditions", "confidence", "limitations"]) nonEmptyString(correction.provenance[field], `${where}.provenance.${field}`);
+    if (!/^(High|Medium|Low)\b/.test(correction.provenance.confidence)) throw new Error(`${where}.provenance.confidence: start with High, Medium or Low and give the reasoning`);
+
+    if (!Array.isArray(correction.affectedReferences) || !correction.affectedReferences.length) throw new Error(`${where}.affectedReferences: at least one affected or checked reference is required`);
+    for (const [index, reference] of correction.affectedReferences.entries()) {
+      const referenceWhere = `${where}.affectedReferences[${index}]`;
+      exactKeys(reference, ["file", "stableKey", "effect"], referenceWhere);
+      if (!FILES[reference.file]) throw new Error(`${referenceWhere}.file: unknown source file ${JSON.stringify(reference.file)}`);
+      if (!reference.stableKey || typeof reference.stableKey !== "object" || Array.isArray(reference.stableKey)) throw new Error(`${referenceWhere}.stableKey: must be an object`);
+      nonEmptyString(reference.effect, `${referenceWhere}.effect`);
+    }
+
+    exactKeys(correction.runtimeImpact, ["5v5", "3v3", "FLEET", "counters", "roundAvailability", "scoring", "strategicReserve"], `${where}.runtimeImpact`);
+    for (const field of ["5v5", "3v3", "FLEET", "counters", "roundAvailability", "scoring", "strategicReserve"]) nonEmptyString(correction.runtimeImpact[field], `${where}.runtimeImpact.${field}`);
+    if (!Array.isArray(correction.expectedPayloadPaths) || correction.expectedPayloadPaths.some((value) => typeof value !== "string" || !value.startsWith("payload"))) {
+      throw new Error(`${where}.expectedPayloadPaths: list every expected compiled payload path`);
+    }
+    if (correction.status === "APPROVED" && !correction.expectedPayloadPaths.length) throw new Error(`${where}.expectedPayloadPaths: an approved proposal must declare its compiled impact`);
+    if (new Set(correction.expectedPayloadPaths).size !== correction.expectedPayloadPaths.length) throw new Error(`${where}.expectedPayloadPaths: duplicate path`);
+    if (!Array.isArray(correction.changes) || !correction.changes.length) throw new Error(`${where}.changes: at least one change is required`);
+
+    for (const [index, change] of correction.changes.entries()) {
+      const changeWhere = `${where}.changes[${index}]`;
+      exactKeys(change, ["file", "operation", "stableKey", "before", "after"], changeWhere);
+      if (!FILES[change.file]) throw new Error(`${changeWhere}.file: unknown source file ${JSON.stringify(change.file)}`);
+      if (["board-config.json", "scoring.json", "score-meanings.json"].includes(change.file)) throw new Error(`${changeWhere}.file: scoring and board configuration require a separately scoped workflow`);
+      if (!["ADD", "AMEND", "RETIRE"].includes(change.operation)) throw new Error(`${changeWhere}.operation: must be ADD, AMEND or RETIRE`);
+      const beforeIsAbsent = change.before === ABSENT;
+      const afterIsRemove = change.after === REMOVE;
+      if (change.operation === "ADD" && (!beforeIsAbsent || afterIsRemove)) throw new Error(`${changeWhere}: ADD needs before ${ABSENT} and an after row`);
+      if (change.operation === "AMEND" && (beforeIsAbsent || afterIsRemove)) throw new Error(`${changeWhere}: AMEND needs exact before and after rows`);
+      if (change.operation === "RETIRE" && (beforeIsAbsent || !afterIsRemove)) throw new Error(`${changeWhere}: RETIRE needs an exact before row and after ${REMOVE}`);
+      const rows = [beforeIsAbsent ? null : change.before, afterIsRemove ? null : change.after].filter(Boolean);
+      if (!rows.length || rows.some((row) => !row || typeof row !== "object" || Array.isArray(row))) throw new Error(`${changeWhere}: before/after rows must be objects or the explicit sentinels`);
+      for (const row of rows) {
+        const derived = stableKeyForRow(change.file, row);
+        if (!isDeepStrictEqual(derived, change.stableKey)) throw new Error(`${changeWhere}.stableKey: ${JSON.stringify(change.stableKey)} does not match row identity ${JSON.stringify(derived)}`);
+      }
+      const touchKey = `${change.file}\n${canonicalJson(change.stableKey)}`;
+      if (touched.has(touchKey)) throw new Error(`${changeWhere}: overlaps ${touched.get(touchKey)}`);
+      touched.set(touchKey, changeWhere);
+    }
+
+    if (correction.status === "APPROVED") {
+      exactKeys(correction.approval, ["reference", "decidedAt", "changeSetChecksum"], `${where}.approval`);
+      if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(issues|pull)\/\d+#(?:issuecomment|pullrequestreview)-\d+$/.test(correction.approval.reference ?? "")) {
+        throw new Error(`${where}.approval.reference: must link to the exact GitHub issue comment or pull-request review`);
+      }
+      nonEmptyString(correction.approval.decidedAt, `${where}.approval.decidedAt`);
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(correction.approval.decidedAt)) throw new Error(`${where}.approval.decidedAt: use an ISO UTC timestamp`);
+      if (correction.approval.changeSetChecksum !== correctionChecksum(document, correction)) throw new Error(`${where}.approval.changeSetChecksum: does not approve this exact baseline and diff`);
+    } else if (correction.approval !== null) {
+      throw new Error(`${where}.approval: must be null unless status is APPROVED`);
+    }
+  }
+}
+
+function correctionChecksum(document, correction) {
+  return `sha256:${sha256(canonicalJson({ baseline: document.baseline, id: correction.id, changes: correction.changes }))}`;
+}
+
+// Apply corrections in memory. Schema-1 migration corrections retain their
+// historical omitted-before/after convention. Schema-2 change sets use stable
+// keys and explicit ABSENT/REMOVE sentinels. Nothing is written until every
+// change in the selected proposal has applied and the caller has validated the
+// coherent result.
 function applyCorrections(source, corrections) {
   const next = Object.fromEntries(Object.entries(source).map(([file, rows]) => [file, JSON.parse(JSON.stringify(rows))]));
   for (const correction of corrections) {
@@ -382,7 +540,18 @@ function applyCorrections(source, corrections) {
       const where = `${correction.id} change ${index + 1} (${change.file})`;
       const rows = next[change.file];
       if (!rows) throw new Error(`${where}: unknown source file`);
-      if (change.before) {
+      if (change.operation) {
+        const matches = rows.map((row, position) => (isDeepStrictEqual(stableKeyForRow(change.file, row), change.stableKey) ? position : -1)).filter((position) => position >= 0);
+        if (change.operation === "ADD") {
+          if (matches.length !== 0) throw new Error(`${where}: ${JSON.stringify(change.stableKey)} is present; expected ABSENT`);
+          rows.push(JSON.parse(JSON.stringify(change.after)));
+        } else {
+          if (matches.length !== 1) throw new Error(`${where}: stable key matches ${matches.length} rows; expected exactly 1`);
+          if (!isDeepStrictEqual(rows[matches[0]], change.before)) throw new Error(`${where}: stale before row for ${JSON.stringify(change.stableKey)}`);
+          if (change.operation === "AMEND") rows[matches[0]] = JSON.parse(JSON.stringify(change.after));
+          else rows.splice(matches[0], 1);
+        }
+      } else if (change.before) {
         const matches = rows.map((row, position) => (isDeepStrictEqual(row, change.before) ? position : -1)).filter((position) => position >= 0);
         if (matches.length !== 1) throw new Error(`${where}: "before" matches ${matches.length} rows; expected exactly 1`);
         if (change.after) rows[matches[0]] = JSON.parse(JSON.stringify(change.after));
@@ -404,20 +573,25 @@ function isApplied(source, correction) {
   return correction.changes.every((change) => {
     const rows = source[change.file] ?? [];
     const present = (row) => rows.some((candidate) => isDeepStrictEqual(candidate, row));
-    if (change.after && !present(change.after)) return false;
-    if (change.before && !(change.after && isDeepStrictEqual(change.before, change.after)) && present(change.before)) return false;
+    const after = change.after === REMOVE ? null : change.after;
+    const before = change.before === ABSENT ? null : change.before;
+    if (after && !present(after)) return false;
+    if (before && !(after && isDeepStrictEqual(before, after)) && present(before)) return false;
     return true;
   });
 }
 
 function readCorrections(file) {
   const document = JSON.parse(fs.readFileSync(file, "utf8"));
-  if (document.schema !== 1 || !Array.isArray(document.corrections)) throw new Error(`Not a correction list: ${file}`);
+  if (document.schema === CHANGE_SET_SCHEMA) validateModernCorrections(document);
+  else if (document.schema !== 1 || !Array.isArray(document.corrections)) throw new Error(`Not a correction list: ${file}`);
   return document;
 }
 
 module.exports = {
   CATALOGUE_TABS,
+  CHANGE_SET_CONTRACT,
+  CHANGE_SET_SCHEMA,
   FILES,
   IMPORT_BLOCKERS,
   MATCHUP_MODES,
@@ -426,6 +600,7 @@ module.exports = {
   applyCorrections,
   auditSource,
   compileSource,
+  correctionChecksum,
   formatSourceJson,
   importFromPayload,
   importSnapshot,
@@ -434,5 +609,6 @@ module.exports = {
   readSource,
   scoreMeaningsFromSnapshot,
   validateSource,
-  writeSource
+  writeSource,
+  writeSourceAtomically
 };
