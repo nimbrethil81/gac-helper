@@ -28,3 +28,4 @@ https://nimbrethil81.github.io/gac-helper/
 - [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — current operating model, work-package disposition, restart gates, and parked architecture plan.
 - [`ROADMAP.md`](ROADMAP.md) — forward-looking product ideas and planned, candidate, deferred, research, or conditional work.
 - [`docs/SCORING_REFERENCE.md`](docs/SCORING_REFERENCE.md) — scoring maths and authoring guidance for banner and undersize data.
+- [`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md) — read-only catalogue integrity and parity audit: usage, severities and limitations.

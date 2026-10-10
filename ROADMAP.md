@@ -10,7 +10,7 @@
 
 *Planned — decision and contracts: [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](docs/decisions/ADR-ARCH-116-git-native-catalogue.md)*
 
-Move the shared counter catalogue from Google Sheets to reviewed, version-controlled JSON source in this repository, compiled to a validated static catalogue published only through the manual Pages deployment, with no hosted database. Sequenced as a read-only integrity/parity gate, then source import and compiler, then a separately approved live cutover. Database-backed, evidence-driven maintenance stays parked behind its restart gates.
+Move the shared counter catalogue from Google Sheets to reviewed, version-controlled JSON source in this repository, compiled to a validated static catalogue published only through the manual Pages deployment, with no hosted database. The read-only integrity/parity gate it depends on is available ([`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md)); remaining work is source import and compiler, then a separately approved live cutover. Database-backed, evidence-driven maintenance stays parked behind its restart gates.
 
 ### Per-battle undersize advisor
 

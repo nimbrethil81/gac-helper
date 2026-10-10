@@ -1,0 +1,21 @@
+{
+  "tab": "Defence_Teams",
+  "formulas": [],
+  "errors": [],
+  "grid": [
+    ["Defence_Team","Mode","Threat","Notes"],
+    ["Kelleran Beq","3v3","High",""],
+    ["Lord Vader","Any","High",""],
+    ["The Stranger","Any","Extreme",""],
+    ["Ahsoka Tano","Any","High",""],
+    ["Gungan","5v5","High",""],
+    ["Carth Onasi","Any","Low",""],
+    ["Jedi Master Kenobi","Any","High",""],
+    ["Leviathan","Any","Extreme",""],
+    ["Profundity","Any","High",""],
+    ["Executor","Any","High",""],
+    ["Emperor Palpatine (Duel's End Vader)","5v5","High","Palpatine lead + Duel's End Vader (omicron) + Mara Jade; Tarkin confirmed for this variant; fifth unknown."],
+    ["Major Partagaz","5v5","High","ISB: Partagaz lead, Director Krennic, Dedra Meero, KX Security Droid, Imperial Probe Droid; all R7 in captured board."],
+    ["Cassian Andor (Undercover)","5v5","High","Rebel Fighter: Cassian lead, Vel Sartha, Cinta Kaz, Kleya Marki, Luthen Rael; all R7 in captured board."]
+  ]
+}
