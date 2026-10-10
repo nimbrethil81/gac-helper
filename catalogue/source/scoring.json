@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "rules": [
+    { "mode": "ANY", "ruleId": "VICTORY", "battleType": "ANY", "value": 15, "notes": "Per battle won" },
+    { "mode": "ANY", "ruleId": "FIRST_ATTEMPT", "battleType": "ANY", "value": 30, "notes": "Bonus for a first-attempt win" },
+    { "mode": "ANY", "ruleId": "SECOND_ATTEMPT", "battleType": "ANY", "value": 10, "notes": "Bonus for a second-attempt win" },
+    { "mode": "ANY", "ruleId": "SURVIVING_UNIT", "battleType": "ANY", "value": 1, "notes": "Per attacking unit alive at battle end" },
+    { "mode": "ANY", "ruleId": "UNUSED_SLOT", "battleType": "ANY", "value": 4, "notes": "Per empty slot in the attacking squad" },
+    { "mode": "ANY", "ruleId": "FULL_HEALTH_UNIT", "battleType": "ANY", "value": 1, "notes": "Per attacking unit on 100% health at battle end" },
+    { "mode": "ANY", "ruleId": "FULL_PROTECTION_UNIT", "battleType": "ANY", "value": 1, "notes": "Per attacking unit on 100% protection at battle end" },
+    { "mode": "ANY", "ruleId": "DEFEATED_ENEMY", "battleType": "ANY", "value": 1, "notes": "Per enemy unit defeated" },
+    { "mode": "ANY", "ruleId": "FIRST_ATTACK", "battleType": "ANY", "value": 10, "notes": "One-off for the round's first battle" },
+    { "mode": "ANY", "ruleId": "TERRITORY_CLEAR_BASE", "battleType": "ANY", "value": 120, "notes": "Base bonus for conquering a territory" },
+    { "mode": "5v5", "ruleId": "TERRITORY_CLEAR_PER_TEAM", "battleType": "SQUAD", "value": 30, "notes": "Per defence squad in the conquered territory" },
+    { "mode": "3v3", "ruleId": "TERRITORY_CLEAR_PER_TEAM", "battleType": "SQUAD", "value": 28, "notes": "Per defence squad in the conquered territory" },
+    { "mode": "ANY", "ruleId": "TERRITORY_CLEAR_PER_TEAM", "battleType": "FLEET", "value": 33, "notes": "Per defence fleet in the conquered territory" },
+    { "mode": "ANY", "ruleId": "OWN_UNITS", "battleType": "FLEET", "value": 7 },
+    { "mode": "ANY", "ruleId": "ENEMY_UNITS", "battleType": "FLEET", "value": 7 },
+    { "mode": "ANY", "ruleId": "SETTING_DEFENCE", "battleType": "ANY", "value": 90, "notes": "Per defence team set at round start" }
+  ]
+}

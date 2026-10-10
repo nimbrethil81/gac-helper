@@ -62,7 +62,7 @@ Do not create a hosted database, evidence-source integration, maintenance schedu
 | ARCH-110 Cloudflare integration/failure rehearsal | **Superseded** | Do not execute. |
 | ARCH-111 One-repository consolidation/origin prep | **Complete in simplified form** | One active repo now adopted; no separate DEV origin retained. |
 | ARCH-112 Production Cloudflare cutover/fallback | **Superseded** | No Cloudflare cutover. |
-| ARCH-116 Git-native static catalogue | **Accepted target — in progress** | Governed by [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md). Sequence: #34 integrity/parity gate (available: [`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)) → #41 import/compiler → owner-approved cutover. Needs no hosted database and does not enter GATE-150. |
+| ARCH-116 Git-native static catalogue | **Accepted target — in progress** | Governed by [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md). Sequence: #34 integrity/parity gate (available: [`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)) → #41 import/compiler (unmodified import at exact parity, then owner-approved corrections C1–C5; release gate passes: [`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md)) → owner-approved cutover. Needs no hosted database and does not enter GATE-150. |
 | GATE-150 Persistent maintenance store | **Parked — not entered** | Required before hosted database work is revived. |
 | GATE-200 Evidence/runner entry | **Parked — not entered** | Required before evidence-driven maintenance resumes. |
 | Stages 2–5 automated maintenance/bootstrap | **Parked — not started** | Preserve design only. |

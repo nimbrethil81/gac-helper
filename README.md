@@ -29,3 +29,4 @@ https://nimbrethil81.github.io/gac-helper/
 - [`ROADMAP.md`](ROADMAP.md) — forward-looking product ideas and planned, candidate, deferred, research, or conditional work.
 - [`docs/SCORING_REFERENCE.md`](docs/SCORING_REFERENCE.md) — scoring maths and authoring guidance for banner and undersize data.
 - [`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md) — read-only catalogue integrity and parity audit: usage, severities and limitations.
+- [`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md) — Git-native catalogue source: import, compile, release record and correction procedure (pre-cutover).

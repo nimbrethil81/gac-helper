@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "defenceCompositions": [
+    { "defence": "Cassian Andor (Undercover)", "mode": "5v5", "units": ["CASSIAN_ANDOR_UNDERCOVER", "VEL_SARTHA", "CINTA_KAZ", "KLEYA_MARKI", "LUTHEN_RAEL"] },
+    { "defence": "Chief Chirpa", "mode": "3v3", "units": ["CHIEF_CHIRPA", "PRINCESS_KNEESAA", "LOGRAY"] },
+    { "defence": "Darth Malgus", "mode": "3v3", "units": ["DARTH_MALGUS", "SITH_MARAUDER", "SITH_EMPIRE_TROOPER"] },
+    { "defence": "Emperor Palpatine (Duel's End Vader)", "mode": "5v5", "units": ["EMPEROR_PALPATINE", "DARTH_VADER_DUALS_END", "MARA_JADE", "GRAND_MOFF_TARKIN"] },
+    { "defence": "Enoch", "mode": "3v3", "units": ["CAPTAIN_ENOCH", "NIGHT_TROOPER", "DEATH_TROOPER_PERIDEA"] },
+    { "defence": "Finn", "mode": "3v3", "units": ["FINN", "RESISTANCE_HERO_FINN", "ZORII_BLISS"] },
+    { "defence": "Iden Versio", "mode": "3v3", "units": ["IDEN_VERSIO", "RANGE_TROOPER", "SCOUT_TROOPER"] },
+    { "defence": "Kelleran Beq", "mode": "3v3", "units": ["KELLERAN_BEQ", "JOCASTA_NU", "PLO_KOON"] },
+    { "defence": "Lord Vader", "mode": "3v3", "units": ["LORD_VADER", "CC_1119_APPO", "RC_1262_SCORCH"] },
+    { "defence": "Major Partagaz", "mode": "5v5", "units": ["MAJOR_PARTAGAZ", "DIRECTOR_KRENNIC", "DEDRA_MEERO", "KX_SECURITY_DROID", "IMPERIAL_PROBE_DROID"] },
+    { "defence": "Mon Mothma", "mode": "3v3", "units": ["MON_MOTHMA", "KYLE_KATARN", "CARA_DUNE"] },
+    { "defence": "Padme Amidala", "mode": "3v3", "units": ["PADME_AMIDALA", "AHSOKA_TANO_SNIPS", "GRANDMASTER_YODA"] },
+    { "defence": "Queen Amidala", "mode": "3v3", "units": ["QUEEN_AMIDALA", "MASTER_QUI_GON", "PADAWAN_OBI_WAN"] },
+    { "defence": "Qui-Gon Jinn", "mode": "3v3", "units": ["QUI_GON_JINN", "JEDI_KNIGHT_ANAKIN", "PLO_KOON"] },
+    { "defence": "Reva", "mode": "3v3", "units": ["THIRD_SISTER", "GRAND_INQUISITOR", "SEVENTH_SISTER"] },
+    { "defence": "Rex", "mode": "3v3", "units": ["CT_7567_REX", "CT_5555_FIVES", "CAPTAIN_REX"] },
+    { "defence": "Rey", "mode": "3v3", "units": ["REY", "BEN_SOLO", "REY_JEDI_TRAINING"] },
+    { "defence": "Saw Gerrera", "mode": "3v3", "units": ["SAW_GERRERA", "LUTHEN_RAEL", "KLEYA_MARKI"] },
+    { "defence": "Stormtrooper Luke", "mode": "3v3", "units": ["STORMTROOPER_LUKE", "PRINCESS_LEIA", "STORMTROOPER_HAN"] }
+  ]
+}

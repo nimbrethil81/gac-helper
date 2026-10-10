@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "defences": [
+    {
+      "defence": "Chimaera",
+      "counters": [
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 71, "undersize": 2, "notes": "Be efficient and leave slots empty" },
+        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Be efficient and leave slots empty" },
+        { "counterId": "NEGOTIATOR", "tier": "A", "bannerScore": 69, "undersize": 0 },
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 2, "notes": "Be efficient and leave slots empty" },
+        { "counterId": "MALEVOLENCE", "tier": "S", "bannerScore": 69, "undersize": 2 }
+      ]
+    },
+    {
+      "defence": "Executor",
+      "counters": [
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1 },
+        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 67, "undersize": 1 },
+        { "counterId": "PROFUNDITY", "tier": "B", "bannerScore": 57, "undersize": 1 },
+        { "counterId": "EXECUTRIX", "tier": "C", "bannerScore": 57, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Home One",
+      "counters": [
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 73, "undersize": 2 },
+        { "counterId": "MALEVOLENCE", "tier": "S", "bannerScore": 69, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Leviathan",
+      "counters": [
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Reinforce Scimitar first" },
+        { "counterId": "EXECUTOR", "tier": "C", "bannerScore": 57, "undersize": 1 },
+        { "counterId": "PROFUNDITY", "tier": "C", "bannerScore": 57, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Malevolence",
+      "counters": [
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 2, "notes": "Be efficient and leave slots empty" },
+        { "counterId": "HOME_ONE", "tier": "A", "bannerScore": 69, "undersize": 2 },
+        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Be efficient and leave slots empty" },
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 69, "undersize": 2 },
+        { "counterId": "CHIMAERA", "tier": "A", "bannerScore": 64, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Negotiator",
+      "counters": [
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 71, "undersize": 1 },
+        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 71, "undersize": 1 },
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Profundity",
+      "counters": [
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 2 },
+        { "counterId": "EXECUTOR", "tier": "A", "bannerScore": 69, "undersize": 1, "notes": "Hounds Tooth starts" },
+        { "counterId": "EXECUTRIX", "tier": "B", "bannerScore": 67, "undersize": 1 },
+        { "counterId": "MALEVOLENCE", "tier": "C", "bannerScore": 57, "undersize": 2 }
+      ]
+    },
+    {
+      "defence": "Raddus",
+      "counters": [
+        { "counterId": "CHIMAERA", "tier": "A", "bannerScore": 67, "undersize": 1 },
+        { "counterId": "NEGOTIATOR", "tier": "A", "bannerScore": 67, "undersize": 1 },
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 67, "undersize": 2 },
+        { "counterId": "EXECUTRIX", "tier": "A", "bannerScore": 67, "undersize": 0 },
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 67, "undersize": 2 }
+      ]
+    }
+  ]
+}
