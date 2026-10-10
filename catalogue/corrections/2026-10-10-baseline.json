@@ -95,7 +95,7 @@
     },
     {
       "id": "C4",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "title": "Add unit definitions KELLERAN_BEQ and JOCASTA_NU",
       "resolves": ["DEFENCE_COMPOSITION_UNKNOWN_UNIT"],
       "references": ["https://swgoh.gg/units/kelleran-beq/", "https://swgoh.gg/units/jocasta-nu/"],
