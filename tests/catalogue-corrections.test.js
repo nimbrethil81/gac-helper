@@ -10,14 +10,16 @@ const os = require("node:os");
 const path = require("node:path");
 const test = require("node:test");
 
-const { loadSnapshot, payloadChecksum } = require("../scripts/catalogue-audit-lib.js");
-const { applyCorrections, auditSource, readCorrections, readSource, writeSource } = require("../scripts/catalogue-source-lib.js");
+const { auditSnapshot, loadSnapshot, payloadChecksum } = require("../scripts/catalogue-audit-lib.js");
+const { applyCorrections, auditSource, importSnapshot, isApplied, readCorrections, readSource, writeSource } = require("../scripts/catalogue-source-lib.js");
 const { run } = require("../scripts/catalogue-build.js");
 
 const ROOT = path.resolve(__dirname, "..");
 const BASELINE_CORRECTIONS = path.join(ROOT, "catalogue", "corrections", "2026-10-10-baseline.json");
 const baseline = loadSnapshot(path.join(ROOT, "data", "snapshots", "20261010T070702Z"));
 const committed = readSource(path.join(ROOT, "catalogue", "source"));
+// Corrections are always proven against the unmodified migration import.
+const imported = importSnapshot(baseline, auditSnapshot(baseline));
 
 function tempDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalogue-corrections-"));
@@ -25,26 +27,43 @@ function tempDir(t) {
   return dir;
 }
 
-test("baseline corrections are all pending and refuse to apply", (t) => {
+test("every correction is either APPROVED and applied, or pending and not applied", () => {
   const document = readCorrections(BASELINE_CORRECTIONS);
-  assert.deepEqual(document.corrections.map((correction) => [correction.id, correction.status]), [
-    ["C1", "PENDING_OWNER_APPROVAL"], ["C2", "PENDING_OWNER_APPROVAL"], ["C3", "PENDING_OWNER_APPROVAL"],
-    ["C4", "PENDING_OWNER_APPROVAL"], ["C5", "PENDING_OWNER_APPROVAL"]
-  ]);
+  assert.deepEqual(document.corrections.map((correction) => correction.id), ["C1", "C2", "C3", "C4", "C5"]);
   assert.equal(document.baselineChecksum, payloadChecksum(baseline.actionData.payload));
+  for (const correction of document.corrections) {
+    assert.ok(["APPROVED", "PENDING_OWNER_APPROVAL"].includes(correction.status), correction.id);
+    assert.equal(isApplied(committed.source, correction), correction.status === "APPROVED", correction.id);
+  }
+});
+
+test("the CLI applies only APPROVED corrections that are not already applied", (t) => {
   const dir = tempDir(t);
-  writeSource(dir, committed.source);
-  const result = run(["corrections", BASELINE_CORRECTIONS, "--source", dir, "--apply", "C1"]);
-  assert.equal(result.exitCode, 2);
-  assert.match(result.lines[0], /PENDING_OWNER_APPROVAL; only APPROVED/);
-  assert.deepEqual(readSource(dir).source, committed.source, "nothing was written");
+  writeSource(path.join(dir, "source"), imported);
+  const list = path.join(dir, "list.json");
+  const pending = { ...readCorrections(BASELINE_CORRECTIONS).corrections[1], status: "PENDING_OWNER_APPROVAL" };
+  const approvedOne = { ...readCorrections(BASELINE_CORRECTIONS).corrections[0], status: "APPROVED" };
+  fs.writeFileSync(list, JSON.stringify({ schema: 1, corrections: [approvedOne, pending] }));
+  const args = ["corrections", list, "--source", path.join(dir, "source")];
+
+  const refused = run([...args, "--apply", "C2"]);
+  assert.equal(refused.exitCode, 2);
+  assert.match(refused.lines[0], /PENDING_OWNER_APPROVAL; only APPROVED/);
+  assert.deepEqual(readSource(path.join(dir, "source")).source, imported, "nothing was written");
+
+  assert.equal(run([...args, "--apply", "C1"]).exitCode, 0);
+  assert.deepEqual(readSource(path.join(dir, "source")).source, applyCorrections(imported, [approvedOne]));
+  const again = run([...args, "--apply", "C1"]);
+  assert.equal(again.exitCode, 2);
+  assert.match(again.lines[0], /already applied/);
+  assert.ok(run(args).lines.some((line) => /^C1 \[APPROVED\] .*: applied$/.test(line)));
 });
 
 test("each correction applies exactly, resolves only its declared findings and introduces none", () => {
-  const before = auditSource(committed.source);
+  const before = auditSource(imported);
   const key = (finding) => `${finding.code}|${finding.subject}|${finding.location}`;
   for (const correction of readCorrections(BASELINE_CORRECTIONS).corrections) {
-    const after = auditSource(applyCorrections(committed.source, [correction]));
+    const after = auditSource(applyCorrections(imported, [correction]));
     const remaining = new Set(after.findings.map(key));
     const resolved = before.findings.filter((finding) => !remaining.has(key(finding)) && finding.severity !== "info");
     const introduced = after.findings.filter((finding) => finding.severity !== "info" && !before.findings.some((other) => key(other) === key(finding)));
@@ -55,7 +74,7 @@ test("each correction applies exactly, resolves only its declared findings and i
 });
 
 test("all five corrections together pass the unchanged release gate", () => {
-  const corrected = applyCorrections(committed.source, readCorrections(BASELINE_CORRECTIONS).corrections);
+  const corrected = applyCorrections(imported, readCorrections(BASELINE_CORRECTIONS).corrections);
   const report = auditSource(corrected);
   assert.equal(report.summary.releaseGate, "PASS");
   const payload = report.payload;
@@ -68,7 +87,7 @@ test("all five corrections together pass the unchanged release gate", () => {
 test("new External_IDs are unique and existing Character_IDs and names are preserved", () => {
   const { corrections } = readCorrections(BASELINE_CORRECTIONS);
   const unitChanges = corrections.flatMap((correction) => correction.changes).filter((change) => change.file === "units.json");
-  const existingExternal = new Map(committed.source["units.json"].filter((unit) => unit.externalId).map((unit) => [unit.externalId, unit.id]));
+  const existingExternal = new Map(imported["units.json"].filter((unit) => unit.externalId).map((unit) => [unit.externalId, unit.id]));
   assert.deepEqual(unitChanges.map((change) => [change.after.id, change.after.unitType, change.after.externalId]).sort(), [
     ["IG_12_AND_GROGU", "CHARACTER", "IG12"],
     ["JOCASTA_NU", "CHARACTER", "JOCASTANU"],
@@ -82,12 +101,12 @@ test("new External_IDs are unique and existing Character_IDs and names are prese
       assert.equal(change.after.name, change.before.name);
     }
   }
-  const corrected = applyCorrections(committed.source, corrections)["units.json"].map((unit) => unit.externalId).filter(Boolean);
+  const corrected = applyCorrections(imported, corrections)["units.json"].map((unit) => unit.externalId).filter(Boolean);
   assert.equal(new Set(corrected).size, corrected.length);
 });
 
 test("a stale or ambiguous correction is refused", () => {
-  assert.throws(() => applyCorrections(committed.source, [{ id: "X", changes: [{ file: "defence-teams.json", before: { defence: "Gungan", mode: "5v5", threat: "LOW" }, after: { defence: "Gungans", mode: "5v5", threat: "LOW" } }] }]), /matches 0 rows/);
-  assert.throws(() => applyCorrections(committed.source, [{ id: "X", changes: [{ file: "nope.json", after: {} }] }]), /unknown source file/);
+  assert.throws(() => applyCorrections(imported, [{ id: "X", changes: [{ file: "defence-teams.json", before: { defence: "Gungan", mode: "5v5", threat: "LOW" }, after: { defence: "Gungans", mode: "5v5", threat: "LOW" } }] }]), /matches 0 rows/);
+  assert.throws(() => applyCorrections(imported, [{ id: "X", changes: [{ file: "nope.json", after: {} }] }]), /unknown source file/);
 });
 

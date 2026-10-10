@@ -398,6 +398,18 @@ function applyCorrections(source, corrections) {
   return next;
 }
 
+// A correction is applied when every "after" row is present and every
+// replaced or deleted "before" row is gone.
+function isApplied(source, correction) {
+  return correction.changes.every((change) => {
+    const rows = source[change.file] ?? [];
+    const present = (row) => rows.some((candidate) => isDeepStrictEqual(candidate, row));
+    if (change.after && !present(change.after)) return false;
+    if (change.before && !(change.after && isDeepStrictEqual(change.before, change.after)) && present(change.before)) return false;
+    return true;
+  });
+}
+
 function readCorrections(file) {
   const document = JSON.parse(fs.readFileSync(file, "utf8"));
   if (document.schema !== 1 || !Array.isArray(document.corrections)) throw new Error(`Not a correction list: ${file}`);
@@ -417,6 +429,7 @@ module.exports = {
   formatSourceJson,
   importFromPayload,
   importSnapshot,
+  isApplied,
   readCorrections,
   readSource,
   scoreMeaningsFromSnapshot,

@@ -42,28 +42,111 @@ const gateKeys = (report) => report.findings
   .map((finding) => `${finding.code} ${finding.subject}`)
   .sort();
 
-// ─── exact parity of the committed import ────────────────────────────────────
+// ─── migration baseline and approved corrections ─────────────────────────────
 
-test("committed source reads cleanly and compiles to exact parity with the fresh live capture", () => {
-  assert.deepEqual(committed.findings, []);
-  const compiled = compileSource(committed.source);
+const imported = importSnapshot(baseline, auditSnapshot(baseline));
+const corrections = (fs.existsSync(CORRECTIONS_DIR) ? fs.readdirSync(CORRECTIONS_DIR) : []).filter((file) => file.endsWith(".json")).sort()
+  .flatMap((file) => readCorrections(path.join(CORRECTIONS_DIR, file)).corrections);
+const approved = corrections.filter((correction) => correction.status === "APPROVED");
+const NAMES_ANY = ["Ahsoka Tano", "Carth Onasi", "Executor", "Jedi Master Kenobi", "Leviathan", "Lord Vader", "Profundity", "The Stranger"];
+const IMPORTED_GATE = [
+  "DEFENCE_ALIAS_CANDIDATE Gungan",
+  "DEFENCE_COMPOSITION_UNKNOWN_UNIT Kelleran Beq / JOCASTA_NU",
+  "DEFENCE_COMPOSITION_UNKNOWN_UNIT Kelleran Beq / KELLERAN_BEQ",
+  ...NAMES_ANY.map((name) => `DEFENCE_MODE_CASE ${name}`),
+  "DUPLICATE_MATCHUP Grand Inquisitor ← TRAYA",
+  "REQUIRED_UNIT_NO_EXTERNAL_ID BO_KATAN_MANDALORE / IG_12_AND_GROGU",
+  "REQUIRED_UNIT_NO_EXTERNAL_ID BO_KATAN_MANDALORE / PAZ_VIZSLA",
+  "UNIT_TYPE_INVALID IG_12_AND_GROGU",
+  "UNIT_TYPE_INVALID PAZ_VIZSLA"
+].sort();
+
+// The exact payload difference each approved correction is allowed to make
+// against the captured live action=data. Anything else is an unrelated change.
+const anyThreats = Object.fromEntries(NAMES_ANY.map((name) => [name, {
+  notes: "",
+  threat: { Executor: "HIGH", Leviathan: "EXTREME", "Carth Onasi": "LOW", "The Stranger": "EXTREME" }[name] ?? "HIGH"
+}]));
+const EXPECTED_DIFF = {
+  C1: [
+    { path: 'payload["defenceTeams"]["ANY"]', expected: undefined, actual: anyThreats },
+    { path: 'payload["defenceTeams"]["Any"]', expected: anyThreats, actual: undefined }
+  ],
+  C2: [
+    { path: 'payload["defenceTeams"]["5v5"]["Gungan"]', expected: { notes: "", threat: "HIGH" }, actual: undefined },
+    { path: 'payload["defenceTeams"]["5v5"]["Gungans"]', expected: undefined, actual: { notes: "", threat: "HIGH" } }
+  ],
+  C3: [
+    { path: 'payload["counters"]["3v3"]["Grand Inquisitor"][1]', expected: { bannerScore: 54, counter: "Darth Traya", counterId: "TRAYA", notes: "", tier: "S", undersize: 0 }, actual: undefined }
+  ],
+  C4: [
+    { path: 'payload["characterDefinitions"]["JOCASTA_NU"]', expected: undefined, actual: { externalId: "JOCASTANU", name: "Jocasta Nu", unitType: "CHARACTER" } },
+    { path: 'payload["characterDefinitions"]["KELLERAN_BEQ"]', expected: undefined, actual: { externalId: "KELLERANBEQ", name: "Kelleran Beq", unitType: "CHARACTER" } }
+  ],
+  C5: [
+    { path: 'payload["characterDefinitions"]["IG_12_AND_GROGU"]["externalId"]', expected: "", actual: "IG12" },
+    { path: 'payload["characterDefinitions"]["IG_12_AND_GROGU"]["unitType"]', expected: "", actual: "CHARACTER" },
+    { path: 'payload["characterDefinitions"]["PAZ_VIZSLA"]["externalId"]', expected: "", actual: "PAZVIZSLA" },
+    { path: 'payload["characterDefinitions"]["PAZ_VIZSLA"]["unitType"]', expected: "", actual: "CHARACTER" }
+  ]
+};
+
+test("the unmodified import compiles to exact parity with the fresh live capture", () => {
+  const compiled = compileSource(imported);
   assert.deepEqual(diffPayloads(baseline.actionData.payload, compiled), []);
   assert.equal(payloadChecksum(compiled), payloadChecksum(baseline.actionData.payload));
 });
 
-test("release.json records the compiled checksum as catalogue version 1", () => {
-  const release = JSON.parse(fs.readFileSync(path.join(ROOT, "catalogue", "release.json"), "utf8"));
-  assert.deepEqual(release, { schema: 1, catalogueVersion: 1, checksum: payloadChecksum(compileSource(committed.source)) });
-  assert.equal(run(["release", "--check"]).exitCode, 0);
+test("committed source is the unmodified import plus only APPROVED corrections", () => {
+  assert.deepEqual(committed.findings, []);
+  assert.deepEqual(committed.source, applyCorrections(imported, approved));
 });
 
-test("committed source is the unmodified import plus only APPROVED corrections (none yet)", () => {
-  const imported = importSnapshot(baseline, auditSnapshot(baseline));
-  const approved = (fs.existsSync(CORRECTIONS_DIR) ? fs.readdirSync(CORRECTIONS_DIR) : []).filter((file) => file.endsWith(".json"))
-    .flatMap((file) => readCorrections(path.join(CORRECTIONS_DIR, file)).corrections)
-    .filter((correction) => correction.status === "APPROVED");
-  assert.deepEqual(approved, []);
-  assert.deepEqual(committed.source, applyCorrections(imported, approved));
+test("committed source differs from the live capture by exactly the approved corrections", () => {
+  const expected = approved.flatMap((correction) => {
+    assert.ok(EXPECTED_DIFF[correction.id], `no expected diff declared for ${correction.id}`);
+    return EXPECTED_DIFF[correction.id];
+  }).sort((a, b) => (a.path < b.path ? -1 : 1));
+  assert.deepEqual(diffPayloads(baseline.actionData.payload, compileSource(committed.source)), expected);
+});
+
+test("no unrelated counter ratings, names, compositions, scoring or board values changed", () => {
+  const live = baseline.actionData.payload;
+  const now = compileSource(committed.source);
+  assert.deepEqual(now.counterDefinitions, live.counterDefinitions, "counter names, reserve flags and compositions");
+  assert.deepEqual(now.scoring, live.scoring);
+  assert.deepEqual(now.boardConfig, live.boardConfig);
+  assert.deepEqual(now.defenceCompositions, live.defenceCompositions);
+  const c3 = approved.some((correction) => correction.id === "C3");
+  for (const mode of Object.keys(live.counters)) {
+    for (const [defence, entries] of Object.entries(live.counters[mode])) {
+      const expected = c3 && mode === "3v3" && defence === "Grand Inquisitor" ? entries.slice(0, 1) : entries;
+      assert.deepEqual(now.counters[mode][defence], expected, `${mode} ${defence}`);
+    }
+  }
+  assert.deepEqual(Object.keys(now.counters).sort(), Object.keys(live.counters).sort());
+  const touchedUnits = new Set(["JOCASTA_NU", "KELLERAN_BEQ", "IG_12_AND_GROGU", "PAZ_VIZSLA"]);
+  for (const [id, unit] of Object.entries(live.characterDefinitions)) {
+    if (!touchedUnits.has(id)) assert.deepEqual(now.characterDefinitions[id], unit, id);
+  }
+});
+
+test("release gate: the import keeps every known defect; approved corrections resolve only theirs", () => {
+  assert.deepEqual(gateKeys(auditSource(imported)), IMPORTED_GATE, "the unchanged validator still rejects the import");
+  const resolvedCodes = new Set(approved.flatMap((correction) => correction.resolves));
+  const report = auditSource(committed.source);
+  assert.deepEqual(gateKeys(report), IMPORTED_GATE.filter((key) => !resolvedCodes.has(key.split(" ")[0])));
+  const allApproved = corrections.length > 0 && approved.length === corrections.length;
+  assert.equal(report.summary.releaseGate, allApproved ? "PASS" : "FAIL");
+  assert.equal(run(["compile", "--gate", "release"]).exitCode, allApproved ? 0 : 1);
+});
+
+test("release.json records the compiled checksum; each approved correction advanced the version once", () => {
+  const release = JSON.parse(fs.readFileSync(path.join(ROOT, "catalogue", "release.json"), "utf8"));
+  // Migration progression: v1 is the unmodified import, and each correction
+  // landed in its own commit with its own release record.
+  assert.deepEqual(release, { schema: 1, catalogueVersion: 1 + approved.length, checksum: payloadChecksum(compileSource(committed.source)) });
+  assert.equal(run(["release", "--check"]).exitCode, 0);
 });
 
 test("committed source files use the canonical one-row-per-line format", () => {
@@ -74,26 +157,9 @@ test("committed source files use the canonical one-row-per-line format", () => {
 });
 
 test("the committed import report is exactly what the import regenerates", () => {
-  const report = renderImportReport("data/snapshots/20261010T070702Z", baseline, committed.source, auditSource(committed.source));
+  const report = renderImportReport("data/snapshots/20261010T070702Z", baseline, imported, auditSource(imported));
   assert.equal(fs.readFileSync(path.join(ROOT, "catalogue", "IMPORT_REPORT.md"), "utf8"), report);
   assert.match(report, /\*\*EXACT PARITY\*\*/);
-});
-
-test("the unchanged release validator still rejects the imported defects; nothing is masked", () => {
-  const report = auditSource(committed.source);
-  assert.equal(report.summary.releaseGate, "FAIL");
-  assert.deepEqual(gateKeys(report), [
-    "DEFENCE_ALIAS_CANDIDATE Gungan",
-    "DEFENCE_COMPOSITION_UNKNOWN_UNIT Kelleran Beq / JOCASTA_NU",
-    "DEFENCE_COMPOSITION_UNKNOWN_UNIT Kelleran Beq / KELLERAN_BEQ",
-    ...["Ahsoka Tano", "Carth Onasi", "Executor", "Jedi Master Kenobi", "Leviathan", "Lord Vader", "Profundity", "The Stranger"].map((name) => `DEFENCE_MODE_CASE ${name}`),
-    "DUPLICATE_MATCHUP Grand Inquisitor ← TRAYA",
-    "REQUIRED_UNIT_NO_EXTERNAL_ID BO_KATAN_MANDALORE / IG_12_AND_GROGU",
-    "REQUIRED_UNIT_NO_EXTERNAL_ID BO_KATAN_MANDALORE / PAZ_VIZSLA",
-    "UNIT_TYPE_INVALID IG_12_AND_GROGU",
-    "UNIT_TYPE_INVALID PAZ_VIZSLA"
-  ].sort());
-  assert.equal(run(["compile", "--gate", "release"]).exitCode, 1);
 });
 
 // ─── import/compile behaviour on synthetic fixtures ──────────────────────────

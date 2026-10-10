@@ -29,6 +29,7 @@ const {
   auditSource,
   compileSource,
   importSnapshot,
+  isApplied,
   readCorrections,
   readSource,
   writeSource
@@ -188,22 +189,30 @@ function commandCorrections(options) {
   const sourceDir = options.source ?? DEFAULT_SOURCE;
   const { source } = loadSourceOrThrow(sourceDir);
   const lines = [];
-  const baseline = auditSource(source);
+  const current = auditSource(source);
+  const same = (a, b) => a.code === b.code && a.subject === b.subject && a.location === b.location;
+  const outstanding = [];
   for (const correction of document.corrections) {
+    if (isApplied(source, correction)) {
+      lines.push(`${correction.id} [${correction.status}] ${correction.title}: applied`);
+      if (correction.status !== "APPROVED") throw new Error(`${correction.id} is present in the source but is ${correction.status}, not APPROVED`);
+      continue;
+    }
+    outstanding.push(correction);
     const after = auditSource(applyCorrections(source, [correction]));
-    const same = (a, b) => a.code === b.code && a.subject === b.subject && a.location === b.location;
-    const resolved = baseline.findings.filter((finding) => finding.severity !== "info" && !after.findings.some((other) => same(other, finding)));
-    const introduced = after.findings.filter((finding) => finding.severity !== "info" && !baseline.findings.some((other) => same(other, finding)));
+    const resolved = current.findings.filter((finding) => finding.severity !== "info" && !after.findings.some((other) => same(other, finding)));
+    const introduced = after.findings.filter((finding) => finding.severity !== "info" && !current.findings.some((other) => same(other, finding)));
     lines.push(`${correction.id} [${correction.status}] ${correction.title}: applies cleanly; resolves ${resolved.length}, introduces ${introduced.length} non-info finding(s)`);
   }
-  const all = auditSource(applyCorrections(source, document.corrections));
-  lines.push(`All corrections together: release gate ${all.summary.releaseGate} (now ${baseline.summary.releaseGate})`);
+  const all = auditSource(applyCorrections(source, outstanding));
+  lines.push(`Release gate: ${current.summary.releaseGate} now; ${all.summary.releaseGate} with every outstanding correction applied`);
 
   if (options.apply.length) {
     const chosen = options.apply.map((id) => {
       const correction = document.corrections.find((entry) => entry.id === id);
       if (!correction) throw new Error(`No correction ${id} in ${file}`);
       if (correction.status !== "APPROVED") throw new Error(`${id} is ${correction.status}; only APPROVED corrections can be applied`);
+      if (!outstanding.includes(correction)) throw new Error(`${id} is already applied`);
       return correction;
     });
     writeSource(sourceDir, applyCorrections(source, chosen));
