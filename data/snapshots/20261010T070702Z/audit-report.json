@@ -1,0 +1,589 @@
+{
+  "schema": 1,
+  "input": {
+    "kind": "sheet-snapshot",
+    "format": "gac-catalogue-snapshot",
+    "capturedAt": "2026-10-10T07:07:02Z",
+    "source": {
+      "method": "xlsx-export",
+      "workbook": "SWGOH_GAC_Assistant_Data",
+      "workbookModifiedAt": "2026-10-09T13:20:07Z"
+    },
+    "tabs": {
+      "Counters": {
+        "gridRows": 389,
+        "nonEmptyRows": 389
+      },
+      "Counter_Definitions": {
+        "gridRows": 58,
+        "nonEmptyRows": 58
+      },
+      "Counter_Composition": {
+        "gridRows": 77,
+        "nonEmptyRows": 77
+      },
+      "Character_Definitions": {
+        "gridRows": 330,
+        "nonEmptyRows": 330
+      },
+      "Defence_Teams": {
+        "gridRows": 13,
+        "nonEmptyRows": 13
+      },
+      "Defence_Composition": {
+        "gridRows": 62,
+        "nonEmptyRows": 62
+      },
+      "Score_Meanings": {
+        "gridRows": 26,
+        "nonEmptyRows": 26
+      },
+      "GAC_Board_Config": {
+        "gridRows": 40,
+        "nonEmptyRows": 40
+      },
+      "GAC_Scoring": {
+        "gridRows": 16,
+        "nonEmptyRows": 16
+      }
+    },
+    "excludedPersonalTabs": [
+      "Roster",
+      "GAC History"
+    ]
+  },
+  "payloadCounts": {
+    "counters": {
+      "rows": 389,
+      "defenceTeams": 114,
+      "byMode": {
+        "5v5": {
+          "defenceTeams": 52,
+          "rows": 160
+        },
+        "3v3": {
+          "defenceTeams": 54,
+          "rows": 198
+        },
+        "FLEET": {
+          "defenceTeams": 8,
+          "rows": 31
+        }
+      }
+    },
+    "counterDefinitions": 58,
+    "characterDefinitions": 330,
+    "boardConfig": {
+      "rows": 40,
+      "byLeagueMode": {
+        "KYBER": {
+          "5v5": 4,
+          "3v3": 4
+        },
+        "AURODIUM": {
+          "5v5": 4,
+          "3v3": 4
+        },
+        "CHROMIUM": {
+          "5v5": 4,
+          "3v3": 4
+        },
+        "BRONZIUM": {
+          "5v5": 4,
+          "3v3": 4
+        },
+        "CARBONITE": {
+          "5v5": 4,
+          "3v3": 4
+        }
+      }
+    },
+    "scoring": 16,
+    "defenceTeams": {
+      "rows": 13,
+      "byMode": {
+        "3v3": 1,
+        "Any": 8,
+        "5v5": 4
+      }
+    },
+    "defenceCompositions": {
+      "teams": 19,
+      "members": 62,
+      "teamsByMode": {
+        "3v3": 16,
+        "5v5": 3
+      }
+    }
+  },
+  "parity": {
+    "status": "MATCH",
+    "differences": 0,
+    "emulatedChecksum": "sha256:becb07d6a2073d7fe745fb60806b3b76b54810b3392629add574ac18d5e4fdc6",
+    "capturedChecksum": "sha256:becb07d6a2073d7fe745fb60806b3b76b54810b3392629add574ac18d5e4fdc6",
+    "actionDataCapturedAt": "2026-10-10T07:17:34Z"
+  },
+  "summary": {
+    "bySeverity": {
+      "blocking": 6,
+      "owner-approval": 10,
+      "warning": 14,
+      "info": 8
+    },
+    "byCode": {
+      "COUNTER_UNREFERENCED": 3,
+      "DEFENCE_ALIAS_CANDIDATE": 1,
+      "DEFENCE_COMPOSITION_UNKNOWN_UNIT": 2,
+      "DEFENCE_MODE_CASE": 8,
+      "DEFENCE_NAME_CROSS_MODE_VARIANT": 1,
+      "DEFENCE_ONLY_IDENTITY": 2,
+      "DUPLICATE_MATCHUP": 1,
+      "ID_FORMAT": 1,
+      "NONCANONICAL_SPELLING": 13,
+      "REQUIRED_UNIT_NO_EXTERNAL_ID": 2,
+      "UNIT_NO_EXTERNAL_ID": 2,
+      "UNIT_TYPE_INVALID": 2
+    },
+    "releaseGate": "FAIL"
+  },
+  "knownFindings": [
+    {
+      "id": "K1",
+      "title": "5v5 Defence_Teams `Gungan` vs Counters `Gungans`",
+      "status": "STILL PRESENT",
+      "observed": "Defence_Teams row 6 threat \"High\"; Counters 5v5 has \"Gungans\" only",
+      "classification": "owner-approval (DEFENCE_ALIAS_CANDIDATE)"
+    },
+    {
+      "id": "K2",
+      "title": "Defence_Teams rows with Mode `Any` (app looks up `ANY`)",
+      "status": "STILL PRESENT",
+      "observed": "8 row(s): Lord Vader (row 3), The Stranger (row 4), Ahsoka Tano (row 5), Carth Onasi (row 7), Jedi Master Kenobi (row 8), Leviathan (row 9), Profundity (row 10), Executor (row 11)",
+      "classification": "owner-approval (DEFENCE_MODE_CASE)"
+    },
+    {
+      "id": "K3",
+      "title": "3v3 Defence_Composition references `KELLERAN_BEQ`, `JOCASTA_NU` absent from Character_Definitions",
+      "status": "STILL PRESENT",
+      "observed": "KELLERAN_BEQ at Defence_Composition row 2; JOCASTA_NU at Defence_Composition row 3",
+      "classification": "blocking (DEFENCE_COMPOSITION_UNKNOWN_UNIT)"
+    },
+    {
+      "id": "K4",
+      "title": "`Geonosian`/`Geonosians` in different modes",
+      "status": "PRESENT",
+      "observed": "\"Geonosian\": Counters 3v3; \"Geonosians\": Counters 5v5",
+      "classification": "info (DEFENCE_NAME_CROSS_MODE_VARIANT) — not treated as an error"
+    },
+    {
+      "id": "K5a",
+      "title": "3v3 defence-only composition `Chief Chirpa`",
+      "status": "PRESENT",
+      "observed": "3 member row(s); blocking/owner-approval findings on the identity: 0",
+      "classification": "info (DEFENCE_ONLY_IDENTITY) — valid"
+    },
+    {
+      "id": "K5b",
+      "title": "3v3 defence-only composition `Iden Versio`",
+      "status": "PRESENT",
+      "observed": "3 member row(s); blocking/owner-approval findings on the identity: 0",
+      "classification": "info (DEFENCE_ONLY_IDENTITY) — valid"
+    },
+    {
+      "id": "K6a",
+      "title": "Attack identity `REVA` requires `THIRD_SISTER` (display name kept as authored)",
+      "status": "CONFIRMED",
+      "observed": "REVA name \"Reva\", REQUIRED: THIRD_SISTER, GRAND_INQUISITOR, SEVENTH_SISTER",
+      "classification": "confirmed valid — no leader-name convention enforced"
+    },
+    {
+      "id": "K6b",
+      "title": "Attack identity `GUNGANS` requires `BOSS_NASS` (display name kept as authored)",
+      "status": "CONFIRMED",
+      "observed": "GUNGANS name \"Gungans\", REQUIRED: BOSS_NASS",
+      "classification": "confirmed valid — no leader-name convention enforced"
+    }
+  ],
+  "findings": [
+    {
+      "severity": "blocking",
+      "code": "DEFENCE_COMPOSITION_UNKNOWN_UNIT",
+      "mode": "3v3",
+      "location": "Defence_Composition row 2",
+      "subject": "Kelleran Beq / KELLERAN_BEQ",
+      "observed": "KELLERAN_BEQ",
+      "expected": "a Character_Definitions Character_ID",
+      "effect": "The ID enters the round's defence snapshot but matches no roster unit, so nothing is blocked for it"
+    },
+    {
+      "severity": "blocking",
+      "code": "DEFENCE_COMPOSITION_UNKNOWN_UNIT",
+      "mode": "3v3",
+      "location": "Defence_Composition row 3",
+      "subject": "Kelleran Beq / JOCASTA_NU",
+      "observed": "JOCASTA_NU",
+      "expected": "a Character_Definitions Character_ID",
+      "effect": "The ID enters the round's defence snapshot but matches no roster unit, so nothing is blocked for it"
+    },
+    {
+      "severity": "blocking",
+      "code": "REQUIRED_UNIT_NO_EXTERNAL_ID",
+      "mode": "",
+      "location": "Counter_Composition row 8; Character_Definitions row 164",
+      "subject": "BO_KATAN_MANDALORE / IG_12_AND_GROGU",
+      "observed": "External_ID blank",
+      "expected": "game base ID sourced from Comlink",
+      "effect": "BO_KATAN_MANDALORE is never available from an imported roster"
+    },
+    {
+      "severity": "blocking",
+      "code": "REQUIRED_UNIT_NO_EXTERNAL_ID",
+      "mode": "",
+      "location": "Counter_Composition row 9; Character_Definitions row 226",
+      "subject": "BO_KATAN_MANDALORE / PAZ_VIZSLA",
+      "observed": "External_ID blank",
+      "expected": "game base ID sourced from Comlink",
+      "effect": "BO_KATAN_MANDALORE is never available from an imported roster"
+    },
+    {
+      "severity": "blocking",
+      "code": "UNIT_TYPE_INVALID",
+      "mode": "",
+      "location": "Character_Definitions row 164",
+      "subject": "IG_12_AND_GROGU",
+      "observed": "\"\"",
+      "expected": "CHARACTER | SHIP | CAPITAL_SHIP",
+      "effect": "Unit is misclassified on the roster screen and in availability"
+    },
+    {
+      "severity": "blocking",
+      "code": "UNIT_TYPE_INVALID",
+      "mode": "",
+      "location": "Character_Definitions row 226",
+      "subject": "PAZ_VIZSLA",
+      "observed": "\"\"",
+      "expected": "CHARACTER | SHIP | CAPITAL_SHIP",
+      "effect": "Unit is misclassified on the roster screen and in availability"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_ALIAS_CANDIDATE",
+      "mode": "5v5",
+      "location": "Defence_Teams row 6",
+      "subject": "Gungan",
+      "observed": "\"Gungan\"",
+      "expected": "candidate alias \"Gungans\" (owner decides; never auto-renamed)",
+      "effect": "Threat \"HIGH\" is never applied to \"Gungans\"; Battle Order reads NORMAL"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 3",
+      "subject": "Lord Vader",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 4",
+      "subject": "The Stranger",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 5",
+      "subject": "Ahsoka Tano",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 7",
+      "subject": "Carth Onasi",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 8",
+      "subject": "Jedi Master Kenobi",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 9",
+      "subject": "Leviathan",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 10",
+      "subject": "Profundity",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DEFENCE_MODE_CASE",
+      "mode": "Any",
+      "location": "Defence_Teams row 11",
+      "subject": "Executor",
+      "observed": "\"Any\"",
+      "expected": "\"ANY\"",
+      "effect": "Filed under \"Any\"; the app only looks up \"ANY\", so this row is never applied"
+    },
+    {
+      "severity": "owner-approval",
+      "code": "DUPLICATE_MATCHUP",
+      "mode": "3v3",
+      "location": "Counters row 80; Counters row 82",
+      "subject": "Grand Inquisitor ← TRAYA",
+      "observed": "Counters row 80: tier \"S\", banner 54, undersize 0, notes \"Strong\" | Counters row 82: tier \"S\", banner 54, undersize 0, notes \"\"",
+      "expected": "one row per (mode, defence, Counter_ID)",
+      "effect": "The counter is listed twice for this defence"
+    },
+    {
+      "severity": "warning",
+      "code": "ID_FORMAT",
+      "mode": "",
+      "location": "Character_Definitions row 289",
+      "subject": "TIE_ADVANCED_x1",
+      "observed": "\"TIE_ADVANCED_x1\"",
+      "expected": "UPPER_SNAKE_CASE",
+      "effect": "None; stable IDs are never renamed automatically"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "3v3",
+      "location": "Defence_Teams row 2",
+      "subject": "Kelleran Beq",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 3",
+      "subject": "Lord Vader",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 4",
+      "subject": "The Stranger",
+      "observed": "\"Extreme\"",
+      "expected": "\"EXTREME\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 5",
+      "subject": "Ahsoka Tano",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "5v5",
+      "location": "Defence_Teams row 6",
+      "subject": "Gungan",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 7",
+      "subject": "Carth Onasi",
+      "observed": "\"Low\"",
+      "expected": "\"LOW\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 8",
+      "subject": "Jedi Master Kenobi",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 9",
+      "subject": "Leviathan",
+      "observed": "\"Extreme\"",
+      "expected": "\"EXTREME\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 10",
+      "subject": "Profundity",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "Any",
+      "location": "Defence_Teams row 11",
+      "subject": "Executor",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "5v5",
+      "location": "Defence_Teams row 12",
+      "subject": "Emperor Palpatine (Duel's End Vader)",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "5v5",
+      "location": "Defence_Teams row 13",
+      "subject": "Major Partagaz",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "warning",
+      "code": "NONCANONICAL_SPELLING",
+      "mode": "5v5",
+      "location": "Defence_Teams row 14",
+      "subject": "Cassian Andor (Undercover)",
+      "observed": "\"High\"",
+      "expected": "\"HIGH\"",
+      "effect": "None today (Apps Script normalises it); not a legal Git-native source value"
+    },
+    {
+      "severity": "info",
+      "code": "COUNTER_UNREFERENCED",
+      "mode": "",
+      "location": "Counter_Definitions row 33",
+      "subject": "ENDURANCE",
+      "observed": "no matchup",
+      "expected": "informational",
+      "effect": ""
+    },
+    {
+      "severity": "info",
+      "code": "COUNTER_UNREFERENCED",
+      "mode": "",
+      "location": "Counter_Definitions row 36",
+      "subject": "FINALIZER",
+      "observed": "no matchup",
+      "expected": "informational",
+      "effect": ""
+    },
+    {
+      "severity": "info",
+      "code": "COUNTER_UNREFERENCED",
+      "mode": "",
+      "location": "Counter_Definitions row 41",
+      "subject": "RADDUS",
+      "observed": "no matchup",
+      "expected": "informational",
+      "effect": ""
+    },
+    {
+      "severity": "info",
+      "code": "DEFENCE_NAME_CROSS_MODE_VARIANT",
+      "mode": "",
+      "location": "\"Geonosian\": Counters 3v3; \"Geonosians\": Counters 5v5",
+      "subject": "Geonosian / Geonosians",
+      "observed": "names differ only by case, punctuation or plural",
+      "expected": "candidate alias only; owner decides",
+      "effect": "None; identities are mode-scoped"
+    },
+    {
+      "severity": "info",
+      "code": "DEFENCE_ONLY_IDENTITY",
+      "mode": "3v3",
+      "location": "Defence_Composition row 5..row 7",
+      "subject": "Chief Chirpa",
+      "observed": "no Counters defence named \"Chief Chirpa\" in 3v3",
+      "expected": "legitimate for defence-only, saved or future identities",
+      "effect": "Used only for saved My Board identities with this exact name"
+    },
+    {
+      "severity": "info",
+      "code": "DEFENCE_ONLY_IDENTITY",
+      "mode": "3v3",
+      "location": "Defence_Composition row 14..row 16",
+      "subject": "Iden Versio",
+      "observed": "no Counters defence named \"Iden Versio\" in 3v3",
+      "expected": "legitimate for defence-only, saved or future identities",
+      "effect": "Used only for saved My Board identities with this exact name"
+    },
+    {
+      "severity": "info",
+      "code": "UNIT_NO_EXTERNAL_ID",
+      "mode": "",
+      "location": "Character_Definitions row 164",
+      "subject": "IG_12_AND_GROGU",
+      "observed": "\"\"",
+      "expected": "game base ID",
+      "effect": ""
+    },
+    {
+      "severity": "info",
+      "code": "UNIT_NO_EXTERNAL_ID",
+      "mode": "",
+      "location": "Character_Definitions row 226",
+      "subject": "PAZ_VIZSLA",
+      "observed": "\"\"",
+      "expected": "game base ID",
+      "effect": ""
+    }
+  ]
+}

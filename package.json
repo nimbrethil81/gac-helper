@@ -7,6 +7,8 @@
     "test": "node --test",
     "check": "for f in app.js service-worker.js scripts/*.js tests/*.js; do node --check \"$f\" || exit 1; done",
     "baseline:verify": "node scripts/verify-baseline.js",
+    "catalogue:snapshot": "node scripts/catalogue-snapshot.js",
+    "catalogue:audit": "node scripts/catalogue-audit.js",
     "db:test": "node --test tests/database-schema.test.js tests/migration-loader.test.js tests/authoring-loader.test.js",
     "migrate:reconcile": "node scripts/migration-reconcile.js",
     "migrate:load": "node scripts/migration-load.js",

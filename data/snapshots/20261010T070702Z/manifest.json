@@ -1,0 +1,95 @@
+{
+  "kind": "gac-catalogue-snapshot",
+  "schema": 1,
+  "capturedAt": "2026-10-10T07:07:02Z",
+  "source": {
+    "method": "xlsx-export",
+    "workbook": "SWGOH_GAC_Assistant_Data",
+    "workbookModifiedAt": "2026-10-09T13:20:07Z"
+  },
+  "excludedPersonalTabs": [
+    "Roster",
+    "GAC History"
+  ],
+  "missingCatalogueTabs": [],
+  "tabs": [
+    {
+      "tab": "Counters",
+      "file": "tabs/Counters.json",
+      "bytes": 44262,
+      "sha256": "b7577dcb252be5e62e31db03fdd359f5e6ed977713130d5e29d906ce7172ded8",
+      "reportedGridRows": 1001,
+      "gridRows": 390
+    },
+    {
+      "tab": "Counter_Definitions",
+      "file": "tabs/Counter_Definitions.json",
+      "bytes": 1903,
+      "sha256": "285b30d96a12cd0a223c6d38586791e0d55f99019f201303dbf75e4803f1bb92",
+      "reportedGridRows": 59,
+      "gridRows": 59
+    },
+    {
+      "tab": "Counter_Composition",
+      "file": "tabs/Counter_Composition.json",
+      "bytes": 3520,
+      "sha256": "d22c7f27d1d5cdddbcb18c199e782b87ce5a4efddf3f9719aa1ed94ec1068a50",
+      "reportedGridRows": 78,
+      "gridRows": 78
+    },
+    {
+      "tab": "Character_Definitions",
+      "file": "tabs/Character_Definitions.json",
+      "bytes": 21815,
+      "sha256": "660296b963a35e97aa255a538bf306191f30cf985e5af4204752cd3959dc5632",
+      "reportedGridRows": 331,
+      "gridRows": 331
+    },
+    {
+      "tab": "Defence_Teams",
+      "file": "tabs/Defence_Teams.json",
+      "bytes": 977,
+      "sha256": "3f5ca0b0c2da831df04c34070c52d2a8fe3230e7014c2eb5c8bdbbd6923b6dee",
+      "reportedGridRows": 14,
+      "gridRows": 14
+    },
+    {
+      "tab": "Defence_Composition",
+      "file": "tabs/Defence_Composition.json",
+      "bytes": 2917,
+      "sha256": "c9728462344ec1f3277117875120e69a8873c54b369ef891b59f7f6e7eb48fae",
+      "reportedGridRows": 63,
+      "gridRows": 63
+    },
+    {
+      "tab": "Score_Meanings",
+      "file": "tabs/Score_Meanings.json",
+      "bytes": 1632,
+      "sha256": "d7e73f13992d464d389c0ac9357ce16919fad7eb46199ac6e21d847f3dfaea7c",
+      "reportedGridRows": 27,
+      "gridRows": 27
+    },
+    {
+      "tab": "GAC_Board_Config",
+      "file": "tabs/GAC_Board_Config.json",
+      "bytes": 2011,
+      "sha256": "592cfad178aeafdec6f9e9e73007abb6269cafd06d12884a7e4e73862555a6e2",
+      "reportedGridRows": 41,
+      "gridRows": 41
+    },
+    {
+      "tab": "GAC_Scoring",
+      "file": "tabs/GAC_Scoring.json",
+      "bytes": 1340,
+      "sha256": "9410da477fb0bb27147ac096e5f7ac946482afbd12c9ec757bf8b771358a1a9d",
+      "reportedGridRows": 17,
+      "gridRows": 17
+    }
+  ],
+  "actionData": {
+    "file": "action-data.raw.json",
+    "capturedAt": "2026-10-10T07:17:34Z",
+    "bytes": 85241,
+    "sha256": "f1dd97734165e062c7cd07ee90ef4812e2fb3eeceac0c7a8e9cda343dbf974ee"
+  }
+}
