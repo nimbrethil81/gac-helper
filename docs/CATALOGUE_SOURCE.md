@@ -215,7 +215,7 @@ Resolve an attacking counter by `Counter_ID`, and its members by `Character_ID`;
 
 - Never create or infer a `Defence_Team_ID`, infer identity from a leader, normalise plurals, rename automatically, or merge modes.
 - External “Reva” may resolve to counter `REVA`, whose member is `THIRD_SISTER`; “Gungans” may resolve to `GUNGANS`, led by member `BOSS_NASS`. These display/identity differences are valid.
-- `Geonosian` and `Geonosians` in different modes are not automatically one defence. Preserve valid defence-only and partial/flexible compositions.
+- Names that differ only between modes are not automatically one defence. For example, 3v3 `Geonosian` became `Geonosians` only through the owner-approved rename in `CR-2026-10-10-03-P01` (#56). Preserve valid defence-only and partial/flexible compositions.
 - If more than one identity is plausible, stop at **Needs identity resolution**. List candidate exact name+mode or IDs, the evidence for each, and the specific owner/source question needed to resolve it. It is not a write-ready proposal.
 
 For every resolved finding, compare all relevant source rows, not just the initially noticed field:
@@ -334,7 +334,7 @@ Each deployment replaces the whole Pages site, so nothing from an earlier deploy
 - the current release;
 - up to four earlier releases that still compile to their recorded checksum and pass the current release gate.
 
-A rebuilt file is byte-identical to the one served before. Older releases are no longer served but stay restorable from Git. Today the ledger holds only v6: versions 1–5 were recorded inside the #41 PR, never on `main`'s first-parent history, and failed the gate.
+A rebuilt file is byte-identical to the one served before. Older releases are no longer served but stay restorable from Git. The ledger starts at v6: versions 1–5 were recorded inside the #41 PR, never on `main`'s first-parent history, and failed the gate. v7 is the first schema-2 change set (`CR-2026-10-10-03-P01`, #56).
 
 ### Deployment checks
 

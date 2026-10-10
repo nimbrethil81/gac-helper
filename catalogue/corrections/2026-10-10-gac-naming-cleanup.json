@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/56",
   "baseline": {
-    "commit": "e432d87e16d52fc77bb834e94f8c599092999aa0",
+    "commit": "553ac36bd01d83893b994db58ed27f6961ed3381",
     "catalogueVersion": 6,
     "checksum": "sha256:5d95a75e5a94ea0f08d059190d2967a05c63a43c49a1b0e9bea6e898b02d2945"
   },
   "corrections": [
     {
       "id": "CR-2026-10-10-03-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "AMEND",
       "title": "GAC naming cleanup: five-group defence and counter display-name identity correction",
       "rationale": "Owner-completed naming review (issue #56). Renames 19 matchup defence keys (8 in 5v5, 11 in 3v3) and the 4 dependent defence-team/composition keys, and amends 8 counter display names, so that each displayed identity names the intended Galactic Legend or variant unambiguously and the same defence uses the same name in 5v5 and 3v3. Defence renames are exact old-key RETIRE plus new-key ADD because the stable key is name + mode; counter rows are AMEND on the stable Counter_ID. One owner-approved functional correction is included: counter PHOENIX required becomes [HERA_SYNDULLA, CAPTAIN_REX]. No counter is added, removed, reordered or retiered; no tier, bannerScore, undersize, note, threat, composition unit, Character_ID, externalId, scoring, score meaning, board configuration or FLEET row changes.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/56#issuecomment-6101308116",
+        "decidedAt": "2026-10-10T19:26:00Z",
+        "changeSetChecksum": "sha256:d125394ac1660d34854aee6642e25ea868503519cd0f342e299d56712e499d6e"
+      },
       "provenance": {
         "evidence": [
           {
