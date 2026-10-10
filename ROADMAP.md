@@ -40,6 +40,23 @@ The current First Attack ordering places the Front Bottom preference above banne
 
 ## Deferred
 
+### Retire the frozen catalogue Sheet and Apps Script `action=data`
+
+*Deferred until the live Git-native catalogue has been validated in use (owner decision, 2026-10-10)*
+
+The app no longer reads the Google Sheet or Apps Script `action=data`. Both are kept frozen and unedited only as the cutover rollback route ([`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md#cutover)).
+
+**Retire them only after** the owner has completed live validation:
+- iPhone Safari and the installed Home Screen PWA (first launch on v3.6, repeat launch, offline launch);
+- at least one real GAC round played on the static catalogue.
+
+**When retiring:**
+- Once they are retired, the reverted app can no longer load a catalogue, so the only rollback is a forward fix through `catalogue/source/`.
+- `action=data` can be removed, and the Sheet archived or made read-only.
+- The Apps Script deployment itself stays: the app still uses it for `action=roster`.
+- Update the rollback guidance in `CATALOGUE_SOURCE.md` and the backend description in `SPEC.md` in the same change.
+- The `catalogueCache:v1` copy that the app keeps for rollback could then also be dropped. That is a separate app change.
+
 ### Phase-aware battle ordering
 
 *Deferred, pending real-play feedback*
