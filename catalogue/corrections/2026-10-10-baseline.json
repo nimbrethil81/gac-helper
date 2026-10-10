@@ -56,7 +56,7 @@
     },
     {
       "id": "C2",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "title": "5v5 Defence_Teams \"Gungan\" → \"Gungans\"",
       "resolves": ["DEFENCE_ALIAS_CANDIDATE"],
       "runtimeEffect": "The 5v5 Gungans defence (the Counters/board name) reads HIGH threat in Battle Order instead of NORMAL. 3v3 Gungans is unaffected (no 3v3 or ANY row). No other row is renamed or merged.",
