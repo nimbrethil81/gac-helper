@@ -1,8 +1,8 @@
 # Git-native catalogue source
 
-**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issue #41, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record and corrections. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **Production still reads the Google Sheet through Apps Script**; nothing here is served until a separately approved cutover, and [`SPEC.md`](SPEC.md) continues to describe the Sheet runtime.
+**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #41 and #42, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record, corrections, the static release on Pages, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The app still reads the Google Sheet through Apps Script.** `Deploy Pages Live` publishes the static release alongside the app, but nothing reads it until a separately approved cutover; [`SPEC.md`](SPEC.md) continues to describe the Sheet runtime.
 
-**Update this document when** the source layout, commands, correction procedure or migration status changes.
+**Update this document when** the source layout, commands, correction procedure, release/deployment procedure, budget or migration status changes.
 
 ## Layout
 
@@ -13,7 +13,7 @@
 | `catalogue/corrections/*.json` | Explicit correction lists. Each correction gives exact `before`/`after` rows and its expected runtime effect, and stays `PENDING_OWNER_APPROVAL` until the owner approves it by ID. |
 | `catalogue/IMPORT_REPORT.md` | Generated record of the migration import: provenance, counts, checksums and parity, plus the defects carried verbatim. |
 
-Generated delivery files (pointer and release payload) are never committed and never read as input.
+Generated delivery files (`catalogue/current.json`, `catalogue/manifest.json`, `catalogue/releases/*.json`) exist only in the Pages artifact. They are never committed and never read as input.
 
 ## Commands
 
@@ -26,9 +26,14 @@ npm run catalogue:release -- --check                # verify release.json (CI)
 npm run catalogue:corrections -- <list.json>        # check every correction applies and what it resolves
 npm run catalogue:corrections -- <list.json> --apply <id>   # APPROVED corrections only
 npm run catalogue:import -- <snapshot-dir>          # migration import (see below)
+npm run catalogue:ledger                            # releases recorded on main; fails on a reused/decreasing version
+npm run catalogue:site -- --out <dir>               # build and verify the complete Pages artifact (CI, deploy)
+npm run catalogue:guard -- --site <dir> --url <pages url>        # pre-deploy live check
+npm run catalogue:verify-live -- --site <dir> --url <pages url>  # post-deploy live check
+npm run catalogue:restore -- --version <N>          # rollback: restore release N's source
 ```
 
-The compiler and validator use only Node built-ins: no `npm ci`, network access, database or credentials.
+The compiler, validator and release builder use only Node built-ins and `git`: no `npm ci`, database or credentials. Only `guard` and `verify-live` use the network (HTTPS to Pages). The ledger, site build and restore need full Git history (`git fetch --unshallow` in a shallow clone).
 
 ## Migration baseline
 
@@ -54,10 +59,94 @@ The Sheet remains the live authority and the preserved migration baseline: it is
 1. Write or review the correction list (`catalogue/corrections/<date>-<topic>.json`).
 2. Run `npm run catalogue:corrections -- <file>`. It must report that each correction applies cleanly and introduces no new findings.
 3. When the owner approves a correction by ID, set its `status` to `APPROVED`, then run `--apply <id>` and `npm run catalogue:release`, and commit that one correction on its own for review.
-4. The release gate (`--gate release`) must pass before any catalogue can be published at cutover.
+4. The release gate (`--gate release`) must pass. CI and `Deploy Pages Live` both enforce it through `catalogue:site`.
+
+## Static release on Pages
+
+`Deploy Pages Live` (manual `workflow_dispatch`, `main` only, one run at a time) builds the catalogue into the same allow-listed artifact as the app. Nothing is published by a merge, schedule or bot.
+
+### Artifact
+
+| Path | Content |
+|---|---|
+| `index.html`, `app.js`, `styles.css`, `manifest.json`, `service-worker.js`, `icon-192.png`, `icon-512.png` | App shell. The allow-list lives in `PAGES_APP_FILES` in `scripts/catalogue-release-lib.js`. |
+| `catalogue/releases/{N}-{12 hex}.json` | Immutable release file (ADR §5): the seven keys plus `release` `{contract, sourceSchema, catalogueVersion, checksum}`, written as compact JSON with keys sorted recursively. Its bytes depend only on the version and the payload. |
+| `catalogue/current.json` | Pointer (ADR §7): `pointerSchema`, `contract`, `catalogueVersion`, `checksum`, `path`, `bytes`. Depends only on the current release. |
+| `catalogue/manifest.json` | Deployment record: the `deployedCommit`, the `current` release, and each served release with its `bytes`, file `sha256` and `sourceCommit`. `sourceCommit` is the first `main` commit that recorded the release. This is the only file that changes when an app-only commit is redeployed. |
+
+The build refuses a non-empty output directory. After writing, it re-reads the artifact and fails unless:
+- the file set is exactly the allow-list;
+- every release file matches its manifest bytes and hash;
+- every release file passes the release gate again;
+- the pointer names the highest version;
+- the budget below holds.
+
+No source, `release.json`, corrections, snapshots, scripts, tests or docs are included.
+
+### Release ledger and retention
+
+The ledger is every `catalogue/release.json` state on the first-parent history of `main`, which is every catalogue `main` could have deployed. Versions must strictly increase, and a version never names two checksums. A checksum may reappear under a higher version (a rollback). The deployed release must be the committed `release.json`, must be the highest version, and must equal the compiled source.
+
+Each deployment replaces the whole Pages site, so nothing from an earlier deployment is assumed to survive. Every deployment rebuilds from Git:
+- the current release;
+- up to four earlier releases that still compile to their recorded checksum and pass the current release gate.
+
+A rebuilt file is byte-identical to the one served before. Older releases are no longer served but stay restorable from Git. Today the ledger holds only v6: versions 1–5 were recorded inside the #41 PR, never on `main`'s first-parent history, and failed the gate.
+
+### Deployment checks
+
+1. **Preflight** (before upload): the catalogue tests run, then `catalogue:site` builds the artifact. Either failing stops the run. This covers invalid schema, broken identity references, a failing release gate, a corrupted or stale `release.json` checksum, undeclared drift between source and `release.json`, ledger violations, corrupted written files, files outside the allow-list and the budget.
+2. **Guard** (before upload): reads the live `catalogue/manifest.json`. A 404 means a first deployment. The run is refused if:
+   - the live current version is higher than the build's;
+   - the live version names a different checksum;
+   - a live release file differs from its rebuilt bytes;
+   - the live site cannot be read.
+3. **Verify** (after deploy): polls the live pointer, manifest and every release file every 20 s for up to 15 min. It passes only when all are byte-identical to the artifact, which pins the deployed commit, version and checksum. It then re-verifies the live current release. Otherwise the run fails, naming the stale or wrong files. A failed verify does not undo the deployment: re-run `catalogue:verify-live` later, or redeploy.
+
+### Behaviour
+
+| Situation | Result |
+|---|---|
+| Same release redeployed (for example after an app-only merge) | Release files and pointer are byte-identical. Only `manifest.json` `deployedCommit` changes. The guard reports `same-release`. Clients see the same checksum and download nothing new at cutover. |
+| Changed catalogue content | A new `release.json` version (from `catalogue:release`) gets a new release file and a moved pointer. Earlier releases stay served within retention. |
+| Source changed without `catalogue:release` | CI and the deploy preflight fail with "Undeclared catalogue change". |
+| Stale pointer or out-of-order run | The guard refuses any build older than the live version. Concurrent runs are serialised by the `pages-live` group. A client holding an older pointer still finds a retained release file instead of a 404. |
+| Pages/CDN still serving old files after deploy | Verify keeps polling, then fails. It never reports success early. |
+| Rollback | See below. The rollback gets a new, higher version with the earlier checksum. Versions never decrease. |
+
+### Deploying
+
+1. Merge the reviewed catalogue PR. CI has run the release gate, the ledger and the full artifact build.
+2. The owner runs **Actions → Deploy Pages Live → Run workflow** on `main`.
+3. Check the run's summary lines: the guard's transition (`v5 → v6`), and verify's version, checksum and deployed commit.
+
+### Rolling back
+
+To restore a previously approved release N (repeatable, and tested in `tests/catalogue-release.test.js`):
+
+1. On a branch from current `main`, run `npm run catalogue:restore -- --version N`. This writes release N's exact committed source back into `catalogue/source/`. It refuses if N is not on `main`'s first-parent history, or if N no longer compiles to its checksum or passes today's gate.
+2. Run `npm run catalogue:release`. It records N's checksum under a new, higher version.
+3. Commit, open a PR, and let CI run. The owner merges.
+4. Run `Deploy Pages Live`. The guard reports `vCurrent → vNew`, and verify confirms that the live pointer names the new version with N's checksum.
+
+Rolling back the cutover itself (restoring the Apps Script loader in the app) is ADR §9 and is not affected.
+
+### Performance budget
+
+The budget is enforced by `catalogue:site` (`BUDGET` in `scripts/catalogue-release-lib.js`). Measurements for v6 were taken on 2026-10-10 with Node 22. Transferred sizes are local gzip/brotli estimates; live transfer sizes are measured at cutover (ADR §10).
+
+| Item | Budget | v6 raw | gzip -9 | brotli |
+|---|---|---|---|---|
+| `current.json` (same-version launch: the only request) | ≤ 1 KiB | 241 B | 188 B | 162 B |
+| Release file (changed-version launch) | ≤ 256 KiB | 85,520 B | 13,707 B | 11,320 B |
+| `manifest.json` (not fetched by the app) | ≤ 4 KiB | 692 B | 334 B | 282 B |
+| Whole `catalogue/` directory | ≤ 1.5 MiB | 86,453 B | — | — |
+| Reference: Apps Script `action=data` capture (2026-10-10) | — | 85,241 B | 13,157 B | — |
+
+The release file is the same size as today's `action=data` (+0.3%). It costs one extra pointer request of about 240 B, and a same-version launch saves the whole payload download. The client checksum work at cutover is parsing the release and hashing the 141,327-byte canonical seven-key JSON. That takes about 4 ms per release in Node 22 on the build container; `crypto.subtle` timing on iPhone Safari is a cutover measurement.
 
 ## Limitations
 
 - Finding locations from the shared rule set name payload paths (for example `counters["3v3"]["Grand Inquisitor"][1]`), not source line numbers.
-- Release/pointer generation for Pages, app loading, service-worker bypass and cutover measurements (ADR §7–§10) are not built yet; they belong to the cutover work.
-- CI checks the release record and parity tests, not the release gate: the imported baseline fails the gate by design until the owner approves corrections.
+- App loading, the cache v2 migration, the service-worker bypass for `catalogue/` and the cutover measurements (ADR §8, §10) are not built. The app ignores the published static catalogue. The service worker does not cache it, and nothing requests it.
+- The guard and verify steps need the live Pages site to be reachable. If it is not, the run fails closed.

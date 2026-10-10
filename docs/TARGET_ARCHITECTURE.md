@@ -3,7 +3,7 @@
 **Status:** v0.7 current architecture, re-baselined 2026-09-29. The application-delivery architecture below is current; the database/evidence/automation architecture remains parked future design.  
 **Current platform authority:** [`docs/decisions/ADR-ARCH-115-one-repo-pages-delivery.md`](decisions/ADR-ARCH-115-one-repo-pages-delivery.md).  
 **Current behaviour authority:** [`SPEC.md`](SPEC.md).  
-**Accepted future catalogue target:** [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](decisions/ADR-ARCH-116-git-native-catalogue.md) (not yet implemented).  
+**Accepted future catalogue target:** [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](decisions/ADR-ARCH-116-git-native-catalogue.md) (partially implemented; not cut over).  
 **Prior detailed design:** [`docs/archive/architecture/TARGET_ARCHITECTURE-v0.5.md`](archive/architecture/TARGET_ARCHITECTURE-v0.5.md).
 
 ## 0. Current position
@@ -102,13 +102,15 @@ Production is served by GitHub Pages from a GitHub Actions deployment artifact.
 
 The manual `Deploy Pages Live` workflow:
 
-1. can run only against `main` in `nimbrethil81/gac-helper`;
-2. checks out the selected source commit;
-3. builds `_site` from an explicit allow-list of public PWA files;
-4. configures and uploads the Pages artifact;
-5. deploys it to the `github-pages` environment.
+1. can run only against `main` in `nimbrethil81/gac-helper`, one run at a time;
+2. checks out the selected source commit with full history;
+3. runs the dependency-free catalogue checks and builds `_site` from an explicit allow-list: the public PWA files plus the generated static catalogue release (`catalogue/current.json`, `catalogue/manifest.json`, `catalogue/releases/*.json`);
+4. refuses to deploy if the live catalogue is newer than, or contradicts, the build;
+5. configures and uploads the Pages artifact;
+6. deploys it to the `github-pages` environment;
+7. verifies over HTTPS that the live catalogue files match the artifact, failing rather than reporting success if Pages is stale.
 
-The allow-list currently includes the public PWA shell/assets; internal docs, tests, Apps Script and paused architecture assets are not included.
+Internal docs, tests, Apps Script, catalogue authoring source and paused architecture assets are not included. The app does not read the static catalogue until the separately approved cutover ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages) owns the release build, rollback and checks).
 
 An ordinary push, PR merge or documentation change does **not** publish production. Production promotion remains a deliberate human action.
 
