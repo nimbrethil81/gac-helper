@@ -176,8 +176,7 @@
     {
       "defence": "Grand Inquisitor",
       "counters": [
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Strong" },
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0 }
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Strong" }
       ]
     },
     {

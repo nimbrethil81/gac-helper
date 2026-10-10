@@ -70,7 +70,7 @@
     },
     {
       "id": "C3",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "title": "3v3 Grand Inquisitor: keep one TRAYA counter entry (Sheet row 80, note \"Strong\")",
       "resolves": ["DUPLICATE_MATCHUP"],
       "runtimeEffect": "TRAYA is listed once for 3v3 Grand Inquisitor instead of twice. The kept entry (Sheet Counters row 80) carries the note \"Strong\"; the removed duplicate (row 82) had identical tier S, banner score 54 and undersize 0 and a blank note, so no information is lost.",
