@@ -10,7 +10,7 @@
 |---|---|
 | `catalogue/source/*.json`, `catalogue/source/matchups/{5v5,3v3,FLEET}.json` | Authoring input (ADR-ARCH-116 §4): one row per line, `"schema": 1`. `units`, `counters` and matchup `defences` must stay sorted by ID/name (code-unit order). The importer also sorts defence teams and compositions by defence then mode. |
 | `catalogue/release.json` | Catalogue version and canonical checksum of the compiled seven-key payload (ADR §7). CI fails if it does not match the source. |
-| `catalogue/corrections/*.json` | Explicit correction lists. Each correction gives exact `before`/`after` rows and its expected runtime effect, and stays `PENDING_OWNER_APPROVAL` until the owner approves it by ID. |
+| `catalogue/corrections/*.json` | Explicit correction lists. Historical schema 1 records migration corrections C1–C5. Current schema 2 change sets bind exact rows, compiled impact, provenance and an owner decision to one `main` commit/release baseline. |
 | `catalogue/IMPORT_REPORT.md` | Generated record of the migration import: provenance, counts, checksums and parity, plus the defects carried verbatim. |
 
 Generated delivery files (`catalogue/current.json`, `catalogue/manifest.json`, `catalogue/releases/*.json`) exist only in the Pages artifact. They are never committed and never read as input.
@@ -24,6 +24,7 @@ npm run catalogue:compile -- --compare <action-data.json>   # exact canonical pa
 npm run catalogue:release                           # record version/checksum (bumps only if the checksum changed)
 npm run catalogue:release -- --check                # verify release.json (CI)
 npm run catalogue:corrections -- <list.json>        # check every correction applies and what it resolves
+npm run catalogue:corrections -- <list.json> --preview <id>   # complete source + compiled-payload preview
 npm run catalogue:corrections -- <list.json> --apply <id>   # APPROVED corrections only
 npm run catalogue:import -- <snapshot-dir>          # migration import (see below)
 npm run catalogue:ledger                            # releases recorded on main; fails on a reused/decreasing version
@@ -54,12 +55,106 @@ So no undeclared edit can land during migration.
 
 The Sheet was the migration authority and remains a frozen rollback baseline. Since the v3.6 cutover, `catalogue/source/` on `main` is the authoring authority; the Sheet and Apps Script `action=data` are not review inputs and must not be queried or edited for catalogue maintenance.
 
-## Correcting the catalogue
+## Applying an approved counter change set
 
-1. Write or review the correction list (`catalogue/corrections/<date>-<topic>.json`).
-2. Run `npm run catalogue:corrections -- <file>`. It must report that each correction applies cleanly and introduces no new findings.
-3. When the owner approves a correction by ID, set its `status` to `APPROVED`, then run `--apply <id>` and `npm run catalogue:release`, and commit that one correction on its own for review.
-4. The release gate (`--gate release`) must pass. CI and `Deploy Pages Live` both enforce it through `catalogue:site`.
+Schema 1 is retained only so the migration corrections remain reproducible. New proposals use correction schema 2 (`gac-catalogue-change-set:v1`). The contract reuses the correction list and source compiler; it is not another catalogue or publisher.
+
+Each document records the proposal issue/PR and an exact baseline `{commit, catalogueVersion, checksum}`. Each proposal records its stable ID, disposition, rationale, evidence and limitations; affected references; expected 5v5, 3v3 and FLEET/Counters/Round/scoring/strategic-reserve impact; and every expected compiled payload path. Every source change has a file, stable row key, operation, and exact endpoints: Add is `before: "ABSENT"`, Retire is `after: "REMOVE"`, and Amend contains both complete rows. Array order is data and must be present exactly in those rows.
+
+The preview prints the complete before/after rows and every field-level difference in the compiled seven-key payload. It also prints an approval checksum calculated from the proposal ID, baseline and exact ordered changes. Approval is valid only when all three agree:
+
+- `status` is `APPROVED`;
+- `approval.reference` links to the exact owner's GitHub issue comment or PR review;
+- `approval.changeSetChecksum` is the checksum printed by preview.
+
+Changing the baseline or any `before`/`after` value invalidates the checksum and needs a new owner decision. A topic, report, issue assignment or PR is not implicit approval. Pending, rejected and deferred proposals can be previewed but never applied.
+
+Minimal pending proposal shape (replace every placeholder; rows are complete source rows, not fragments):
+
+```json
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/NN",
+  "baseline": {
+    "commit": "<40-hex origin/main SHA>",
+    "catalogueVersion": 6,
+    "checksum": "sha256:<64 hex>"
+  },
+  "corrections": [{
+    "id": "CR-YYYY-MM-DD-NN-P01",
+    "status": "PENDING_OWNER_APPROVAL",
+    "disposition": "AMEND",
+    "title": "Concise proposal title",
+    "rationale": "Why the exact change is proposed.",
+    "approval": null,
+    "provenance": {
+      "evidence": [{
+        "url": "https://...",
+        "publisher": "...",
+        "publishedOrObservedAt": "YYYY-MM-DD",
+        "accessedAt": "YYYY-MM-DD",
+        "supports": "Exact claim supported."
+      }],
+      "conditions": "Mode, lineups, omicrons, datacron and game version.",
+      "confidence": "High | Medium | Low, with reasoning.",
+      "limitations": "Unknowns and contrary evidence, or None."
+    },
+    "affectedReferences": [{
+      "file": "matchups/5v5.json",
+      "stableKey": { "mode": "5v5", "defence": "Exact Defence Name" },
+      "effect": "Exact changed or checked consequence."
+    }],
+    "runtimeImpact": {
+      "5v5": "...", "3v3": "none", "FLEET": "none",
+      "counters": "...", "roundAvailability": "none",
+      "scoring": "none", "strategicReserve": "none"
+    },
+    "expectedPayloadPaths": ["payload[\"counters\"][\"5v5\"][\"Exact Defence Name\"][0][\"notes\"]"],
+    "changes": [{
+      "file": "matchups/5v5.json",
+      "operation": "AMEND",
+      "stableKey": { "mode": "5v5", "defence": "Exact Defence Name" },
+      "before": { "defence": "Exact Defence Name", "counters": [{ "counterId": "EXACT_COUNTER_ID", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Old note" }] },
+      "after": { "defence": "Exact Defence Name", "counters": [{ "counterId": "EXACT_COUNTER_ID", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "New note" }] }
+    }]
+  }]
+}
+```
+
+After approval, change the status and replace `approval: null` with `{ "reference": "https://github.com/.../issues/NN#issuecomment-NNN", "decidedAt": "<ISO UTC>", "changeSetChecksum": "<preview checksum>" }`.
+
+### Compare → preview → apply
+
+1. Fetch `main`, confirm `catalogue:release -- --check` and `catalogue:compile -- --gate release`, and record the full `origin/main` SHA plus `catalogue/release.json` in the schema-2 file. Work from that exact commit. Do not use the frozen Sheet, Apps Script `action=data` or an old review as the baseline.
+2. Describe one proposal as one coherent set of source changes. Include all dependent rows or list them under `affectedReferences` with `effect: "none — checked"`. Scoring and board-configuration files are refused by this counter workflow; they need their own approved scope and scoring review. A pending draft may start with `expectedPayloadPaths: []`; preview prints the paths to copy into the file. An approved proposal may not leave this list empty.
+3. Run `npm run catalogue:corrections -- <file> --preview <proposal-id>`, fill any draft payload paths it reports, then run preview again. The command refuses malformed source, missing/duplicate IDs, overlapping stable keys, stale/ambiguous `before` rows, unexpected Add presence, candidate defence aliases, broken references, a release-gate failure, or any compiled path not declared in `expectedPayloadPaths`. Review the printed source and seven-key payload diff before approval.
+4. After the owner approves that exact checksum and posts the decision, record the decision link/date/checksum. Create a dedicated branch at the still-current baseline and run `npm run catalogue:corrections -- <file> --apply <proposal-id>`. Apply refuses `main`, detached HEAD, a moved `origin/main`, a moved HEAD, a changed release/source baseline, tracked catalogue edits, multiple proposal IDs, and any status other than `APPROVED`. It stages the complete source in a temporary directory and swaps it only after the coherent result passes; it does not update `release.json`, commit, merge or deploy. Repeating an already completed exact apply is a no-op; extra changes make it fail.
+5. Run `npm run catalogue:release`. A real content change must create exactly one higher version; a no-op stays on the same version. Then run:
+
+   ```bash
+   npm run catalogue:compile -- --gate release
+   npm run catalogue:release -- --check
+   npm run catalogue:ledger
+   npm run catalogue:site -- --out "$(mktemp -d)/site"
+   node --test tests/catalogue-source.test.js tests/catalogue-corrections.test.js tests/catalogue-release.test.js
+   npm run check
+   npm test
+   ```
+
+   The schema-2 preview's exact `expectedPayloadPaths` comparison proves that all other matchups, definitions, defence compositions, scores, aliases and lookup order are unchanged. Relevant app regression tests still cover Round, availability and all three modes.
+6. Before committing or opening the PR, fetch `origin/main` again. If its SHA is no longer the recorded baseline, stop: re-reconcile the expected rows on fresh `main`, regenerate the preview checksum and obtain a new approval. Do not optimistically overwrite or treat a clean textual rebase as permission. Commit one approved proposal, its schema-2 file, source and new `release.json` together unless the owner separately approved an explicitly grouped equivalent.
+7. Open a PR to `main` and attach the preview/check output. Owner review and merge publish nothing. Only the owner's later manual **Deploy Pages Live** run from `main` can publish.
+
+### Publish verification and recovery
+
+Before an authorised publish, rerun the release gate, release check, ledger and site build on `main`. The owner then runs **Deploy Pages Live**. Its guard checks the live transition before upload; post-deploy verify pins the deployed commit, pointer, manifest, version, checksum and every retained release byte. Smoke-check the app's Counters and Round behaviour for 5v5, 3v3 and FLEET plus offline availability. Apps Script `action=data` parity is not a publication test.
+
+- **Before merge or after failed PR checks:** no live state changed. Fix the branch or abandon it; never amend `main` or deploy the failed branch.
+- **Failed deploy verification:** this is not an automatic undo. Inspect/re-run `catalogue:verify-live`; if the artifact is correct but Pages was stale, redeploy the same reviewed `main`. Do not claim success from the upload step alone.
+- **Bad live release:** choose only a previous-good version shown by `npm run catalogue:ledger`. On a fresh branch from current `main`, run `npm run catalogue:restore -- --version <N>`, then `npm run catalogue:release` to record the restored checksum under a new higher version. Run all checks, open a PR, obtain owner review/merge, manually deploy, and verify live. Restore refuses migration-only v1–v5 or any other version absent from `main`'s first-parent ledger, and refuses a historical source that fails today's gate.
+
+Catalogue release, restore and deployment never rewrite browser-local roster, round, used-team, banner or defence-snapshot state.
 
 ## Fortnightly counter review
 

@@ -455,6 +455,7 @@ module.exports = {
   releasePath,
   renderRelease,
   restoreSource,
+  sourceAtCommit,
   verifyLive,
   verifyReleaseText,
   verifySite
