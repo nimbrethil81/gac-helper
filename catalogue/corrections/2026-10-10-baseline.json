@@ -1,0 +1,137 @@
+{
+  "schema": 1,
+  "baseline": "data/snapshots/20261010T070702Z",
+  "baselineChecksum": "sha256:becb07d6a2073d7fe745fb60806b3b76b54810b3392629add574ac18d5e4fdc6",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/41",
+  "approval": "Each correction stays PENDING_OWNER_APPROVAL until the owner explicitly approves it by ID. Recommendations are not authorisation. Approved corrections are applied with `npm run catalogue:corrections -- <this file> --apply <id>`, one reviewed commit per correction.",
+  "corrections": [
+    {
+      "id": "C1",
+      "status": "PENDING_OWNER_APPROVAL",
+      "title": "Defence_Teams Mode \"Any\" → \"ANY\" (8 rows)",
+      "resolves": ["DEFENCE_MODE_CASE"],
+      "runtimeEffect": "These threat ratings start applying through the ANY wildcard (app.js threatFor: exact mode first, then \"ANY\"). Battle Order changes wherever these defences are on a board: Lord Vader HIGH (5v5, 3v3), The Stranger EXTREME (5v5, 3v3), Ahsoka Tano HIGH (5v5, 3v3), Carth Onasi LOW (5v5), Jedi Master Kenobi HIGH (5v5, 3v3), Leviathan EXTREME (FLEET), Profundity HIGH (FLEET), Executor HIGH (FLEET). Today all eight read NORMAL.",
+      "changes": [
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Ahsoka Tano", "mode": "Any", "threat": "HIGH" },
+          "after": { "defence": "Ahsoka Tano", "mode": "ANY", "threat": "HIGH" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Carth Onasi", "mode": "Any", "threat": "LOW" },
+          "after": { "defence": "Carth Onasi", "mode": "ANY", "threat": "LOW" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Executor", "mode": "Any", "threat": "HIGH" },
+          "after": { "defence": "Executor", "mode": "ANY", "threat": "HIGH" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Jedi Master Kenobi", "mode": "Any", "threat": "HIGH" },
+          "after": { "defence": "Jedi Master Kenobi", "mode": "ANY", "threat": "HIGH" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Leviathan", "mode": "Any", "threat": "EXTREME" },
+          "after": { "defence": "Leviathan", "mode": "ANY", "threat": "EXTREME" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Lord Vader", "mode": "Any", "threat": "HIGH" },
+          "after": { "defence": "Lord Vader", "mode": "ANY", "threat": "HIGH" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Profundity", "mode": "Any", "threat": "HIGH" },
+          "after": { "defence": "Profundity", "mode": "ANY", "threat": "HIGH" }
+        },
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "The Stranger", "mode": "Any", "threat": "EXTREME" },
+          "after": { "defence": "The Stranger", "mode": "ANY", "threat": "EXTREME" }
+        }
+      ]
+    },
+    {
+      "id": "C2",
+      "status": "PENDING_OWNER_APPROVAL",
+      "title": "5v5 Defence_Teams \"Gungan\" → \"Gungans\"",
+      "resolves": ["DEFENCE_ALIAS_CANDIDATE"],
+      "runtimeEffect": "The 5v5 Gungans defence (the Counters/board name) reads HIGH threat in Battle Order instead of NORMAL. 3v3 Gungans is unaffected (no 3v3 or ANY row). No other row is renamed or merged.",
+      "changes": [
+        {
+          "file": "defence-teams.json",
+          "before": { "defence": "Gungan", "mode": "5v5", "threat": "HIGH" },
+          "after": { "defence": "Gungans", "mode": "5v5", "threat": "HIGH" }
+        }
+      ]
+    },
+    {
+      "id": "C3",
+      "status": "PENDING_OWNER_APPROVAL",
+      "title": "3v3 Grand Inquisitor: keep one TRAYA counter entry (Sheet row 80, note \"Strong\")",
+      "resolves": ["DUPLICATE_MATCHUP"],
+      "runtimeEffect": "TRAYA is listed once for 3v3 Grand Inquisitor instead of twice. The kept entry (Sheet Counters row 80) carries the note \"Strong\"; the removed duplicate (row 82) had identical tier S, banner score 54 and undersize 0 and a blank note, so no information is lost.",
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "before": {
+            "defence": "Grand Inquisitor",
+            "counters": [
+              { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Strong" },
+              { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0 }
+            ]
+          },
+          "after": {
+            "defence": "Grand Inquisitor",
+            "counters": [
+              { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Strong" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "C4",
+      "status": "PENDING_OWNER_APPROVAL",
+      "title": "Add unit definitions KELLERAN_BEQ and JOCASTA_NU",
+      "resolves": ["DEFENCE_COMPOSITION_UNKNOWN_UNIT"],
+      "references": ["https://swgoh.gg/units/kelleran-beq/", "https://swgoh.gg/units/jocasta-nu/"],
+      "externalIdVerification": "External_IDs verified by the owner from SWGOH.GG (2026-10-10); unique among all current units.",
+      "runtimeEffect": "The two Character_IDs already referenced by the 3v3 Kelleran Beq defence composition become real units: they appear on the roster screen, ally-code import can mark them owned, and when that defence is saved on My Board they are blocked from attack if owned. No counter composition references them, so counter availability is unchanged.",
+      "changes": [
+        {
+          "file": "units.json",
+          "after": { "id": "JOCASTA_NU", "name": "Jocasta Nu", "unitType": "CHARACTER", "externalId": "JOCASTANU" }
+        },
+        {
+          "file": "units.json",
+          "after": { "id": "KELLERAN_BEQ", "name": "Kelleran Beq", "unitType": "CHARACTER", "externalId": "KELLERANBEQ" }
+        }
+      ]
+    },
+    {
+      "id": "C5",
+      "status": "PENDING_OWNER_APPROVAL",
+      "title": "Complete IG_12_AND_GROGU and PAZ_VIZSLA (Unit_Type and External_ID)",
+      "resolves": ["UNIT_TYPE_INVALID", "REQUIRED_UNIT_NO_EXTERNAL_ID"],
+      "references": ["https://swgoh.gg/units/ig-12-grogu/", "https://swgoh.gg/units/paz-vizsla/"],
+      "externalIdVerification": "External_IDs verified by the owner from SWGOH.GG (2026-10-10); unique among all current units. Character_IDs and display names are unchanged.",
+      "runtimeEffect": "Both units appear as characters on the roster screen and ally-code import can mark them owned. They are REQUIRED members of BO_KATAN_MANDALORE, which today can never be available for an imported roster; after this change it becomes available when all three required units are owned, so it can be recommended against its 21 catalogued defences (8 in 5v5, 13 in 3v3).",
+      "changes": [
+        {
+          "file": "units.json",
+          "before": { "id": "IG_12_AND_GROGU", "name": "IG-12 & Grogu", "unitType": "" },
+          "after": { "id": "IG_12_AND_GROGU", "name": "IG-12 & Grogu", "unitType": "CHARACTER", "externalId": "IG12" }
+        },
+        {
+          "file": "units.json",
+          "before": { "id": "PAZ_VIZSLA", "name": "Paz Vizsla", "unitType": "" },
+          "after": { "id": "PAZ_VIZSLA", "name": "Paz Vizsla", "unitType": "CHARACTER", "externalId": "PAZVIZSLA" }
+        }
+      ]
+    }
+  ]
+}
