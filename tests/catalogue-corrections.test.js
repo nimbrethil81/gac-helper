@@ -250,6 +250,25 @@ test("preview shows the exact source rows and every compiled field change, inclu
   assert.deepEqual(readSource(repo.sourceDir).source, source, "preview is read-only");
 });
 
+test("preview prints compiled paths that a rename adds or removes", (t) => {
+  const repo = fixtureRepo(t);
+  const source = readSource(repo.sourceDir).source;
+  const before = source["matchups/5v5.json"][0];
+  const after = { ...before, defence: `${before.defence} (renamed)` };
+  const correction = modernCorrection(source, { change: { file: "matchups/5v5.json", operation: "RETIRE", stableKey: { mode: "5v5", defence: before.defence }, before, after: "REMOVE" } });
+  correction.changes.push({ file: "matchups/5v5.json", operation: "ADD", stableKey: { mode: "5v5", defence: after.defence }, before: "ABSENT", after });
+  correction.expectedPayloadPaths = diffPayloads(compileSource(source), compileSource(applyCorrections(source, [correction]))).map((difference) => difference.path);
+  const baseline = { commit: repo.commit, catalogueVersion: repo.release.catalogueVersion, checksum: repo.release.checksum };
+  const file = writeDocument(repo.dir, modernDocument(source, baseline, correction));
+  const result = run(["corrections", file, "--repo", repo.dir, "--base-ref", "refs/remotes/origin/main", "--preview", correction.id]);
+  assert.equal(result.exitCode, 0, result.lines.join("\n"));
+  const output = result.lines.join("\n");
+  assert.deepEqual([...correction.expectedPayloadPaths].sort(), [`payload["counters"]["5v5"][${JSON.stringify(before.defence)}]`, `payload["counters"]["5v5"][${JSON.stringify(after.defence)}]`].sort());
+  for (const payloadPath of correction.expectedPayloadPaths) assert.ok(output.includes(payloadPath), payloadPath);
+  assert.equal(output.match(/^ {4}[-+] <absent>$/gm).length, 2);
+  assert.deepEqual(readSource(repo.sourceDir).source, source, "preview is read-only");
+});
+
 test("approved apply is branch-only, atomic, release-explicit and idempotent", (t) => {
   const repo = fixtureRepo(t);
   const source = readSource(repo.sourceDir).source;
