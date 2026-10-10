@@ -51,6 +51,12 @@ const imported = importSnapshot(baseline, auditSnapshot(baseline));
 // into the historical C1-C5 parity proof.
 const corrections = readCorrections(BASELINE_CORRECTIONS).corrections;
 const approved = corrections.filter((correction) => correction.status === "APPROVED");
+// The cutover state is rebuilt from the frozen capture and the immutable
+// schema-1 list, never read from mutable catalogue/source/, so it stays the
+// historical proof after later schema-2 releases move main on. Its compiled
+// checksum is the release recorded as v6 at cutover.
+const historical = applyCorrections(imported, approved);
+const HISTORICAL_V6_CHECKSUM = "sha256:5d95a75e5a94ea0f08d059190d2967a05c63a43c49a1b0e9bea6e898b02d2945";
 const NAMES_ANY = ["Ahsoka Tano", "Carth Onasi", "Executor", "Jedi Master Kenobi", "Leviathan", "Lord Vader", "Profundity", "The Stranger"];
 const IMPORTED_GATE = [
   "DEFENCE_ALIAS_CANDIDATE Gungan",
@@ -100,22 +106,22 @@ test("the unmodified import compiles to exact parity with the fresh live capture
   assert.equal(payloadChecksum(compiled), payloadChecksum(baseline.actionData.payload));
 });
 
-test("committed source is the unmodified import plus only APPROVED corrections", () => {
-  assert.deepEqual(committed.findings, []);
-  assert.deepEqual(committed.source, applyCorrections(imported, approved));
+test("the cutover source is the unmodified import plus only APPROVED corrections, and is the recorded v6", () => {
+  assert.equal(approved.length, 5, "the historical list approves C1-C5");
+  assert.equal(payloadChecksum(compileSource(historical)), HISTORICAL_V6_CHECKSUM);
 });
 
-test("committed source differs from the live capture by exactly the approved corrections", () => {
+test("the cutover source differs from the live capture by exactly the approved corrections", () => {
   const expected = approved.flatMap((correction) => {
     assert.ok(EXPECTED_DIFF[correction.id], `no expected diff declared for ${correction.id}`);
     return EXPECTED_DIFF[correction.id];
   }).sort((a, b) => (a.path < b.path ? -1 : 1));
-  assert.deepEqual(diffPayloads(baseline.actionData.payload, compileSource(committed.source)), expected);
+  assert.deepEqual(diffPayloads(baseline.actionData.payload, compileSource(historical)), expected);
 });
 
 test("no unrelated counter ratings, names, compositions, scoring or board values changed", () => {
   const live = baseline.actionData.payload;
-  const now = compileSource(committed.source);
+  const now = compileSource(historical);
   assert.deepEqual(now.counterDefinitions, live.counterDefinitions, "counter names, reserve flags and compositions");
   assert.deepEqual(now.scoring, live.scoring);
   assert.deepEqual(now.boardConfig, live.boardConfig);
@@ -137,19 +143,46 @@ test("no unrelated counter ratings, names, compositions, scoring or board values
 test("release gate: the import keeps every known defect; approved corrections resolve only theirs", () => {
   assert.deepEqual(gateKeys(auditSource(imported)), IMPORTED_GATE, "the unchanged validator still rejects the import");
   const resolvedCodes = new Set(approved.flatMap((correction) => correction.resolves));
-  const report = auditSource(committed.source);
+  const report = auditSource(historical);
   assert.deepEqual(gateKeys(report), IMPORTED_GATE.filter((key) => !resolvedCodes.has(key.split(" ")[0])));
   const allApproved = corrections.length > 0 && approved.length === corrections.length;
   assert.equal(report.summary.releaseGate, allApproved ? "PASS" : "FAIL");
   assert.equal(run(["compile", "--gate", "release"]).exitCode, allApproved ? 0 : 1);
 });
 
-test("release.json records the compiled checksum; each approved correction advanced the version once", () => {
+test("migration versioning: v1 is the unmodified import and each approved correction advanced it once", (t) => {
+  // Replayed on a temp release file so it cannot depend on where main is now.
+  const dir = tempDir(t);
+  const releaseFile = path.join(dir, "release.json");
+  const sourceDir = path.join(dir, "source");
+  const args = ["--source", sourceDir, "--release-file", releaseFile];
+  let source = imported;
+  const version = () => JSON.parse(fs.readFileSync(releaseFile, "utf8")).catalogueVersion;
+  writeSource(sourceDir, source);
+  run(["release", ...args]);
+  assert.equal(version(), 1);
+  for (const [index, correction] of approved.entries()) {
+    source = applyCorrections(source, [correction]);
+    writeSource(sourceDir, source);
+    run(["release", ...args]);
+    assert.equal(version(), index + 2, correction.id);
+  }
+  assert.deepEqual(JSON.parse(fs.readFileSync(releaseFile, "utf8")), { schema: 1, catalogueVersion: 1 + approved.length, checksum: HISTORICAL_V6_CHECKSUM });
+});
+
+// ─── current main: ongoing releases, independent of the migration ───────────
+
+test("current source is valid, gate-passing and recorded by release.json at or after the cutover version", () => {
+  assert.deepEqual(committed.findings, []);
+  assert.equal(auditSource(committed.source).summary.releaseGate, "PASS");
+  assert.equal(run(["compile", "--gate", "release"]).exitCode, 0);
   const release = JSON.parse(fs.readFileSync(path.join(ROOT, "catalogue", "release.json"), "utf8"));
-  // Migration progression: v1 is the unmodified import, and each correction
-  // landed in its own commit with its own release record.
-  assert.deepEqual(release, { schema: 1, catalogueVersion: 1 + approved.length, checksum: payloadChecksum(compileSource(committed.source)) });
+  assert.equal(release.schema, 1);
+  assert.ok(Number.isSafeInteger(release.catalogueVersion) && release.catalogueVersion >= 1 + approved.length, "never below the migration cutover");
+  assert.equal(release.checksum, payloadChecksum(compileSource(committed.source)), "undeclared source drift fails here");
   assert.equal(run(["release", "--check"]).exitCode, 0);
+  // Exact equality with the cutover is only expected while main is still v6.
+  if (release.catalogueVersion === 1 + approved.length) assert.deepEqual(committed.source, historical);
 });
 
 test("committed source files use the canonical one-row-per-line format", () => {
