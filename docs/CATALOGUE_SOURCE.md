@@ -1,8 +1,8 @@
 # Git-native catalogue source
 
-**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The live app (v3.6, issue #43) reads the static release; [`SPEC.md`](SPEC.md) describes that runtime.** Apps Script `action=data` and the frozen Sheet are no longer read; they remain only as the cutover rollback route ([Cutover](#cutover)).
+**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #35 and #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, fortnightly research/reconciliation, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The live app (v3.6, issue #43) reads the static release; [`SPEC.md`](SPEC.md) describes that runtime.** Apps Script `action=data` and the frozen Sheet are no longer read; they remain only as the cutover rollback route ([Cutover](#cutover)).
 
-**Update this document when** the source layout, commands, correction procedure, release/deployment procedure, budget or migration status changes.
+**Update this document when** the source layout, review/evidence protocol, commands, correction procedure, release/deployment procedure, budget or migration status changes.
 
 ## Layout
 
@@ -52,7 +52,7 @@ Tests enforce that:
 
 So no undeclared edit can land during migration.
 
-The Sheet remains the live authority and the preserved migration baseline: it is not edited by this work. Corrections are made only in Git, after approval.
+The Sheet was the migration authority and remains a frozen rollback baseline. Since the v3.6 cutover, `catalogue/source/` on `main` is the authoring authority; the Sheet and Apps Script `action=data` are not review inputs and must not be queried or edited for catalogue maintenance.
 
 ## Correcting the catalogue
 
@@ -60,6 +60,152 @@ The Sheet remains the live authority and the preserved migration baseline: it is
 2. Run `npm run catalogue:corrections -- <file>`. It must report that each correction applies cleanly and introduces no new findings.
 3. When the owner approves a correction by ID, set its `status` to `APPROVED`, then run `--apply <id>` and `npm run catalogue:release`, and commit that one correction on its own for review.
 4. The release gate (`--gate release`) must pass. CI and `Deploy Pages Live` both enforce it through `catalogue:site`.
+
+## Fortnightly counter review
+
+This is the manual, read-only research and reconciliation procedure for 5v5, 3v3 and FLEET (issue #35). It produces a review report and individually reviewable proposals; it does **not** edit catalogue source, approve a proposal, open an authoring PR, merge, or deploy. The application workflow for an explicitly approved proposal is separate work in #36.
+
+### Authority and baseline
+
+Run the review from a fresh checkout of `main`. Give it an immutable review ID (for example `CR-2026-10-24-01`) and a UTC evidence cut-off, then record:
+
+```bash
+git fetch origin main
+git switch --detach origin/main
+git rev-parse HEAD
+cat catalogue/release.json
+npm run catalogue:release -- --check
+npm run catalogue:compile -- --gate release
+```
+
+The report's authoring baseline is that full commit SHA plus the version and checksum in `catalogue/release.json`. Read the current `catalogue/source/*.json` files, including all three matchup files, rather than an earlier report or migration snapshot. The compiler and shared audit are the validation authority; do not create a parallel schema or rule set.
+
+Also fetch the public Pages `catalogue/current.json` and `catalogue/manifest.json` and record the current version, checksum and `deployedCommit`. Classify deployment status explicitly:
+
+- **Deployed baseline** — the live pointer version/checksum equals `release.json`. The manifest commit may be older than `main` after non-catalogue commits; record both commits rather than treating them as equal.
+- **Committed, not deployed** — `main` has a different release version or checksum from the live pointer. Reconcile against `main`, but name the live release separately in every runtime-impact statement.
+- **Deployment unknown** — either live file could not be read or they disagree. Record the error and do not call `main` or a cached value “live”.
+
+The frozen Sheet, migration snapshots and Apps Script `action=data` are rollback/history material only. Do not query or update them, compare current proposals to them, or repeat migration corrections C1–C5 as outstanding work. Release v6 already contains the approved `Gungan`/`Gungans`, `Any`/`ANY`, Grand Inquisitor duplicate and missing-unit fixes; only fresh regression evidence can justify reopening one.
+
+### Select coverage
+
+Every run records what was examined in each of 5v5, 3v3 and FLEET, even when a mode produces no proposal. Spend the review budget in this order:
+
+1. game additions, reworks, new or changed omicrons, and defences with no usable counter;
+2. matchups with weak, stale or conflicting evidence, then `strategicReserve` counters and `EXTREME`/`HIGH` threats whose errors affect allocation or battle order most;
+3. a rotating sample of mature matchups, using the previous reports' coverage/history so they are not always the same rows.
+
+Before researching a candidate, search current source and unresolved/recent reports by stable row key and proposed before/after. Continue an existing finding when the evidence or requested change is the same; do not emit a fresh duplicate each cycle. A reviewed item may end as **Add**, **Amend**, **Retire**, **No change**, or **Needs identity resolution**. “No change” is a useful result, not a failed review.
+
+### Evidence policy
+
+Every used source must have a link that was opened successfully during the run, a publisher, publication or observation date, the date accessed, and a short statement of what it actually supports. A search result, inaccessible page, title alone, or remembered claim is not usable evidence. Do not bypass access or scraping restrictions.
+
+| Evidence | Required treatment |
+|---|---|
+| Game release, new unit/ship, rework or omicron | Prefer first-party game announcements or mechanically authoritative game data. Record effective version/date and the exact mechanic changed. Separate confirmed behaviour from preview text. |
+| Matchup or battle result | It must be GAC evidence. Record 5v5/3v3/FLEET, attack and exact defence lineups as far as known, leader, relevant omicrons, datacron, outcome/attempt and banners, date range and sample count. Deduplicate reposted or overlapping samples. TW-only results are not GAC evidence. |
+| Aggregated statistics | Record population, filters, date window, mode, sample size and statistic definition. Check that the source is currently accessible and permits the way it is being used. Do not turn an unfiltered win rate into a lineup-specific claim. |
+| Video, guide or expert report | Record the demonstrated lineup, game version/date, conditions and number of shown battles. Disclose the publisher's stated affiliations, sponsorship or other apparent conflict; distinguish demonstration from a representative sample. |
+| Datacron evidence | Record set, level/mechanics, season and expiry. Treat it as conditional and time-limited; do not make a permanent base-matchup claim from a datacron-only result. Flag the row for expiry review. |
+
+Keep evidence for the three modes separate: 5v5 does not establish 3v3, either squad mode does not establish FLEET, and TW does not establish GAC. Note material unknowns such as relics, mods, abilities, turn order, player skill, opponent quality, cleanup state, preloaded turn meter, selection bias, survivor/publication bias, small samples and patch lag. Contradictory evidence stays visible.
+
+Assign **High**, **Medium** or **Low** confidence as a reasoned summary, never directly from one win-rate threshold. High confidence normally needs current, mode-correct, reproducible evidence from more than one independent source or a suitably large and well-defined sample. Medium has useful but limited or partly conflicting support. Low is sparse, conditional, newly released or materially biased. Confidence does not override identity ambiguity or the owner's approval gate.
+
+### Reconcile identities and fields
+
+Resolve an attacking counter by `Counter_ID`, and its members by `Character_ID`; verify any roster-import mapping against a sourced `External_ID`. Resolve a defence only by its **exact displayed name plus mode**, with confirmed composition, omicron and datacron context. `ANY` is an existing consumer wildcard, not permission to merge modes.
+
+- Never create or infer a `Defence_Team_ID`, infer identity from a leader, normalise plurals, rename automatically, or merge modes.
+- External “Reva” may resolve to counter `REVA`, whose member is `THIRD_SISTER`; “Gungans” may resolve to `GUNGANS`, led by member `BOSS_NASS`. These display/identity differences are valid.
+- `Geonosian` and `Geonosians` in different modes are not automatically one defence. Preserve valid defence-only and partial/flexible compositions.
+- If more than one identity is plausible, stop at **Needs identity resolution**. List candidate exact name+mode or IDs, the evidence for each, and the specific owner/source question needed to resolve it. It is not a write-ready proposal.
+
+For every resolved finding, compare all relevant source rows, not just the initially noticed field:
+
+| Source | Stable row key | Reconcile | Meaningful downstream effect |
+|---|---|---|---|
+| `matchups/{mode}.json` | mode + exact `defence` + `counterId` | authored counter order, `tier`, `bannerScore`, `undersize`, `notes` | Counters ordering/detail; allocation reliability and expected banners; First Attack/Battle Order advice |
+| `counters.json` | `id` (`Counter_ID`) | name, ordered required/recommended `Character_ID`s, `strategicReserve` | counter display; roster availability and unit exclusivity; hidden-board reserve strategy |
+| `units.json` | `id` (`Character_ID`) | name, unit type, sourced `externalId` | roster import mapping and squad/FLEET validity |
+| `defence-teams.json` | exact `defence` + mode | `threat`, notes | Round Battle Order fragility; `ANY` fallback only where explicitly authored |
+| `defence-compositions.json` | exact `defence` + mode | ordered member IDs, including intentionally incomplete sets | My Board/defence snapshot unit commitment and availability |
+
+If a finding changes scoring data or its interpretation, stop and request a separately scoped scoring review against `SCORING_REFERENCE.md`; do not smuggle it into a counter proposal. Check whether an apparently new attacker is merely the same attacking archetype under another name or a lineup variant already represented by a `Counter_ID`. Prefer amending the existing identity when that identity is confirmed; do not add a redundant counter just to repeat a matchup. Cross-file consequences must be one identified change set and must list every dependent row.
+
+### Proposal contract
+
+Give each resolved result its own stable proposal ID under the review ID. An **Add**, **Amend** or **Retire** recommendation is eligible for owner consideration only when it contains all of the following:
+
+- disposition and concise rationale;
+- exact `catalogue/source/` file path and stable row key; for a matchup, also its intended authored position;
+- exact expected before row, or the literal `ABSENT` for an Add;
+- exact proposed after row, or the literal `REMOVE` for a Retire; retain meaningful array/member order;
+- base commit SHA and release version/checksum (the source revision being reconciled);
+- evidence links with publication/observation dates and access dates;
+- applicable mode, lineup, omicron, datacron and other conditions;
+- confidence, limitations and unresolved contrary evidence;
+- expected Counters, Round/availability, scoring and strategic-reserve impact, including “none” where checked;
+- every dependent file/row for a cross-file change.
+
+A **No change** result has the same ID, baseline, stable row key or bounded question, evidence, confidence and limitations. Record the confirmed current row(s), state why they remain suitable, and set runtime/strategic-reserve impact to “none — source unchanged.” It carries no source diff and needs no application. **Needs identity resolution** uses the identity questions above instead of before/after rows and cannot be approved for application.
+
+Approval is the specific identified change set, not the topic or whole report. Record the owner's explicit **Approved**, **Rejected** or **Deferred** decision with date and link; any alteration to the expected before/after or dependent rows needs renewed approval. Research, owner approval, Git authoring/PR, owner merge, and manual production deployment are separate gates. #35 grants none of the latter four.
+
+### Report template
+
+Store or post the report where its links and decision history remain reviewable; do not put personal roster or ally-code data in public Git or issues. Use this shape (omit no heading; use `None` where genuinely empty):
+
+```markdown
+# Counter review CR-YYYY-MM-DD-NN
+- Review date (UTC):
+- Evidence cut-off (UTC):
+- Base main commit:
+- Base release: vN / sha256:...
+- Live deployment: Deployed baseline | Committed, not deployed | Unknown
+- Live pointer: vN / sha256:...
+- Live deployedCommit:
+- Modes covered: 5v5 (...); 3v3 (...); FLEET (...)
+- Previous report(s) checked for duplicates:
+
+## Coverage and evidence
+- Priority changes/releases examined:
+- Unreliable/high-impact rows examined:
+- Mature rotation examined:
+- Sources and access/limitations:
+
+## Findings and proposals
+### CR-YYYY-MM-DD-NN-P01 — Add | Amend | Retire | No change
+- Question/rationale:
+- File and stable row key:
+- Intended authored position:
+- Expected before: `ABSENT` or exact JSON
+- Proposed after: exact JSON or `REMOVE` (same as before for No change)
+- Source revision: commit; release version/checksum
+- Evidence: URL — publisher — published/observed — accessed — supports
+- Conditions: mode; lineups; omicrons; datacron season/expiry; game version
+- Confidence and limitations:
+- Dependent rows/files:
+- Runtime impact: Counters; Round/availability; scoring; strategic reserve
+- Decision: Pending | Approved | Rejected | Deferred — date — owner link
+
+### CR-YYYY-MM-DD-NN-I01 — Needs identity resolution
+- Observation and candidate identities:
+- Evidence/limitations:
+- Exact question(s) to resolve:
+
+## Deferred questions
+- Question — owner/evidence needed — revisit trigger/date
+
+## Decision/history (chronological)
+- YYYY-MM-DD — review opened from commit/release/live deployment
+- YYYY-MM-DD — proposal/identity result added, superseded or closed (link and reason)
+- YYYY-MM-DD — owner decision recorded (link)
+```
+
+Before handing off, re-read each proposed before row from the recorded commit, confirm all three modes have a recorded coverage result, run the shared release gate without modifying source, and check that the history links any superseded proposal rather than duplicating it. A later source change makes the proposal stale: re-reconcile it against fresh `main` and obtain approval for the resulting exact change set before #36 applies anything.
 
 ## Static release on Pages
 
