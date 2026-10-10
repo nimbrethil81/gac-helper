@@ -1,6 +1,6 @@
 # Catalogue integrity and parity audit
 
-**Scope.** How to run the read-only catalogue audit (issue #34), what its findings mean and where its limits are. It is the gate for the Git-native catalogue import ([`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md), #41) and for fortnightly counter reviews. Shipped app behaviour belongs in [`SPEC.md`](SPEC.md); scoring constants belong in [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). The individual rules, severities and runtime-effect wording live in `RULES` in `scripts/catalogue-audit-lib.js` and are printed in every report's legend; they are not restated here.
+**Scope.** How to run the read-only catalogue audit (issue #34), what its findings mean and where its limits are. It is the gate for the Git-native catalogue import ([`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md), #41), and the same rules validate the compiled Git source during the [fortnightly counter review](CATALOGUE_SOURCE.md#fortnightly-counter-review). Shipped app behaviour belongs in [`SPEC.md`](SPEC.md); scoring constants belong in [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). The individual rules, severities and runtime-effect wording live in `RULES` in `scripts/catalogue-audit-lib.js` and are printed in every report's legend; they are not restated here.
 
 **Update this document when** the audit's input routes, commands, severity model or known limitations change, or a new baseline snapshot replaces the current one.
 
@@ -36,7 +36,7 @@ npm run catalogue:audit -- data/snapshots/20261010T070702Z
 # Release gate: exit 1 on any blocking or owner-approval finding
 npm run catalogue:audit -- data/snapshots/<stamp> --gate release
 
-# Fortnightly review: also fail if the snapshot is more than 14 days old
+# Historical/migration snapshot freshness check (not the current review authority)
 npm run catalogue:audit -- data/snapshots/<stamp> --max-age-days 14
 
 # Audit a compiled or captured seven-key payload
@@ -69,7 +69,7 @@ Older ARCH-103 CSV exports (`data/exports/*`) are also accepted, with the limita
 
 ## Current baseline
 
-[`data/snapshots/20261010T070702Z/audit-report.md`](../data/snapshots/20261010T070702Z/audit-report.md) — Sheet export 2026-10-10T07:07:02Z, `action=data` 2026-10-10T07:17:34Z (workbook last modified 2026-10-09T13:20:07Z). Parity: exact match. All known 2026-10-10 observations are still present and reported, together with a newly found defect (`IG_12_AND_GROGU` and `PAZ_VIZSLA`, required by `BO_KATAN_MANDALORE`, have blank `Unit_Type` and `External_ID`). None has been corrected; corrections need owner approval.
+[`data/snapshots/20261010T070702Z/audit-report.md`](../data/snapshots/20261010T070702Z/audit-report.md) — Sheet export 2026-10-10T07:07:02Z, `action=data` 2026-10-10T07:17:34Z (workbook last modified 2026-10-09T13:20:07Z). Parity: exact match. All known 2026-10-10 observations are still present in that immutable snapshot and reported, together with a newly found defect (`IG_12_AND_GROGU` and `PAZ_VIZSLA`, required by `BO_KATAN_MANDALORE`, have blank `Unit_Type` and `External_ID`). They were corrected later in Git releases 2–6; the frozen Sheet and snapshot remain unchanged and are not current review authorities.
 
 ## Limitations
 
