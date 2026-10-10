@@ -107,7 +107,7 @@ The manual `Deploy Pages Live` workflow:
 4. configures and uploads the Pages artifact;
 5. deploys it to the `github-pages` environment.
 
-The allow-list currently includes the public PWA shell/assets and `changelog.md`; internal docs, tests, Apps Script and paused architecture assets are not included.
+The allow-list currently includes the public PWA shell/assets; internal docs, tests, Apps Script and paused architecture assets are not included.
 
 An ordinary push, PR merge or documentation change does **not** publish production. Production promotion remains a deliberate human action.
 
