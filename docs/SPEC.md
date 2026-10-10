@@ -91,7 +91,7 @@ The app is a static frontend served from GitHub Pages. Its authored game and con
 
 ### 3.1 Frontend
 
-Hosted on GitHub Pages.
+Hosted on GitHub Pages. The manual `Deploy Pages Live` workflow also publishes a static catalogue release under `catalogue/`. The app does not read it: catalogue data still comes from Apps Script `action=data` ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages)).
 
 * **index.html** — app shell; loads styles and scripts; registers the service worker.
 * **styles.css** — theme, layout, responsive design, component styling.

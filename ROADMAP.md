@@ -10,7 +10,7 @@
 
 *Planned — decision and contracts: [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](docs/decisions/ADR-ARCH-116-git-native-catalogue.md)*
 
-Move the shared counter catalogue from Google Sheets to reviewed, version-controlled JSON source in this repository, compiled to a validated static catalogue published only through the manual Pages deployment, with no hosted database. The read-only integrity/parity gate ([`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md)) and the source import, compiler and owner-approved baseline corrections ([`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md)) are in place; remaining work is a separately approved live cutover (static release delivery, app loader and service-worker changes). Database-backed, evidence-driven maintenance stays parked behind its restart gates.
+Move the shared counter catalogue from Google Sheets to reviewed, version-controlled JSON source in this repository, compiled to a validated static catalogue published only through the manual Pages deployment, with no hosted database. The read-only integrity/parity gate ([`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md)), the source import, compiler and owner-approved baseline corrections, and the static release build with manual Pages publication and rollback ([`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md)) are in place. Remaining work is a separately approved live cutover: the app loader and cache v2 migration, the service-worker bypass, and the ADR §10 measurements. Database-backed, evidence-driven maintenance stays parked behind its restart gates.
 
 ### Per-battle undersize advisor
 

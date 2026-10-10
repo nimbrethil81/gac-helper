@@ -1,10 +1,10 @@
 # ADR ARCH-116 — Git-native static catalogue
 
-**Status:** Accepted as the **target** catalogue architecture (owner approval 2026-10-10). **Not implemented.** The shipped runtime is unchanged: Google Sheets + Apps Script `action=data`, as described in [`SPEC.md`](../SPEC.md) and [`ADR-ARCH-115`](ADR-ARCH-115-one-repo-pages-delivery.md).  
+**Status:** Accepted as the **target** catalogue architecture (owner approval 2026-10-10). **Partially implemented, not cut over:** source and compiler (#41) and the static release on Pages (#42, §11) exist; the app does not read them. The shipped runtime is unchanged: Google Sheets + Apps Script `action=data`, as described in [`SPEC.md`](../SPEC.md) and [`ADR-ARCH-115`](ADR-ARCH-115-one-repo-pages-delivery.md).  
 **Decision date:** 2026-10-10.  
 **Supersedes (on live cutover only):** the Google Sheets/Apps Script catalogue-authority decisions in ADR-ARCH-113 and ADR-ARCH-115, and the database-backed catalogue-publication path of the parked architecture programme.  
 **Does not supersede:** one-repository GitHub Pages delivery, the manual `Deploy Pages Live` gate, the allow-listed Pages artifact, cache-first loading, `action=roster`, or GATE-150/GATE-200 for any future evidence/automation work.  
-**Downstream work:** #34 (read-only integrity/parity gate), #41 (import and compiler), then a separately approved cutover.
+**Downstream work:** #34 (read-only integrity/parity gate), #41 (import and compiler), #42 (static release build and Pages publication), then a separately approved cutover.
 
 ## 1. Context
 
@@ -182,3 +182,13 @@ Before cutover approval the implementing PR records, against a fresh baseline:
 10. **Active-round preservation:** a round in progress before deploying a changed catalogue keeps its boards, used teams, banners and defence snapshot after refresh.
 
 Owner approval of these results is the cutover gate. After cutover, `SPEC.md` is updated to describe the Git-native runtime, ROADMAP drops the item, and this ADR's status becomes "Accepted — implemented".
+
+## 11. Implementation amendments (#42, 2026-10-10)
+
+The static release build follows §5, §7 and §9 with these deliberate refinements. Procedure, behaviour and budget are in [`CATALOGUE_SOURCE.md`](../CATALOGUE_SOURCE.md#static-release-on-pages).
+
+1. **Retained releases.** §8's "only `catalogue/current.json` and the single current release file" is widened. A Pages deployment replaces the whole site, so each deployment rebuilds from Git the current release and up to four earlier releases that still reproduce their checksum and pass the release gate. Release files are immutable by name, and their rebuilt bytes are identical across deployments. A client that read the previous pointer just before a deploy therefore usually finds its file instead of a 404 (§9's 404 handling still applies).
+2. **Release ledger.** "Versions never decrease or repeat" (§7) is enforced over every `release.json` state on `main`'s first-parent history, in CI and before deployment. Rollback stays §9's source revert under a new, higher version.
+3. **Deployment manifest.** One extra generated file, `catalogue/manifest.json`, records the deployed commit and each served release's bytes, file SHA-256 and recording commit. Release files and the pointer stay free of timestamps and commit SHAs (§5, §9 determinism). The app does not need the manifest. It exists for the pre-deployment guard and the post-deployment HTTPS verification.
+4. **Serialisation.** Release files are compact JSON with keys sorted recursively, about the size of today's `action=data` response. Pointer and manifest are 2-space canonical JSON. Identity remains the §5 canonical seven-key checksum.
+5. **Live checks.** `Deploy Pages Live` refuses to deploy over a newer or contradicting live release, and fails after deployment unless the live catalogue files become byte-identical to the artifact within 15 minutes.
