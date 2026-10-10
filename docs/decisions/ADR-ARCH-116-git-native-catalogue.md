@@ -1,10 +1,10 @@
 # ADR ARCH-116 — Git-native static catalogue
 
-**Status:** Accepted as the **target** catalogue architecture (owner approval 2026-10-10). **Implemented on `main`, not cut over live:** the source and compiler (#41), the static release on Pages (#42, §11) and the app loader with cache migration (#43, §12) exist. The live runtime remains Google Sheets + Apps Script `action=data`, as described in [`SPEC.md`](../SPEC.md) and [`ADR-ARCH-115`](ADR-ARCH-115-one-repo-pages-delivery.md), until the owner approves and runs the cutover deployment.  
+**Status:** Accepted — implemented. The owner approved this ADR on 2026-10-10, and the live cutover was deployed the same day (app v3.6, deployed commit `a52fbfc`). It is implemented by #41 (source and compiler), #42 (static release on Pages, §11) and #43 (app loader and cache migration, §12). [`SPEC.md`](../SPEC.md) describes the resulting runtime.  
 **Decision date:** 2026-10-10.  
-**Supersedes (on live cutover only):** the Google Sheets/Apps Script catalogue-authority decisions in ADR-ARCH-113 and ADR-ARCH-115, and the database-backed catalogue-publication path of the parked architecture programme.  
+**Supersedes:** the Google Sheets/Apps Script catalogue-authority decisions in ADR-ARCH-113 and ADR-ARCH-115, and the database-backed catalogue-publication path of the parked architecture programme.  
 **Does not supersede:** one-repository GitHub Pages delivery, the manual `Deploy Pages Live` gate, the allow-listed Pages artifact, cache-first loading, `action=roster`, or GATE-150/GATE-200 for any future evidence/automation work.  
-**Downstream work:** #34 (read-only integrity/parity gate), #41 (import and compiler), #42 (static release build and Pages publication), then a separately approved cutover.
+**Downstream work:** #34 (read-only integrity/parity gate), #41 (import and compiler), #42 (static release build and Pages publication), #43 (app cutover).
 
 ## 1. Context
 

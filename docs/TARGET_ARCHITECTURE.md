@@ -3,7 +3,7 @@
 **Status:** v0.7 current architecture, re-baselined 2026-09-29. The application-delivery architecture below is current; the database/evidence/automation architecture remains parked future design.  
 **Current platform authority:** [`docs/decisions/ADR-ARCH-115-one-repo-pages-delivery.md`](decisions/ADR-ARCH-115-one-repo-pages-delivery.md).  
 **Current behaviour authority:** [`SPEC.md`](SPEC.md).  
-**Accepted future catalogue target:** [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](decisions/ADR-ARCH-116-git-native-catalogue.md) (implemented on `main`; not cut over live).  
+**Accepted future catalogue target:** [`docs/decisions/ADR-ARCH-116-git-native-catalogue.md`](decisions/ADR-ARCH-116-git-native-catalogue.md) (implemented and live; supersedes the Sheet catalogue authority described in §0–§4).  
 **Prior detailed design:** [`docs/archive/architecture/TARGET_ARCHITECTURE-v0.5.md`](archive/architecture/TARGET_ARCHITECTURE-v0.5.md).
 
 ## 0. Current position
@@ -110,7 +110,7 @@ The manual `Deploy Pages Live` workflow:
 6. deploys it to the `github-pages` environment;
 7. verifies over HTTPS that the live catalogue files match the artifact, failing rather than reporting success if Pages is stale.
 
-Internal docs, tests, Apps Script, catalogue authoring source and paused architecture assets are not included. The live app does not read the static catalogue until the separately approved cutover deployment ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages) owns the release build, cutover, rollback and checks).
+Internal docs, tests, Apps Script, catalogue authoring source and paused architecture assets are not included. The app reads the catalogue from these static files ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages) owns the release build, cutover, rollback and checks).
 
 An ordinary push, PR merge or documentation change does **not** publish production. Production promotion remains a deliberate human action.
 
@@ -173,7 +173,7 @@ The following principles from v0.5 remain accepted and continue to guide catalog
 
 On 2026-10-10 the owner accepted [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md) as the future catalogue architecture: canonical catalogue source as version-controlled JSON in this repository, compiled deterministically to a validated, checksummed static release on the existing Pages site and published only through `Deploy Pages Live`, with no hosted database. Apps Script is then retained only for `action=roster`. The ADR owns the source schema, the seven-key compatibility contract, release/rollback and cutover checks.
 
-It is implemented on `main` but **not cut over live**. Sections 0–4 above, and `SPEC.md`, describe the live Sheet/Apps Script runtime until a separately owner-approved cutover deployment. The database-backed catalogue-publication path in §6 is no longer the intended route to a generated catalogue.
+It is **implemented and live**: the cutover was deployed on 2026-10-10. Where §0–§4 above describe Google Sheets and Apps Script `action=data` as the catalogue authority and delivery path, they are superseded. [`SPEC.md`](SPEC.md) describes the current runtime. Apps Script now serves the app only for `action=roster`. The database-backed catalogue-publication path in §6 is no longer the intended route to a generated catalogue.
 
 ## 6. Parked future database-backed maintenance architecture
 

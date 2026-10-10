@@ -14,7 +14,7 @@ A lightweight mobile-first GAC assistant for Star Wars Galaxy of Heroes.
 - Paired Opponent Board and My Board tracking with reusable defence templates
 - Cross-team counter allocation and battle-order recommendations
 - Two-sided banner ranges, points-to-win, and mathematical round outcomes
-- Google Sheets-backed game data
+- Version-controlled, validated game data served as static files
 - Installable PWA with cache-first operation
 
 ## Live App
@@ -29,4 +29,4 @@ https://nimbrethil81.github.io/gac-helper/
 - [`ROADMAP.md`](ROADMAP.md) — forward-looking product ideas and planned, candidate, deferred, research, or conditional work.
 - [`docs/SCORING_REFERENCE.md`](docs/SCORING_REFERENCE.md) — scoring maths and authoring guidance for banner and undersize data.
 - [`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md) — read-only catalogue integrity and parity audit: usage, severities and limitations.
-- [`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md) — Git-native catalogue: source, compile, corrections, static Pages release and rollback (pre-cutover).
+- [`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md) — Git-native catalogue: source, compile, corrections, static Pages release, cutover and rollback.

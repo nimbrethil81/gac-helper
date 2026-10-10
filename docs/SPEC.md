@@ -20,7 +20,7 @@ A mobile-first Progressive Web App that helps players make faster, better Grand 
    - 3.3 [Data Flow](#33-data-flow)
    - 3.4 [State & Persistence](#34-state--persistence)
 4. [Data Model](#4-data-model)
-   - 4.1 [Sheet Structure](#41-sheet-structure)
+   - 4.1 [Catalogue Structure](#41-catalogue-structure)
    - 4.2 [Identifier Standards](#42-identifier-standards)
 5. [API Contract](#5-api-contract)
 6. [Current Features](#6-current-features)
@@ -58,7 +58,7 @@ The app is a roster-aware GAC strategist that can recommend attack order, alloca
 
 * **Fast** — find a counter within seconds, mid-match.
 * **Mobile-first** — built for phones and Home Screen PWA installation.
-* **Maintainable** — counter data is editable in Google Sheets without touching application code.
+* **Maintainable** — counter data is version-controlled catalogue source, edited and reviewed without touching application code.
 * **Incremental** — features ship in stages; the app stays functional throughout.
 * **Identity over composition** — counters represent team identities, not squad variations.
 * **Cache-first** — local data is the working store; the network is a refresh mechanism, never a dependency.
@@ -77,43 +77,43 @@ The app is a roster-aware GAC strategist that can recommend attack order, alloca
 
 **Fast.** Lookup is the critical path. A user should reach a counter list in as few taps as possible, with search and mode selection always to hand.
 
-**Maintainable.** All authored app data lives in Google Sheets. Adding counters, adjusting tiers, or editing notes requires no code change and no redeployment of the frontend.
+**Maintainable.** All authored catalogue data lives in version-controlled JSON source in the repository. Adding counters, adjusting tiers or editing notes changes only that source. The change is validated in CI, merged after review and published by the manual Pages deployment, with no application code change.
 
 **Incremental.** Each version delivers a self-contained, working improvement. The app is never left in a broken intermediate state between releases.
 
-**Cache-first, network-second.** The app must be fully usable mid-GAC on poor venue wifi. It always renders from local state first and treats remote calls (roster import) as background refreshes that can fail silently without blocking the user.
+**Cache-first, network-second.** The app must be fully usable mid-GAC on poor venue wifi. It always renders from local state first and treats remote calls (catalogue refresh and roster import) as background refreshes that can fail silently without blocking the user.
 
 ---
 
 ## 3. Architecture
 
-The app is a static frontend served from GitHub Pages. Its authored game and configuration data is exposed through a read-only JSON API built on Google Apps Script over Google Sheets. Roster import follows a separate read-only path: Apps Script proxies requests to a self-hosted SWGOH Comlink service, which talks directly to the game's read-only APIs. There is no application database beyond the spreadsheet; player-specific state is stored client-side.
+The app is a static frontend served from GitHub Pages. Its authored game and configuration data is a version-controlled catalogue in the repository. That catalogue is compiled into a validated, checksummed static release served from the same Pages site. Roster import takes a separate read-only path: a Google Apps Script web app proxies requests to a self-hosted SWGOH Comlink service, which talks directly to the game's read-only APIs. There is no application database, and player-specific state is stored client-side.
 
 ### 3.1 Frontend
 
-Hosted on GitHub Pages. The manual `Deploy Pages Live` workflow also publishes a static catalogue release under `catalogue/`. The app does not read it: catalogue data still comes from Apps Script `action=data` ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages)).
+Hosted on GitHub Pages. The manual `Deploy Pages Live` workflow publishes the app shell and the static catalogue release under `catalogue/` together, in one allow-listed artifact ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages)).
 
 * **index.html** — app shell; loads styles and scripts; registers the service worker.
 * **styles.css** — theme, layout, responsive design, component styling.
-* **app.js** — data loading, state management, rendering, counter lookup, used-team tracking, two-sided banner tracking, roster management/import, paired round-board and defence-template persistence, availability calculation, the allocation engine, and the battle-order pass that schedules its output.
-* **service-worker.js** — PWA offline shell.
+* **app.js** — catalogue loading, verification and caching, state management, rendering, counter lookup, used-team tracking, two-sided banner tracking, roster management/import, paired round-board and defence-template persistence, availability calculation, the allocation engine, and the battle-order pass that schedules its output.
+* **service-worker.js** — PWA offline shell. It never handles cross-origin requests or requests under `catalogue/`, so `app.js` owns the only catalogue cache.
 * **manifest.json** — PWA metadata.
 
 ### 3.2 Backend
 
-* **Google Sheets** — primary data store and source of truth for authored app data, including counters and definitions, the `External_ID` game-base-ID mapping, per-league board configuration, GAC banner scoring rules, and defence-team attributes.
-* **Google Apps Script** — a `doGet` web app with a lightweight `action` router:
-  * `action=data` (default) — reads the sheets and returns the consolidated counter/definition payload consumed by the frontend, including the board configuration and scoring rules.
-  * `action=roster&allyCode=…` — posts the ally code server-side to the Comlink roster provider, normalises its response, and returns deduplicated unit base IDs. This keeps the Comlink endpoint server-side and avoids browser CORS constraints; it performs no `Character_ID` mapping or roster classification.
+There is no server-side catalogue service.
+
+* **Catalogue source** — the source of truth for authored app data. It holds counters and their definitions, the `External_ID` game-base-ID mapping, per-league board configuration, GAC banner scoring rules and defence-team attributes. It is version-controlled JSON under `catalogue/source/` (see [§4.1](#41-catalogue-structure)). A dependency-free Node compiler validates the source and generates the catalogue payload ([§5](#5-api-contract)), and CI runs the release gate on every pull request. Only a manual `Deploy Pages Live` run publishes a catalogue. [`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md) owns the authoring, correction, release and rollback procedure. [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md) owns the source schema and the release contracts.
+* **Google Apps Script** — a `doGet` web app. The app calls only `action=roster&allyCode=…`. That action posts the ally code server-side to the Comlink roster provider, normalises the response and returns deduplicated unit base IDs. Keeping the call server-side hides the Comlink endpoint and avoids browser CORS constraints. Apps Script does no `Character_ID` mapping or roster classification. The same deployment still serves the legacy `action=data` catalogue from a frozen Google Sheet. The app does not read it; both are kept unedited only as the route for rolling back the catalogue cutover ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#cutover)).
 * **SWGOH Comlink** — a self-hosted service on Render that talks directly to the game's read-only APIs. Its `/player` response supplies `rosterUnit[].definitionId`; the Apps Script takes the base-ID portion before the rarity suffix and returns that compact list to the client.
 
-The roster path is deliberately thin: Apps Script validates the request and provider response, returns the player's owned base IDs and a sync timestamp, and leaves all mapping and classification to the client. This keeps the payload small (important for the poor-wifi scenario), keeps the sheet as the source of truth for the ID mapping, and avoids re-reading the sheet on every sync.
+The roster path is deliberately thin. Apps Script validates the request and the provider response, then returns the player's owned base IDs and a sync timestamp. All mapping and classification is left to the client. This keeps the payload small, which matters on poor wifi, and keeps the catalogue as the source of truth for the ID mapping.
 
 ### 3.3 Data Flow
 
-The counter-data flow is **read-only**: the app fetches data but never writes back to Sheets. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce.
+The counter-data flow is **read-only**: the app fetches the static catalogue but never writes back to it. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce.
 
-Roster import is also read-only. The request path is **PWA → Apps Script → Comlink → game API**; the response returns through Apps Script as a compact list of owned unit base IDs plus a sync timestamp. No roster data is written back to the game or to Google Sheets.
+Roster import is also read-only. The request path is **PWA → Apps Script → Comlink → game API**; the response returns through Apps Script as a compact list of owned unit base IDs plus a sync timestamp. No roster data is written back to the game or stored anywhere but the device.
 
 ### 3.4 State & Persistence
 
@@ -129,6 +129,19 @@ All player-specific state is held client-side in `localStorage`:
 
 **Cache-first model.** localStorage is the working store; the roster API is a refresh mechanism, not a dependency. On boot the app renders from cached roster data instantly (`loadRoster()` runs before any network call), then — only for API-sourced rosters, and only if `syncedAt` is older than a staleness threshold (12 hours) — fires a silent background refresh. The refresh never runs while the Roster screen is open (so it cannot disrupt a mid-edit interaction), and applies only if the owned set actually changed, with an Undo snapshot when it does. If the refresh fails or times out, the app stays silently on cached data. The app is fully functional on cached data alone.
 
+**Catalogue loading.** The catalogue is also cache-first, and the app owns its cache.
+
+1. On boot the app renders from the last verified catalogue in `catalogueCache:v2` (`{schema: 2, sourceContract, acceptedAt, catalogueVersion, checksum, payload}`). If no valid v2 entry exists, it renders from a legacy Apps Script cache in `catalogueCache:v1`, which holds the same payload shape.
+2. It then fetches the small pointer `catalogue/current.json`, bypassing HTTP caches, with a 10-second timeout.
+3. If the pointer's checksum equals the SHA-256 of the catalogue on screen, nothing else is requested and the screen is not redrawn. A matching v1 cache is recorded as v2 at that point.
+4. Otherwise the app downloads the immutable release file the pointer names, with a 30-second timeout covering the whole body. It accepts the file only if its size, JSON, contract, payload shape and canonical checksum all match the pointer ([§5](#5-api-contract)). It then stores it as v2, applies it and re-renders.
+
+Any failure leaves the catalogue already in use in place and shows a quiet "Using saved catalogue. Couldn't check for updates just now." line. Failures include being offline, a timeout, an HTTP error, a truncated or corrupt file, an unknown contract, a checksum mismatch and a storage quota error. A verified release that cannot be stored is still used for the session.
+
+With no valid cache and no acceptable release, the app shows "Catalogue unavailable" and changes no saved state. The app never writes `catalogueCache:v1`. It removes v1 only when storing v2 would otherwise exceed the storage quota, so the rollback app can still use it.
+
+A catalogue change never alters saved boards, used teams, banners, templates or the round's `defenceSnapshot`. Saved identities missing from a new catalogue render as "saved; not in current catalogue". ADR-ARCH-116 §8 and §12 record the design rationale.
+
 **Storage durability.** The app makes a best-effort `navigator.storage.persist()` request on boot to reduce OS eviction; this is effective on Chromium/Android and desktop. On Safari, Private Browsing uses ephemeral storage that is cleared at session end regardless of `persist()`. Normal (non-private) browsing retains storage. The durable backstops against any loss are manual Export/Import and one-tap re-import via ally code.
 
 Because state is local to the device and browser, it does not sync across devices and is lost if site data is cleared or the PWA is reinstalled in a context without durable storage. With ally-code import in place, recovery is a single tap (re-enter or reuse the stored ally code) rather than a manual rebuild.
@@ -139,54 +152,68 @@ Because state is local to the device and browser, it does not sync across device
 
 ## 4. Data Model
 
-### 4.1 Sheet Structure
+### 4.1 Catalogue Structure
 
-The Google Sheet is the **schema source of truth**. Exact column names and ordering are defined in the sheet itself and are intentionally **not duplicated here**, to avoid drift between the spec and the live data. This section describes the *purpose and relationships* of each tab rather than its literal columns.
+The catalogue source under `catalogue/source/` is the **schema source of truth**. Each file is UTF-8 JSON with a top-level `"schema": 1` and one array of rows. Exact field lists, enumerations, ordering and uniqueness rules are owned by [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md) §4 and enforced by the compiler's release gate. They are intentionally **not duplicated here**. This section describes the *purpose and relationships* of each file rather than its literal fields.
 
-**Counters** — the core relationship table. Maps an enemy defence team (per mode) to one or more counter teams, each with a tier, expected banner score, undersize count, and optional notes. This is the data that drives the lookup screen. The `Mode` column carries `5v5`, `3v3`, or `FLEET`; fleet counters are authored here exactly like squad counters, keyed by `Mode = FLEET`.
+**Matchups** (`matchups/5v5.json`, `matchups/3v3.json`, `matchups/FLEET.json`) — the core relationship table. Each file covers one mode, named by the file. It maps each enemy defence team to an ordered list of counter teams. Each counter carries a tier, an expected banner score, an undersize count and optional notes. This is the data that drives the lookup screen. Fleet counters are authored in the `FLEET` file exactly like squad counters.
 
-These columns own **non-overlapping** parts of a counter's value, each feeding the allocation engine (see [§6.8](#68-allocation-engine)) at a different level:
-- **`Tier`** (`S` / `A` / `B` / `C`) — a **reliability** measure: how consistently the counter wins, as a deliberate authoring judgement. This is the engine's *primary* sort key (safety first). Tier is defined as reliability rather than efficiency precisely so it does not duplicate `Banner Score`; the coverage → tier → banners ordering only makes sense if tier and banner score measure different things (how *safely* it wins vs how *much* it banks). Tier stays a hand-authored judgement because reliability depends on skill, investment, mods, and RNG — signal the app holds no data on and cannot compute. Suggested rubric: **S** = wins reliably even at moderate investment or imperfect play; **A** = wins consistently with the right units and reasonable play; **B** = works but is matchup- or RNG-sensitive; **C** = situational, often needs specific conditions.
-- **`Banner Score`** — the **full-squad, first-attempt, clean-clear** expected value, with any undersize premium removed → the engine's *tiebreak within a tier* (value second). The companion `SCORING_REFERENCE.md` owns the mode-specific ceilings and the meaning ladder used to author these scores consistently.
-- **`Undersize`** — a numeric **droppable-unit count**: the maximum units the counter can drop from a full squad and still win cleanly, where `0` means field the full squad. Each unit dropped is worth **+1 banner** over the full clean clear. This adjusts the banner tiebreak: the engine ranks by the undersize-adjusted score (`Banner Score` + count), the achievable best (see [§6.8](#68-allocation-engine)). Any non-numeric legacy value or blank is read as `0`, so partially migrated sheet data remains safe.
+These fields own **non-overlapping** parts of a counter's value. Each feeds the allocation engine (see [§6.8](#68-allocation-engine)) at a different level:
+- **`tier`** (`S` / `A` / `B` / `C`) — a **reliability** measure: how consistently the counter wins, as a deliberate authoring judgement. This is the engine's *primary* sort key (safety first).
+  - Tier is defined as reliability rather than efficiency precisely so it does not duplicate `bannerScore`. The coverage → tier → banners ordering only makes sense if they measure different things: how *safely* a counter wins versus how *much* it banks.
+  - Tier stays a hand-authored judgement because reliability depends on skill, investment, mods and RNG. The app holds no data on any of these and cannot compute it.
+  - Suggested rubric: **S** = wins reliably even at moderate investment or imperfect play; **A** = wins consistently with the right units and reasonable play; **B** = works but is matchup- or RNG-sensitive; **C** = situational, often needs specific conditions.
+- **`bannerScore`** — the expected value of a **full-squad, first-attempt, clean clear**, with any undersize premium removed. It is the engine's *tiebreak within a tier* (value second). The companion `SCORING_REFERENCE.md` owns the mode-specific ceilings and the meaning ladder used to author these scores consistently.
+- **`undersize`** — a non-negative integer **droppable-unit count**: the maximum units the counter can drop from a full squad and still win cleanly. `0` means field the full squad. Each unit dropped is worth **+1 banner** over the full clean clear. The engine ranks by the undersize-adjusted score (`bannerScore` + count), the achievable best (see [§6.8](#68-allocation-engine)). The client still reads any non-numeric value as `0`.
 
-Tier is the app's reliability axis; the app does not consume a separate `Reliability` field. The distinct concern of *manual-play effort* — orthogonal to how good a counter is — is not folded into Tier; it is tracked as potential future work in [`ROADMAP.md`](../ROADMAP.md), partially served today by the free-text `Notes` column. Because the Apps Script reads the Counters tab by header name, any unread column is silently ignored by the payload.
+Tier is the app's reliability axis; the app does not consume a separate reliability field. *Manual-play effort* is a distinct concern, orthogonal to how good a counter is. It is not folded into Tier: it is tracked as potential future work in [`ROADMAP.md`](../ROADMAP.md) and partly served today by the free-text `notes`.
 
-**Derived columns.** Two columns on the Counters tab are **calculated, not authored**: the counter's display name (looked up from Counter_Definitions by `Counter_ID`) and the score-meaning label (looked up from Score_Meanings by `Mode` and `Banner Score`). Each is a single open-ended `ARRAYFORMULA` living in the first data row, so both fill themselves as new counter rows are added and neither should ever be typed over — a manual entry in any cell below the first breaks the whole column with a spill error. The authored columns are `Mode`, the defence-team name, `Counter_ID`, `Tier`, `Banner Score`, `Undersize` and `Notes`; everything else on the tab derives itself. The derived columns are given a distinct fill and a warn-on-edit protected range in the sheet, so the distinction is visible at the point of authoring rather than only recorded here.
+A counter's display name is never authored on a matchup: the compiler resolves it from `counters.json`. Every referenced counter must exist in `counters.json`. A squad matchup may reference only character counters, and a `FLEET` matchup only ship counters. The release gate rejects anything else.
 
-A consequence of the open-ended formulas is that the tab reports a row extent far beyond the authored data, because a formula cell counts as used whether or not it produces a value. The Apps Script therefore ingests a Counters row only if it carries all three of `Counter_ID`, `Mode` and the defence-team name (see [§5](#5-api-contract)); rows failing that test are skipped silently, keeping the payload the phone downloads sized to the real catalogue rather than to the sheet's full height. The practical consequence for authoring is that a half-filled row simply will not appear in the app.
+**Counters** (`counters.json`) — the identity and membership registry for counter teams. Each row holds:
+- the stable `Counter_ID`;
+- the display name;
+- an ordered list of `required` `Character_ID`s;
+- an ordered list of `recommended` `Character_ID`s.
 
-**Counter_Definitions** — the identity registry for counter teams. One row per counter, holding its stable `Counter_ID` and display name. Identity only; membership lives in Counter_Composition. Fleet counters live here too, their membership being ships and capital ships rather than characters.
+Fleet counters live here too, with ships and capital ships as members. Empty lists are legal for partial or flexible compositions. A `Character_ID` appears at most once per counter, and every member must exist in `units.json`.
 
-An optional `Strategic_Reserve` column marks a counter definition as a premium/flexible attacking resource worth preserving while the opponent's board is still partially hidden (see [§6.8](#68-allocation-engine)). It is read by header, exactly like `Character_Definitions`' `External_ID`: `TRUE`/`YES`/`Y`/`1` (case-insensitive) or a checked checkbox mark a counter High reserve; a blank cell, any other value, or the column being absent entirely reads as Normal. This is a property of the counter **definition**, not of a character — the same character in a different composition is unaffected unless that definition is separately marked.
+An optional `strategicReserve: true` marks a counter definition as a premium, flexible attacking resource worth preserving while the opponent's board is still partly hidden (see [§6.8](#68-allocation-engine)). When it is absent the counter reads as Normal. This is a property of the counter **definition**, not of a character. The same character in a different composition is unaffected unless that definition is marked separately.
 
-**Counter_Composition** — the membership table. One row per unit in a counter team, recording the `Counter_ID`, the `Character_ID`, and whether that unit is `REQUIRED` or `RECOMMENDED`. This normalised structure allows data validation on the character column to prevent invalid IDs at entry time. For a fleet counter, the `Character_ID`s reference `SHIP`/`CAPITAL_SHIP` units.
+**Units** (`units.json`) — the master unit registry. One row per playable unit holds its stable `Character_ID`, display name, `unitType` (`CHARACTER`, `SHIP` or `CAPITAL_SHIP`) and optional `externalId`. This file is the source for the roster screen, for validation and for import matching.
 
-**Character_Definitions** — the master unit registry. One row per playable unit, holding its stable `Character_ID`, display name, `Unit_Type` (`CHARACTER`, `SHIP`, or `CAPITAL_SHIP`), and `External_ID`. This is the source for the roster screen, for validation, and for import matching.
+> **`External_ID` is a translation adapter, not the primary key.** It holds the SWGOH unit base ID returned by the game data: the portion of Comlink's `definitionId` before the rarity suffix. It is used only to translate imported rosters into internal `Character_ID`s. The internal key remains `Character_ID`, which keeps the data model independent of the game's external namespace.
+>
+> Only units that appear in some counter's `required` list strictly need a mapping for availability to work; others can be filled in opportunistically. Base IDs must be sourced from game or Comlink data, never derived from display names. Several are non-obvious (for example Jedi Master Luke and Sith Eternal Emperor), and a wrong value fails silently.
 
-> **`External_ID` is a translation adapter, not the primary key.** It holds the SWGOH unit base ID returned by the game data (the portion of Comlink's `definitionId` before the rarity suffix), used only to translate imported rosters into internal `Character_ID`s. The internal key remains `Character_ID`; this keeps the data model independent of the game's external namespace. Only the units that appear as `REQUIRED` in Counter_Composition strictly need a mapping for availability to work; others can be populated opportunistically. Base IDs must be sourced from game/Comlink data, not derived from display names — several are non-obvious (e.g. Jedi Master Luke, Sith Eternal Emperor) and a wrong value fails silently.
+**Board config** (`board-config.json`) — the per-league board layout. Each row is one (league, mode, territory) combination, with the territory `type` (`SQUAD` or `FLEET`) and the `teamCount`: how many defence teams that territory holds in that league and format. This feeds the Round screen's board setup: choosing a league and mode pre-generates exactly the right number of team pickers per territory. Territory order within a league and mode is the source row order: Front Top, Front Bottom, Back Top, Back Bottom.
 
-**GAC_Board_Config** — the per-league board layout. One row per (League, Mode, Territory) combination, holding the `Territory_Type` (`SQUAD` or `FLEET`) and the `Team_Count` — how many defence teams that territory holds in that league and format. This feeds the Round screen's board setup: choosing a league and mode pre-generates exactly the right number of team pickers per territory. Territory order within a league/mode is preserved from the sheet (Front Top, Front Bottom, Back Top, Back Bottom). The tab is guarded on the backend: if it is missing or empty the payload carries an empty object, so the sheet can be edited or rearranged without breaking the endpoint.
+**Scoring** (`scoring.json`) — the GAC banner economy, and the single source of truth for banner scoring.
+- **Rows.** One row per rule, keyed by `ruleId` plus `battleType` (`SQUAD`, `FLEET` or `ANY`) plus `mode` (`5v5`, `3v3` or `ANY`).
+- **Values.** They cover setting defence, victory bonuses, first- and second-attempt bonuses, and per-unit surviving, full-health and full-protection bonuses. They also cover unused-slot bonuses, defeated-enemy points, the first-attack bonus and territory-clear bonuses.
+- **Consumers.** Round score prefilling and the Points-to-Win calculator (see [§6.9](#69-points-to-win)).
+- **`SETTING_DEFENCE`.** The release gate requires exactly one positive `SETTING_DEFENCE` / `ANY` / `ANY` row. New-round setup still checks it and is blocked with a data warning if it is missing or invalid. The app never invents or silently substitutes a starting-score value.
+- **Unit counts.** The file also carries `OWN_UNITS` and `ENEMY_UNITS` rows. These are the number of the player's own units that earn per-unit survival bonuses in a clean win, and the number of enemy units defeated. They are separate values so the model does not assume own and enemy unit counts always match. The app supplies format-appropriate fallbacks if these rows are absent.
 
-**GAC_Scoring** — the GAC banner economy. One row per rule, keyed by `Rule_ID` plus `Battle_Type` (`SQUAD`, `FLEET`, or `ANY`) plus `Mode` (`5v5`, `3v3`, or `ANY`). Values cover setting defence, victory bonuses, first- and second-attempt bonuses, per-unit surviving/full-health/full-protection bonuses, unused-slot bonuses, defeated-enemy points, first-attack bonus, and territory-clear bonuses. This is the single source of truth for banner scoring and is the data source consumed by round score prefilling and the Points-to-Win calculator (see [§6.9](#69-points-to-win)). New-round setup requires exactly one positive, finite `SETTING_DEFENCE / ANY / ANY` row; it is blocked with a data warning when that validation fails, so the app never invents or silently substitutes a starting-score value. The tab also carries `OWN_UNITS` and `ENEMY_UNITS` rows — the count of the player's own units that earn per-unit survival bonuses in a clean win, and the count of enemy units defeated. They are modelled as two separate values so the model does not assume that own and enemy unit counts must always match. The app supplies format-appropriate fallbacks if these rows are absent. The companion `SCORING_REFERENCE.md` owns the scoring values, unit counts, ceilings, and authoring guidance. Guarded like GAC_Board_Config.
+The companion `SCORING_REFERENCE.md` owns the scoring values, unit counts, ceilings and authoring guidance.
 
-The tab also supports the First Attack rule (see [§6.12](#612-first-attack)). The `FIRST_ATTACK` row is consumed directly, and the per-unit `SURVIVING_UNIT` / `FULL_HEALTH_UNIT` / `FULL_PROTECTION_UNIT` rows are also summed to give the banner cost of one of the player's own units failing to come through a battle intact, which converts a counter's `Banner Score` into an expected unit loss. Nothing additional is authored for this; retuning the scoring rows retunes the risk bar with them.
+The scoring rules also support the First Attack rule (see [§6.12](#612-first-attack)). The `FIRST_ATTACK` row is consumed directly. The per-unit `SURVIVING_UNIT`, `FULL_HEALTH_UNIT` and `FULL_PROTECTION_UNIT` rows are summed to give the banner cost of one of the player's own units failing to come through a battle intact. That cost converts a counter's `bannerScore` into an expected unit loss. Nothing extra is authored for this, so retuning the scoring rows retunes the risk bar with them.
 
-**Defence_Teams** — authored attributes of an **enemy** defence team. One row per (Defence_Team, Mode) combination, holding a `Threat` rating and free-text `Notes`. `Mode` carries `5v5`, `3v3`, `FLEET`, or `ANY`; a mode-specific row beats an `ANY` row, mirroring how GAC_Scoring resolves. This is the only tab keyed on a defence team rather than a counter, and it is keyed by the **display name** used in the Counters tab's defence-team column — the same string the opponent board stores — so the board, the counter catalogue, and this tab all agree on one name.
+**Defence teams** (`defence-teams.json`) — authored attributes of an **enemy** defence team. Each row is one (defence team, mode) combination, with a `threat` rating and optional free-text `notes`. Mode is `5v5`, `3v3`, `FLEET` or `ANY`; a mode-specific row beats an `ANY` row, mirroring how scoring rules resolve. This is the only file keyed on a defence team rather than a counter. Its key is the **display name** used in the matchup files, which is also the string the opponent board stores. The board, the counter catalogue and this file therefore all agree on one name.
 
-> **Why Threat has to be authored.** Battle Order needs to know how hard a defence team is. Every signal the app could derive that from — how many counters are catalogued, what tiers they carry, what they score — measures the **data**, not the enemy. A thinly-documented easy team would look scarcer than a Galactic Legend with two well-known answers, and a Galactic Legend with one excellent S-tier counter would look *easy* by every derived measure, because its difficulty lies in the scarcity of the answer rather than in the fight. `Threat` is therefore a hand-authored judgement, exactly as `Tier` is, and for the same reason: it encodes signal the app holds no data on. See [§6.11](#611-battle-order).
+> **Why Threat has to be authored.** Battle Order needs to know how hard a defence team is. Every signal the app could derive that from measures the **data**, not the enemy: how many counters are catalogued, what tiers they carry, what they score.
+>
+> A thinly documented easy team would look scarcer than a Galactic Legend with two well-known answers. A Galactic Legend with one excellent S-tier counter would look *easy* by every derived measure, because its difficulty lies in the scarcity of the answer rather than in the fight. `threat` is therefore a hand-authored judgement, exactly as `tier` is, and for the same reason: it encodes signal the app holds no data on. See [§6.11](#611-battle-order).
 
-The tab is **optional and incremental**. It is guarded on the backend like GAC_Board_Config and GAC_Scoring — a missing or empty tab yields an empty object — and a blank or unrecognised `Threat` resolves to `NORMAL` client-side. So Battle Order works with the tab absent entirely, and improves row by row as ratings are added. The intended authoring pattern is to rate only the teams the automatic ordering gets wrong (in practice, Galactic Legends and any thinly-documented easy team), leaving everything else on the default. Data validation on the `Defence_Team` column, sourced from the distinct defence-team names on the Counters tab, guards the one real fragility of name-keying: renaming a defence team would otherwise silently orphan its rating.
+The file is **sparse by design**. A defence team with no row reads as `NORMAL`, so Battle Order works with no ratings at all and improves as ratings are added. The intended pattern is to rate only the teams the automatic ordering gets wrong: in practice, Galactic Legends and any thinly documented easy team. Name-keying has one real fragility: renaming a defence team in a matchup file would silently orphan its rating. The release gate guards against this. A defence-team or defence-composition name that misses every matchup in its mode but nearly matches one is a candidate alias, and it blocks publication until the owner resolves it. Nothing is ever renamed automatically.
 
-**Defence_Composition** — optional canonical unit membership for saved My Board identities, with one row per (`Defence_Team`, `Mode`, `Character_ID`). It exists only to turn a saved defence identity into the exact character/ship IDs that must be unavailable on attack. A mode-specific composition beats `ANY`. When no explicit row exists, the client may reuse `Counter_Composition` only where the defence name exactly and uniquely matches a counter-team name; those known required IDs are blocked, but the identity remains marked partial because an attacking core may omit defensive members. It never parses names or guesses flex members. Ambiguous, custom, or otherwise unresolved identities are recorded in the round snapshot and surfaced as a partial-filter warning.
+**Defence compositions** (`defence-compositions.json`) — optional canonical unit membership for saved My Board identities. Each row is one (defence team, mode) combination with its list of `Character_ID`s. It exists only to turn a saved defence identity into the exact character and ship IDs that must be unavailable on attack. A mode-specific row beats `ANY`.
 
-**Roster** — present in the spreadsheet but not consumed by the app.
+When no explicit row exists, the client may reuse a counter's `required` list, but only where the defence name exactly and uniquely matches a counter-team name. Those known required IDs are blocked. The identity is still marked partial, because an attacking core may leave out defensive members. The client never parses names or guesses flex members. Ambiguous, custom or otherwise unresolved identities are recorded in the round snapshot and shown as a partial-filter warning.
 
-**GAC History** — present in the spreadsheet but not consumed by the app.
+**Score meanings** (`score-meanings.json`) — a reference table that maps a (mode, banner score) pair to that score's practical meaning. It is the in-repository companion to the meaning ladder in `SCORING_REFERENCE.md`, and exists to keep `bannerScore` authoring consistent. It is not compiled into the catalogue payload.
 
-**Score_Meanings** — a reference table mapping a (`Mode`, `Banner Score`) pair to that score's practical meaning. It is the source for the Counters tab's derived score-meaning column and the in-sheet companion to the meaning ladder documented in `SCORING_REFERENCE.md`. The Apps Script does not read it; it exists to keep `Banner Score` authoring consistent.
-
-> **Composition is mode-agnostic across squad formats.** The required core of a character counter is currently identical across 5v5 and 3v3, so composition does not carry a mode column. Fleet is modelled as an additional `Mode` value (`FLEET`) on the Counters tab rather than a separate format axis, since the fleet territory is present in every GAC regardless of the character format; a fleet counter's required core is its ships, drawn from the same Counter_Composition table.
+> **Composition is mode-agnostic across squad formats.** The required core of a character counter is currently identical in 5v5 and 3v3, so counter definitions carry no mode. Fleet is a third matchup mode (`FLEET`) rather than a separate format axis, because the fleet territory is present in every GAC whatever the character format. A fleet counter's required core is its ships, drawn from the same `counters.json`.
 
 ### 4.2 Identifier Standards
 
@@ -222,21 +249,47 @@ Stable identifiers are central to the data model. Names can change; IDs must not
 
 **Unit_Type** — enumerated: `CHARACTER`, `SHIP`, `CAPITAL_SHIP`. All-caps enum values keep them distinct from free text and make validation and filtering reliable. The roster screen and import consume all three (`CHARACTER`, `SHIP`, and `CAPITAL_SHIP`).
 
-**Role** — enumerated: `REQUIRED`, `RECOMMENDED`. Only `REQUIRED` units are considered for availability.
+**Role** — `REQUIRED` or `RECOMMENDED`, expressed by which list (`required` or `recommended`) a unit appears in on its counter. Only `REQUIRED` units are considered for availability.
 
-**Threat** — enumerated: `EXTREME`, `HIGH`, `NORMAL`, `LOW`. Case-insensitive on entry and upper-cased by the Apps Script; a blank or unrecognised value resolves to `NORMAL` client-side, so a typo degrades to the default rather than sorting to the top of the battle order.
+**Threat** — enumerated: `EXTREME`, `HIGH`, `NORMAL`, `LOW`. Any other non-blank value fails the release gate; a blank value is only a warning. The client resolves a blank or unrecognised value to `NORMAL`, so bad data falls back to the default rather than sorting to the top of the battle order.
 
-**Defence_Team** — the one identifier in the model that is a **display name rather than a stable ID**. Defence teams have never had an ID: they exist only as the name in the Counters tab's defence-team column, which is also what the opponent board stores. Defence_Teams (see [§4.1](#41-sheet-structure)) keys on that same string rather than introducing a `Defence_Team_ID`, on the grounds that a second identifier for a concept with no other attributes would cost more in authoring friction than it saves. The trade-off is accepted deliberately, with sheet-level data validation as the guard.
+**Defence_Team** — the one identifier in the model that is a **display name rather than a stable ID**. Defence teams have never had an ID. They exist only as the `defence` name in the matchup files, which is also what the opponent board stores. Defence teams and defence compositions (see [§4.1](#41-catalogue-structure)) key on that same string rather than introducing a `Defence_Team_ID`. A second identifier for a concept with no other attributes would cost more in authoring friction than it saves. The trade-off is accepted deliberately, with the release gate's candidate-alias check as the guard.
 
 ---
 
 ## 5. API Contract
 
-The Apps Script exposes two actions behind a single `doGet` endpoint.
+The app reads two read-only interfaces: the static catalogue on its own Pages origin, and the Apps Script roster proxy.
 
-### `action=data` (default)
+### Static catalogue
 
-Returns a single JSON object with seven top-level keys. This contract is the boundary between backend and frontend; the frontend depends on this shape rather than on sheet layout.
+**Pointer.** `catalogue/current.json` is a small pointer:
+
+```json
+{
+  "pointerSchema": 1,
+  "contract": "gac-catalogue-release:v1",
+  "catalogueVersion": 6,
+  "checksum": "sha256:<64 hex>",
+  "path": "releases/6-<first 12 hex of checksum>.json",
+  "bytes": 85520
+}
+```
+
+`path` is relative to `catalogue/` and names an immutable release file. `bytes` is that file's exact length.
+
+**Release file.** One JSON object containing the seven catalogue keys below plus `release` `{contract, sourceSchema, catalogueVersion, checksum}`.
+
+**Checksum.** `checksum` is the SHA-256 of the canonical JSON of the seven keys only: keys sorted recursively, 2-space indented, with a trailing newline. Identity is therefore by content. The client compares checksums and never refuses a release because of its version number. The client accepts a release only when:
+- `path` is exactly `releases/{catalogueVersion}-{first 12 hex}.json` for the pointer's own version and checksum;
+- the file is exactly `bytes` long;
+- both contracts are `gac-catalogue-release:v1`;
+- the seven keys have the shape below;
+- the recomputed checksum equals the pointer's.
+
+[`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md) §5 and §7 own the release, pointer and versioning rules. [§3.4](#34-state--persistence) describes caching and failure handling.
+
+**Payload.** The seven catalogue keys are the boundary between catalogue and frontend. The frontend depends on this shape rather than on the source layout.
 
 ```json
 {
@@ -250,7 +303,12 @@ Returns a single JSON object with seven top-level keys. This contract is the bou
 }
 ```
 
-**counters** — keyed by mode, then by defence team name, to an array of counter entries. Each entry carries its counter ID, display name, tier, banner score, undersize count, and notes. The `undersize` field is a number representing the droppable-unit count; the Apps Script parses the sheet cell to a number, resolving any non-numeric or blank value to `0`. The payload is seeded with the `5v5` and `3v3` keys so they always exist; a `FLEET` key is emitted automatically when the sheet contains counter rows whose `Mode` is `FLEET`. The mode string is used verbatim as the key, so a fleet counter's `Mode` cell must read exactly `FLEET`. A row is ingested only if it carries a counter ID, a mode and a defence team name; rows missing any of the three are skipped. This guards the payload against the Counters tab's open-ended derived-column formulas, which extend the sheet's reported row extent well past the authored data (see [§4.1](#41-sheet-structure)). Mode and defence-team names are trimmed before use as keys, so incidental trailing whitespace cannot create a duplicate, unreachable bucket.
+**counters** — keyed by mode, then by defence team name, to an ordered array of counter entries `{counterId, counter, tier, bannerScore, undersize, notes}`.
+- `counter` is the display name from `counters.json`.
+- `undersize` is the non-negative droppable-unit count.
+- `notes` is `""` when absent.
+- `5v5` and `3v3` are always present, possibly empty. `FLEET` is present when at least one fleet matchup exists.
+- Array order is the authored order, which stable sorts use to break ties.
 
 **counterDefinitions** — keyed by `Counter_ID`:
 
@@ -264,7 +322,7 @@ Returns a single JSON object with seven top-level keys. This contract is the bou
 }
 ```
 
-A definition carries `strategicReserve: true` only when its `Strategic_Reserve` cell is set (see [§4.1](#41-sheet-structure)); the field is otherwise omitted, which the client reads identically to `false`.
+A definition carries `strategicReserve: true` only when it is set in the source (see [§4.1](#41-catalogue-structure)). Otherwise the field is omitted, which the client reads identically to `false`.
 
 **characterDefinitions** — keyed by `Character_ID`:
 
@@ -274,9 +332,9 @@ A definition carries `strategicReserve: true` only when its `Strategic_Reserve` 
 }
 ```
 
-`externalId` is read by header name and is optional: if the `External_ID` column is absent or a cell is blank, the field is returned empty and that unit simply won't match on import. This makes the column safe to add incrementally. `unitType` carries `CHARACTER`, `SHIP`, or `CAPITAL_SHIP`.
+`externalId` is `""` when the unit is unmapped; such a unit simply won't match on import. `unitType` carries `CHARACTER`, `SHIP` or `CAPITAL_SHIP`.
 
-**defenceCompositions** — keyed by mode and then defence-team display name, with arrays of canonical `Character_ID` values. A missing `Defence_Composition` tab yields `{}`; the client then uses only its exact unique counter-identity fallback as a partial lower bound and reports that identity unresolved.
+**defenceCompositions** — keyed by mode (`5v5`, `3v3`, `FLEET` or `ANY`) and then defence-team display name. Values are arrays of canonical `Character_ID`s in authored order, de-duplicated. When it is empty (`{}`), the client uses only its exact, unique counter-identity fallback as a partial lower bound and reports that identity as unresolved.
 
 **boardConfig** — keyed by `League`, then by `Mode`, to an ordered array of territory descriptors:
 
@@ -293,7 +351,7 @@ A definition carries `strategicReserve: true` only when its `Strategic_Reserve` 
 }
 ```
 
-Territory order is preserved from the sheet. Missing or empty tab yields an empty object; the frontend renders a "board configuration hasn't loaded" notice in that case rather than failing.
+Territory order is the source row order. When it is empty (`{}`), the frontend shows a "board configuration hasn't loaded" notice rather than failing.
 
 **scoring** — a flat array of banner-economy rule rows. Composite key is (`ruleId`, `battleType`, `mode`):
 
@@ -304,7 +362,7 @@ Territory order is preserved from the sheet. Missing or empty tab yields an empt
 ]
 ```
 
-Resolution logic is client-side. Missing or empty tab yields an empty array. The rules are consumed by the Points-to-Win Calculator (see [§6.9](#69-points-to-win)); the current app payload is otherwise unaffected by this data.
+Resolution logic is client-side. An empty source yields an empty array. The rules are consumed by the Points-to-Win Calculator (see [§6.9](#69-points-to-win)); the current app payload is otherwise unaffected by this data.
 
 **defenceTeams** — keyed by `Mode`, then by defence team display name:
 
@@ -319,11 +377,11 @@ Resolution logic is client-side. Missing or empty tab yields an empty array. The
 }
 ```
 
-Mode is used verbatim as the key (`5v5`, `3v3`, `FLEET`), matching `boardConfig`; a blank mode cell becomes `ANY`. `threat` is upper-cased by the Apps Script so the client never has to normalise, but may be an empty string — resolution to `NORMAL` is client-side, along with the `ANY`-as-wildcard rule. Missing or empty tab yields an empty object, in which case every defence team reads as `NORMAL`.
+Modes are `5v5`, `3v3`, `FLEET` or `ANY`. `ANY` is a wildcard that a mode-specific entry overrides; this is resolved client-side. `threat` is one of `EXTREME`, `HIGH`, `NORMAL` or `LOW`, and `notes` is `""` when absent. When it is empty (`{}`), every defence team reads as `NORMAL`.
 
-The optional payload sections are backwards-compatible: missing source tabs yield safe empty values, and clients that do not consume a key can ignore it.
+Sparse sections yield safe empty values. Clients ignore keys they do not consume, including `release`. Any breaking change to the seven-key shape requires a new `contract` value and a coordinated app release.
 
-### `action=roster&allyCode=…`
+### Roster proxy: Apps Script `action=roster&allyCode=…`
 
 A thin proxy to the self-hosted SWGOH Comlink service. Apps Script posts the ally code to Comlink's `/player` endpoint, reads each `rosterUnit[].definitionId`, strips the rarity suffix after `:`, deduplicates the resulting unit base IDs, and returns those IDs to the client. The client performs all `Character_ID` mapping and character/ship classification.
 
@@ -346,9 +404,9 @@ On failure it returns `{ "ok": false, "error": "<code>" }`, where `<code>` is on
 
 The user selects a mode (5v5 / 3v3 / Fleet) and a defence team, and sees the available counters. Each counter card displays the counter team name, tier (colour-coded), expected banners, undersize advice, and notes. A search box filters the defence-team list, and counters are sorted by status group, then tier, then by banner score.
 
-The undersize line reflects the droppable-unit count (see [§4.1](#41-sheet-structure)): a counter that can shed units reads "drop up to N → X banners (+N)", showing the reconstructed best-case total; a counter that cannot reads "full squad".
+The undersize line reflects the droppable-unit count (see [§4.1](#41-catalogue-structure)): a counter that can shed units reads "drop up to N → X banners (+N)", showing the reconstructed best-case total; a counter that cannot reads "full squad".
 
-The **Fleet** segment shows fleet counters exactly as the squad modes show squad counters — enemy fleet defence teams and the ship counters that beat them. When the sheet holds no fleet counter data yet, the Fleet view shows a plain "no fleet counters yet" message in place of the dropdown and results, and fills in automatically once fleet counters are authored. Fleet is a browsing view on this screen; it is not a whole-board format (see [§6.7](#67-round-boards)).
+The **Fleet** segment shows fleet counters exactly as the squad modes show squad counters — enemy fleet defence teams and the ship counters that beat them. When the catalogue holds no fleet matchups, the Fleet view shows a plain "no fleet counters yet" message in place of the dropdown and results, and fills in automatically once fleet counters are authored. Fleet is a browsing view on this screen; it is not a whole-board format (see [§6.7](#67-round-boards)).
 
 A wayfinding line on the Counters screen points the user to the Round screen for round tracking and reset — those responsibilities live there, not here (see [§6.6](#66-round-screen)).
 
@@ -436,7 +494,7 @@ One setup action creates both boards from the same frozen league/format layout. 
 
 The round owns two paired boards with the same league, squad format, territory order and team counts. **Opponent Board** records the opponent's defence and drives the player's counter plan. **My Board** records the player's defence and the opponent's attacks against it.
 
-**Unified setup.** When no round exists, the setup card shows an explicit **GAC format** selector (5v5 / 3v3) above the league picker, seeded once from the Counters screen's current squad-format toggle for convenience (falling back to the last squad format used if the toggle is on Fleet). The round owns this choice from that point on: it does not track later Counters-toggle changes, and the player can switch it freely while the card is empty, since no board exists yet to reinterpret. Selecting a league then creates both boards from `GAC_Board_Config` using the chosen format. Opponent Board starts empty. My Board is populated by the saved template matching the frozen squad format, mapping identities by territory and slot index. At the same moment, the app resolves that template to canonical unit IDs and stores an immutable defence snapshot on the round. Later My Board/template edits never change it. A new round takes a fresh snapshot from the matching 3v3 or 5v5 template. Setup also performs the one-time score prefill described in [§6.3](#63-banner-tracking) and is blocked when `SETTING_DEFENCE` is missing or invalid.
+**Unified setup.** When no round exists, the setup card shows an explicit **GAC format** selector (5v5 / 3v3) above the league picker, seeded once from the Counters screen's current squad-format toggle for convenience (falling back to the last squad format used if the toggle is on Fleet). The round owns this choice from that point on: it does not track later Counters-toggle changes, and the player can switch it freely while the card is empty, since no board exists yet to reinterpret. Selecting a league then creates both boards from the board configuration using the chosen format. Opponent Board starts empty. My Board is populated by the saved template matching the frozen squad format, mapping identities by territory and slot index. At the same moment, the app resolves that template to canonical unit IDs and stores an immutable defence snapshot on the round. Later My Board/template edits never change it. A new round takes a fresh snapshot from the matching 3v3 or 5v5 template. Setup also performs the one-time score prefill described in [§6.3](#63-banner-tracking) and is blocked when `SETTING_DEFENCE` is missing or invalid.
 
 **Format ownership.** Once a round is created, its format lives on the board's `mode` field (see [§3.4](#34-state--persistence)) and is authoritative for that round: counter suggestions, defence interpretation and every other format-sensitive Round-screen behaviour read `board.mode`/`myBoard.mode`, never the Counters screen's toggle. The setup card — and its format selector — only ever renders while no round exists, so there is no in-round path that could reinterpret already-entered board data against a different format; reconfiguring the format means Reset Round, which already clears both boards while preserving saved defence templates.
 
@@ -471,7 +529,7 @@ Not-in-catalogue placeholder teams contribute no candidates and receive an expla
 **Solver.** A scarcity-first ordered search with branch-and-bound pruning enumerates valid assignments over the eligible teams. The objective is lexicographic:
 
 1. Maximise **coverage** — the number of teams that receive an assignment.
-2. Then minimise summed **tier rank** — prefer stronger (more reliable) tiers (S over A over B over C). See [§4.1](#41-sheet-structure) for Tier as a reliability measure. While the strategic-reserve penalty below is active, a High-reserve counter's tier rank for this comparison is one step worse than its authored tier (see below).
+2. Then minimise summed **tier rank** — prefer stronger (more reliable) tiers (S over A over B over C). See [§4.1](#41-catalogue-structure) for Tier as a reliability measure. While the strategic-reserve penalty below is active, a High-reserve counter's tier rank for this comparison is one step worse than its authored tier (see below).
 3. Then, only while the strategic-reserve penalty is active, minimise the number of High-reserve counters used in the plan.
 4. Then maximise summed **undersize-adjusted banner score** — the achievable best per counter: its full-squad banner score plus its safe droppable-unit count (`Banner Score` + `Undersize`), since +1 banner is bankable per unit dropped.
 
@@ -479,7 +537,7 @@ Because the adjustment sits *below* tier in the ordering, it only ever reorders 
 
 The undersize adjustment affects *ranking* only. The recommendation card's headline still shows the **full-squad** banner score — the figure banked by a straight, no-risk play — with the undersize upside on its own line (see [§6.1](#61-counter-lookup) and the per-team display below). Because the engine may therefore pick a counter whose headline is lower than a same-tier rival's, the team's **reason line explains an undersize-driven pick** — e.g. "Chosen for its undersize potential (64 vs 63)." — so a lower headline never reads as an error; no such note appears when undersizing did not change the pick.
 
-**Strategic reserve.** Some counter definitions carry `strategicReserve: true` (the `Strategic_Reserve` catalogue column — see [§4.1](#41-sheet-structure) and [§5](#5-api-contract)), marking a premium/flexible attacking resource worth preserving while the opponent's board is still partially hidden — initially, Darth Bane. The penalty activates only in Round Mode, and only while `roundHasHiddenZones()` finds at least one board territory still locked behind the reveal chain ([§6.7](#67-round-boards)); it never applies on the Counters screen, and it stops applying the moment the whole board is unlocked. While active, it treats a High-reserve counter as **one tier weaker** for the tier-rank comparison above, then, if that leaves two candidates tied, prefers spending fewer High-reserve counters overall. This is a mild tie-break, not an override: a High-reserve counter still out-ranks any non-reserve alternative more than one tier behind it, so the engine never promotes a materially weaker or speculative counter merely to preserve a stronger one. A High-reserve counter that the engine did not choose for a team remains visible on that team's card as a compact, still-selectable alternative (using the same Mark used action as any other counter), each carrying a "⚠ Consider holding — strong flexible counter and hidden zones remain." note; the chosen counter carries the same note when it is itself High reserve. This is a ranking nudge and an advisory note only — it never hides, disables, or blocks a counter, and it does not attempt to predict which specific hidden defence a reserved counter should be saved for (full-board counter optimisation is out of scope; see [`ROADMAP.md`](../ROADMAP.md)).
+**Strategic reserve.** Some counter definitions carry `strategicReserve: true` (see [§4.1](#41-catalogue-structure) and [§5](#5-api-contract)), marking a premium/flexible attacking resource worth preserving while the opponent's board is still partially hidden — initially, Darth Bane. The penalty activates only in Round Mode, and only while `roundHasHiddenZones()` finds at least one board territory still locked behind the reveal chain ([§6.7](#67-round-boards)); it never applies on the Counters screen, and it stops applying the moment the whole board is unlocked. While active, it treats a High-reserve counter as **one tier weaker** for the tier-rank comparison above, then, if that leaves two candidates tied, prefers spending fewer High-reserve counters overall. This is a mild tie-break, not an override: a High-reserve counter still out-ranks any non-reserve alternative more than one tier behind it, so the engine never promotes a materially weaker or speculative counter merely to preserve a stronger one. A High-reserve counter that the engine did not choose for a team remains visible on that team's card as a compact, still-selectable alternative (using the same Mark used action as any other counter), each carrying a "⚠ Consider holding — strong flexible counter and hidden zones remain." note; the chosen counter carries the same note when it is itself High reserve. This is a ranking nudge and an advisory note only — it never hides, disables, or blocks a counter, and it does not attempt to predict which specific hidden defence a reserved counter should be saved for (full-board counter optimisation is out of scope; see [`ROADMAP.md`](../ROADMAP.md)).
 
 Two exclusivity constraints are enforced natively:
 
@@ -493,7 +551,7 @@ The search order (teams by ascending candidate count, candidates by tier then un
 **Per-team display.** Each visible-uncleared team card is followed by a recommendation block containing:
 - The chosen counter's name, colour-coded tier badge, and expected banner score.
 - A one-line **reason** grounded in the plan's real alternatives — e.g. "Also counters Great Mothers — SLKR covers that one instead" — rather than a generic strength claim. When a team is the second choice for a counter that got diverted elsewhere, the reason names both the counter and the team it went to. When a team is left uncovered because of a unit clash, the reason names the unit and the counter holding it. When undersizing is what wins a counter its pick over a higher-full-squad same-tier rival, the reason appends an explanation — e.g. "Chosen for its undersize potential (64 vs 63)." — so the card's deliberately-conservative full-squad headline never looks lower than a rival's for no visible reason.
-- An **undersize line** when the chosen counter has a droppable-unit count > 0 (see [§4.1](#41-sheet-structure)): it shows the reconstructed best-case total most prominently, then the drop count and bonus — e.g. "67 banners if you undersize · drop up to 2 for +2". Counters that cannot undersize show no such line. This annotates a recommendation the player is already reading rather than adding a screen or a decision, and the underlying `undersizeInfo` helper is shared with the lookup card (see [§6.1](#61-counter-lookup)).
+- An **undersize line** when the chosen counter has a droppable-unit count > 0 (see [§4.1](#41-catalogue-structure)): it shows the reconstructed best-case total most prominently, then the drop count and bonus — e.g. "67 banners if you undersize · drop up to 2 for +2". Counters that cannot undersize show no such line. This annotates a recommendation the player is already reading rather than adding a screen or a decision, and the underlying `undersizeInfo` helper is shared with the lookup card (see [§6.1](#61-counter-lookup)).
 - A **Used + Cleared** button — the normal successful-counter action and the most prominent of the three — that commits the recommended counter to `usedTeams` and marks the team cleared in one operation, then triggers a re-solve and the same-track auto-advance described above. Its temporary Undo (same ~6-second window as Cleared) restores both to their exact prior values: if the counter was already used before the tap, Undo leaves it used and restores only the team to uncleared, rather than blindly toggling either flag.
 - A **Mark used** button, kept alongside it, that commits only the counter to `usedTeams` immediately and triggers a re-solve, for when used-state and cleared-state don't change together. The state is shared with the Counters screen (see [§6.2](#62-used-team-tracking)).
 - Compact **On defence** reference rows for otherwise relevant counters blocked by the snapshot. These appear below the usable recommendation (or beneath the no-recommendation reason), so blocked counters remain visible without appearing actionable.
@@ -517,9 +575,9 @@ Expanded content lists:
 
 This feature answers "how many banners do I still need to win, and can I get there?" from the current match state. It sits beneath banner tracking on the Round screen and is built on two layers: a data-driven scoring engine and a plain-language verdict.
 
-**Scoring engine.** All banner values are read from GAC_Scoring through a single `scoreRule` lookup, keyed by rule, battle type, and mode, with `ANY` as a wildcard and the most specific matching row winning. A **side-agnostic board walker** totals the theoretical maximum banners still bankable from either board — the ceiling if every remaining team is cleared perfectly. For every uncleared team it adds the clean-win best case, and for every territory still holding an uncleared team it adds the clear bonus (base plus per-team). Every slot counts, named or not, and back territories are included because a full remaining ceiling assumes the front is cleared first. Opponent Board therefore yields the player's remaining maximum; My Board yields the opponent's. The lock gate still governs Opponent Board rendering, allocation and Battle Order, not scoring.
+**Scoring engine.** All banner values are read from the scoring rules through a single `scoreRule` lookup, keyed by rule, battle type, and mode, with `ANY` as a wildcard and the most specific matching row winning. A **side-agnostic board walker** totals the theoretical maximum banners still bankable from either board — the ceiling if every remaining team is cleared perfectly. For every uncleared team it adds the clean-win best case, and for every territory still holding an uncleared team it adds the clear bonus (base plus per-team). Every slot counts, named or not, and back territories are included because a full remaining ceiling assumes the front is cleared first. Opponent Board therefore yields the player's remaining maximum; My Board yields the opponent's. The lock gate still governs Opponent Board rendering, allocation and Battle Order, not scoring.
 
-**Battle best case.** A clean win means every own unit survives at full health and protection and every enemy is defeated. The attempt bonus is chosen from the relevant board team's Battles count (see [§6.7](#67-round-boards)) — the next battle is treated as the first, second, or third-plus attempt accordingly. Unit counts come from a **two-count model**: how many of the attacker's own units earn per-unit survival bonuses, and how many defending units are defeated. They are sourced independently from the `OWN_UNITS` / `ENEMY_UNITS` scoring rows (see [§4.1](#41-sheet-structure)), with format-appropriate in-app fallbacks. The actual counts, clean-win ceilings, and scoring arithmetic are owned by [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). Fleet reinforcement slots left empty at setup would earn unused-slot bonuses, but a full-clean-clear best case has none; the deliberate-undersize case is surfaced as advice by the undersize display (see [§6.8](#68-allocation-engine)). Further per-battle undersize optimisation is tracked in [`ROADMAP.md`](../ROADMAP.md).
+**Battle best case.** A clean win means every own unit survives at full health and protection and every enemy is defeated. The attempt bonus is chosen from the relevant board team's Battles count (see [§6.7](#67-round-boards)) — the next battle is treated as the first, second, or third-plus attempt accordingly. Unit counts come from a **two-count model**: how many of the attacker's own units earn per-unit survival bonuses, and how many defending units are defeated. They are sourced independently from the `OWN_UNITS` / `ENEMY_UNITS` scoring rows (see [§4.1](#41-catalogue-structure)), with format-appropriate in-app fallbacks. The actual counts, clean-win ceilings, and scoring arithmetic are owned by [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). Fleet reinforcement slots left empty at setup would earn unused-slot bonuses, but a full-clean-clear best case has none; the deliberate-undersize case is surfaced as advice by the undersize display (see [§6.8](#68-allocation-engine)). Further per-battle undersize optimisation is tracked in [`ROADMAP.md`](../ROADMAP.md).
 
 **Verdict.** Points-to-win remains `(opponent current + 1) − own current`: the immediate banners required to move ahead of the live opponent total. It is compared with the player's remaining maximum and recomputes while scores are typed. The adjacent two-sided range and outcome verdict supply the opponent-projection context rather than treating their current score as static.
 
@@ -554,9 +612,9 @@ This distinction matters because it changes what "difficulty" has to mean. The o
 **Ordering rule.** Within the candidate set, lexicographic, in this order:
 
 1. **Territory — the lane rule.** While Front Bottom is on the board and uncleared, it owns the squad recommendation. Once Front Bottom is cleared the rule switches off **entirely** and every remaining unlocked squad team competes flat — Back Bottom receives no automatic priority. There is a safety valve: if nothing in Front Bottom has a counter ready, the rule stands aside and the rest of the board is considered, rather than the card reporting nothing while workable battles exist elsewhere. The fleet track has no lane rule.
-2. **Threat** — the authored rating (see [§4.1](#41-sheet-structure)), highest first. This leads deliberately: the player's explicit judgement always beats the app's inference. A team the app would otherwise rank low can be moved up by rating it, and the alternative (letting a zero-fallback trivial team outrank a Galactic Legend) is precisely the behaviour the feature exists to prevent.
+2. **Threat** — the authored rating (see [§4.1](#41-catalogue-structure)), highest first. This leads deliberately: the player's explicit judgement always beats the app's inference. A team the app would otherwise rank low can be moved up by rating it, and the alternative (letting a zero-fallback trivial team outrank a Galactic Legend) is precisely the behaviour the feature exists to prevent.
 3. **Fallbacks** — fewest first. A *fallback* is a counter for this team that is owned, unused, not committed to another team in the plan, and does not require a unit the plan has already spent elsewhere. It is deliberately **not** the count of catalogued counters: that measures the data, whereas this measures what is actually left if the recommended play fails. It is also live — it shrinks as counters are marked used, so a team naturally rises up the order as the round wears on, with no separate recomputation.
-4. **Tier** — **worst** first. Tier is reliability (see [§4.1](#41-sheet-structure)), so a C-tier recommendation is the least certain battle on the board and the one most worth de-risking early. This is the one place in the app where a *worse* tier sorts higher, and it follows directly from the fragility model rather than contradicting the allocation engine's safety-first ordering.
+4. **Tier** — **worst** first. Tier is reliability (see [§4.1](#41-catalogue-structure)), so a C-tier recommendation is the least certain battle on the board and the one most worth de-risking early. This is the one place in the app where a *worse* tier sorts higher, and it follows directly from the fragility model rather than contradicting the allocation engine's safety-first ordering.
 5. **Undersize-adjusted banner score** — highest first, as a final tiebreak between otherwise equal battles, then board position for determinism so an evenly-matched board does not flicker between equals on re-render.
 
 **The reason line.** Each recommendation carries a one-line reason that names the factor which **actually decided** the pick, established by comparing the winner against the runner-up on each key in turn. This keeps the line honest: it never claims a team was chosen for its threat rating when the rating matched everything else and something further down the list broke the tie. When the lane rule excluded candidates from other territories, the line is prefixed to say so — but only then; if every squad candidate was in Front Bottom anyway, the prefix would add nothing and is omitted.
@@ -592,7 +650,7 @@ The cost of the exception is that the most fragile battle is delayed by exactly 
 **Risk warning.** The card names a pick on any board, but flags when that pick puts the bonus at risk. Two independent triggers:
 
 - **Unreliable tier** — the best available answer is only B or C. Because tier is the opening rule's *first* key, the chosen opener always carries the best tier on the board, so this is a genuine board-level statement: nothing better exists.
-- **Expected messiness** — the opener is expected to shed **three or more** of the player's own units. This is derived, not hard-coded: the app computes a flawless first-attempt win for the format from GAC_Scoring, and the banner cost of one own unit as the sum of the per-unit survival bonuses. On the current data that resolves to a full-squad score of **56 or below in 5v5**, 48 or below in 3v3, and 64 or below in fleet. Retuning the scoring rows retunes the bar.
+- **Expected messiness** — the opener is expected to shed **three or more** of the player's own units. This is derived, not hard-coded: the app computes a flawless first-attempt win for the format from the scoring rules, and the banner cost of one own unit as the sum of the per-unit survival bonuses. On the current data that resolves to a full-squad score of **56 or below in 5v5**, 48 or below in 3v3, and 64 or below in fleet. Retuning the scoring rows retunes the bar.
 
 A counter with no authored banner score is treated as *unknown*, not messy: the messiness check is skipped and only tier can flag it.
 
