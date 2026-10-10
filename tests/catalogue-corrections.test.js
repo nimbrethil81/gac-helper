@@ -21,6 +21,9 @@ const baseline = loadSnapshot(path.join(ROOT, "data", "snapshots", "20261010T070
 const committed = readSource(path.join(ROOT, "catalogue", "source"));
 // Corrections are always proven against the unmodified migration import.
 const imported = importSnapshot(baseline, auditSnapshot(baseline));
+// Historical applied-state proof uses the rebuilt cutover source, not mutable main.
+const snapshotPayload = baseline.actionData.payload;
+const cutover = applyCorrections(imported, readCorrections(BASELINE_CORRECTIONS).corrections.filter((correction) => correction.status === "APPROVED"));
 
 function tempDir(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "catalogue-corrections-"));
@@ -100,7 +103,7 @@ test("every correction is either APPROVED and applied, or pending and not applie
   assert.equal(document.baselineChecksum, payloadChecksum(baseline.actionData.payload));
   for (const correction of document.corrections) {
     assert.ok(["APPROVED", "PENDING_OWNER_APPROVAL"].includes(correction.status), correction.id);
-    assert.equal(isApplied(committed.source, correction), correction.status === "APPROVED", correction.id);
+    assert.equal(isApplied(cutover, correction), correction.status === "APPROVED", correction.id);
   }
 });
 
@@ -337,3 +340,56 @@ test("ambiguous aliases and cross-file partial failures abort without writing", 
   assert.deepEqual(JSON.parse(fs.readFileSync(repo.releaseFile, "utf8")), repo.release, "no partial release record");
 });
 
+
+// ─── post-cutover releases ──────────────────────────────────────────────────
+
+test("a synthetic post-v6 approved release moves past the migration proof while invalid changes still fail", (t) => {
+  const repo = fixtureRepo(t);
+  const ref = ["--repo", repo.dir, "--base-ref", "refs/remotes/origin/main"];
+  const source = readSource(repo.sourceDir).source;
+  const bound = { commit: repo.commit, catalogueVersion: repo.release.catalogueVersion, checksum: repo.release.checksum };
+  const first = modernCorrection(source, { change: amendFirstMatchup(source, "Synthetic release one") });
+  const file = writeDocument(repo.dir, modernDocument(source, bound, first, { approved: true }));
+
+  // Stale approval: content edited after the owner approved the checksum.
+  const stale = JSON.parse(fs.readFileSync(file, "utf8"));
+  stale.corrections[0].changes[0].after.counters[0].notes = "edited after approval";
+  assert.throws(() => readCorrections(writeDocument(repo.dir, stale, "stale.json")), /does not approve this exact baseline and diff/);
+
+  assert.equal(run(["corrections", file, ...ref, "--apply", first.id]).exitCode, 0);
+  // Undeclared source edit: release.json no longer records the compiled source until released.
+  assert.equal(run(["release", "--check", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 1);
+  assert.equal(run(["release", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 0);
+  const released = JSON.parse(fs.readFileSync(repo.releaseFile, "utf8"));
+  assert.equal(released.catalogueVersion, repo.release.catalogueVersion + 1);
+  assert.equal(run(["release", "--check", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 0);
+  assert.equal(auditSource(readSource(repo.sourceDir).source).summary.releaseGate, "PASS");
+
+  // The newer catalogue no longer equals the cutover, yet the cutover proof is unaffected.
+  const next = readSource(repo.sourceDir).source;
+  assert.notEqual(payloadChecksum(compileSource(next)), payloadChecksum(compileSource(cutover)));
+  assert.deepEqual(diffPayloads(compileSource(cutover), compileSource(cutover)), []);
+  assert.ok(diffPayloads(snapshotPayload, compileSource(next)).length > diffPayloads(snapshotPayload, compileSource(cutover)).length, "migration-only diff would see the new release as undeclared");
+
+  // Wrong version / checksum are rejected by the release check.
+  for (const wrong of [{ ...released, checksum: `sha256:${"0".repeat(64)}` }, { ...released, catalogueVersion: 0 }]) {
+    fs.writeFileSync(repo.releaseFile, `${JSON.stringify(wrong)}\n`);
+    assert.equal(run(["release", "--check", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 1);
+  }
+  fs.writeFileSync(repo.releaseFile, `${JSON.stringify(released)}\n`);
+
+  // Changed baseline: the old change set cannot apply on top of the new main, and a new one binds to it.
+  git(repo.dir, "add", "-A");
+  git(repo.dir, "commit", "-q", "-m", "release one");
+  git(repo.dir, "update-ref", "refs/remotes/origin/main", git(repo.dir, "rev-parse", "HEAD"));
+  const moved = run(["corrections", file, ...ref]);
+  assert.equal(moved.exitCode, 2);
+  assert.match(moved.lines[0], /(base commit|release baseline|source baseline) moved/);
+
+  const second = modernCorrection(next, { id: "CR-2099-01-02-P01", change: amendFirstMatchup(next, "Synthetic release two") });
+  const secondBaseline = { commit: git(repo.dir, "rev-parse", "HEAD"), catalogueVersion: released.catalogueVersion, checksum: released.checksum };
+  const secondFile = writeDocument(repo.dir, modernDocument(next, secondBaseline, second, { approved: true }), "second.json");
+  assert.equal(run(["corrections", secondFile, ...ref, "--apply", second.id]).exitCode, 0);
+  assert.equal(run(["release", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 0);
+  assert.equal(JSON.parse(fs.readFileSync(repo.releaseFile, "utf8")).catalogueVersion, repo.release.catalogueVersion + 2);
+});
