@@ -1,0 +1,425 @@
+{
+  "schema": 1,
+  "defences": [
+    {
+      "defence": "Admiral Raddus",
+      "counters": [
+        { "counterId": "GAS", "tier": "S", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 2 },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BAD_BATCH", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "PHOENIX", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "MALGUS", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Admiral Trench",
+      "counters": [
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Ahsoka Tano",
+      "counters": [
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Preferred" }
+      ]
+    },
+    {
+      "defence": "Baylan Skoll",
+      "counters": [
+        { "counterId": "JML", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "JABBA", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Bo-Katan Mandalore",
+      "counters": [
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "JABBA", "tier": "A", "bannerScore": 60, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "CLS",
+      "counters": [
+        { "counterId": "PHOENIX", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Carth Onasi",
+      "counters": [
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "GAS", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "CLS", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 62, "undersize": 3 },
+        { "counterId": "LORD_VADER", "tier": "S", "bannerScore": 62, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Cassian Andor (Undercover)",
+      "counters": [
+        { "counterId": "QUEEN_AMIDALA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Exact defence: Cassian (Undercover)/Vel Sartha/Cinta Kaz/Kleya Marki/Luthen Rael. Use Queen Amidala with Master Qui-Gon and Padawan Obi-Wan core. Community reports support this; outcome and banners depend on datacron." },
+        { "counterId": "BANE", "tier": "A", "bannerScore": 61, "undersize": 3, "notes": "Exact Rebel Fighter defence as recorded. Provisional expensive fallback; Bane + Sith partner (other slots unused); validate 5v5 omicron/datacron before spending Bane. Undersize 3 assumes two attackers." }
+      ]
+    },
+    {
+      "defence": "Cere UFU",
+      "counters": [
+        { "counterId": "GI", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Standard" },
+        { "counterId": "REVA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BOSSK", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "JMK", "tier": "S", "bannerScore": 62, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Dark Trooper Moff Gideon",
+      "counters": [
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Darth Malgus",
+      "counters": [
+        { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3 },
+        { "counterId": "JKCK", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Good option" },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 64, "undersize": 3 },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Dr Aphra",
+      "counters": [
+        { "counterId": "JML", "tier": "A", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "JABBA", "tier": "A", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Emperor Palpatine (Duel's End Vader)",
+      "counters": [
+        { "counterId": "JMK", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Palpatine lead; Duel's End Vader omicron; Mara Jade; Grand Moff Tarkin; fifth unknown. GL candidate; do not assume a guaranteed win. Check datacrons." },
+        { "counterId": "MAZ_KANATA", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Palpatine lead; Duel's End Vader omicron; Mara Jade; Grand Moff Tarkin; fifth unknown. Reported/video win using strong Maz + datacron; not a reliable generic counter. Prioritise Palpatine; ability-block Tarkin." }
+      ]
+    },
+    {
+      "defence": "Enoch",
+      "counters": [
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "MALGUS", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "REVA", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Finn",
+      "counters": [
+        { "counterId": "MOTHER_TALZIN", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "GAS",
+      "counters": [
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "General Grievous",
+      "counters": [
+        { "counterId": "MOTHER_TALZIN", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "WAMPA", "tier": "A", "bannerScore": 58, "undersize": 4 }
+      ]
+    },
+    {
+      "defence": "Geonosians",
+      "counters": [
+        { "counterId": "JAWAS", "tier": "B", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "VEERS", "tier": "B", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "BOSSK", "tier": "B", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Grand Inquisitor",
+      "counters": [
+        { "counterId": "GAS", "tier": "S", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Grand Moff Tarkin",
+      "counters": [
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Great Mothers",
+      "counters": [
+        { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3 },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Strong" },
+        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "MALGUS", "tier": "A", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Gungans",
+      "counters": [
+        { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "PHOENIX", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3, "notes": "Queen Amidala preferred" }
+      ]
+    },
+    {
+      "defence": "Hondo",
+      "counters": [
+        { "counterId": "CERE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
+      ]
+    },
+    {
+      "defence": "Iden Versio",
+      "counters": [
+        { "counterId": "GAS", "tier": "S", "bannerScore": 64, "undersize": 0 },
+        { "counterId": "WAMPA", "tier": "A", "bannerScore": 58, "undersize": 4, "notes": "Not if Scout Trooper present" }
+      ]
+    },
+    {
+      "defence": "Jabba",
+      "counters": [
+        { "counterId": "JML", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Cleanup risk" },
+        { "counterId": "BANE", "tier": "A", "bannerScore": 64, "undersize": 0, "notes": "Good banners" },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "MOTHER_TALZIN", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
+        { "counterId": "VEERS", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Cleanup" },
+        { "counterId": "JMK", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "REVA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Cleanup risk" }
+      ]
+    },
+    {
+      "defence": "Jedi Knight Revan",
+      "counters": [
+        { "counterId": "GAS", "tier": "S", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Jedi Master Kenobi",
+      "counters": [
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Preferred" },
+        { "counterId": "SEE", "tier": "B", "bannerScore": 55, "undersize": 0, "notes": "Riskier" },
+        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
+      ]
+    },
+    {
+      "defence": "Jedi Master Luke",
+      "counters": [
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "JABBA", "tier": "A", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Jedi Master Mace Windu",
+      "counters": [
+        { "counterId": "SEE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Jedi Training Rey",
+      "counters": [
+        { "counterId": "VEERS", "tier": "B", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Kelleran Beq",
+      "counters": [
+        { "counterId": "REVA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "MAUL", "tier": "C", "bannerScore": 55, "undersize": 0 },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 62, "undersize": 2 }
+      ]
+    },
+    {
+      "defence": "Leia Organa",
+      "counters": [
+        { "counterId": "JABBA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Do not full auto" },
+        { "counterId": "GREAT_MOTHERS", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Strong" },
+        { "counterId": "SEE", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "MAUL", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
+        { "counterId": "STARKILLER", "tier": "C", "bannerScore": 58, "undersize": 0, "notes": "2 shot" },
+        { "counterId": "SLKR", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Cleanup" }
+      ]
+    },
+    {
+      "defence": "Lord Vader",
+      "counters": [
+        { "counterId": "JMK", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Cleanup risk" },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Cleanup risk against dark side clones" },
+        { "counterId": "JML", "tier": "B", "bannerScore": 58, "undersize": 0, "notes": "Cleanup risk" },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Strong" }
+      ]
+    },
+    {
+      "defence": "Major Partagaz",
+      "counters": [
+        { "counterId": "PHOENIX", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Exact defence: Partagaz/Krennic/Dedra Meero/KX Security Droid/Imperial Probe Droid. Captain Rex required. Community-reported counter; provisional 5v5 grading, verify datacron and omicron." },
+        { "counterId": "JML", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Exact ISB defence as recorded. Provisional GL fallback; specific 5v5 performance and datacron compatibility not independently verified." }
+      ]
+    },
+    {
+      "defence": "Maul",
+      "counters": [
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Maz Kanata",
+      "counters": [
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Mon Mothma",
+      "counters": [
+        { "counterId": "VEERS", "tier": "A", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Mother Talzin",
+      "counters": [
+        { "counterId": "VEERS", "tier": "B", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Padme Amidala",
+      "counters": [
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Queen Amidala",
+      "counters": [
+        { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3, "notes": "Preferred" },
+        { "counterId": "JABBA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "GAS", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "JMK", "tier": "A", "bannerScore": 62, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Qui-Gon Jinn",
+      "counters": [
+        { "counterId": "BAD_BATCH", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Cleanup risk" },
+        { "counterId": "JKR", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "JML", "tier": "A", "bannerScore": 62, "undersize": 2 }
+      ]
+    },
+    {
+      "defence": "Reva",
+      "counters": [
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "JMK", "tier": "A", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Check relic delta" },
+        { "counterId": "PHOENIX", "tier": "S", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "MOTHER_TALZIN", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
+        { "counterId": "MALGUS", "tier": "A", "bannerScore": 61, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Rey",
+      "counters": [
+        { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Standard" },
+        { "counterId": "BANE", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Efficient" },
+        { "counterId": "JML", "tier": "C", "bannerScore": 63, "undersize": 0, "notes": "Standard" },
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "GAS", "tier": "A", "bannerScore": 55, "undersize": 0, "notes": "Cleanup" }
+      ]
+    },
+    {
+      "defence": "SLKR",
+      "counters": [
+        { "counterId": "JML", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Strong" }
+      ]
+    },
+    {
+      "defence": "Satele Shan",
+      "counters": [
+        { "counterId": "REVA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Saw Gerrera",
+      "counters": [
+        { "counterId": "CLS", "tier": "B", "bannerScore": 58, "undersize": 0 },
+        { "counterId": "BOBA_FETT_SCION_OF_JANGO", "tier": "C", "bannerScore": 58, "undersize": 3 },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BAYLAN", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "GAS", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "JABBA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3 }
+      ]
+    },
+    {
+      "defence": "Sith Eternal Emperor",
+      "counters": [
+        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Very efficient" },
+        { "counterId": "WAMPA", "tier": "B", "bannerScore": 58, "undersize": 4, "notes": "Depends on comp" },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
+      ]
+    },
+    {
+      "defence": "Starkiller",
+      "counters": [
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 64, "undersize": 3 },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 1 },
+        { "counterId": "JMK", "tier": "S", "bannerScore": 63, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Tarfful",
+      "counters": [
+        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "The Stranger",
+      "counters": [
+        { "counterId": "JABBA", "tier": "B", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "SATELE_SHAN", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "SEE", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "JMK", "tier": "B", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "SEE_BANE", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "THE_STRANGER", "tier": "A", "bannerScore": 62, "undersize": 0 }
+      ]
+    },
+    {
+      "defence": "Traya",
+      "counters": [
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 1 }
+      ]
+    },
+    {
+      "defence": "Tusken",
+      "counters": [
+        { "counterId": "CERE", "tier": "S", "bannerScore": 62, "undersize": 0 }
+      ]
+    }
+  ]
+}

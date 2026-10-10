@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "meanings": [
+    { "mode": "5v5", "bannerScore": 65, "meaning": "Flawless — no losses, full health & protection" },
+    { "mode": "5v5", "bannerScore": 64, "meaning": "Very efficient — trivial chip damage" },
+    { "mode": "5v5", "bannerScore": 63, "meaning": "Efficient — light damage, no losses" },
+    { "mode": "5v5", "bannerScore": 62, "meaning": "Standard clean win — some damage, no losses" },
+    { "mode": "5v5", "bannerScore": 61, "meaning": "Occasionally lose a unit" },
+    { "mode": "5v5", "bannerScore": 60, "meaning": "Reliable but inefficient — usually lose a unit" },
+    { "mode": "5v5", "bannerScore": 58, "meaning": "Risky — often lose two" },
+    { "mode": "5v5", "bannerScore": 55, "meaning": "Cleanup likely — messy, multiple losses" },
+    { "mode": "3v3", "bannerScore": 57, "meaning": "Flawless — no losses, full health & protection" },
+    { "mode": "3v3", "bannerScore": 56, "meaning": "Very efficient — trivial chip damage" },
+    { "mode": "3v3", "bannerScore": 55, "meaning": "Efficient — light damage, no losses" },
+    { "mode": "3v3", "bannerScore": 54, "meaning": "Standard clean win — some damage, no losses" },
+    { "mode": "3v3", "bannerScore": 53, "meaning": "Occasionally lose a unit" },
+    { "mode": "3v3", "bannerScore": 52, "meaning": "Reliable but inefficient — usually lose a unit" },
+    { "mode": "3v3", "bannerScore": 51, "meaning": "Reliable but inefficient — usually loses two units" },
+    { "mode": "3v3", "bannerScore": 50, "meaning": "Risky — often lose two" },
+    { "mode": "3v3", "bannerScore": 48, "meaning": "Cleanup likely — messy, multiple losses" },
+    { "mode": "FLEET", "bannerScore": 73, "meaning": "Flawless — all 7 ships survive, full health & protection" },
+    { "mode": "FLEET", "bannerScore": 71, "meaning": "Very efficient — trivial chip damage" },
+    { "mode": "FLEET", "bannerScore": 70, "meaning": "Very efficient — light damage" },
+    { "mode": "FLEET", "bannerScore": 69, "meaning": "Efficient — light damage, no losses" },
+    { "mode": "FLEET", "bannerScore": 67, "meaning": "Standard clean win — some damage, no losses" },
+    { "mode": "FLEET", "bannerScore": 64, "meaning": "Occasionally lose a ship" },
+    { "mode": "FLEET", "bannerScore": 61, "meaning": "Reliable but inefficient — usually lose a ship" },
+    { "mode": "FLEET", "bannerScore": 57, "meaning": "Risky — often lose two" },
+    { "mode": "FLEET", "bannerScore": 52, "meaning": "Cleanup likely — messy, multiple losses" }
+  ]
+}

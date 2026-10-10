@@ -31,3 +31,6 @@ jobs:
 
       - name: Verify committed migration baseline
         run: npm run baseline:verify
+
+      - name: Verify Git-native catalogue source matches its release record
+        run: npm run catalogue:release -- --check
