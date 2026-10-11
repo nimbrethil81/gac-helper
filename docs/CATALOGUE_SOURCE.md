@@ -193,6 +193,21 @@ Every run records what was examined in each of 5v5, 3v3 and FLEET, even when a m
 2. matchups with weak, stale or conflicting evidence, then `strategicReserve` counters and `EXTREME`/`HIGH` threats whose errors affect allocation or battle order most;
 3. a rotating sample of mature matchups, using the previous reports' coverage/history so they are not always the same rows.
 
+#### Missing-defence discovery pass
+
+Screening existing matchups cannot find a defence that has no row at all, so every run, in all three modes, also looks for credible defences that are **absent** from `matchups/{mode}.json`. The pass is bounded: it adds no in-depth matchup research of its own and no shadow master list of defences.
+
+1. **Find candidates** from dated, accessible sources: recently introduced or reworked GAC squads/fleets, game-eligible fleet capital ships and distinctive defensive archetypes, and external evidence of meaningful GAC defensive use. The game's unit registry alone does not establish a viable defence, and a playable leader or capital ship is not a mandatory row.
+2. **Compare** each candidate with the exact existing **defence name + mode** in each mode's matchup file. Attacking `Counter_ID` identity and defensive matchup identity are separate: an attacking `EXECUTRIX` counter does not make an Executrix defence present, and `EXECUTOR` is a different defence; likewise GL Pirate King Hondo versus ordinary Hondo. Record each result as one of:
+   - **Absent candidate** — no row under any confirmed identity;
+   - **Existing under confirmed identity** — already present (name the exact defence + mode);
+   - **Needs identity resolution** — more than one mapping is plausible (see [Reconcile identities](#reconcile-identities-and-fields)); never auto-create a row;
+   - **No change** — examined, not credible or not relevant.
+3. **Bound the effort.** FLEET: cross-check the known GAC capital-ship defences against the FLEET defence list each run. 5v5 and 3v3: prioritise new or reworked threats plus a rotating external sample taken from previous reports' coverage; an exhaustive scan of every possible squad is not required.
+4. **Log each material Absent candidate as research backlog** in the report: mode, exact sourced identity, relevance, evidence/source/date, confirmed absence from the current source, confidence, priority, and the matchup evidence still needed. Observing a defence never implies a counter, tier or banner score.
+5. **Promote** only the highest-priority candidates to detailed matchup research, inside the existing research budget. They become Add proposals only when GAC-specific attacking evidence meets the [Proposal contract](#proposal-contract). The cap of 10 owner-approval-ready Add/Amend/Retire proposals per run is unchanged, and zero is valid. Unresearched candidates carry forward without an approval request and are never presented as verified counters; check earlier reports so a discovery is not repeated.
+6. **Report blocked access.** If evidence access prevents a meaningful check, say which check and why.
+
 Before researching a candidate, search current source and unresolved/recent reports by stable row key and proposed before/after. Continue an existing finding when the evidence or requested change is the same; do not emit a fresh duplicate each cycle. A reviewed item may end as **Add**, **Amend**, **Retire**, **No change**, or **Needs identity resolution**. “No change” is a useful result, not a failed review.
 
 ### Evidence policy
@@ -271,6 +286,7 @@ Store or post the report where its links and decision history remain reviewable;
 - Priority changes/releases examined:
 - Unreliable/high-impact rows examined:
 - Mature rotation examined:
+- Missing-defence discovery: sources considered; FLEET capital-ship cross-check; 5v5/3v3 new/rework/rotation passes; candidates (Absent candidate | Existing under confirmed identity | Needs identity resolution | No change); carried-forward backlog; why none promoted; access blocks
 - Sources and access/limitations:
 
 ## Findings and proposals
@@ -293,6 +309,9 @@ Store or post the report where its links and decision history remain reviewable;
 - Evidence/limitations:
 - Exact question(s) to resolve:
 
+## Missing-defence backlog (not approval-ready; counts against no cap)
+- Bnn — mode; exact sourced defence; evidence/source/date; absent from source (commit); confidence; priority; evidence still required
+
 ## Deferred questions
 - Question — owner/evidence needed — revisit trigger/date
 
@@ -304,7 +323,7 @@ Store or post the report where its links and decision history remain reviewable;
 
 Before handing off, re-read each proposed before row from the recorded commit, confirm all three modes have a recorded coverage result, run the shared release gate without modifying source, and check that the history links any superseded proposal rather than duplicating it. A later source change makes the proposal stale: re-reconcile it against fresh `main` and obtain the owner's content approval for the resulting exact change set before it is applied (#36, simplified by #68).
 
-Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the latest one is the history to check for duplicates. Recurring execution is currently a manual trigger only: no scheduled task is active, and any future schedule needs the owner's chosen day/time and a verified route (issue #37). The first pilot is [`CR-2026-10-10-01`](reviews/CR-2026-10-10-01.md).
+Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the latest one is the history to check for duplicates. Recurring execution is currently a manual trigger only: no scheduled task is active, and any future schedule needs the owner's chosen day/time and a verified route (issue #37). A manual "Run a GAC counter review" follows this procedure, including the missing-defence pass. Editing this document cannot change a separately stored scheduled-task prompt: if one is ever created, the owner must ask for its stored instructions to be updated to cite this section. The first pilot is [`CR-2026-10-10-01`](reviews/CR-2026-10-10-01.md).
 
 ## Scoring data authoring
 
