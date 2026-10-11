@@ -2807,10 +2807,21 @@ function renderTerritory(tDef, bd, side) {
 `;
 }
 
+// A defence can be selected on a Round board even when no attacking counters
+// have yet been documented against it. Keep identities mode-specific: ANY
+// threat ratings are not squad/fleet identities and must not leak across modes.
+function boardSelectableDefenceNames(modeKey) {
+    return [...new Set([
+        ...Object.keys(gacData[modeKey] || {}),
+        ...Object.keys(defenceTeams[modeKey] || {}),
+        ...Object.keys(defenceCompositions[modeKey] || {})
+    ])].sort((a, b) => a.localeCompare(b));
+}
+
 function renderBoardTeamRow(tDef, team, bd, side) {
     const territoryKey = tDef.territory;
     const modeKey = territoryModeKey(tDef, bd);
-    const teamNames = Object.keys(gacData[modeKey] || {}).sort((a, b) => a.localeCompare(b));
+    const teamNames = boardSelectableDefenceNames(modeKey);
     const savedOutsideCatalogue = team.name && team.name !== NOT_IN_CATALOGUE && !teamNames.includes(team.name)
         ? `<option value="${escapeHtml(team.name)}" selected>${escapeHtml(team.name)} (saved; not in current catalogue)</option>`
         : "";
