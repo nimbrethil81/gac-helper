@@ -686,3 +686,33 @@ test("explicit mode-specific defence composition supplies every defensive member
     assert.equal(JSON.stringify(snapshot.characterIds), JSON.stringify(["QA", "MQG", "POW"]));
     assert.equal(snapshot.unresolvedTeams.length, 0);
 });
+
+test("board picker includes mode-specific defences without matchups and commits their full lineups", () => {
+    const h = harness();
+    h.run(`
+        gacData = { "5v5": { "Countered Team": [] }, "3v3": { "Existing Three": [] } };
+        defenceTeams = {
+            "5v5": { "Chief Chirpa": { threat: "NORMAL" } },
+            "3v3": { "Three Only": { threat: "LOW" } },
+            ANY: { "Executor": { threat: "HIGH" } }
+        };
+        defenceCompositions = {
+            "5v5": { "Chief Chirpa": ["CHIEF_CHIRPA", "LOGRAY", "PAPLOO", "EWOK_ELDER", "PRINCESS_KNEESAA"] },
+            "3v3": { "Chief Chirpa": ["CHIEF_CHIRPA", "PRINCESS_KNEESAA", "LOGRAY"] }
+        };
+    `);
+    const row = h.run(`renderBoardTeamRow(
+        { territory: "FRONT_TOP", type: "SQUAD" },
+        { territory: "FRONT_TOP", index: 0, name: "", attempts: 0, cleared: false },
+        { mode: "5v5" }, "my")`);
+    assert.match(row, /<option value="Chief Chirpa">Chief Chirpa<\\/option>/);
+    assert.equal((row.match(/<option value="Chief Chirpa">/g) || []).length, 1);
+    assert.doesNotMatch(row, /<option value="Three Only">|<option value="Executor">/);
+    assert.match(row, /<option value="Countered Team">/);
+
+    const five = h.run(`captureDefenceSnapshot("5v5", ${JSON.stringify(defenceTemplate("5v5", "Chief Chirpa"))})`);
+    assert.equal(JSON.stringify(five.characterIds), JSON.stringify(["CHIEF_CHIRPA", "LOGRAY", "PAPLOO", "EWOK_ELDER", "PRINCESS_KNEESAA"]));
+    assert.equal(five.unresolvedTeams.length, 0);
+    const three = h.run(`captureDefenceSnapshot("3v3", ${JSON.stringify(defenceTemplate("3v3", "Chief Chirpa"))})`);
+    assert.equal(JSON.stringify(three.characterIds), JSON.stringify(["CHIEF_CHIRPA", "PRINCESS_KNEESAA", "LOGRAY"]));
+});
