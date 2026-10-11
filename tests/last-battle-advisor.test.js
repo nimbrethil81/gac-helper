@@ -132,16 +132,25 @@ test("5v5 and 3v3 show their own ceilings; undersize is flagged documented or un
     assert.match(html, /Field 1, leave 2 slots empty: ceiling 59 \(\+2\), 1 to spare\. No available catalogued counter is documented as safe to drop 2 — unverified/);
 });
 
-test("Fleet uses indicative wording and never suggests empty slots", () => {
+test("Fleet asks for capital-ship stars and only suggests unlocked reinforcement slots", () => {
     const h = harness();
-    setUp(h, "5v5", "BACK_TOP", "Raddus", { my: 1000, opp: 1000 + 153 + 60 });
-    const html = roundHtml(h);
+    setUp(h, "5v5", "BACK_TOP", "Raddus", { my: 1000, opp: 1000 + 153 + 60 }); // battle target 61
+    let html = roundHtml(h);
     assert.match(html, /Fleet · Attempt 1/);
-    assert.match(html, /Can't calculate precise Fleet conditions yet/);
-    assert.match(html, /Indicative full-fleet ceiling: 73/);
-    assert.doesNotMatch(html, /leave \d+ slots? empty/);
-    assert.doesNotMatch(html, /drop 3/, "documented fleet undersize is not offered");
-    assert.doesNotMatch(html, /afford to lose|ships alive/, "no per-ship prescriptions");
+    assert.match(html, /Your capital ship/);
+    assert.match(html, /aria-pressed="true"[^>]*>Not sure/);
+    assert.match(html, /Full fleet: you can afford to lose 9 banners — up to 3 ships \(3 each\)/, "worst case: 70 with the 4th slot locked");
+    assert.match(html, /Full fleet: up to 70–73/);
+    assert.match(html, /6 empty: up to 79 · 18 to spare <span class="lb-muted">\(needs empty starting slots — unconfirmed\)/);
+    assert.match(html, /Executor <span class="lb-muted">~70 ✓/, "no documented drop while the stars are unknown");
+    assert.doesNotMatch(html, /drop 3/);
+    assert.match(html, /call in every reinforcement you bring/);
+
+    h.run(`setLastBattleFleetCapital("7")`);
+    html = h.run(`lastBattleInnerHtml(currentLastBattleAdvice())`);
+    assert.match(html, /aria-pressed="true"[^>]*>7★/);
+    assert.match(html, /you can afford to lose 12 banners — up to 4 ships/);
+    assert.match(html, /~70 · drop 3 → ~73/);
     assert.match(html, /Win this attempt|Winning first time/);
 });
 
