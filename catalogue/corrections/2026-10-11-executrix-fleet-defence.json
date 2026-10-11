@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/88",
   "baseline": {
-    "commit": "6f957de27c86b2ec1e1ed2b87230fab2d6949f95",
+    "commit": "7210db708040895bee8bb8e57c6cf363473eb5d5",
     "catalogueVersion": 12,
     "checksum": "sha256:58ea454e22caab8e0ec7b8b8aa465c3965a08f12f4c5137aa2023fcd4d45ba26"
   },
   "corrections": [
     {
       "id": "CR-2026-10-11-02-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "ADD",
       "title": "Add Executrix (Grand Moff Tarkin) as a FLEET defence with five counters",
       "rationale": "Executrix is a distinct defensive fleet that has no FLEET row. This adds the five-counter shortlist accepted in principle in issue #88. Tiers, banner scores and notes are working estimates pending evidence validation. The Executor defence and the EXECUTRIX attacking counter are untouched.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/88#issuecomment-6108662968",
+        "decidedAt": "2026-10-11T11:50:00Z",
+        "contentChecksum": "sha256:c2f986471952b9a46a83a337d98d423bd2a33a309d4bf7de108042961fd13321"
+      },
       "provenance": {
         "evidence": [
           {
@@ -32,36 +36,80 @@
       "affectedReferences": [
         {
           "file": "matchups/FLEET.json",
-          "stableKey": { "mode": "FLEET", "defence": "Executrix" },
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Executrix"
+          },
           "effect": "New defence row between Chimaera and Executor."
         },
         {
           "file": "defence-teams.json",
-          "stableKey": { "mode": "FLEET", "defence": "Executrix" },
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Executrix"
+          },
           "effect": "none - checked: no Executrix threat row is added without separate authorisation."
         }
       ],
       "runtimeImpact": {
-        "5v5": "none", "3v3": "none",
+        "5v5": "none",
+        "3v3": "none",
         "FLEET": "Executrix becomes a defence with five counters.",
         "counters": "Executrix shows five options.",
-        "roundAvailability": "none", "scoring": "none", "strategicReserve": "none"
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
       },
-      "expectedPayloadPaths": ["payload[\"counters\"][\"FLEET\"][\"Executrix\"]"],
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"FLEET\"][\"Executrix\"]"
+      ],
       "changes": [
         {
           "file": "matchups/FLEET.json",
           "operation": "ADD",
-          "stableKey": { "mode": "FLEET", "defence": "Executrix" },
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Executrix"
+          },
           "before": "ABSENT",
           "after": {
             "defence": "Executrix",
             "counters": [
-              { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
-              { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
-              { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
-              { "counterId": "HOME_ONE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Requires a developed Home One Rebel fleet, including Rebel B-wing; check the defensive Scythe/Empire lineup." },
-              { "counterId": "NEGOTIATOR", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Requires a developed Negotiator fleet with Marauder; confirm matchup against Scythe and reinforcements." }
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 69,
+                "undersize": 0,
+                "notes": "Premium fleet; usually conserve for harder defences."
+              },
+              {
+                "counterId": "PROFUNDITY",
+                "tier": "S",
+                "bannerScore": 69,
+                "undersize": 0,
+                "notes": "Premium fleet; usually conserve for harder defences."
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "S",
+                "bannerScore": 69,
+                "undersize": 0,
+                "notes": "Premium fleet; usually conserve for harder defences."
+              },
+              {
+                "counterId": "HOME_ONE",
+                "tier": "A",
+                "bannerScore": 67,
+                "undersize": 0,
+                "notes": "Requires a developed Home One Rebel fleet, including Rebel B-wing; check the defensive Scythe/Empire lineup."
+              },
+              {
+                "counterId": "NEGOTIATOR",
+                "tier": "A",
+                "bannerScore": 67,
+                "undersize": 0,
+                "notes": "Requires a developed Negotiator fleet with Marauder; confirm matchup against Scythe and reinforcements."
+              }
             ]
           }
         }
