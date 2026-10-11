@@ -631,6 +631,42 @@ test("no saved defence still starts Round Mode and shows the filtering warning",
     assert.notEqual(h.run("board"), null);
     assert.equal(h.run("board.defenceSnapshot.missingSavedDefence"), true);
     assert.match(h.run("renderDefenceSnapshotStatus()"), /No saved 3v3 defence/);
+    assert.doesNotMatch(h.run("renderDefenceSnapshotStatus()"), /adoptMyBoardAsRoundDefence/);
+});
+
+test("a round started without a saved defence can adopt My Board once", () => {
+    const h = harness();
+    roundSetup(h, "3v3", null, {
+        QA: { name: "Queen Amidala", required: ["QA"] },
+        GAS: { name: "GAS", required: ["GAS"] }
+    });
+    h.run(`setBoardTeam("my", "FRONT_TOP", 0, "Queen Amidala");`);
+    assert.equal(h.run("board.defenceSnapshot.missingSavedDefence"), true);
+    assert.match(h.run("renderDefenceSnapshotStatus()"), /adoptMyBoardAsRoundDefence/);
+
+    h.run("adoptMyBoardAsRoundDefence()");
+    assert.equal(h.run("board.defenceSnapshot.missingSavedDefence"), false);
+    assert.deepEqual(JSON.parse(h.values.get("boardData")).defenceSnapshot.characterIds, ["QA"]);
+    assert.match(h.run("renderDefenceSnapshotStatus()"), /Defence: 1 unit unavailable/);
+
+    // Once adopted, the snapshot is immutable again.
+    h.run(`setBoardTeam("my", "FRONT_TOP", 0, "GAS"); adoptMyBoardAsRoundDefence();`);
+    assert.deepEqual(JSON.parse(h.run("JSON.stringify(board.defenceSnapshot.characterIds)")), ["QA"]);
+});
+
+test("adopting My Board needs confirmation and never replaces a saved-defence snapshot", () => {
+    const declined = harness();
+    roundSetup(declined, "3v3", null, { QA: { name: "Queen Amidala", required: ["QA"] } });
+    declined.run(`setBoardTeam("my", "FRONT_TOP", 0, "Queen Amidala"); confirm = () => false; adoptMyBoardAsRoundDefence();`);
+    assert.equal(declined.run("board.defenceSnapshot.missingSavedDefence"), true);
+
+    const saved = harness();
+    roundSetup(saved, "3v3", defenceTemplate("3v3", "Queen Amidala"), {
+        QA: { name: "Queen Amidala", required: ["QA"] },
+        GAS: { name: "GAS", required: ["GAS"] }
+    });
+    saved.run(`setBoardTeam("my", "FRONT_TOP", 0, "GAS"); adoptMyBoardAsRoundDefence();`);
+    assert.deepEqual(JSON.parse(saved.run("JSON.stringify(board.defenceSnapshot.characterIds)")), ["QA"]);
 });
 
 test("Mark Used remains independent from On defence", () => {
