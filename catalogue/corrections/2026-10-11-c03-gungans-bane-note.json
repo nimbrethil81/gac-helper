@@ -1,0 +1,164 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/65",
+  "baseline": {
+    "commit": "0d00c2706b4ff9a54ffec00f9d6a090b665b6af3",
+    "catalogueVersion": 8,
+    "checksum": "sha256:3722c97365bbfe9dc98a538160d87d7a832c70b6f06bdda4bb59a82caba66975"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-11-01-C03",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Remove misleading 'Queen Amidala preferred' note from the 5v5 Gungans BANE counter",
+      "rationale": "The note recommends an attacker (Queen Amidala) that is not in the Gungans defence shortlist. Owner decision (Group 4C, issue #37): delete the note property with no replacement text and no investigation. BANE tier S, 62 banners, undersize 3, all six counters and their order are unchanged; Queen Amidala is not added as a counter.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/65#issuecomment-6106718194",
+        "decidedAt": "2026-10-11T07:33:00Z",
+        "changeSetChecksum": "sha256:e826e3343ce2065c169d2d2ae97fd4991b662ca5209c9fbad8d1db2748e29d06"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/37#issuecomment-6106572010",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #37",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Owner Group 4C decision approving removal of the notes property from the 5v5 Gungans BANE counter, without replacement."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/65",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #65",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact before/after Gungans row for review item C03 of CR-2026-10-11-01."
+          }
+        ],
+        "conditions": "5v5 Gungans defence, BANE counter row only; catalogue release v8 baseline.",
+        "confidence": "High: explicit owner decision on a single note property.",
+        "limitations": "None."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Gungans"
+          },
+          "effect": "BANE counter loses its notes property; all other fields, the six counters and their order are unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Gungans BANE counter no longer displays a note; no empty notes string is created.",
+        "3v3": "none — checked",
+        "FLEET": "none — checked",
+        "counters": "none — checked",
+        "roundAvailability": "none — checked",
+        "scoring": "none — checked",
+        "strategicReserve": "none — checked"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Gungans\"][5][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Gungans"
+          },
+          "before": {
+            "defence": "Gungans",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0
+              },
+              {
+                "counterId": "PHOENIX",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 3,
+                "notes": "Queen Amidala preferred"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Gungans",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0
+              },
+              {
+                "counterId": "PHOENIX",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 3
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
