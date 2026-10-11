@@ -675,6 +675,7 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     if (!target) return;
     const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
+    if (side !== "my" && !confirmReserveUse(counterId)) return;
 
     dismissPendingUndoFor(side, territoryKey, index);
 
@@ -802,9 +803,24 @@ function clearTerritory(side, territoryKey) {
     render();
 }
 
+// Strategic reserve: spending a High-reserve counter (see isHighReserve) on the
+// Opponent Board while any enemy zone is still hidden asks first, because it may
+// be needed for a harder matchup later. Hidden-zone status is read at click time.
+// Returns false (and the caller must change nothing) when the player keeps it
+// available. Nothing to confirm for a normal counter, a fully revealed board, or a
+// counter that is already used. Uses the same native confirm() as the other
+// Round confirmations, so OK = use it now, Cancel = keep it available.
+function confirmReserveUse(counterId) {
+    if (!isHighReserve(counterId) || usedTeams.includes(counterId) || !roundHasHiddenZones(board)) return true;
+    const def = counterDefinitions[counterId] || {};
+    const name = def.name || counterId;
+    return confirm(`Use ${name} now?\n\nSome enemy squads are still hidden. ${name} may be needed for a more difficult matchup later.\n\nOK uses ${name} now. Cancel keeps it available.`);
+}
+
 // Mark a counter used straight from a board recommendation. The plan re-solves
 // on the render that follows — no stored plan to keep in sync.
 function markCounterUsedFromBoard(counterId) {
+    if (!confirmReserveUse(counterId)) return;
     if (!usedTeams.includes(counterId)) {
         usedTeams.push(counterId);
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
