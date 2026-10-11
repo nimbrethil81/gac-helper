@@ -23,7 +23,7 @@ Keep one authoritative home for each fact; cross-link rather than duplicate.
 
 In particular:
 
-- SPEC describes **how the shipped system works now**, not release history or future plans.
+- SPEC describes **how the shipped system works now**, not release history or future plans. When updating it, revise the existing current-state description rather than appending the story of a feature's implementation. Retain inputs, outputs, algorithms, invariants, persistence and externally observable behaviour. Retain design rationale only where necessary to prevent an incorrect future implementation. GitHub issues, PRs and existing ADRs are the record for historical decisions and trade-offs.
 - ROADMAP describes **future work**, not shipped functionality.
 - Scoring values live in `scoring.json` and expected results live in tests; documents explain them, they do not restate tables of values.
 - README stays a **brief entry point**.
