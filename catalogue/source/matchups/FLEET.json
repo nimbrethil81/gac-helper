@@ -21,6 +21,16 @@
       ]
     },
     {
+      "defence": "Executrix",
+      "counters": [
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
+        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
+        { "counterId": "HOME_ONE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Requires a developed Home One Rebel fleet, including Rebel B-wing; check the defensive Scythe/Empire lineup." },
+        { "counterId": "NEGOTIATOR", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Requires a developed Negotiator fleet with Marauder; confirm matchup against Scythe and reinforcements." }
+      ]
+    },
+    {
       "defence": "Home One",
       "counters": [
         { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 73, "undersize": 2 },
