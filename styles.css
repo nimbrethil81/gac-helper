@@ -188,7 +188,8 @@ body {
     margin-bottom: 12px;
 }
 
-.counter-filter-btn {
+.counter-filter-btn,
+.lb-capital-btn {
     flex: 1;
     padding: 7px;
     border: none;
@@ -202,7 +203,8 @@ body {
     letter-spacing: 0.3px;
 }
 
-.counter-filter-btn.active {
+.counter-filter-btn.active,
+.lb-capital-btn.active {
     background: var(--panel-light);
     color: var(--text);
 }
@@ -1446,6 +1448,15 @@ body {
 
 .lb-muted {
     color: var(--muted);
+}
+
+/* Fleet last battle: capital-ship stars, reusing the filter segment styling. */
+.lb-capital {
+    margin: 4px 0 0;
+}
+
+.lb-capital-btn {
+    min-height: 32px;
 }
 
 .lb-subtitle {

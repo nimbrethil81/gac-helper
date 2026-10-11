@@ -71,7 +71,7 @@ test("engages only when exactly one defence on the whole board is uncleared", ()
     assert.equal(advise(run, { board: null }).status, "noBoard");
 });
 
-test("per-format clean ceilings: 5v5 65/69, 3v3 57/59, Fleet 73 indicative only", () => {
+test("per-format clean ceilings: 5v5 65/69, 3v3 57/59, Fleet 70–73 full fleet until the capital's stars are known", () => {
     const run = harness();
     lastOn(run, "5v5", "FRONT_BOTTOM", 0);
     let r = advise(run);
@@ -88,11 +88,14 @@ test("per-format clean ceilings: 5v5 65/69, 3v3 57/59, Fleet 73 indicative only"
     r = advise(run);
     assert.equal(r.target.battleType, "FLEET");
     assert.equal(r.target.formatLabel, "Fleet");
-    assert.equal(r.confidence, "indicative");
-    assert.ok(r.reasons.some(x => x.code === "FLEET_UNVALIDATED"));
-    assert.equal(r.ceilings.fullSquad.low, 73);
-    assert.equal(r.ceilings.max.low, 73, "no unused-slot upside while fleet slots are unvalidated");
-    assert.equal(r.formations.length, 1);
+    assert.equal(r.confidence, "bounded");
+    assert.ok(r.reasons.some(x => x.code === "FLEET_CAPITAL_UNKNOWN"));
+    assert.deepEqual(r.needsInput, ["fleetCapital"]);
+    assert.deepEqual([r.ceilings.fullSquad.low, r.ceilings.fullSquad.high], [70, 73]);
+    // Only unlocked reinforcement slots (3 under every capital) count as confirmed.
+    assert.deepEqual([r.ceilings.max.low, r.ceilings.max.high], [73, 76]);
+    assert.equal(r.ceilings.theoreticalMax.high, 79, "the wiki's 1-ship ceiling stays reachable in theory");
+    assert.equal(r.formations.length, 7);
 });
 
 test("attempts: 2nd and 3rd+ ceilings; cleanup without enemy state is bounded, with it exact", () => {
@@ -234,7 +237,7 @@ test("per-battle model enforces invariants and scores a mixed outcome", () => {
     ]) assert.equal(score(bad).ok, false, JSON.stringify(bad));
 });
 
-test("counter options: estimates shifted by attempt, documented undersize only, fleet drop ignored", () => {
+test("counter options: estimates shifted by attempt, documented undersize only, fleet drop needs the capital's stars", () => {
     const run = harness();
     lastOn(run, "5v5", "FRONT_BOTTOM", 0);
     const counters = [
@@ -254,7 +257,9 @@ test("counter options: estimates shifted by attempt, documented undersize only, 
 
     lastOn(run, "5v5", "BACK_TOP", 0);
     r = advise(run, { counters: [{ counterId: "F", bannerScore: 70, undersize: 3 }] });
-    assert.equal(r.counters[0].documentedDrop, 0);
+    assert.equal(r.counters[0].documentedDrop, 0, "unknown capital-ship stars: no fleet drop is counted");
+    r = advise(run, { fleetCapital: "7", counters: [{ counterId: "F", bannerScore: 70, undersize: 3 }] });
+    assert.deepEqual([r.counters[0].documentedDrop, r.counters[0].expectedWithDrop], [3, 73]);
 });
 
 test("live adapter recalculates from score, Battles and Undo without mutating state", () => {

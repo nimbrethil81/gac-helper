@@ -315,9 +315,25 @@ Scoring authority is split, with one home per fact: `catalogue/source/scoring.js
 - `bannerScore` is the expected **full-squad, first-attempt, clean-clear** result. Place it against the meaning ladder for its mode in `catalogue/source/score-meanings.json` (the flawless value at the top of each ladder is that mode's clean full-squad ceiling). It is an estimate of a typical clear, not a guarantee.
 - Never bake attempt state into `bannerScore`: a second- or third-attempt win is worth less, but the app applies that from the board's Battles count at runtime.
 - Never bake undersizing into `bannerScore`. `undersize` is the most units the counter can deliberately leave empty from a full squad **and still win cleanly** (`0` = field the full squad); it must leave at least one unit fielded. Under the current scoring each deliberately empty eligible slot trades the three per-unit bonuses (surviving, full health, full protection) for one unused-slot bonus, a net **+1 banner** in a flawless win, so the app reads `bannerScore + undersize` as the achievable best. Author `undersize` only from evidence that the reduced line-up actually wins; mathematical upside alone is not evidence.
-- Fleet: slot eligibility for unused-slot banners (capital ship, starting ships, locked vs available reinforcements) is not validated. Do not raise a fleet `undersize` on the strength of the unused-slot arithmetic alone.
+- Fleet: `bannerScore` assumes a full fleet behind a **7★** capital ship (73 is the flawless first-attempt top of the ladder). `undersize` counts **reinforcement slots** left empty, at most 3 so it holds behind any 5★–7★ capital ship; the app never adds it to fleet ranking and only adds it in the Last Battle advisor once the player gives their capital ship's stars. Never count an empty starting slot, and do not raise a fleet `undersize` on the strength of the unused-slot arithmetic alone.
 
 **Unit-count rows.** `OWN_UNITS` (the attacker's units earning per-unit bonuses) and `ENEMY_UNITS` (enemy units defeated in a clean clear) are separate inputs so the model never assumes the two sides match. Squad formats rely on the app's format fallbacks (5 for 5v5, 3 for 3v3); the authored `FLEET` rows are 7, matching the published 7-member Fleet scoring table. An explicit row overrides the fallback, so any row added must equal the format's real count.
+
+### Fleet slot rules
+
+The fleet slot model in [`SPEC.md`](SPEC.md#69-points-to-win) rests on this evidence (reviewed 11 October 2026, issue #86). "Attack" is the player's own fleet (unused-slot and per-unit banners); "defence" is the fleet being attacked (defeated-enemy banners).
+
+| Source (date) | Side | What it establishes | Certainty |
+|---|---|---|---|
+| [swgoh.wiki GAC banner tables](https://swgoh.wiki/wiki/Grand_Arena_Championships) (edited 13 Apr 2025) | Attack and defence | Per-battle values; Fleet table of 7 scoring members, 73 full to 79 with one member; defeated enemies "includes unset". Does not say which ships the 7 are. | Community table — theoretical ladder |
+| [Developer Q&A, GAC changes](https://devtrackers.gg/swgoh/p/26058815-developer-q-amp-a-grand-arena-championship-changes-12-02) (2 Dec 2021) | Defence | Unsummoned reinforcements and unused reinforcement slots, "due to low-star capital ships or otherwise", count as defeated enemies; 3 starters + 4 reinforcement slots = the full 7; defeating a capital ship earns no defeated-enemy banner. Its 6★ example has one slot lost to capital stars. | Official — resolves `ENEMY_UNITS` = 7 |
+| [Content update](https://devtrackers.gg/swgoh/p/b9c9a2c2-content-update-06-16-2021) (16 Jun 2021) | Attack | Fixed the 4th reinforcement slot staying locked after first attacking with a capital ship below 7★. Confirms the 4th slot is locked below 7★; does not change scoring. | Official |
+| [Trello bug](https://devtrackers.gg/swgoh/p/64267b90-players-can-set-extra-reinforcements-in-fleet-battles-in-grand-arena) (2020) | Attack | Setting 4 reinforcements behind a 5★ capital ship was a bug, not the rule. | Official bug tracker |
+| [EA forum: fleet banners not awarded](https://forums.ea.com/discussions/swgoh-technical-issues-en/gac-did-not-award-correct-fleet-banners/10828863) and related threads (2020–2021) | Attack | A locked 4th reinforcement slot (5★ or 6★ capital ship) earns **no** unused-slot banners even when the victory breakdown shows them. Read via search excerpts; the forum refuses direct access. | Staff reply, excerpt only |
+
+**Derived rules.** The 7 attack scoring slots are 3 starting + 4 reinforcement slots, and the capital ship earns no per-unit banners: a 7★ line-up is 8 ships, the scoring table has 7 members, the defence side officially excludes the capital ship, and an unlocked 4th reinforcement slot scores. An empty unlocked reinforcement slot earns `UNUSED_SLOT`; a locked one earns nothing.
+
+**Still unconfirmed** (tracked in [`ROADMAP.md`](../ROADMAP.md#real-battle-scoring-validation)): that the attacking capital ship earns no per-unit banners (inferred above, not stated by EA); whether an empty starting slot earns `UNUSED_SLOT`; whether a reinforcement brought but never called in earns its per-unit banners; and how many slots a capital ship below 5★ locks.
 
 ## Static release on Pages
 

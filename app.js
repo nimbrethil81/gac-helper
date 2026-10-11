@@ -1075,7 +1075,7 @@ function calculatedOpponentRemaining() {
 // Result shape (lastBattleAdvice):
 //   status        "ready" | "notLastBattle" | "noBoard" | "cannotCalculate"
 //   reasons       [{ code, message }] — why the result is not exact (or not ready)
-//   confidence    "exact" | "bounded" | "indicative"   (ready only)
+//   confidence    "exact" | "bounded"   (ready only)
 //   target        { territory, index, name, customName, battleType, roundMode,
 //                   formatLabel, attempts, attemptNumber, teamsInTerritory }
 //   scores        { my, opp, oppFinal }
@@ -1085,19 +1085,44 @@ function calculatedOpponentRemaining() {
 //   battleTarget          battle banners still needed after those bonuses (≥ 0)
 //   verdict       "alreadyAhead" | "coveredByClear" | "anyWin" | "needsBattle"
 //                 | "uncertain" | "impossible"; aheadOf "final" | "current" | null
-//   ceilings      { minWin, fullSquad, max } per-battle, each { low, high };
-//                 nextAttemptMax — best possible if this battle is lost
-//   formations    [{ fielded, emptySlots, maxLow, maxHigh, allowanceLow,
-//                    allowanceHigh, unitsCanLose, flawlessRequired, meets,
-//                    mathematicalOnly }]  — squad only
+//   ceilings      { minWin, fullSquad, max, theoreticalMax } per-battle, each
+//                 { low, high }; max counts only empty slots confirmed to score,
+//                 theoreticalMax every formation; nextAttemptMax — best possible
+//                 if this battle is lost
+//   formations    [{ fielded, fieldedLow, emptySlots, maxLow, maxHigh,
+//                    allowanceLow, allowanceHigh, unitsCanLose, flawlessRequired,
+//                    meets, mathematicalOnly, slotRuleConfirmed }]
+//   fleetCapacity { capital, eligible, confirmedEmpty }  — fleet only
 //   counters      [{ counterId, tier, bannerScore, undersize, expected,
 //                    expectedMeets, documentedDrop, available }]  — when supplied
-//   needsInput    e.g. ["enemiesRemaining"] when an input would make it exact
+//   needsInput    e.g. ["enemiesRemaining", "fleetCapital"] when an input would
+//                 make it exact
 
-// Fleet slot eligibility (capital / starting / reinforcement, locked or not) is
-// unvalidated — see ROADMAP "Real-battle scoring validation". While false, Fleet
-// results are indicative ceilings with no unused-slot or per-ship prescriptions.
-const FLEET_SCORING_VALIDATED = false;
+// Fleet slot model (issue #86; evidence in docs/CATALOGUE_SOURCE.md "Fleet slot
+// rules"). The OWN_UNITS scoring slots are the starting slots plus the
+// reinforcement slots; the capital ship earns no per-unit banners. The 4th
+// reinforcement slot is locked unless the attacking capital ship is 7★, and a
+// locked slot earns nothing. An empty UNLOCKED reinforcement slot earns
+// UNUSED_SLOT; whether an empty starting slot (or an unsummoned reinforcement)
+// scores is unconfirmed, so formations that need one are theoretical only.
+const FLEET_STARTING_SLOTS = 3;
+const FLEET_SLOTS_LOCKED_BELOW_7_STAR = 1;
+
+// The attacker's scoring slots by capital-ship stars: "7", "5-6", or anything
+// else for not known. eligible lists the possible slot counts (both when the
+// stars are not known); confirmedEmpty is how many slots can be left empty with
+// the unused-slot bonus confirmed under every possible count — unlocked
+// reinforcement slots only.
+function fleetSlotCapacity(ownUnits, capital) {
+    const reduced = ownUnits - FLEET_SLOTS_LOCKED_BELOW_7_STAR;
+    const known = capital === "7" || capital === "5-6";
+    const eligible = capital === "7" ? [ownUnits] : capital === "5-6" ? [reduced] : [reduced, ownUnits];
+    return {
+        capital: known ? capital : null,
+        eligible,
+        confirmedEmpty: Math.max(0, Math.min(...eligible) - FLEET_STARTING_SLOTS)
+    };
+}
 
 const LAST_BATTLE_REQUIRED_RULES = ["VICTORY", "FIRST_ATTEMPT", "SECOND_ATTEMPT",
     "SURVIVING_UNIT", "FULL_HEALTH_UNIT", "FULL_PROTECTION_UNIT", "UNUSED_SLOT",
@@ -1208,8 +1233,9 @@ function validScore(n) {
 }
 
 // Core engine. input: { board, myScore, oppScore, oppFinal, firstAttackAvailable,
-// rules?, enemiesRemaining?, counters? }. counters, when given, are the target's
-// catalogued counters as { counterId, tier, bannerScore, undersize, available }.
+// rules?, enemiesRemaining?, fleetCapital?, counters? }. counters, when given, are
+// the target's catalogued counters as { counterId, tier, bannerScore, undersize,
+// available }. fleetCapital is the attacking capital ship's stars ("7" | "5-6").
 function lastBattleAdvice(input) {
     const inp = input || {};
     const bd = inp.board;
@@ -1280,11 +1306,22 @@ function lastBattleAdvice(input) {
         }
     }
 
+    // Scoring slots. A squad has exactly ownUnits slots, every one of which may be
+    // left empty for UNUSED_SLOT. A fleet's depends on the capital ship's stars
+    // (fleetSlotCapacity); not knowing them gives both possible counts as a range.
     const fleet = battleType === "FLEET";
-    if (fleet && !FLEET_SCORING_VALIDATED) {
-        confidence = "indicative";
-        reasons.push({ code: "FLEET_UNVALIDATED",
-            message: "Fleet slot scoring (capital ship, starting ships, reinforcements) is not validated; figures are an indicative ceiling." });
+    const capacity = fleet ? fleetSlotCapacity(rules.ownUnits, inp.fleetCapital) : null;
+    const caps = fleet ? capacity.eligible : [rules.ownUnits];
+    const confirmedEmpty = fleet ? capacity.confirmedEmpty : rules.ownUnits - 1;
+    if (fleet) {
+        if (!capacity.capital) {
+            if (confidence === "exact") confidence = "bounded";
+            needsInput.push("fleetCapital");
+            reasons.push({ code: "FLEET_CAPITAL_UNKNOWN",
+                message: "Capital-ship stars not given: below 7★ the 4th reinforcement slot is locked, so fleet ceilings are ranges." });
+        }
+        reasons.push({ code: "FLEET_SLOTS_UNCONFIRMED",
+            message: "Empty starting slots and unsummoned reinforcements are not confirmed to score; formations relying on them are theoretical." });
     }
 
     const territoryClear = rules.clearBase + teamsHere * rules.clearPerTeam;
@@ -1292,48 +1329,67 @@ function lastBattleAdvice(input) {
     const bonusesOnClear = { territoryClear, firstAttack, total: territoryClear + firstAttack };
     const battleTarget = Math.max(0, targetToBeatCurrent - bonusesOnClear.total);
 
-    const fullLow = formationMax(rules, attempts, rules.ownUnits, enemyLow);
-    const fullHigh = formationMax(rules, attempts, rules.ownUnits, enemyHigh);
     const minWin = { low: minimumWin(rules, attempts, enemyLow), high: minimumWin(rules, attempts, enemyHigh) };
 
-    // Formations: squads list each fielded count (mathematical potential); fleet
-    // lists only the full fleet, since unused-slot eligibility is unvalidated.
-    const counts = fleet && !FLEET_SCORING_VALIDATED
-        ? [rules.ownUnits]
-        : Array.from({ length: rules.ownUnits }, (_, i) => rules.ownUnits - i);
-    const formations = counts.map(f => {
-        const maxLow = formationMax(rules, attempts, f, enemyLow);
-        const maxHigh = formationMax(rules, attempts, f, enemyHigh);
-        const allowanceLow = maxLow - battleTarget;
-        const allowanceHigh = maxHigh - battleTarget;
+    // Flawless ceiling with `empty` slots deliberately left empty, across every
+    // possible slot count: low is the worst case (fewest slots, fewest enemies),
+    // high the best. A count with no unit left to field is skipped.
+    const ceilingWith = (empty, att) => {
+        const valid = caps.filter(c => c - empty >= 1);
+        const at = (c, enemies) => formationMax(Object.assign({}, rules, { ownUnits: c }), att, c - empty, enemies);
         return {
-            fielded: f, emptySlots: rules.ownUnits - f,
-            maxLow, maxHigh, allowanceLow, allowanceHigh,
+            low: Math.min(...valid.map(c => at(c, enemyLow))),
+            high: Math.max(...valid.map(c => at(c, enemyHigh))),
+            fieldedLow: Math.min(...valid) - empty,
+            fieldedHigh: Math.max(...valid) - empty
+        };
+    };
+
+    // Formations by empty slots: the full line-up first, then each deliberate
+    // drop (mathematical potential — the catalogue's undersize says whether a
+    // counter actually wins that way). A fleet drop beyond the unlocked
+    // reinforcement slots needs an empty starting slot, which is unconfirmed.
+    const formations = Array.from({ length: Math.max(...caps) }, (_, empty) => {
+        const c = ceilingWith(empty, attempts);
+        const allowanceLow = c.low - battleTarget;
+        const allowanceHigh = c.high - battleTarget;
+        return {
+            fielded: c.fieldedHigh, fieldedLow: c.fieldedLow, emptySlots: empty,
+            maxLow: c.low, maxHigh: c.high, allowanceLow, allowanceHigh,
             // Units that may be lost while still meeting the target (conservative),
             // never all of them: a win needs a survivor.
-            unitsCanLose: allowanceLow >= 0 ? Math.min(f - 1, Math.floor(allowanceLow / rules.unitCost)) : null,
+            unitsCanLose: allowanceLow >= 0 ? Math.min(c.fieldedLow - 1, Math.floor(allowanceLow / rules.unitCost)) : null,
             flawlessRequired: allowanceLow === 0,
             meets: allowanceLow >= 0 ? "yes" : (allowanceHigh >= 0 ? "maybe" : "no"),
-            mathematicalOnly: f < rules.ownUnits
+            mathematicalOnly: empty > 0,
+            slotRuleConfirmed: empty <= confirmedEmpty
         };
     });
+    const confirmed = formations.filter(f => f.slotRuleConfirmed);
     const max = {
+        low: Math.max(...confirmed.map(f => f.maxLow)),
+        high: Math.max(...confirmed.map(f => f.maxHigh))
+    };
+    const theoreticalMax = {
         low: Math.max(...formations.map(f => f.maxLow)),
         high: Math.max(...formations.map(f => f.maxHigh))
     };
+    const fullSquad = { low: formations[0].maxLow, high: formations[0].maxHigh };
     // If this battle is lost, the best the next attempt could bank (optimistic:
-    // no enemy assumed already defeated beyond what is known now).
-    const nextAttemptMax = Math.max(...counts.map(f => formationMax(rules, attempts + 1, f, enemyHigh)));
+    // no enemy assumed already defeated beyond what is known now, every formation).
+    const nextAttemptMax = Math.max(...formations.map(f => ceilingWith(f.emptySlots, attempts + 1).high));
 
     let verdict;
     // Already past their entered score: say whether that is their final or only
-    // their current score, since only the former settles the round.
+    // their current score, since only the former settles the round. "impossible"
+    // is only claimed above the theoretical maximum, so an unconfirmed fleet
+    // formation can make a target uncertain but never falsely impossible.
     const aheadOf = my > opp ? (base.scores.oppFinal ? "final" : "current") : null;
     if (my > opp) verdict = "alreadyAhead";
     else if (battleTarget === 0) verdict = "coveredByClear";
     else if (battleTarget <= minWin.low) verdict = "anyWin";
     else if (battleTarget <= max.low) verdict = "needsBattle";
-    else if (battleTarget <= max.high) verdict = "uncertain";
+    else if (battleTarget <= theoreticalMax.high) verdict = "uncertain";
     else verdict = "impossible";
 
     if (!base.scores.oppFinal) {
@@ -1342,16 +1398,19 @@ function lastBattleAdvice(input) {
     }
 
     // Counter options: bannerScore is a full-squad, first-attempt estimate; shift
-    // it by the attempt-bonus difference for a repeat attempt. Undersize is the
-    // catalogue's documented safe drop, the only undersize the advisor treats as
-    // supported.
+    // it by the attempt-bonus difference for a repeat attempt. A fleet estimate
+    // assumes a 7★ capital ship's full fleet, so a 5★–6★ capital loses the locked
+    // slot's per-unit banners. Undersize is the catalogue's documented safe drop,
+    // the only undersize the advisor treats as supported; for a fleet only once
+    // the capital's stars are known, and only into unlocked reinforcement slots.
     const firstBonus = rules.attemptBonus[0];
+    const lockedShift = fleet && capacity.capital ? -(rules.ownUnits - caps[0]) * rules.unitCost : 0;
     const counters = Array.isArray(inp.counters) ? inp.counters.map(c => {
         const banner = Number(c.bannerScore);
         const hasScore = Number.isFinite(banner) && banner > 0;
         const drop = Math.max(0, Math.floor(Number(c.undersize)) || 0);
-        const documentedDrop = fleet && !FLEET_SCORING_VALIDATED ? 0 : Math.min(drop, rules.ownUnits - 1);
-        const shift = attemptBonusFor(rules, attempts) - firstBonus;
+        const documentedDrop = fleet && !capacity.capital ? 0 : Math.min(drop, confirmedEmpty);
+        const shift = attemptBonusFor(rules, attempts) - firstBonus + lockedShift;
         const expected = hasScore ? banner + shift : null;
         return {
             counterId: c.counterId, name: c.name || c.counterId, tier: c.tier || "", available: c.available !== false,
@@ -1366,8 +1425,8 @@ function lastBattleAdvice(input) {
     return Object.assign(base, {
         status: "ready", confidence, reasons, needsInput,
         bonusesOnClear, battleTarget, verdict, aheadOf,
-        ceilings: { minWin, fullSquad: { low: fullLow, high: fullHigh }, max, nextAttemptMax },
-        formations, counters,
+        ceilings: { minWin, fullSquad, max, theoreticalMax, nextAttemptMax },
+        formations, counters, fleetCapacity: capacity,
         unitCost: rules.unitCost, enemyUnits: rules.enemyUnits, ownUnits: rules.ownUnits,
         enemiesDefeated: { low: enemyLow, high: enemyHigh }
     });
@@ -1396,6 +1455,7 @@ function currentLastBattleAdvice(extra) {
         oppScore: Number(bannerData.oppScore),
         oppFinal: bannerData.oppFinal === true,
         firstAttackAvailable: isFirstAttackAvailable(),
+        fleetCapital: lastBattleFleetCapital,
         counters
     }, extra || {}));
 }
@@ -1526,7 +1586,7 @@ function solveAllocation(teams, reserveActive) {
         const cands = t.candidates.slice().sort((a, b) => {
             const d = effectiveTierRank(a, reserveActive) - effectiveTierRank(b, reserveActive);
             if (d !== 0) return d;
-            const adj = adjustedScore(b) - adjustedScore(a);
+            const adj = adjustedScore(b, t.modeKey === "FLEET") - adjustedScore(a, t.modeKey === "FLEET");
             if (adj !== 0) return adj;
             // Equal achievable total: prefer the safer counter — the one relying on
             // less undersizing (higher full-squad score banks the same with no risk).
@@ -1544,7 +1604,7 @@ function solveAllocation(teams, reserveActive) {
 
             dfs(i + 1, cov + 1, tier + effectiveTierRank(c, reserveActive),
                 reserveCount + (reserveActive && isHighReserve(c.counterId) ? 1 : 0),
-                ban + adjustedScore(c));
+                ban + adjustedScore(c, t.modeKey === "FLEET"));
 
             delete assign[t.key];
             usedCounters.delete(c.counterId);
@@ -1568,17 +1628,17 @@ function solveAllocation(teams, reserveActive) {
 // rival's headline with no visible reason. Returns null when the pick was not
 // undersize-driven, so the base reason is left untouched.
 function undersizeDrovePick(team, chosen) {
-    const chosenDrop = Math.max(0, Math.floor(Number(chosen.undersize)) || 0);
-    if (chosenDrop <= 0) return null;                       // chosen doesn't undersize; can't be undersize-driven
+    const isFleet = team.modeKey === "FLEET";
     const chosenFull = Number(chosen.bannerScore) || 0;
-    const chosenAdj  = chosenFull + chosenDrop;
+    const chosenAdj  = adjustedScore(chosen, isFleet);
+    if (chosenAdj <= chosenFull) return null;               // no undersize premium counted; can't be undersize-driven
     const chosenTier = tierSortValue(chosen.tier);
 
     const rival = team.candidates.find(c =>
         c.counterId !== chosen.counterId &&
         tierSortValue(c.tier) === chosenTier &&                       // same tier
         (Number(c.bannerScore) || 0) > chosenFull &&                 // higher at full squad
-        adjustedScore(c) <= chosenAdj);                              // but not once undersize is counted
+        adjustedScore(c, isFleet) <= chosenAdj);                     // but not once undersize is counted
 
     if (!rival) return null;
     return `Chosen for its undersize potential (${chosenAdj} vs ${Number(rival.bannerScore) || 0}).`;
@@ -1900,7 +1960,7 @@ function computeBattleOrder(plan) {
                 threatRank: threatRank(threat),
                 fallbacks:  fallbacks,
                 tierRank:   tierSortValue(chosen.tier),
-                banners:    adjustedScore(chosen),
+                banners:    adjustedScore(chosen, t.modeKey === "FLEET"),
                 // The opening battle ranks on the PLAIN full-squad score, not the
                 // undersize-adjusted one: dropping units banks more, but it is
                 // precisely the risk you do not want on the battle carrying the
@@ -2877,6 +2937,7 @@ function resetRound() {
     localStorage.removeItem("bannerData");
 
     discardBoard();
+    lastBattleFleetCapital = null;
 
     render();
 }
@@ -2915,10 +2976,13 @@ function buildCounterCardHtml(counter) {
 
     <div>🎯 <strong>Expected Banners:</strong> ${counter.bannerScore || "-"}</div>
     ${(() => {
-        const us = undersizeInfo(counter);
+        const fleet = currentMode === "FLEET";
+        const us = undersizeInfo(counter, fleet);
         return us
-            ? `<div>👥 <strong>Undersize:</strong> drop up to ${us.drop} → ${us.total} banners (+${us.bonus})</div>`
-            : `<div>👥 <strong>Undersize:</strong> full squad</div>`;
+            ? (us.fleet
+                ? `<div>👥 <strong>Undersize:</strong> ${fleetUndersizeText(us)}</div>`
+                : `<div>👥 <strong>Undersize:</strong> drop up to ${us.drop} → ${us.total} banners (+${us.bonus})</div>`)
+            : `<div>👥 <strong>Undersize:</strong> ${fleet ? "full fleet" : "full squad"}</div>`;
     })()}
 
     <div>
@@ -3333,10 +3397,11 @@ function renderNextUpRow(pick, isFleet) {
     // Undersize advice is deliberately suppressed on the opening battle: dropping
     // units banks more, but it is the one battle where the extra risk can cost the
     // one-off bonus. The row says to field the full squad instead.
-    const us = opener ? null : undersizeInfo(c);
-    const undersizeLine = us
-        ? `<div class="nextup-undersize">${us.total} banners if you undersize · drop up to ${us.drop}</div>`
-        : "";
+    const us = opener ? null : undersizeInfo(c, isFleet);
+    const undersizeLine = !us ? ""
+        : us.fleet
+        ? `<div class="nextup-undersize">Undersize: ${fleetUndersizeText(us)}</div>`
+        : `<div class="nextup-undersize">${us.total} banners if you undersize · drop up to ${us.drop}</div>`;
 
     const openerNote = opener
         ? `<div class="nextup-opener-note">First attack of the round — the bonus is paid once, whatever happens. Play this one full squad.</div>`
@@ -3366,6 +3431,15 @@ function renderNextUpRow(pick, isFleet) {
 // recomputeBannerReadouts), so it never holds stale advice. Only the disclosure's
 // open state is kept, in memory; nothing about the advisor is persisted.
 let lastBattleDetailsOpen = false;
+// The attacking capital ship's stars for a fleet last battle ("7" | "5-6"), or
+// null for not sure. Asked on the card itself, in memory only, and cleared by
+// Reset Round — the app does not otherwise know capital-ship stars.
+let lastBattleFleetCapital = null;
+
+function setLastBattleFleetCapital(value) {
+    lastBattleFleetCapital = value === "7" || value === "5-6" ? value : null;
+    refreshLastBattleInPlace();
+}
 
 function signed(n) {
     return n > 0 ? `+${n}` : `${n}`;
@@ -3399,6 +3473,11 @@ function lastBattleHeadline(adv) {
     const need = adv.targetToBeatCurrent;
     const bt = adv.battleTarget;
     const max = rangeText(adv.ceilings.max.low, adv.ceilings.max.high);
+    // A fleet can theoretically go higher through empty slots not confirmed to
+    // score; say so rather than present the confirmed ceiling as the limit.
+    const theo = adv.ceilings.theoreticalMax;
+    const beyond = adv.verdict === "uncertain" && theo.high > adv.ceilings.max.high
+        ? ` (up to ${theo.high} only if empty starting slots score — unconfirmed)` : "";
 
     switch (adv.verdict) {
         case "alreadyAhead": {
@@ -3415,11 +3494,11 @@ function lastBattleHeadline(adv) {
                 support: `You need ${need} = ${clearText} + ${bt} from the battle. Even a scrappy win banks at least ${rangeText(adv.ceilings.minWin.low, adv.ceilings.minWin.high)}.` };
         case "impossible":
             return { cls: "behind", head: `Can't pass ${basis}`,
-                support: `You need ${need} = ${clearText} + ${bt} from the battle, but the best this battle can bank is ${max}.` };
+                support: `You need ${need} = ${clearText} + ${bt} from the battle, but the best this battle can bank is ${rangeText(theo.low, theo.high)}.` };
         default:
             return { cls: adv.verdict === "uncertain" ? "behind" : "",
                 head: `Need ${bt} battle banners`,
-                support: `To pass ${basis}: ${need} = ${clearText} + ${bt} from the battle. Best possible: ${max}.` };
+                support: `To pass ${basis}: ${need} = ${clearText} + ${bt} from the battle. Best possible: ${max}${beyond}.` };
     }
 }
 
@@ -3431,41 +3510,46 @@ function lastBattleConditions(adv, assigned) {
 
     if (adv.verdict === "impossible" || adv.verdict === "alreadyAhead") return lines;
 
-    if (fleet) {
-        lines.push(`Can't calculate precise Fleet conditions yet — capital ship, starting-ship and reinforcement slot scoring is unvalidated. Indicative full-fleet ceiling: ${rangeText(adv.ceilings.fullSquad.low, adv.ceilings.fullSquad.high)}. Don't leave slots empty for bonus banners on this basis.`);
-    }
-
     if (needsPlay) {
         const full = adv.formations[0];
-        if (fleet) {
-            // Per-ship loss, health and protection allowances depend on the
-            // unvalidated fleet slot scoring, so only the attempt note applies.
-            if (full.meets === "no") lines.push(`Even the indicative full-fleet ceiling (${full.maxHigh}) is ${adv.battleTarget - full.maxHigh} short.`);
-        } else
+        // Same maths for a squad and a fleet; only the nouns differ. A fleet with
+        // unknown capital-ship stars reads its worst case (the 4th reinforcement
+        // slot locked) as "low", so these allowances stay conservative.
+        const noun = fleet ? "Full fleet" : "Full squad";
+        const unit = fleet ? "ship" : "unit";
         if (full.meets === "no") {
-            lines.push(`A full squad tops out at ${full.maxHigh} — ${adv.battleTarget - full.maxHigh} short.`);
+            lines.push(`A ${fleet ? "full fleet" : "full squad"} tops out at ${full.maxHigh} — ${adv.battleTarget - full.maxHigh} short.`);
         } else if (full.flawlessRequired) {
-            lines.push("Full squad: it must be flawless — every unit alive at full health and protection.");
+            lines.push(`${noun}: it must be flawless — every ${unit} alive at full health and protection.`);
         } else if (full.meets === "yes") {
             const slack = full.allowanceLow;
             lines.push(full.unitsCanLose > 0
-                ? `Full squad: you can afford to lose ${slack} banner${slack === 1 ? "" : "s"} — up to ${plural(full.unitsCanLose, "unit")} (${adv.unitCost} each) or ${slack} missing health/protection bonuses.`
-                : `Full squad: keep all ${full.fielded} units alive; you can afford ${slack} missing health/protection bonus${slack === 1 ? "" : "es"}.`);
+                ? `${noun}: you can afford to lose ${slack} banner${slack === 1 ? "" : "s"} — up to ${plural(full.unitsCanLose, unit)} (${adv.unitCost} each) or ${slack} missing health/protection bonuses.`
+                : `${noun}: keep ${fleet ? "every ship" : `all ${full.fielded} units`} alive; you can afford ${slack} missing health/protection bonus${slack === 1 ? "" : "es"}.`);
+        } else if (fleet && !adv.fleetCapacity.capital) {
+            lines.push(`${noun}: tops out between ${full.maxLow} and ${full.maxHigh} — set your capital ship's stars to narrow it.`);
         } else {
-            lines.push(`Full squad: reachable only if earlier battles left few enemies defeated — between ${full.maxLow} and ${full.maxHigh}.`);
+            lines.push(`${noun}: reachable only if earlier battles left few enemies defeated — between ${full.maxLow} and ${full.maxHigh}.`);
         }
 
-        // Undersize: show the smallest drop that adds what the full squad lacks,
-        // and whether any available catalogued counter documents it as safe.
-        if (!fleet && (full.meets !== "yes" || full.flawlessRequired)) {
-            const better = adv.formations.find(f => f.mathematicalOnly && f.meets === "yes" && !f.flawlessRequired)
-                || adv.formations.find(f => f.mathematicalOnly && f.meets === "yes");
+        // Undersize: show the smallest drop that adds what the full line-up lacks,
+        // and whether any available catalogued counter documents it as safe. Only
+        // drops into slots confirmed to score (for a fleet, unlocked reinforcement
+        // slots) are suggested.
+        if (full.meets !== "yes" || full.flawlessRequired) {
+            const drops = adv.formations.filter(f => f.mathematicalOnly && f.slotRuleConfirmed && f.meets === "yes");
+            const better = drops.find(f => !f.flawlessRequired) || drops[0];
             if (better) {
                 const backed = (adv.counters || []).filter(c => c.available && c.documentedDrop >= better.emptySlots);
-                const support = backed.length
+                const support = fleet && !adv.fleetCapacity.capital
+                    ? "Set your capital ship's stars to check which counters document it."
+                    : backed.length
                     ? `Documented as safe to drop ${better.emptySlots}: ${backed.map(c => escapeHtml(c.name)).join(", ")}.`
                     : `No available catalogued counter is documented as safe to drop ${better.emptySlots} — unverified.`;
-                lines.push(`Field ${better.fielded}, leave ${plural(better.emptySlots, "slot")} empty: ceiling ${better.maxLow} (${signed(better.emptySlots)}), ${better.flawlessRequired ? "flawless required" : `${better.allowanceLow} to spare`}. ${support}`);
+                const formation = fleet
+                    ? `Leave ${plural(better.emptySlots, "reinforcement slot")} empty`
+                    : `Field ${better.fielded}, leave ${plural(better.emptySlots, "slot")} empty`;
+                lines.push(`${formation}: ceiling ${better.maxLow} (${signed(better.emptySlots)}), ${better.flawlessRequired ? "flawless required" : `${better.allowanceLow} to spare`}. ${support}`);
             }
         }
 
@@ -3501,6 +3585,19 @@ function lastBattleCounterRows(adv) {
     }).join("")}</ul><div class="lb-note">Estimates are typical clean-clear results, not guarantees.</div>`;
 }
 
+// The one input a fleet last battle asks for: the attacking capital ship's stars,
+// which decide whether the 4th reinforcement slot is unlocked.
+function lastBattleCapitalPicker(adv) {
+    const cap = adv.fleetCapacity && adv.fleetCapacity.capital;
+    const option = (value, label) => {
+        const on = (cap || "") === value;
+        return `<button class="lb-capital-btn ${on ? "active" : ""}" aria-pressed="${on}" onclick="setLastBattleFleetCapital('${value}')">${label}</button>`;
+    };
+    return `<div class="lb-subtitle">Your capital ship</div>
+<div class="counter-filter lb-capital" role="group" aria-label="Your capital ship's stars">${option("7", "7★")}${option("5-6", "5★–6★")}${option("", "Not sure")}</div>
+${cap ? "" : `<div class="lb-note">Below 7★ the 4th reinforcement slot is locked and earns nothing, so figures are ranges until you choose.</div>`}`;
+}
+
 function lastBattleInnerHtml(adv) {
     if (adv.status === "cannotCalculate") {
         return `<div class="lb-target">${lastBattleTargetLabel(adv)}</div>
@@ -3513,15 +3610,25 @@ function lastBattleInnerHtml(adv) {
     const conditions = lastBattleConditions(adv, assigned);
     const notes = [];
     if (!adv.scores.oppFinal && adv.verdict !== "alreadyAhead") notes.push("Against their current score — the target may rise.");
-    if (adv.confidence === "bounded") notes.push(`Battles: ${t.attempts}. Earlier battles may have defeated some enemies, so figures are ranges (${adv.enemiesDefeated.low}–${adv.enemiesDefeated.high} enemy defeats).`);
+    if (adv.needsInput.includes("enemiesRemaining")) notes.push(`Battles: ${t.attempts}. Earlier battles may have defeated some enemies, so figures are ranges (${adv.enemiesDefeated.low}–${adv.enemiesDefeated.high} enemy defeats).`);
+    const fleet = t.battleType === "FLEET";
+    if (fleet && adv.verdict !== "alreadyAhead") notes.push("Fleet: assumes you call in every reinforcement you bring; empty starting slots and unsummoned ships aren't confirmed to score.");
 
-    const formations = adv.target.battleType === "FLEET" ? "" : `
+    // Fleet rows are labelled by empty slots, since the fielded count depends on
+    // the capital ship's stars; a drop beyond the unlocked reinforcement slots is
+    // marked unconfirmed rather than offered.
+    const fit = f => adv.battleTarget > 0 ? ` · ${f.meets === "yes" ? `${f.allowanceLow} to spare` : f.meets === "maybe" ? "maybe" : "short"}` : "";
+    const formations = fleet ? `
+    <div class="lb-subtitle">Ceiling by empty slots</div>
+    <ul class="lb-list">${adv.formations.map(f =>
+        `<li>${f.emptySlots ? `${f.emptySlots} empty` : "Full fleet"}: up to ${rangeText(f.maxLow, f.maxHigh)}${fit(f)}${!f.slotRuleConfirmed ? " <span class=\"lb-muted\">(needs empty starting slots — unconfirmed)</span>" : f.mathematicalOnly ? " <span class=\"lb-muted\">(maths only)</span>" : ""}</li>`).join("")}</ul>` : `
     <div class="lb-subtitle">Ceiling by units fielded</div>
     <ul class="lb-list">${adv.formations.map(f =>
-        `<li>${f.fielded} fielded${f.emptySlots ? ` (${f.emptySlots} empty)` : ""}: up to ${rangeText(f.maxLow, f.maxHigh)}${adv.battleTarget > 0 ? ` · ${f.meets === "yes" ? `${f.allowanceLow} to spare` : f.meets === "maybe" ? "maybe" : "short"}` : ""}${f.mathematicalOnly ? " <span class=\"lb-muted\">(maths only)</span>" : ""}</li>`).join("")}</ul>`;
+        `<li>${f.fielded} fielded${f.emptySlots ? ` (${f.emptySlots} empty)` : ""}: up to ${rangeText(f.maxLow, f.maxHigh)}${fit(f)}${f.mathematicalOnly ? " <span class=\"lb-muted\">(maths only)</span>" : ""}</li>`).join("")}</ul>`;
 
     return `<div class="lb-target">${lastBattleTargetLabel(adv)}</div>
 <div class="lb-context">${t.formatLabel} · Attempt ${t.attemptNumber}${t.attemptNumber >= 3 ? " (no attempt bonus)" : ""} · ${adv.scores.oppFinal ? "Final" : "Current"} opponent score</div>
+${fleet ? lastBattleCapitalPicker(adv) : ""}
 <div class="lb-headline ${h.cls}" aria-live="polite">${h.head}</div>
 <div class="lb-support">${h.support}</div>
 ${conditions.length ? `<ul class="lb-conditions">${conditions.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
@@ -3591,7 +3698,7 @@ function renderBannersNeeded() {
     return `
 <details class="lb-needed">
     <summary>Banners needed — where the rest comes from</summary>
-    <div class="lb-support">Calculated from Opponent Board: ${parts.join(" · ")}. Battles assume clean full-squad wins at each defence's next attempt${board.territories.some(t => t.type === "FLEET") ? "; fleet figures are indicative" : ""}.</div>
+    <div class="lb-support">Calculated from Opponent Board: ${parts.join(" · ")}. Battles assume clean full-squad wins at each defence's next attempt${board.territories.some(t => t.type === "FLEET") ? "; fleet battles assume a full fleet with a 7★ capital ship" : ""}.</div>
     <div class="lb-note">${scope}</div>
 </details>
 `;
@@ -3634,15 +3741,27 @@ function renderAttemptControl(side, territoryKey, team) {
 // The banner score column, also from v2.8, holds the FULL-SQUAD clean-clear value
 // with the undersize premium removed, so score and count own non-overlapping parts
 // of the total and can be added without double-counting.
-function undersizeInfo(counter) {
+//
+// Fleet (issue #86) is different: the +1 is only earned for an UNLOCKED
+// reinforcement slot, and whether the 4th is unlocked depends on the attacking
+// capital ship's stars, which these screens do not know. A fleet counter
+// therefore reports its drop and the conditional bonus but no reconstructed
+// total; the Last Battle advisor asks for the stars before adding the two.
+function undersizeInfo(counter, isFleet) {
     const drop = Math.max(0, Math.floor(Number(counter && counter.undersize)) || 0);
     if (drop <= 0) return null;                       // no undersize advice to show
+    if (isFleet) return { drop, bonus: drop, total: null, fleet: true };
     const full = Number(counter.bannerScore) || 0;
     return {
         drop: drop,
         bonus: drop,                                  // +1 banner net per unit dropped
         total: full + drop                            // reconstructed best-case total
     };
+}
+
+// The one wording every screen uses for a fleet counter's undersize.
+function fleetUndersizeText(us) {
+    return `leave up to ${plural(us.drop, "reinforcement slot")} empty for up to +${us.bonus} — unlocked slots only (the 4th needs a 7★ capital ship)`;
 }
 
 // The score the allocation engine RANKS by (v2.9): the full-squad banner score
@@ -3654,8 +3773,12 @@ function undersizeInfo(counter) {
 // the headline never overstates what a straight, no-risk play would bank. Tier
 // remains the primary sort key, so this only ever reorders counters WITHIN a tier;
 // undersizing never promotes a lower-tier counter over a higher-tier one.
-function adjustedScore(counter) {
+//
+// A fleet counter ranks on its plain banner score: its undersize premium depends
+// on capital-ship stars the engine does not know, so it is not bankable here.
+function adjustedScore(counter, isFleet) {
     const full = Number(counter && counter.bannerScore) || 0;
+    if (isFleet) return full;
     const drop = Math.max(0, Math.floor(Number(counter && counter.undersize)) || 0);
     return full + drop;
 }
@@ -3688,11 +3811,12 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
 
     if (info.counter) {
         const c = info.counter;
-        const us = undersizeInfo(c);
-        const undersizeLine = us ? `
+        const us = undersizeInfo(c, modeKey === "FLEET");
+        const undersizeLine = !us ? "" : us.fleet ? `
+    <div class="board-rec-undersize">Undersize: ${fleetUndersizeText(us)}</div>` : `
     <div class="board-rec-undersize">
         <strong>${us.total} banners</strong> if you undersize · drop up to ${us.drop} for +${us.bonus}
-    </div>` : "";
+    </div>`;
         const reserveWarningLine = info.reserveWarning ? `
     <div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>` : "";
         const squadKey = territoryKey + ":" + team.index + ":" + c.counterId;
