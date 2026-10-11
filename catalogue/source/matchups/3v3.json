@@ -374,7 +374,7 @@
         { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 52, "undersize": 0, "notes": "Include Malak for reliability" },
         { "counterId": "ADMIRAL_RADDUS", "tier": "A", "bannerScore": 52, "undersize": 0, "notes": "Raddus / Jyn Erso / Scarif Rebel Pathfinder" },
         { "counterId": "LORD_VADER", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Lord Vader / Maul / Royal Guard" },
-        { "counterId": "SEE", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "SEE / Darth Bane / flexible Sith" },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "This SEE entry does not require or reserve Darth Bane. Bane-assisted variants need a separately verified SEE+Bane counter; do not assume a third Sith preserves Rule of Two." },
         { "counterId": "JMK", "tier": "A", "bannerScore": 52, "undersize": 0, "notes": "JMK / CAT / General Kenobi" },
         { "counterId": "JABBA", "tier": "A", "bannerScore": 52, "undersize": 0, "notes": "Jabba / Boushh / Krrsantan" },
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 52, "undersize": 0 }

@@ -1,0 +1,1135 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/96",
+  "baseline": {
+    "commit": "43238f4ec56911f2f0f5b74cb37fa0d7941bf95c",
+    "catalogueVersion": 13,
+    "checksum": "sha256:7f49351c5bf8387ebcea0ec8a70021d5f73eb4d98455ecc3f4ac069217e7bdc9"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-11-03-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Group 1: 3v3 Reva → SEE",
+      "rationale": "Counter identity and reservation warning, not a new attacking recipe. SEE and SEE_BANE are different authored definitions; the current note obscures that distinction.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/96#issuecomment-6110104083",
+        "decidedAt": "2026-10-11T14:34:04Z",
+        "contentChecksum": "sha256:df4aacf3d5dab920296e71c19905d1bf11e1182044e39912b5a08cc49a097c4b"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/tree/43238f4ec56911f2f0f5b74cb37fa0d7941bf95c",
+            "publisher": "GitHub main, published catalogue and deployed app",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact source fields, IDs, completed corrections and deployed release alignment; not battle efficacy."
+          },
+          {
+            "url": "https://swgoh.gg/units/darth-bane/",
+            "publisher": "SWGOH.GG, Darth Bane kit",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Rule of Two requires exactly one other non-summon Sith at start. Mechanical primary game-data reference."
+          }
+        ],
+        "conditions": "3v3; exact defensive and attacking variants, relics, omicrons, mods and active datacrons remain material. Approved note is guidance only, not machine-enforced squad eligibility.",
+        "confidence": "High for the approved annotation only. Retained tier, bannerScore and undersize are not freshly certified.",
+        "limitations": "Counter identity and reservation warning, not a new attacking recipe. SEE and SEE_BANE are different authored definitions; the current note obscures that distinction. Evidence descriptions/export records were inspected; linked videos were not independently watched. No new success rate or guaranteed banner result is asserted."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Reva"
+          },
+          "effect": "Amend only SEE notes at counter position 4; retain full row and order."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "SEE"
+          },
+          "effect": "none — checked: requirements, recommendations and strategic reserve retained."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "SITH_ETERNAL_EMPEROR"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "DARTH_BANE"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Reva"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Reva"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "scoring.json",
+          "stableKey": {
+            "mode": "3v3"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        },
+        {
+          "file": "score-meanings.json",
+          "stableKey": {
+            "mode": "3v3"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "One displayed counter-use note: Reva / SEE.",
+        "FLEET": "none",
+        "counters": "Guidance text only; no identity, eligibility, order or tier changes.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"Reva\"][4][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Reva"
+          },
+          "before": {
+            "defence": "Reva",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Leia / Drogan / R2-D2"
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Include Malak for reliability"
+              },
+              {
+                "counterId": "ADMIRAL_RADDUS",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Raddus / Jyn Erso / Scarif Rebel Pathfinder"
+              },
+              {
+                "counterId": "LORD_VADER",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Lord Vader / Maul / Royal Guard"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "SEE / Darth Bane / flexible Sith"
+              },
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "JMK / CAT / General Kenobi"
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Jabba / Boushh / Krrsantan"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Reva",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Leia / Drogan / R2-D2"
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Include Malak for reliability"
+              },
+              {
+                "counterId": "ADMIRAL_RADDUS",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Raddus / Jyn Erso / Scarif Rebel Pathfinder"
+              },
+              {
+                "counterId": "LORD_VADER",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Lord Vader / Maul / Royal Guard"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "This SEE entry does not require or reserve Darth Bane. Bane-assisted variants need a separately verified SEE+Bane counter; do not assume a third Sith preserves Rule of Two."
+              },
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "JMK / CAT / General Kenobi"
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Jabba / Boushh / Krrsantan"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-11-03-P02",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Group 1: 5v5 Rey (GL) → STARKILLER",
+      "rationale": "Current kit requires the omitted ally conditions. This adds a mechanically correct availability/use condition, while S/62 still needs fresh matchup validation.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/96#issuecomment-6110104083",
+        "decidedAt": "2026-10-11T14:34:04Z",
+        "contentChecksum": "sha256:2f29aeab2675545f26bedc44c6d7b1982af123480ffa1d00820275ea9bbe9c38"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.gg/units/starkiller/",
+            "publisher": "SWGOH.GG, Starkiller kit",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact 5v5 alignment and GAC unique conditions; 3v3 exception kept separate."
+          },
+          {
+            "url": "https://swgoh-ga5.online-server.info/index.php?id=rey&mode=summary",
+            "publisher": "SWGOH Counters, 5v5 Rey summary",
+            "publishedOrObservedAt": "2026-01-15",
+            "accessedAt": "2026-10-11",
+            "supports": "EP/Mara/Old Ben/Starkiller/Visas 204/79; Juhani version 150/62; Plo version 140/54. Not current rates or interchangeable squads."
+          }
+        ],
+        "conditions": "5v5; exact defensive and attacking variants, relics, omicrons, mods and active datacrons remain material. Approved note is guidance only, not machine-enforced squad eligibility.",
+        "confidence": "High for the approved annotation only. Retained tier, bannerScore and undersize are not freshly certified.",
+        "limitations": "Current kit requires the omitted ally conditions. This adds a mechanically correct availability/use condition, while S/62 still needs fresh matchup validation. Evidence descriptions/export records were inspected; linked videos were not independently watched. No new success rate or guaranteed banner result is asserted."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey (GL)"
+          },
+          "effect": "Amend only STARKILLER notes at counter position 0; retain full row and order."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "STARKILLER"
+          },
+          "effect": "none — checked: requirements, recommendations and strategic reserve retained."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "EMPEROR_PALPATINE"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "MARA_JADE"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "STARKILLER"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "VISAS_MARR"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey (GL)"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey (GL)"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "scoring.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        },
+        {
+          "file": "score-meanings.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "One displayed counter-use note: Rey (GL) / STARKILLER.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Guidance text only; no identity, eligibility, order or tier changes.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Rey (GL)\"][0][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rey (GL)"
+          },
+          "before": {
+            "defence": "Rey (GL)",
+            "counters": [
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "BANE",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Efficient"
+              },
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "GAS",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Cleanup"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Rey (GL)",
+            "counters": [
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Use a full squad with no Galactic Legend allies that activates Starkiller's unique and GAC omicron: Palpatine, Mara Jade (The Emperor's Hand), Starkiller, one Jedi and one Light Side Unaligned Force User. Check the exact Rey allies and active datacrons."
+              },
+              {
+                "counterId": "BANE",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Efficient"
+              },
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Standard"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "GAS",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Cleanup"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-11-03-P03",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Group 2: 5v5 GAS → CLS",
+      "rationale": "The historical evidence identifies a common tested lineup, not an essential C-3PO requirement. Small historical records also show wins using Captain Han Solo or Kyle Katarn in the fifth slot (one recorded win each). These establish neither current alternative reliability nor a banner estimate. The app currently requires CLS alone; no broad roster-definition change is bundled. C-3PO is registry ID C3PO. Threepio & Chewie is absent from the registry, so this free-text annotation does not imply a roster requirement or add a guessed machine ID.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/97#issuecomment-6110104212",
+        "decidedAt": "2026-10-11T14:34:05Z",
+        "contentChecksum": "sha256:ac20758c7fdb818309b74fd2b429982aed6a1ba3346a739e7020328c5fc231a3"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh-ga5.online-server.info/index.php?id=general_skywalker&mode=summary",
+            "publisher": "SWGOH Counters, 5v5 GAS summary",
+            "publishedOrObservedAt": "2026-01-15",
+            "accessedAt": "2026-10-11",
+            "supports": "Standard CLS squad with C-3PO: 552 wins/39 losses. Captain Han Solo or Kyle Katarn fifth-slot variants without C-3PO have one win each; tiny historical samples, not current reliability estimates."
+          }
+        ],
+        "conditions": "5v5; exact defensive and attacking variants, relics, omicrons, mods and active datacrons remain material. Approved note is guidance only, not machine-enforced squad eligibility.",
+        "confidence": "High for the approved annotation only. Retained tier, bannerScore and undersize are not freshly certified.",
+        "limitations": "The historical evidence identifies a common tested lineup, not an essential C-3PO requirement. Small historical records also show wins using Captain Han Solo or Kyle Katarn in the fifth slot (one recorded win each). These establish neither current alternative reliability nor a banner estimate. The app currently requires CLS alone; no broad roster-definition change is bundled. C-3PO is registry ID C3PO. Threepio & Chewie is absent from the registry, so this free-text annotation does not imply a roster requirement or add a guessed machine ID. Evidence descriptions/export records were inspected; linked videos were not independently watched. No new success rate or guaranteed banner result is asserted."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "GAS"
+          },
+          "effect": "Amend only CLS notes at counter position 0; retain full row and order."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CLS"
+          },
+          "effect": "none — checked: requirements, recommendations and strategic reserve retained."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "COMMANDER_LUKE_SKYWALKER"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "HAN_SOLO"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "CHEWBACCA"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "C3PO"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "GAS"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "GAS"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "scoring.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        },
+        {
+          "file": "score-meanings.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "One displayed counter-use note: GAS / CLS.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Guidance text only; no identity, eligibility, order or tier changes.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"GAS\"][0][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "GAS"
+          },
+          "before": {
+            "defence": "GAS",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "GAS",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 61,
+                "undersize": 0,
+                "notes": "Standard lineup: CLS / Han Solo / Chewbacca / Threepio & Chewie, with C-3PO as a recommended fifth. Check the chosen fifth unit, relics, mods and active datacrons before committing."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-11-03-P04",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Group 2: 5v5 Jedi Master Mace Windu → TRAYA",
+      "rationale": "The inspected sequence contains wins and a loss; the latest reported win was 45 banners with an assist cron. Warn about conditions without asserting a new win rate or certifying S/62.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/97#issuecomment-6110104212",
+        "decidedAt": "2026-10-11T14:34:05Z",
+        "contentChecksum": "sha256:723e277912b451109a23f04eaccdce9f5471008da527425f2c0729904d3c160f"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://gacfilmroom.com/data/counters.json",
+            "publisher": "GAC Film Room, public battle export",
+            "publishedOrObservedAt": "2026-10-10",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact recorded mode, lineup, attempt, outcome, reported banners and video link. One account; selected history, some GG-derived records; not independent population statistics or independently watched footage. Export is linked as Dataset on https://gacfilmroom.com/."
+          },
+          {
+            "url": "https://swgoh.gg/datacrons/",
+            "publisher": "SWGOH.GG datacron registry",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Current expiry dates and active-set character lists; see Section 3. Not proof of an individual battle’s exact effect."
+          },
+          {
+            "url": "https://swgoh.gg/units/savage-opress/",
+            "publisher": "SWGOH.GG, Savage Opress kit",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "GAC Brute mechanics; corroborates that Savage is a substantive condition, not a generic spare Sith."
+          }
+        ],
+        "conditions": "5v5; exact defensive and attacking variants, relics, omicrons, mods and active datacrons remain material. Approved note is guidance only, not machine-enforced squad eligibility.",
+        "confidence": "High for the approved annotation only. Retained tier, bannerScore and undersize are not freshly certified.",
+        "limitations": "The inspected sequence contains wins and a loss; the latest reported win was 45 banners with an assist cron. Warn about conditions without asserting a new win rate or certifying S/62. Evidence descriptions/export records were inspected; linked videos were not independently watched. No new success rate or guaranteed banner result is asserted."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Master Mace Windu"
+          },
+          "effect": "Amend only TRAYA notes at counter position 2; retain full row and order."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "TRAYA"
+          },
+          "effect": "none — checked: requirements, recommendations and strategic reserve retained."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "DARTH_TRAYA"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "DARTH_NIHILUS"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "SAVAGE_OPRESS"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Master Mace Windu"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Master Mace Windu"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "scoring.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        },
+        {
+          "file": "score-meanings.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "One displayed counter-use note: Jedi Master Mace Windu / TRAYA.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Guidance text only; no identity, eligibility, order or tier changes.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Jedi Master Mace Windu\"][2][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Master Mace Windu"
+          },
+          "before": {
+            "defence": "Jedi Master Mace Windu",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Jedi Master Mace Windu",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Conditional: confirm a Traya / Nihilus / Savage core, Traya and Savage GAC omicrons, relics and an appropriate active datacron against the exact Jocasta Nu variant. Do not assume a clean full-banner clear."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-11-03-P05",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Group 2: 5v5 Gungans → GREAT_MOTHERS",
+      "rationale": "An independent creator explicitly names a +400% Offense Level 6 effect. Remove unsupported universal preference; do not transfer 5v5 evidence into 3v3.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/97#issuecomment-6110104212",
+        "decidedAt": "2026-10-11T14:34:05Z",
+        "contentChecksum": "sha256:81b0521956fd406f1b62652cfc6deecffd6ec1d7d28217c67a4da71f38ed1ab6"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.tv/video/49426-counters-you-need-august-2026-5v5-w-timestamps-swgoh-gac-galaxyofheroes-starwars",
+            "publisher": "Xaereth Prevails, August counter guide description",
+            "publishedOrObservedAt": "2026-08-14",
+            "accessedAt": "2026-10-11",
+            "supports": "Opened description/timestamps: JMK→Cassian, SLKR→GL Ahsoka, LV→Rotta, Great Mothers→Gungans with +400% Offense Level 6, Cere→Hondo possible bug. Videos were not played; no win/banners certified from title."
+          },
+          {
+            "url": "https://swgoh.gg/datacrons/",
+            "publisher": "SWGOH.GG datacron registry",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Current expiry dates and active-set character lists; see Section 3. Not proof of an individual battle’s exact effect."
+          }
+        ],
+        "conditions": "5v5; exact defensive and attacking variants, relics, omicrons, mods and active datacrons remain material. Approved note is guidance only, not machine-enforced squad eligibility.",
+        "confidence": "High for the approved annotation only. Retained tier, bannerScore and undersize are not freshly certified.",
+        "limitations": "An independent creator explicitly names a +400% Offense Level 6 effect. Remove unsupported universal preference; do not transfer 5v5 evidence into 3v3. Evidence descriptions/export records were inspected; linked videos were not independently watched. No new success rate or guaranteed banner result is asserted."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Gungans"
+          },
+          "effect": "Amend only GREAT_MOTHERS notes at counter position 2; retain full row and order."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "GREAT_MOTHERS"
+          },
+          "effect": "none — checked: requirements, recommendations and strategic reserve retained."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "GREAT_MOTHERS"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Gungans"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Gungans"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "scoring.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        },
+        {
+          "file": "score-meanings.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "One displayed counter-use note: Gungans / GREAT_MOTHERS.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Guidance text only; no identity, eligibility, order or tier changes.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Gungans\"][2][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Gungans"
+          },
+          "before": {
+            "defence": "Gungans",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0
+              },
+              {
+                "counterId": "PHOENIX",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 3
+              }
+            ]
+          },
+          "after": {
+            "defence": "Gungans",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Reliable"
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Datacron-sensitive: confirm the exact Great Mothers squad and current Gungan datacron before committing; this is not an unconditional preferred counter."
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 60,
+                "undersize": 0
+              },
+              {
+                "counterId": "PHOENIX",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 3
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-11-03-P06",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Group 3: FLEET Leviathan → LEVIATHAN",
+      "rationale": "Current reinforcement mechanics and a dedicated TIE Reaper mirror guide support adding a variant qualifier. No replacement opening, new score or undersize promise is claimed.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/98#issuecomment-6110104390",
+        "decidedAt": "2026-10-11T14:34:06Z",
+        "contentChecksum": "sha256:2fdd6a6755c6623264289c7ce92095afac4ef18c6795157c8ef4f9d471bf8d87"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.gg/units/scimitar/",
+            "publisher": "SWGOH.GG, Scimitar kit",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Drifting Shade grants Speed on reinforcement, including capital. Mechanics alone do not guarantee mirror victory."
+          },
+          {
+            "url": "https://swgoh.tv/video/47722-how-to-mirror-leviathan-when-they-have-tie-reaper-starting-swgoh",
+            "publisher": "BitDynasty, TIE Reaper-starting Leviathan mirror guide description",
+            "publishedOrObservedAt": "2026-03-24",
+            "accessedAt": "2026-10-11",
+            "supports": "Opened description identifies a specific mirror variant and links an R9/R10 guide. No alternate script or win rate is inferred without footage."
+          }
+        ],
+        "conditions": "FLEET; exact defensive and attacking variants, relics, omicrons, mods and active datacrons remain material. Approved note is guidance only, not machine-enforced squad eligibility.",
+        "confidence": "High for the approved annotation only. Retained tier, bannerScore and undersize are not freshly certified.",
+        "limitations": "Current reinforcement mechanics and a dedicated TIE Reaper mirror guide support adding a variant qualifier. No replacement opening, new score or undersize promise is claimed. Evidence descriptions/export records were inspected; linked videos were not independently watched. No new success rate or guaranteed banner result is asserted."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/FLEET.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Leviathan"
+          },
+          "effect": "Amend only LEVIATHAN notes at counter position 0; retain full row and order."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "LEVIATHAN"
+          },
+          "effect": "none — checked: requirements, recommendations and strategic reserve retained."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "LEVIATHAN"
+          },
+          "effect": "none — checked: registered identity retained; note is free text."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Leviathan"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Leviathan"
+          },
+          "effect": "none — checked: no defence threat or composition amendment."
+        },
+        {
+          "file": "scoring.json",
+          "stableKey": {
+            "mode": "FLEET"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        },
+        {
+          "file": "score-meanings.json",
+          "stableKey": {
+            "mode": "FLEET"
+          },
+          "effect": "none — checked: all scoring rows and score meanings retained."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "none",
+        "FLEET": "One displayed counter-use note: Leviathan / LEVIATHAN.",
+        "counters": "Guidance text only; no identity, eligibility, order or tier changes.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"FLEET\"][\"Leviathan\"][0][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/FLEET.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Leviathan"
+          },
+          "before": {
+            "defence": "Leviathan",
+            "counters": [
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1,
+                "notes": "Reinforce Scimitar first"
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "C",
+                "bannerScore": 57,
+                "undersize": 1
+              },
+              {
+                "counterId": "PROFUNDITY",
+                "tier": "C",
+                "bannerScore": 57,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": {
+            "defence": "Leviathan",
+            "counters": [
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1,
+                "notes": "Scimitar-first is lineup-dependent. Confirm capital stars, Darth Revan relics, enemy starters and reinforcement order; TIE Reaper variants need their own mirror plan."
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "C",
+                "bannerScore": 57,
+                "undersize": 1
+              },
+              {
+                "counterId": "PROFUNDITY",
+                "tier": "C",
+                "bannerScore": 57,
+                "undersize": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
