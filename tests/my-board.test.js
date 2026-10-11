@@ -705,7 +705,7 @@ test("board picker includes mode-specific defences without matchups and commits 
         { territory: "FRONT_TOP", type: "SQUAD" },
         { territory: "FRONT_TOP", index: 0, name: "", attempts: 0, cleared: false },
         { mode: "5v5" }, "my")`);
-    assert.match(row, /<option value="Chief Chirpa">Chief Chirpa<\\/option>/);
+    assert.match(row, /<option value="Chief Chirpa">Chief Chirpa<\/option>/);
     assert.equal((row.match(/<option value="Chief Chirpa">/g) || []).length, 1);
     assert.doesNotMatch(row, /<option value="Three Only">|<option value="Executor">/);
     assert.match(row, /<option value="Countered Team">/);
