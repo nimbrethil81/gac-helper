@@ -437,7 +437,7 @@
       "defence": "The Stranger",
       "counters": [
         { "counterId": "SEE", "tier": "B", "bannerScore": 52, "undersize": 0 },
-        { "counterId": "BANE", "tier": "S", "bannerScore": 50, "undersize": 1 },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 50, "undersize": 1, "notes": "For Bane's Rule of Two, use exactly two attackers: Darth Bane plus one other non-summoned Sith ally; leave the third slot empty (undersize 1). SEE + Bane is the separate SEE_BANE counter. Check defence and datacron conditions." },
         { "counterId": "SEE_BANE", "tier": "S", "bannerScore": 53, "undersize": 1 }
       ]
     },

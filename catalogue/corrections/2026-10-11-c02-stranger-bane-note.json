@@ -1,0 +1,131 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/64",
+  "baseline": {
+    "commit": "5c09938ac43119835779c0ec63df8f5b111ceb53",
+    "catalogueVersion": 9,
+    "checksum": "sha256:3ad96cba91673c9574142b6864faaeb14bd6e9548bdd8d5baed6e5847fbe19f8"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-11-01-C02",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Add Rule of Two note to the 3v3 The Stranger BANE counter",
+      "rationale": "Explains Darth Bane's two-person Rule of Two mechanic on the 3v3 The Stranger BANE counter. Owner-agreed content (Group 4C, issue #37). Strategic-conservation advice is deliberately excluded; it belongs to C04 and the Round UI issue. SEE and SEE_BANE rows, tiers, banners, undersize and attacking identities are unchanged.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/64#issuecomment-6106833913",
+        "decidedAt": "2026-10-11T07:48:00Z",
+        "contentChecksum": "sha256:ae56edc1e6f78b609901dd7212c4613918b81217e1dba8f7ec597183644ee286"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/37#issuecomment-6106572010",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #37",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Owner-agreed exact note text for the 3v3 The Stranger BANE counter (C02)."
+          },
+          {
+            "url": "https://swgoh.gg/units/darth-bane/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Rule of Two mechanic: exactly one other non-summoned Sith ally, including the GAC omicron. Mechanics guidance only, not proof of matchup success."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/64",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #64",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact before/after The Stranger row for review item C02 of CR-2026-10-11-01."
+          }
+        ],
+        "conditions": "3v3 The Stranger defence, BANE counter row only; defence and datacron conditions are stated in the note.",
+        "confidence": "High for the mechanic description; the note makes no claim of matchup success.",
+        "limitations": "The mechanics source was not re-fetched by the agent in this session; the wording is the owner-agreed text. No change to required members or Round availability."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "effect": "BANE counter gains a notes property; SEE and SEE_BANE rows, all tiers, banners, undersize values and the counter order are unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none — checked",
+        "3v3": "The Stranger BANE counter shows the Rule of Two note; BANE stays S / 50 / undersize 1.",
+        "FLEET": "none — checked",
+        "counters": "none — checked",
+        "roundAvailability": "none — checked",
+        "scoring": "none — checked",
+        "strategicReserve": "none — checked"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"The Stranger\"][1][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "before": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "B",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 50,
+                "undersize": 1
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "B",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "S",
+                "bannerScore": 50,
+                "undersize": 1,
+                "notes": "For Bane's Rule of Two, use exactly two attackers: Darth Bane plus one other non-summoned Sith ally; leave the third slot empty (undersize 1). SEE + Bane is the separate SEE_BANE counter. Check defence and datacron conditions."
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
