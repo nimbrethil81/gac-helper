@@ -704,6 +704,40 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     }
 }
 
+// Failed-battle action: spends the recommended counter and records one more
+// battle against this defence, leaving it uncleared. Battles feed the existing
+// attempt-bonus and points-to-win calculations on the re-render, so no scoring
+// is done here. No auto-advance: the defence is still standing, so it keeps focus
+// and the re-solve offers it another available counter.
+function markUsedAndLost(side, territoryKey, index, counterId) {
+    const target = boardForSide(side);
+    if (!target) return;
+    const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (!team || team.cleared) return;
+    if (side !== "my" && !confirmReserveUse(counterId)) return;
+
+    dismissPendingUndoFor(side, territoryKey, index);
+
+    const prevAttempts = team.attempts || 0;
+    const wasUsed = usedTeams.includes(counterId);
+
+    if (!wasUsed) {
+        usedTeams.push(counterId);
+        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+    }
+    team.attempts = prevAttempts + 1;
+    saveBoard(side);
+    if (side !== "my") clearRemainingOverrideOnBoardChange();
+
+    setPendingUndo({
+        kind: "usedLost",
+        side, territoryKey, index, counterId,
+        prevCleared: team.cleared, prevAttempts, wasUsed,
+        message: "Used + Lost recorded."
+    });
+    render();
+}
+
 // Advance through the existing Next Up ordering after a successful clear. Squad
 // and fleet are deliberately separate tracks, so a squad clear advances to the
 // next squad recommendation and a fleet clear to the next fleet recommendation.
@@ -746,22 +780,23 @@ function dismissPendingUndoFor(side, territoryKey, index) {
     }
 }
 
-// Restores exactly the state captured immediately before the Cleared or
-// Used + Cleared action that offered this Undo — never a blind toggle, so an
+// Restores exactly the state captured immediately before the Cleared,
+// Used + Cleared or Used + Lost action that offered this Undo — never a blind toggle, so an
 // attacker that was already used before a combined action stays used.
 function undoPendingAction() {
     if (!pendingUndo) return;
-    const { side, territoryKey, index, counterId, prevCleared, wasUsed, kind } = pendingUndo;
+    const { side, territoryKey, index, counterId, prevCleared, prevAttempts, wasUsed, kind } = pendingUndo;
 
     const target = boardForSide(side);
     const team = target && target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (team) {
         team.cleared = prevCleared;
+        if (kind === "usedLost") team.attempts = prevAttempts;
         saveBoard(side);
         if (side !== "my") clearRemainingOverrideOnBoardChange();
     }
 
-    if (kind === "usedCleared" && !wasUsed) {
+    if ((kind === "usedCleared" || kind === "usedLost") && !wasUsed) {
         const i = usedTeams.indexOf(counterId);
         if (i !== -1) {
             usedTeams.splice(i, 1);
@@ -3089,7 +3124,8 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     ${squadDisclosure}
     <div class="board-rec-actions">
         <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
-        <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
+        <button class="board-rec-btn board-rec-btn-secondary" onclick="markUsedAndLost('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Lost</button>
+        <button class="board-rec-btn board-rec-btn-tertiary" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
     </div>${blocked}${reserveAltsHtml}
 </div>
 `;

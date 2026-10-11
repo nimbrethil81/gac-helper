@@ -896,6 +896,23 @@ body {
     font-size: 14px;
 }
 
+/* Used + Lost is a readily visible secondary action; Mark used is tertiary. */
+.board-rec-btn-secondary {
+    background: var(--panel-light);
+    color: var(--text);
+    border: 1px solid var(--jedi-blue);
+    padding: 9px 14px;
+    min-height: 40px;
+}
+
+.board-rec-btn-tertiary {
+    background: none;
+    color: var(--muted);
+    border: 1px solid transparent;
+    font-weight: normal;
+    min-height: 40px;
+}
+
 /* ─── ROUND: SUGGESTED SQUAD DISCLOSURE ───────────────────────────────
    Informational-only expand/collapse for a recommendation card's proposed
    attacking composition. Kept as its own full-width button, separate from
