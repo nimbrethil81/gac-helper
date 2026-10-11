@@ -891,8 +891,16 @@ function readScoringRow(r) {
 // (an exact battleType and mode beats an ANY on either axis). Returns 0 if no row
 // matches — a missing rule contributes nothing rather than throwing.
 function scoreRule(ruleId, battleType, mode) {
+    const best = findScoringRow(scoringRules, ruleId, battleType, mode);
+    return best ? best.value : 0;
+}
+
+// The most specific matching scoring row, or null when none is authored. Callers
+// that must not mistake a missing rule for zero (the Last Battle engine) use this
+// directly.
+function findScoringRow(rows, ruleId, battleType, mode) {
     let best = null, bestSpecificity = -1;
-    for (const raw of scoringRules) {
+    for (const raw of rows || []) {
         const row = readScoringRow(raw);
         if (row.ruleId !== ruleId) continue;
         if (row.battleType !== battleType && row.battleType !== "ANY") continue;
@@ -901,7 +909,7 @@ function scoreRule(ruleId, battleType, mode) {
                             (row.mode === mode ? 1 : 0);
         if (specificity > bestSpecificity) { best = row; bestSpecificity = specificity; }
     }
-    return best ? best.value : 0;
+    return best;
 }
 
 // New-round score prefilling is intentionally stricter than ordinary scoring
@@ -1050,6 +1058,342 @@ function calculatedRemaining() {
 function calculatedOpponentRemaining() {
     if (!myBoard || bannerData.oppFinal === true) return 0;
     return remainingBannersForBoard(myBoard, { firstAttackAvailable: isOpponentFirstAttackAvailable() });
+}
+
+// ─── LAST BATTLE ENGINE (v3.7) ────────────────────────────────────────────────
+// When exactly one uncleared defence remains on Opponent Board, turn "points to
+// win" into the battle banners that final battle must bank, and — where the
+// scoring is validated — the end-of-battle conditions that bank them.
+//
+// Pure and advisory: every function here derives from its arguments (or, for the
+// adapter at the end, from live board/score state) and returns a fresh object. It
+// never persists anything, mutates the board or scores, or marks counters used.
+// All banner values come from the same authored scoring rows as the remaining-
+// banner walker; there are no second constants. A rule that is missing makes the
+// result "cannot calculate", never a confident zero.
+//
+// Result shape (lastBattleAdvice):
+//   status        "ready" | "notLastBattle" | "noBoard" | "cannotCalculate"
+//   reasons       [{ code, message }] — why the result is not exact (or not ready)
+//   confidence    "exact" | "bounded" | "indicative"   (ready only)
+//   target        { territory, index, name, customName, battleType, roundMode,
+//                   formatLabel, attempts, attemptNumber, teamsInTerritory }
+//   scores        { my, opp, oppFinal }
+//   targetToBeatCurrent   banners needed to finish strictly above opp (≥ 0)
+//   bonusesOnClear        { territoryClear, firstAttack, total } — banked by the
+//                         clear itself, never already in myScore
+//   battleTarget          battle banners still needed after those bonuses (≥ 0)
+//   verdict       "alreadyAhead" | "coveredByClear" | "anyWin" | "needsBattle"
+//                 | "uncertain" | "impossible"; aheadOf "final" | "current" | null
+//   ceilings      { minWin, fullSquad, max } per-battle; each { low, high }
+//   formations    [{ fielded, emptySlots, maxLow, maxHigh, allowanceLow,
+//                    allowanceHigh, unitsCanLose, flawlessRequired, meets,
+//                    mathematicalOnly }]  — squad only
+//   counters      [{ counterId, tier, bannerScore, undersize, expected,
+//                    expectedMeets, documentedDrop, available }]  — when supplied
+//   needsInput    e.g. ["enemiesRemaining"] when an input would make it exact
+
+// Fleet slot eligibility (capital / starting / reinforcement, locked or not) is
+// unvalidated — see ROADMAP "Real-battle scoring validation". While false, Fleet
+// results are indicative ceilings with no unused-slot or per-ship prescriptions.
+const FLEET_SCORING_VALIDATED = false;
+
+const LAST_BATTLE_REQUIRED_RULES = ["VICTORY", "FIRST_ATTEMPT", "SECOND_ATTEMPT",
+    "SURVIVING_UNIT", "FULL_HEALTH_UNIT", "FULL_PROTECTION_UNIT", "UNUSED_SLOT",
+    "DEFEATED_ENEMY", "TERRITORY_CLEAR_BASE", "TERRITORY_CLEAR_PER_TEAM"];
+
+// The scoring rules one battle type/format needs, or { ok: false, missing } if any
+// is not authored. Unit counts use the same OWN_UNITS / ENEMY_UNITS resolution as
+// battleBestCase.
+function battleScoringRules(battleType, mode, rows) {
+    const src = rows || scoringRules;
+    const missing = [];
+    const v = {};
+    LAST_BATTLE_REQUIRED_RULES.forEach(id => {
+        const row = findScoringRow(src, id, battleType, mode);
+        if (!row || !Number.isFinite(row.value)) missing.push(id);
+        else v[id] = row.value;
+    });
+    const firstAttackRow = findScoringRow(src, "FIRST_ATTACK", "ANY", mode);
+    if (missing.length) return { ok: false, missing };
+    const own = findScoringRow(src, "OWN_UNITS", battleType, mode);
+    const enemy = findScoringRow(src, "ENEMY_UNITS", battleType, mode);
+    const fallback = battleType === "FLEET" ? 7 : (mode === "3v3" ? 3 : 5);
+    return {
+        ok: true,
+        battleType, mode,
+        victory: v.VICTORY,
+        attemptBonus: [v.FIRST_ATTEMPT, v.SECOND_ATTEMPT, 0],
+        perUnit: { surviving: v.SURVIVING_UNIT, fullHealth: v.FULL_HEALTH_UNIT, fullProtection: v.FULL_PROTECTION_UNIT },
+        unitCost: v.SURVIVING_UNIT + v.FULL_HEALTH_UNIT + v.FULL_PROTECTION_UNIT,
+        unusedSlot: v.UNUSED_SLOT,
+        defeatedEnemy: v.DEFEATED_ENEMY,
+        ownUnits: own && own.value > 0 ? own.value : fallback,
+        enemyUnits: enemy && enemy.value > 0 ? enemy.value : fallback,
+        clearBase: v.TERRITORY_CLEAR_BASE,
+        clearPerTeam: v.TERRITORY_CLEAR_PER_TEAM,
+        firstAttack: firstAttackRow && Number.isFinite(firstAttackRow.value) ? firstAttackRow.value : null
+    };
+}
+
+function attemptBonusFor(rules, attempts) {
+    const n = Math.max(0, Math.floor(Number(attempts) || 0));
+    return rules.attemptBonus[Math.min(n, 2)];
+}
+
+function isWholeCount(n) {
+    return Number.isInteger(n) && n >= 0;
+}
+
+// Banners for one WON battle, from what is on the field at its end. Returns
+// { ok, total, breakdown } or { ok: false, errors }. Invariants: at least one unit
+// fielded and alive (you cannot win with none); full-health and full-protection
+// units are survivors; unused slots are only the slots not fielded.
+function battleScore(rules, outcome) {
+    const o = outcome || {};
+    const errors = [];
+    const fields = ["attempts", "fielded", "survivors", "fullHealth", "fullProtection", "unusedSlots", "enemiesDefeated"];
+    fields.forEach(f => { if (!isWholeCount(o[f])) errors.push(`${f} must be a whole number ≥ 0`); });
+    if (!errors.length) {
+        if (o.fielded < 1 || o.fielded > rules.ownUnits) errors.push(`fielded must be 1–${rules.ownUnits}`);
+        if (o.survivors < 1) errors.push("a won battle has at least one survivor");
+        if (o.survivors > o.fielded) errors.push("survivors cannot exceed fielded units");
+        if (o.fullHealth > o.survivors) errors.push("full-health units cannot exceed survivors");
+        if (o.fullProtection > o.survivors) errors.push("full-protection units cannot exceed survivors");
+        if (o.unusedSlots > rules.ownUnits - o.fielded) errors.push("unused slots cannot exceed slots not fielded");
+        if (o.enemiesDefeated < 1 || o.enemiesDefeated > rules.enemyUnits) errors.push(`enemies defeated must be 1–${rules.enemyUnits}`);
+    }
+    if (errors.length) return { ok: false, errors };
+    const breakdown = {
+        victory: rules.victory,
+        attempt: attemptBonusFor(rules, o.attempts),
+        surviving: o.survivors * rules.perUnit.surviving,
+        fullHealth: o.fullHealth * rules.perUnit.fullHealth,
+        fullProtection: o.fullProtection * rules.perUnit.fullProtection,
+        unusedSlots: o.unusedSlots * rules.unusedSlot,
+        defeated: o.enemiesDefeated * rules.defeatedEnemy
+    };
+    const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
+    return { ok: true, total, breakdown };
+}
+
+// Flawless total for a formation: every fielded unit survives at full health and
+// protection, every other slot is a deliberately unused eligible slot.
+function formationMax(rules, attempts, fielded, enemiesDefeated) {
+    return battleScore(rules, {
+        attempts, fielded, survivors: fielded, fullHealth: fielded, fullProtection: fielded,
+        unusedSlots: rules.ownUnits - fielded, enemiesDefeated
+    }).total;
+}
+
+// The lowest a win can score: one survivor, no health/protection bonuses, a full
+// squad fielded (no unused-slot bonus).
+function minimumWin(rules, attempts, enemiesDefeated) {
+    return battleScore(rules, {
+        attempts, fielded: rules.ownUnits, survivors: 1, fullHealth: 0, fullProtection: 0,
+        unusedSlots: 0, enemiesDefeated
+    }).total;
+}
+
+// Find the one uncleared defence on a board, or null.
+function lastUnclearedTeam(bd) {
+    if (!bd || !Array.isArray(bd.teams)) return null;
+    const open = bd.teams.filter(t => !t.cleared);
+    return open.length === 1 ? open[0] : null;
+}
+
+function validScore(n) {
+    return typeof n === "number" && Number.isFinite(n) && n >= 0;
+}
+
+// Core engine. input: { board, myScore, oppScore, oppFinal, firstAttackAvailable,
+// rules?, enemiesRemaining?, counters? }. counters, when given, are the target's
+// catalogued counters as { counterId, tier, bannerScore, undersize, available }.
+function lastBattleAdvice(input) {
+    const inp = input || {};
+    const bd = inp.board;
+    if (!bd || !Array.isArray(bd.teams) || !Array.isArray(bd.territories)) {
+        return { status: "noBoard", reasons: [{ code: "NO_BOARD", message: "Set up the opponent board first." }] };
+    }
+
+    const my = inp.myScore, opp = inp.oppScore;
+    const scoresOk = validScore(my) && validScore(opp);
+    const targetToBeatCurrent = scoresOk ? Math.max(0, opp + 1 - my) : null;
+
+    const uncleared = bd.teams.filter(t => !t.cleared).length;
+    const team = lastUnclearedTeam(bd);
+    if (!team) {
+        return {
+            status: "notLastBattle", unclearedCount: uncleared, targetToBeatCurrent,
+            reasons: [{ code: uncleared === 0 ? "BOARD_CLEARED" : "SEVERAL_REMAIN",
+                message: uncleared === 0 ? "Every defence is cleared." : `${uncleared} defences remain.` }]
+        };
+    }
+
+    const tDef = bd.territories.find(t => t.territory === team.territory);
+    const battleType = tDef && tDef.type === "FLEET" ? "FLEET" : "SQUAD";
+    const scoringMode = battleType === "FLEET" ? "ANY" : bd.mode;
+    const attempts = Math.max(0, Math.floor(Number(team.attempts) || 0));
+    const teamsHere = bd.teams.filter(t => t.territory === team.territory).length;
+    const target = {
+        territory: team.territory, index: team.index,
+        name: team.name || "", customName: team.customName || "",
+        battleType, roundMode: bd.mode,
+        formatLabel: battleType === "FLEET" ? "Fleet" : bd.mode,
+        attempts, attemptNumber: attempts + 1, teamsInTerritory: teamsHere
+    };
+    const base = { target, scores: { my, opp, oppFinal: inp.oppFinal === true }, targetToBeatCurrent };
+
+    if (!scoresOk) {
+        return Object.assign(base, { status: "cannotCalculate",
+            reasons: [{ code: "INVALID_SCORE", message: "Enter both scores as whole numbers of 0 or more." }] });
+    }
+    const rules = battleScoringRules(battleType, scoringMode, inp.rules);
+    if (!rules.ok) {
+        return Object.assign(base, { status: "cannotCalculate",
+            reasons: [{ code: "MISSING_RULES", message: `Scoring rules missing: ${rules.missing.join(", ")}.` }] });
+    }
+    if (inp.firstAttackAvailable && rules.firstAttack === null) {
+        return Object.assign(base, { status: "cannotCalculate",
+            reasons: [{ code: "MISSING_RULES", message: "Scoring rules missing: FIRST_ATTACK." }] });
+    }
+
+    const reasons = [];
+    const needsInput = [];
+    let confidence = "exact";
+
+    // Enemies this battle will defeat. A first attempt faces the full defence. A
+    // repeat attempt may face survivors of earlier battles; without that input the
+    // count is bounded, not known.
+    let enemyLow = rules.enemyUnits, enemyHigh = rules.enemyUnits;
+    if (attempts > 0) {
+        const er = inp.enemiesRemaining;
+        if (Number.isInteger(er) && er >= 1 && er <= rules.enemyUnits) {
+            enemyLow = enemyHigh = er;
+        } else {
+            enemyLow = 1;
+            confidence = "bounded";
+            needsInput.push("enemiesRemaining");
+            reasons.push({ code: "CLEANUP_ENEMIES_UNKNOWN",
+                message: "Earlier battles may have defeated some enemies; enemy-defeat banners are bounded, not exact." });
+        }
+    }
+
+    const fleet = battleType === "FLEET";
+    if (fleet && !FLEET_SCORING_VALIDATED) {
+        confidence = "indicative";
+        reasons.push({ code: "FLEET_UNVALIDATED",
+            message: "Fleet slot scoring (capital ship, starting ships, reinforcements) is not validated; figures are an indicative ceiling." });
+    }
+
+    const territoryClear = rules.clearBase + teamsHere * rules.clearPerTeam;
+    const firstAttack = inp.firstAttackAvailable ? rules.firstAttack : 0;
+    const bonusesOnClear = { territoryClear, firstAttack, total: territoryClear + firstAttack };
+    const battleTarget = Math.max(0, targetToBeatCurrent - bonusesOnClear.total);
+
+    const fullLow = formationMax(rules, attempts, rules.ownUnits, enemyLow);
+    const fullHigh = formationMax(rules, attempts, rules.ownUnits, enemyHigh);
+    const minWin = { low: minimumWin(rules, attempts, enemyLow), high: minimumWin(rules, attempts, enemyHigh) };
+
+    // Formations: squads list each fielded count (mathematical potential); fleet
+    // lists only the full fleet, since unused-slot eligibility is unvalidated.
+    const counts = fleet && !FLEET_SCORING_VALIDATED
+        ? [rules.ownUnits]
+        : Array.from({ length: rules.ownUnits }, (_, i) => rules.ownUnits - i);
+    const formations = counts.map(f => {
+        const maxLow = formationMax(rules, attempts, f, enemyLow);
+        const maxHigh = formationMax(rules, attempts, f, enemyHigh);
+        const allowanceLow = maxLow - battleTarget;
+        const allowanceHigh = maxHigh - battleTarget;
+        return {
+            fielded: f, emptySlots: rules.ownUnits - f,
+            maxLow, maxHigh, allowanceLow, allowanceHigh,
+            // Units that may be lost while still meeting the target (conservative),
+            // never all of them: a win needs a survivor.
+            unitsCanLose: allowanceLow >= 0 ? Math.min(f - 1, Math.floor(allowanceLow / rules.unitCost)) : null,
+            flawlessRequired: allowanceLow === 0,
+            meets: allowanceLow >= 0 ? "yes" : (allowanceHigh >= 0 ? "maybe" : "no"),
+            mathematicalOnly: f < rules.ownUnits
+        };
+    });
+    const max = {
+        low: Math.max(...formations.map(f => f.maxLow)),
+        high: Math.max(...formations.map(f => f.maxHigh))
+    };
+
+    let verdict;
+    // Already past their entered score: say whether that is their final or only
+    // their current score, since only the former settles the round.
+    const aheadOf = my > opp ? (base.scores.oppFinal ? "final" : "current") : null;
+    if (my > opp) verdict = "alreadyAhead";
+    else if (battleTarget === 0) verdict = "coveredByClear";
+    else if (battleTarget <= minWin.low) verdict = "anyWin";
+    else if (battleTarget <= max.low) verdict = "needsBattle";
+    else if (battleTarget <= max.high) verdict = "uncertain";
+    else verdict = "impossible";
+
+    if (!base.scores.oppFinal) {
+        reasons.push({ code: "OPP_NOT_FINAL",
+            message: "Target is against their current score; it may rise." });
+    }
+
+    // Counter options: bannerScore is a full-squad, first-attempt estimate; shift
+    // it by the attempt-bonus difference for a repeat attempt. Undersize is the
+    // catalogue's documented safe drop, the only undersize the advisor treats as
+    // supported.
+    const firstBonus = rules.attemptBonus[0];
+    const counters = Array.isArray(inp.counters) ? inp.counters.map(c => {
+        const banner = Number(c.bannerScore);
+        const hasScore = Number.isFinite(banner) && banner > 0;
+        const drop = Math.max(0, Math.floor(Number(c.undersize)) || 0);
+        const documentedDrop = fleet && !FLEET_SCORING_VALIDATED ? 0 : Math.min(drop, rules.ownUnits - 1);
+        const shift = attemptBonusFor(rules, attempts) - firstBonus;
+        const expected = hasScore ? banner + shift : null;
+        return {
+            counterId: c.counterId, tier: c.tier || "", available: c.available !== false,
+            bannerScore: hasScore ? banner : null, undersize: drop,
+            expected, documentedDrop,
+            expectedWithDrop: hasScore ? banner + shift + documentedDrop : null,
+            expectedMeets: hasScore ? (banner + shift >= battleTarget) : null,
+            expectedWithDropMeets: hasScore ? (banner + shift + documentedDrop >= battleTarget) : null
+        };
+    }) : null;
+
+    return Object.assign(base, {
+        status: "ready", confidence, reasons, needsInput,
+        bonusesOnClear, battleTarget, verdict, aheadOf,
+        ceilings: { minWin, fullSquad: { low: fullLow, high: fullHigh }, max },
+        formations, counters,
+        unitCost: rules.unitCost, enemyUnits: rules.enemyUnits, ownUnits: rules.ownUnits,
+        enemiesDefeated: { low: enemyLow, high: enemyHigh }
+    });
+}
+
+// Live adapter: the engine over current Round state. Reads, never writes.
+function currentLastBattleAdvice(extra) {
+    const team = lastUnclearedTeam(board);
+    let counters = null;
+    if (team && team.name && team.name !== NOT_IN_CATALOGUE) {
+        const tDef = board.territories.find(t => t.territory === team.territory);
+        const modeKey = tDef ? territoryModeKey(tDef) : board.mode;
+        const seen = new Set();
+        counters = ((gacData[modeKey] && gacData[modeKey][team.name]) || []).filter(c => {
+            if (seen.has(c.counterId)) return false;
+            seen.add(c.counterId);
+            return true;
+        }).map(c => ({
+            counterId: c.counterId, tier: c.tier, bannerScore: c.bannerScore, undersize: c.undersize,
+            available: getCounterStatus(c.counterId) === "available"
+        }));
+    }
+    return lastBattleAdvice(Object.assign({
+        board,
+        myScore: Number(bannerData.myScore),
+        oppScore: Number(bannerData.oppScore),
+        oppFinal: bannerData.oppFinal === true,
+        firstAttackAvailable: isFirstAttackAvailable(),
+        counters
+    }, extra || {}));
 }
 
 // ─── ALLOCATION ENGINE (v2.1) ─────────────────────────────────────────────────
