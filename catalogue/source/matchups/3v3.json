@@ -183,7 +183,7 @@
     {
       "defence": "Grand Inquisitor",
       "counters": [
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Strong" }
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Documented 3v3 variant: Grand Inquisitor / Ninth Sister / Seventh Sister. Use Traya / Nihilus / Sion; historical Jan 2026 sample: 79 wins in 79 attempts. Other defensive lineups and current datacrons are not covered by that sample." }
       ]
     },
     {

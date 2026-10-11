@@ -1,0 +1,108 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/63",
+  "baseline": {
+    "commit": "cc6aac2c1ca68bd8f90c185f2737f38a465139ae",
+    "catalogueVersion": 10,
+    "checksum": "sha256:6f17232ca3c008774b3c35d6303510e7a9569fc53ce4af0e15ec531fbd189dc6"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-11-01-C01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Clarify the 3v3 Grand Inquisitor TRAYA note with a documented historical lineup",
+      "rationale": "Replaces the generic 'Strong' note with condition-specific historical guidance for the documented Grand Inquisitor / Ninth Sister / Seventh Sister defence. Owner-agreed content (Group 4C, issue #37). Notes only: no tier, bannerScore, undersize, counter identity or required-member change. Sion appears in the note only; TRAYA still requires Darth Traya and Darth Nihilus.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/63#issuecomment-6106879295",
+        "decidedAt": "2026-10-11T07:54:00Z",
+        "contentChecksum": "sha256:f17d7e2b8b423ddb7b7ecad14d26a6d7fab487df2e33991cf7d9c8fc482aa252"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/37#issuecomment-6106572010",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #37",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Owner-agreed exact note text for the 3v3 Grand Inquisitor TRAYA counter (C01)."
+          },
+          {
+            "url": "https://www.swgoh-ga3.online-server.info/index.php?id=grand_inquisitor",
+            "publisher": "SWGOH Counters (swgoh-ga3.online-server.info), 3 vs 3 community record",
+            "publishedOrObservedAt": "2026-01-16",
+            "accessedAt": "2026-10-11",
+            "supports": "Page 'Last update: January 16th 2026' lists Grand Inquisitor / Ninth Sister / Seventh Sister versus Darth Traya / Darth Nihilus / Darth Sion at 100%, 79 wins and 0 losses. Verified directly from the page's portrait titles and win/loss counts in this session."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/63",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #63",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact before/after Grand Inquisitor row for review item C01 of CR-2026-10-11-01."
+          }
+        ],
+        "conditions": "3v3, defence Grand Inquisitor / Ninth Sister / Seventh Sister, attackers Traya / Nihilus / Sion; January 2026 record; current datacrons not covered.",
+        "confidence": "Medium: the sample is real and verified but historical, and the note says so.",
+        "limitations": "The record is from January 2026; relics, datacrons and other defensive lineups are not covered. No current win rate is claimed."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Grand Inquisitor"
+          },
+          "effect": "TRAYA counter notes changes from 'Strong' to the historical lineup guidance; tier S, bannerScore 54, undersize 0 and the counter identity are unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none — checked",
+        "3v3": "Grand Inquisitor TRAYA counter shows the historical lineup note instead of 'Strong'; tier, banners and undersize unchanged.",
+        "FLEET": "none — checked",
+        "counters": "none — checked",
+        "roundAvailability": "none — checked (TRAYA still requires Darth Traya and Darth Nihilus; Sion is not required)",
+        "scoring": "none — checked",
+        "strategicReserve": "none — checked"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"Grand Inquisitor\"][0][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Grand Inquisitor"
+          },
+          "before": {
+            "defence": "Grand Inquisitor",
+            "counters": [
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Grand Inquisitor",
+            "counters": [
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Documented 3v3 variant: Grand Inquisitor / Ninth Sister / Seventh Sister. Use Traya / Nihilus / Sion; historical Jan 2026 sample: 79 wins in 79 attempts. Other defensive lineups and current datacrons are not covered by that sample."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
