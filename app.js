@@ -399,6 +399,19 @@ function ensureDefenceSnapshotForActiveRound() {
     saveBoard("my");
 }
 
+// A round started with no saved defence has nothing to filter. The player may
+// still commit their filled-in My Board once, by confirmed action; after that
+// the snapshot is immutable like any other.
+function adoptMyBoardAsRoundDefence() {
+    if (!board || !myBoard || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return;
+    if (!board.defenceSnapshot.missingSavedDefence) return;
+    if (!myBoard.teams.some(t => t && t.name)) return;
+    if (!confirm(`Use your current My Board as this round's ${board.mode} defence? Those units will be marked unavailable for attack, and later My Board edits won't change it.`)) return;
+    board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard);
+    saveBoard("opponent");
+    render();
+}
+
 function saveDefenceTemplateFromMyBoard() {
     if (!myBoard) return;
     const template = {
@@ -2647,7 +2660,11 @@ function renderDefenceSnapshotStatus() {
     if (!board || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return "";
     const snapshot = board.defenceSnapshot;
     if (snapshot.missingSavedDefence) {
-        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence — defence availability is not being filtered.</div>`;
+        const canAdopt = myBoard && myBoard.teams.some(t => t && t.name);
+        const action = canAdopt
+            ? `<button class="defence-adopt-btn" onclick="adoptMyBoardAsRoundDefence()">Use My Board as this round's defence</button>`
+            : ` Fill in My Board to set this round's defence.`;
+        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence when this round started — defence availability is not being filtered.${action}</div>`;
     }
     const count = snapshot.characterIds.length;
     const summary = `<div class="round-stat">Defence: ${count} unit${count === 1 ? "" : "s"} unavailable</div>`;

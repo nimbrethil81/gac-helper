@@ -780,6 +780,19 @@ body {
     margin-top: 8px;
 }
 
+.defence-adopt-btn {
+    display: block;
+    margin-top: 8px;
+    border: 1px solid #5c4a2e;
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: transparent;
+    color: var(--b-tier);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
 .board-rec {
     margin: 6px 0 12px 12px;
     padding: 10px 12px;
