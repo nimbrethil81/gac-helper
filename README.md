@@ -13,7 +13,7 @@ A lightweight mobile-first GAC assistant for Star Wars Galaxy of Heroes.
 - Used-team and spent-unit tracking
 - Paired Opponent Board and My Board tracking with reusable defence templates
 - Cross-team counter allocation and battle-order recommendations
-- Two-sided banner ranges, points-to-win, and mathematical round outcomes
+- Two-sided banner ranges, points-to-win, mathematical round outcomes, and a last-battle banner advisor
 - Version-controlled, validated game data served as static files
 - Installable PWA with cache-first operation
 

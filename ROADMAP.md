@@ -4,14 +4,6 @@
 
 **Update this document when** future work is added, reprioritised, deferred, abandoned, or ships. Items may be **Planned**, **Candidate**, **Deferred**, **Research**, or **Future / conditional**. When an item ships, remove it from this roadmap: document the resulting current behaviour in `docs/SPEC.md`.
 
-## Planned
-
-### Per-battle undersize advisor
-
-*Planned*
-
-The current allocation engine can choose undersized counters when they bank more; the remaining piece is a per-battle "field exactly N units for maximum banners" recommendation that accounts for what the player can safely win with in a *specific* battle, rather than the per-counter safe-drop count the catalogue holds today. The squad banner arithmetic is settled (net +1 per deliberately empty slot); fleet slot eligibility is not (see [Real-battle scoring validation](#real-battle-scoring-validation)). What remains is a per-situation winnability judgement finer than the single `Undersize` number per counter — likely dependent on opponent-roster or outcome data the app does not yet hold.
-
 ## Candidates
 
 ### Threat as a board-wide display attribute
@@ -89,7 +81,7 @@ Fleet is not. The wiki's Fleet table counts **7** scoring members (73 full, 79 s
 - An EA support reply (2020-era forum thread, seen only as a search excerpt; the page returned 403) says a locked reinforcement slot earns **no** unused-slot banners, and the same thread quotes an older 72-point fleet maximum that predates the defeated-enemy bonus.
 - The 2021 community-manager confirmation covers squads only; the post explicitly left fleet unused reinforcements and the capital ship unresolved.
 
-Until a real GAC fleet battle (or a current official source) settles them, treat these as unknown: the scoring member count by capital / starting / reinforcement slot; which empty slots earn `UNUSED_SLOT` (locked vs available reinforcements, starting slots); and whether a reduced fleet's maximum is reachable. The 73 / 79 figures are **theoretical ceilings only**. Points-to-win and the whole-board ceiling use the full-clean-clear best case, so they remain indicative for fleet. Record the battle evidence (line-up, capital-ship stars, slots used, banner breakdown screenshot) before changing `scoring.json` or relying on fleet values for per-battle tactical advice.
+Until a real GAC fleet battle (or a current official source) settles them, treat these as unknown: the scoring member count by capital / starting / reinforcement slot; which empty slots earn `UNUSED_SLOT` (locked vs available reinforcements, starting slots); and whether a reduced fleet's maximum is reachable. The 73 / 79 figures are **theoretical ceilings only**. Points-to-win and the whole-board ceiling use the full-clean-clear best case, so they remain indicative for fleet, and the Last Battle advisor gives no per-ship or empty-slot fleet guidance (its `FLEET_SCORING_VALIDATED` switch stays off). Record the battle evidence (line-up, capital-ship stars, slots used, banner breakdown screenshot) before changing `scoring.json` or relying on fleet values for per-battle tactical advice.
 
 ## Future / conditional
 

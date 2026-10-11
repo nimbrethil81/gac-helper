@@ -1366,3 +1366,111 @@ body {
     font-weight: bold;
     line-height: 1.4;
 }
+
+/* ─── ROUND: LAST BATTLE ADVISOR ───────────────────────────────── */
+/* Leads Opponent Board when exactly one defence is left. At-a-glance headline
+   and a few plain-English conditions; the breakdown and counter list sit in a
+   collapsed disclosure so the card never crowds the Round screen. The same
+   disclosure styling carries the lighter "Banners needed" view in Banner
+   Tracking. */
+
+.lastbattle-card {
+    background: var(--panel);
+    border: 1px solid #2b4b6b;
+    border-left: 3px solid var(--s-tier);
+    border-radius: 14px;
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: 0 0 14px rgba(102,187,106,0.18);
+    overflow-wrap: anywhere;
+}
+
+.lastbattle-title {
+    font-size: 13px;
+    font-weight: bold;
+    letter-spacing: 1px;
+    color: var(--s-tier);
+    margin-bottom: 8px;
+}
+
+.lb-target {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.lb-context {
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--muted);
+}
+
+.lb-headline {
+    margin-top: 10px;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.lb-headline.ahead  { color: var(--s-tier); }
+.lb-headline.behind { color: var(--c-tier); }
+
+.lb-support {
+    margin-top: 6px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.lb-conditions,
+.lb-list {
+    margin: 8px 0 0;
+    padding-left: 18px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--text);
+}
+
+.lb-conditions li,
+.lb-list li {
+    margin-top: 4px;
+}
+
+.lb-note {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.lb-muted {
+    color: var(--muted);
+}
+
+.lb-subtitle {
+    margin-top: 10px;
+    font-size: 12px;
+    font-weight: bold;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.lb-details,
+.lb-needed {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #22324a;
+}
+
+.lb-details summary,
+.lb-needed summary {
+    min-height: 32px;
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--jedi-blue);
+    cursor: pointer;
+}

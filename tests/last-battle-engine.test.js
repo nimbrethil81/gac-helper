@@ -174,6 +174,11 @@ test("target arithmetic: any win, needs battle, flawless threshold, tie, impossi
 
     r = advise(run, need(150 + 70));
     assert.equal(r.verdict, "impossible");
+
+    // A loss here would leave a second attempt peaking at 49.
+    assert.equal(advise(run, need(150 + 60)).ceilings.nextAttemptMax, 49);
+    lastOn(run, "3v3", "FRONT_BOTTOM", 0, 1);
+    assert.equal(advise(run, { enemiesRemaining: 3 }).ceilings.nextAttemptMax, 29);
 });
 
 test("already met, covered by the clear bonus, and current vs final opponent score", () => {

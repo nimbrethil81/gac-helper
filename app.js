@@ -1060,7 +1060,7 @@ function calculatedOpponentRemaining() {
     return remainingBannersForBoard(myBoard, { firstAttackAvailable: isOpponentFirstAttackAvailable() });
 }
 
-// ─── LAST BATTLE ENGINE (v3.7) ────────────────────────────────────────────────
+// ─── LAST BATTLE ENGINE ───────────────────────────────────────────────────────
 // When exactly one uncleared defence remains on Opponent Board, turn "points to
 // win" into the battle banners that final battle must bank, and — where the
 // scoring is validated — the end-of-battle conditions that bank them.
@@ -1085,7 +1085,8 @@ function calculatedOpponentRemaining() {
 //   battleTarget          battle banners still needed after those bonuses (≥ 0)
 //   verdict       "alreadyAhead" | "coveredByClear" | "anyWin" | "needsBattle"
 //                 | "uncertain" | "impossible"; aheadOf "final" | "current" | null
-//   ceilings      { minWin, fullSquad, max } per-battle; each { low, high }
+//   ceilings      { minWin, fullSquad, max } per-battle, each { low, high };
+//                 nextAttemptMax — best possible if this battle is lost
 //   formations    [{ fielded, emptySlots, maxLow, maxHigh, allowanceLow,
 //                    allowanceHigh, unitsCanLose, flawlessRequired, meets,
 //                    mathematicalOnly }]  — squad only
@@ -1320,6 +1321,9 @@ function lastBattleAdvice(input) {
         low: Math.max(...formations.map(f => f.maxLow)),
         high: Math.max(...formations.map(f => f.maxHigh))
     };
+    // If this battle is lost, the best the next attempt could bank (optimistic:
+    // no enemy assumed already defeated beyond what is known now).
+    const nextAttemptMax = Math.max(...counts.map(f => formationMax(rules, attempts + 1, f, enemyHigh)));
 
     let verdict;
     // Already past their entered score: say whether that is their final or only
@@ -1350,7 +1354,7 @@ function lastBattleAdvice(input) {
         const shift = attemptBonusFor(rules, attempts) - firstBonus;
         const expected = hasScore ? banner + shift : null;
         return {
-            counterId: c.counterId, tier: c.tier || "", available: c.available !== false,
+            counterId: c.counterId, name: c.name || c.counterId, tier: c.tier || "", available: c.available !== false,
             bannerScore: hasScore ? banner : null, undersize: drop,
             expected, documentedDrop,
             expectedWithDrop: hasScore ? banner + shift + documentedDrop : null,
@@ -1362,7 +1366,7 @@ function lastBattleAdvice(input) {
     return Object.assign(base, {
         status: "ready", confidence, reasons, needsInput,
         bonusesOnClear, battleTarget, verdict, aheadOf,
-        ceilings: { minWin, fullSquad: { low: fullLow, high: fullHigh }, max },
+        ceilings: { minWin, fullSquad: { low: fullLow, high: fullHigh }, max, nextAttemptMax },
         formations, counters,
         unitCost: rules.unitCost, enemyUnits: rules.enemyUnits, ownUnits: rules.ownUnits,
         enemiesDefeated: { low: enemyLow, high: enemyHigh }
@@ -1382,7 +1386,7 @@ function currentLastBattleAdvice(extra) {
             seen.add(c.counterId);
             return true;
         }).map(c => ({
-            counterId: c.counterId, tier: c.tier, bannerScore: c.bannerScore, undersize: c.undersize,
+            counterId: c.counterId, name: c.counter, tier: c.tier, bannerScore: c.bannerScore, undersize: c.undersize,
             available: getCounterStatus(c.counterId) === "available"
         }));
     }
@@ -3146,7 +3150,9 @@ function renderBoard() {
     const territories = board.territories.map(t => renderTerritory(t, board, "opponent")).join("");
     // Next Up sits at the very top of the board so it is the first thing seen
     // on entering the Round screen mid-match.
-    return renderNextUp() + header + pendingUndoHtml + overlapBanner + territories;
+    // The Last Battle advisor, when it applies, leads the board: it is the one
+    // decision left on it.
+    return renderLastBattle() + renderNextUp() + header + pendingUndoHtml + overlapBanner + territories;
 }
 
 function renderMyBoard() {
@@ -3350,6 +3356,244 @@ function renderNextUpRow(pick, isFleet) {
     </div>
     <div class="nextup-reason">${pick.reason}</div>${undersizeLine}${openerNote}${warningLine}
 </button>
+`;
+}
+
+// ─── LAST BATTLE ADVISOR ──────────────────────────────────────────────────────
+// Round Mode presentation of the Last Battle engine. It appears automatically at
+// the top of Opponent Board when exactly one defence there is uncleared, and is
+// rebuilt on every render plus in place while a score is typed (see
+// recomputeBannerReadouts), so it never holds stale advice. Only the disclosure's
+// open state is kept, in memory; nothing about the advisor is persisted.
+let lastBattleDetailsOpen = false;
+
+function signed(n) {
+    return n > 0 ? `+${n}` : `${n}`;
+}
+
+function rangeText(low, high) {
+    return low === high ? `${low}` : `${low}–${high}`;
+}
+
+function plural(n, word) {
+    return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function lastBattleTargetLabel(adv) {
+    const t = adv.target;
+    const name = !t.name ? "Defence not picked yet"
+        : t.name === NOT_IN_CATALOGUE ? (t.customName || "Not in catalogue")
+        : t.name;
+    return `${TERRITORY_LABELS[t.territory] || t.territory} · ${escapeHtml(name)}`;
+}
+
+// The headline and its supporting line, by verdict. Every phrase names whether
+// the opponent's score is final or current; nothing claims the round is won
+// unless their score is final and already passed.
+function lastBattleHeadline(adv) {
+    const basis = adv.scores.oppFinal ? "their final score" : "their current score";
+    const b = adv.bonusesOnClear;
+    const clearParts = [`territory clear ${b.territoryClear}`];
+    if (b.firstAttack) clearParts.push(`first attack ${b.firstAttack}`);
+    const clearText = `${b.total} from clearing (${clearParts.join(" + ")})`;
+    const need = adv.targetToBeatCurrent;
+    const bt = adv.battleTarget;
+    const max = rangeText(adv.ceilings.max.low, adv.ceilings.max.high);
+
+    switch (adv.verdict) {
+        case "alreadyAhead": {
+            const lead = adv.scores.my - adv.scores.opp;
+            return adv.aheadOf === "final"
+                ? { cls: "ahead", head: `Ahead of their final score by ${lead}`, support: "You finish ahead whatever this battle does." }
+                : { cls: "ahead", head: `Ahead of their current score by ${lead}`, support: "Their score is not marked final and may still rise. Clearing this defence would add " + b.total + "." };
+        }
+        case "coveredByClear":
+            return { cls: "ahead", head: "Any win passes " + basis,
+                support: `You need ${need}; ${clearText} covers it on its own.` };
+        case "anyWin":
+            return { cls: "ahead", head: "Any win passes " + basis,
+                support: `You need ${need} = ${clearText} + ${bt} from the battle. Even a scrappy win banks at least ${rangeText(adv.ceilings.minWin.low, adv.ceilings.minWin.high)}.` };
+        case "impossible":
+            return { cls: "behind", head: `Can't pass ${basis}`,
+                support: `You need ${need} = ${clearText} + ${bt} from the battle, but the best this battle can bank is ${max}.` };
+        default:
+            return { cls: adv.verdict === "uncertain" ? "behind" : "",
+                head: `Need ${bt} battle banners`,
+                support: `To pass ${basis}: ${need} = ${clearText} + ${bt} from the battle. Best possible: ${max}.` };
+    }
+}
+
+// Plain-English conditions for the battle, only where the maths supports them.
+function lastBattleConditions(adv, assigned) {
+    const lines = [];
+    const fleet = adv.target.battleType === "FLEET";
+    const needsPlay = adv.verdict === "needsBattle" || adv.verdict === "uncertain";
+
+    if (adv.verdict === "impossible" || adv.verdict === "alreadyAhead") return lines;
+
+    if (fleet) {
+        lines.push(`Can't calculate precise Fleet conditions yet — capital ship, starting-ship and reinforcement slot scoring is unvalidated. Indicative full-fleet ceiling: ${rangeText(adv.ceilings.fullSquad.low, adv.ceilings.fullSquad.high)}. Don't leave slots empty for bonus banners on this basis.`);
+    }
+
+    if (needsPlay) {
+        const full = adv.formations[0];
+        if (fleet) {
+            // Per-ship loss, health and protection allowances depend on the
+            // unvalidated fleet slot scoring, so only the attempt note applies.
+            if (full.meets === "no") lines.push(`Even the indicative full-fleet ceiling (${full.maxHigh}) is ${adv.battleTarget - full.maxHigh} short.`);
+        } else
+        if (full.meets === "no") {
+            lines.push(`A full squad tops out at ${full.maxHigh} — ${adv.battleTarget - full.maxHigh} short.`);
+        } else if (full.flawlessRequired) {
+            lines.push("Full squad: it must be flawless — every unit alive at full health and protection.");
+        } else if (full.meets === "yes") {
+            const slack = full.allowanceLow;
+            lines.push(full.unitsCanLose > 0
+                ? `Full squad: you can afford to lose ${slack} banner${slack === 1 ? "" : "s"} — up to ${plural(full.unitsCanLose, "unit")} (${adv.unitCost} each) or ${slack} missing health/protection bonuses.`
+                : `Full squad: keep all ${full.fielded} units alive; you can afford ${slack} missing health/protection bonus${slack === 1 ? "" : "es"}.`);
+        } else {
+            lines.push(`Full squad: reachable only if earlier battles left few enemies defeated — between ${full.maxLow} and ${full.maxHigh}.`);
+        }
+
+        // Undersize: show the smallest drop that adds what the full squad lacks,
+        // and whether any available catalogued counter documents it as safe.
+        if (!fleet && (full.meets !== "yes" || full.flawlessRequired)) {
+            const better = adv.formations.find(f => f.mathematicalOnly && f.meets === "yes" && !f.flawlessRequired)
+                || adv.formations.find(f => f.mathematicalOnly && f.meets === "yes");
+            if (better) {
+                const backed = (adv.counters || []).filter(c => c.available && c.documentedDrop >= better.emptySlots);
+                const support = backed.length
+                    ? `Documented as safe to drop ${better.emptySlots}: ${backed.map(c => escapeHtml(c.name)).join(", ")}.`
+                    : `No available catalogued counter is documented as safe to drop ${better.emptySlots} — unverified.`;
+                lines.push(`Field ${better.fielded}, leave ${plural(better.emptySlots, "slot")} empty: ceiling ${better.maxLow} (${signed(better.emptySlots)}), ${better.flawlessRequired ? "flawless required" : `${better.allowanceLow} to spare`}. ${support}`);
+            }
+        }
+
+        if (adv.target.attemptNumber === 1 || adv.ceilings.nextAttemptMax < adv.battleTarget) {
+            lines.push(adv.ceilings.nextAttemptMax < adv.battleTarget
+                ? `Win this attempt: a loss leaves the next attempt peaking at ${adv.ceilings.nextAttemptMax}.`
+                : `Winning first time matters: a loss drops the ceiling to ${adv.ceilings.nextAttemptMax}.`);
+        }
+    }
+
+    if (assigned && adv.counters) {
+        const pick = adv.counters.find(c => c.counterId === assigned.counterId);
+        if (pick && pick.expected !== null && adv.battleTarget > 0) {
+            lines.push(`Recommended ${escapeHtml(pick.name)}: expected ~${pick.expected} (estimate, not a guarantee) — ${pick.expectedMeets ? "on track" : `${adv.battleTarget - pick.expected} short of the target on a typical clear`}.`);
+        }
+    }
+    return lines;
+}
+
+function lastBattleCounterRows(adv) {
+    if (!adv.target.name || adv.target.name === NOT_IN_CATALOGUE) {
+        return `<div class="lb-note">Pick this defence from the catalogue to see counter options.</div>`;
+    }
+    const avail = (adv.counters || []).filter(c => c.available);
+    if (!avail.length) return `<div class="lb-note">No available catalogued counter for this defence.</div>`;
+    avail.sort((a, b) => tierSortValue(a.tier) - tierSortValue(b.tier) || (b.expected || 0) - (a.expected || 0));
+    return `<ul class="lb-list">${avail.map(c => {
+        const est = c.expected === null ? "no banner estimate"
+            : `~${c.expected}${c.documentedDrop ? ` · drop ${c.documentedDrop} → ~${c.expectedWithDrop}` : ""}`;
+        const meets = c.expected === null || adv.battleTarget === 0 ? ""
+            : (c.expectedMeets ? " ✓" : c.expectedWithDropMeets ? " ✓ if undersized" : " ✗");
+        return `<li><span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier || "?")}</span> ${escapeHtml(c.name)} <span class="lb-muted">${est}${meets}</span></li>`;
+    }).join("")}</ul><div class="lb-note">Estimates are typical clean-clear results, not guarantees.</div>`;
+}
+
+function lastBattleInnerHtml(adv) {
+    if (adv.status === "cannotCalculate") {
+        return `<div class="lb-target">${lastBattleTargetLabel(adv)}</div>
+<div class="lb-headline behind">Cannot calculate precisely</div>
+<div class="lb-support">${escapeHtml(adv.reasons[0].message)}</div>`;
+    }
+    const t = adv.target;
+    const h = lastBattleHeadline(adv);
+    const assigned = roundPlan && roundPlan.assign ? roundPlan.assign[`${t.territory}:${t.index}`] : null;
+    const conditions = lastBattleConditions(adv, assigned);
+    const notes = [];
+    if (!adv.scores.oppFinal && adv.verdict !== "alreadyAhead") notes.push("Against their current score — the target may rise.");
+    if (adv.confidence === "bounded") notes.push(`Battles: ${t.attempts}. Earlier battles may have defeated some enemies, so figures are ranges (${adv.enemiesDefeated.low}–${adv.enemiesDefeated.high} enemy defeats).`);
+
+    const formations = adv.target.battleType === "FLEET" ? "" : `
+    <div class="lb-subtitle">Ceiling by units fielded</div>
+    <ul class="lb-list">${adv.formations.map(f =>
+        `<li>${f.fielded} fielded${f.emptySlots ? ` (${f.emptySlots} empty)` : ""}: up to ${rangeText(f.maxLow, f.maxHigh)}${adv.battleTarget > 0 ? ` · ${f.meets === "yes" ? `${f.allowanceLow} to spare` : f.meets === "maybe" ? "maybe" : "short"}` : ""}${f.mathematicalOnly ? " <span class=\"lb-muted\">(maths only)</span>" : ""}</li>`).join("")}</ul>`;
+
+    return `<div class="lb-target">${lastBattleTargetLabel(adv)}</div>
+<div class="lb-context">${t.formatLabel} · Attempt ${t.attemptNumber}${t.attemptNumber >= 3 ? " (no attempt bonus)" : ""} · ${adv.scores.oppFinal ? "Final" : "Current"} opponent score</div>
+<div class="lb-headline ${h.cls}" aria-live="polite">${h.head}</div>
+<div class="lb-support">${h.support}</div>
+${conditions.length ? `<ul class="lb-conditions">${conditions.map(l => `<li>${l}</li>`).join("")}</ul>` : ""}
+${notes.map(n => `<div class="lb-note">${n}</div>`).join("")}
+<details class="lb-details" ${lastBattleDetailsOpen ? "open" : ""} ontoggle="lastBattleDetailsOpen = this.open">
+    <summary>Breakdown and counter options</summary>
+    ${formations}
+    <div class="lb-subtitle">Available counters</div>
+    ${lastBattleCounterRows(adv)}
+</details>`;
+}
+
+// The spotlight card. Empty unless exactly one Opponent Board defence remains.
+function renderLastBattle() {
+    if (!board) return "";
+    const adv = currentLastBattleAdvice();
+    if (adv.status !== "ready" && adv.status !== "cannotCalculate") return "";
+    return `
+<section class="lastbattle-card" aria-label="Last battle advisor">
+    <div class="lastbattle-title">🏁 LAST BATTLE</div>
+    <div id="lastBattleBody">${lastBattleInnerHtml(adv)}</div>
+</section>
+`;
+}
+
+// Refresh the spotlight in place (score typing) without touching input focus.
+function refreshLastBattleInPlace() {
+    const el = document.getElementById("lastBattleBody");
+    if (!el || !board) return;
+    const adv = currentLastBattleAdvice();
+    if (adv.status === "ready" || adv.status === "cannotCalculate") el.innerHTML = lastBattleInnerHtml(adv);
+}
+
+// Earlier access, inside Banner Tracking: where the remaining banners come from,
+// before the last battle. Points to Win already states the target; this splits
+// the board-calculated ceiling into battles, territory clears and first attack,
+// and never treats any particular battle as the final one.
+function remainingBreakdown(bd, firstAttackAvailable) {
+    const out = { battles: 0, battleCount: 0, clears: 0, clearCount: 0, firstAttack: 0 };
+    bd.territories.forEach(tDef => {
+        const battleType = tDef.type === "FLEET" ? "FLEET" : "SQUAD";
+        const mode = battleType === "FLEET" ? "ANY" : bd.mode;
+        const teams = bd.teams.filter(t => t.territory === tDef.territory);
+        const open = teams.filter(t => !t.cleared);
+        open.forEach(t => { out.battles += battleBestCase(battleType, mode, t.attempts); });
+        out.battleCount += open.length;
+        if (open.length) {
+            out.clears += scoreRule("TERRITORY_CLEAR_BASE", battleType, mode)
+                + teams.length * scoreRule("TERRITORY_CLEAR_PER_TEAM", battleType, mode);
+            out.clearCount++;
+        }
+    });
+    if (firstAttackAvailable) out.firstAttack = scoreRule("FIRST_ATTACK", "ANY", bd.mode);
+    return out;
+}
+
+function renderBannersNeeded() {
+    if (!board) return "";
+    const r = remainingBreakdown(board, isFirstAttackAvailable());
+    if (r.battleCount === 0) return "";
+    const parts = [`${r.battles} from ${plural(r.battleCount, "clean battle")}`,
+        `${r.clears} from ${plural(r.clearCount, "territory clear")}`];
+    if (r.firstAttack) parts.push(`${r.firstAttack} first-attack bonus`);
+    const scope = r.battleCount === 1
+        ? "One defence left: the Last Battle advisor at the top of Opponent Board turns the target into battle banners."
+        : "Exact battle conditions appear in a Last Battle advisor once one defence remains.";
+    return `
+<details class="lb-needed">
+    <summary>Banners needed — where the rest comes from</summary>
+    <div class="lb-support">Calculated from Opponent Board: ${parts.join(" · ")}. Battles assume clean full-squad wins at each defence's next attempt${board.territories.some(t => t.type === "FLEET") ? "; fleet figures are indicative" : ""}.</div>
+    <div class="lb-note">${scope}</div>
+</details>
 `;
 }
 
@@ -3712,6 +3956,7 @@ ${remainingBlock}
     ${oppFinal
         ? `<div class="ptw-caveat">Their score is final; My Board remains recorded but adds no remaining banners.</div>`
         : `<div class="ptw-caveat">Their maximum includes ${oppRem} banners still available against My Board.</div>`}
+    ${renderBannersNeeded()}
 </div>
 
 <div class="cw-readout">
@@ -3813,6 +4058,8 @@ function recomputeBannerReadouts() {
         cwHeadEl.className = "cw-headline " + cw.headlineClass;
     }
     if (cwSuppEl) cwSuppEl.textContent = cw.support;
+
+    refreshLastBattleInPlace();
 }
 
 // ─── ROSTER VIEW ─────────────────────────────────────────────────────────────

@@ -36,6 +36,7 @@ A mobile-first Progressive Web App that helps players make faster, better Grand 
    - 6.10 [Can I Still Win?](#610-can-i-still-win)
    - 6.11 [Battle Order](#611-battle-order)
    - 6.12 [First Attack](#612-first-attack)
+   - 6.13 [Last Battle Advisor](#613-last-battle-advisor)
 7. [Roster Model](#7-roster-model)
 8. [Success Criteria](#8-success-criteria)
 9. [Product Direction](#9-product-direction)
@@ -95,7 +96,7 @@ Hosted on GitHub Pages. The manual `Deploy Pages Live` workflow publishes the ap
 
 * **index.html** — app shell; loads styles and scripts; registers the service worker.
 * **styles.css** — theme, layout, responsive design, component styling.
-* **app.js** — catalogue loading, verification and caching, state management, rendering, counter lookup, used-team tracking, two-sided banner tracking, roster management/import, paired round-board and defence-template persistence, availability calculation, the allocation engine, and the battle-order pass that schedules its output.
+* **app.js** — catalogue loading, verification and caching, state management, rendering, counter lookup, used-team tracking, two-sided banner tracking, roster management/import, paired round-board and defence-template persistence, availability calculation, the allocation engine, the battle-order pass that schedules its output, and the Last Battle advisor.
 * **service-worker.js** — PWA offline shell. It never handles cross-origin requests or requests under `catalogue/`, so `app.js` owns the only catalogue cache.
 * **manifest.json** — PWA metadata.
 
@@ -485,7 +486,7 @@ The two axes combine into four card states, computed by `getCounterStatus()`:
 The Round screen is the live-match workspace, reached from the middle position of the bottom navigation bar, and is the screen shown by default when the app opens. There is no persisted "last screen" — each fresh load starts on Round; the user can navigate to Counters or Roster within the session as normal. It consolidates three related concerns in a single scrolling view:
 
 1. A **round summary card** with the used-team count, defence-filtering status, and the confirmed Reset Round action. It reports the number of canonical units frozen as unavailable. If no saved defence existed for the selected format, it warns that defence availability is not being filtered and, once My Board has at least one team, offers a confirmed **Use My Board as this round's defence** action (see [§6.7](#67-round-boards)); unresolved legacy/custom identities produce a partial-filter warning. Reset clears used teams, banner tracking, Opponent Board and My Board together; saved 5v5/3v3 defence templates are deliberately preserved.
-2. An **Opponent Board / My Board** switch, defaulting to Opponent Board, above the paired current-round boards (see [§6.7](#67-round-boards)). Opponent Board retains allocation and Battle Order; My Board records the opponent's progress against the player's defence.
+2. An **Opponent Board / My Board** switch, defaulting to Opponent Board, above the paired current-round boards (see [§6.7](#67-round-boards)). Opponent Board retains allocation and Battle Order, led by the Last Battle advisor when only one defence remains (see [§6.13](#613-last-battle-advisor)); My Board records the opponent's progress against the player's defence.
 3. **Banner tracking** (see [§6.3](#63-banner-tracking)) beneath the board, and the **points-to-win** verdict it drives (see [§6.9](#69-points-to-win)).
 
 One setup action creates both boards from the same frozen league/format layout. Co-locating their state and scoring lets the two-sided range and outcome verdict draw directly from live board progress.
@@ -580,9 +581,11 @@ This feature answers "how many banners do I still need to win, and can I get the
 
 **Battle best case.** A clean win means every own unit survives at full health and protection and every enemy is defeated. It banks victory, the attempt bonus, one surviving, full-health and full-protection bonus per own unit, and one defeated-enemy bonus per enemy unit. The attempt bonus is chosen from the relevant board team's Battles count (see [§6.7](#67-round-boards)) — the next battle is treated as the first, second, or third-plus attempt accordingly; a third-plus win carries no attempt bonus. Unit counts come from a **two-count model**: how many of the attacker's own units earn per-unit bonuses, and how many defending units are defeated. They are sourced independently from the `OWN_UNITS` / `ENEMY_UNITS` scoring rows (see [§4.1](#41-catalogue-structure)), with in-app fallbacks of 5 (5v5) and 3 (3v3); fleet uses the authored count of 7.
 
-The best case assumes a full squad. A deliberately empty eligible slot earns the unused-slot bonus instead of that unit's three per-unit bonuses — net +1 banner per slot under the current values — but the best case never assumes undersizing; the undersize display surfaces it as advice (see [§6.8](#68-allocation-engine)). Further per-battle undersize optimisation is tracked in [`ROADMAP.md`](../ROADMAP.md).
+The best case assumes a full squad. A deliberately empty eligible slot earns the unused-slot bonus instead of that unit's three per-unit bonuses — net +1 banner per slot under the current values — but the best case never assumes undersizing; the undersize display surfaces it as advice (see [§6.8](#68-allocation-engine)), and the Last Battle advisor weighs it for the final battle (see [§6.13](#613-last-battle-advisor)).
 
 **Verdict.** Points-to-win remains `(opponent current + 1) − own current`: the immediate banners required to move ahead of the live opponent total. It is compared with the player's remaining maximum and recomputes while scores are typed. The adjacent two-sided range and outcome verdict supply the opponent-projection context rather than treating their current score as static.
+
+**Banners needed.** A collapsed **Banners needed** disclosure beneath the verdict splits the board-calculated remaining figure into clean battles, territory clears and any first-attack bonus, and points to the Last Battle advisor. It never treats a particular battle as the final one.
 
 **First-attack bonus.** The walker's `firstAttackAvailable` option is supplied from the derived opening-battle state (see [§6.12](#612-first-attack)), so the one-off bonus is counted while it is still winnable and drops out once spent.
 
@@ -670,6 +673,24 @@ The test is deliberately **live rather than sticky**: correcting a mis-tapped Ba
 The same derived state supplies the first-attack bonus to the banner calculation (see [§6.3](#63-banner-tracking)), so the two can never disagree about whether the opening battle has been fought.
 
 **Display.** The Next Up card retitles to **⚡ FIRST ATTACK** and switches to amber for this one battle, then reverts. A different objective is worth saying plainly rather than silently changing what an identical-looking card means. The row adds a note explaining that the bonus is paid once and to play the battle full squad, plus the risk warning where it applies. The empty states keep the ordinary Next Up title, since with nothing to recommend there is no opener to frame.
+
+### 6.13 Last Battle Advisor
+
+When exactly one Opponent Board defence is uncleared — whatever its territory, squad or fleet, and whether or not an identity was picked — a **🏁 Last Battle** card leads Opponent Board, above Next Up. It turns the score target into the banners that one battle must bank and, where scoring is validated, the end-of-battle conditions that bank them. It is purely advisory: it is derived on every render and never persisted, never changes the board or scores, and never marks a counter used or picks an attacker. It disappears when the board has more or fewer uncleared defences, on My Board, and after Reset Round.
+
+**Target.** `targetToBeat = max(0, opponent + 1 − own)`, so a tie is never a win. Clearing the last defence also banks its territory-clear bonus (base plus per-team for every team in that territory, by format), plus `FIRST_ATTACK` while still genuinely available ([§6.12](#612-first-attack)). These are shown separately and subtracted once to give the **battle target**. They are never assumed to be already in the entered score. The card names the territory, defence, format (5v5 / 3v3 / Fleet), attempt number and whether the opponent score is **final** or only **current**. Against a current score it says the target may rise, and "ahead" is stated as ahead of their current or final score.
+
+**Verdicts.** Ahead already; any win passes (the clear bonus alone covers the target, or the target is within the lowest possible winning score); needs N battle banners; may not be reachable (cleanup ranges); or can't pass even with a perfect battle.
+
+**Conditions.** For squads the card states, only where the maths supports it, how much a full squad can afford to lose: units at the summed per-unit cost, or missing health/protection bonuses. It also says when a flawless full squad is required, or how short a full squad falls. When a full squad cannot comfortably reach the target, it shows the smallest undersized formation with slack, using the net +1 per deliberately empty slot. It names the available catalogued counters whose authored `undersize` covers that drop, or labels the route **unverified** when none does. It never composes a reduced line-up. It says when a loss would leave the next attempt unable to reach the target. The recommended counter's `bannerScore` is shown as an estimate, shifted for the attempt, not a guarantee. A collapsed **Breakdown and counter options** disclosure lists the ceiling by units fielded (undersized rows marked "maths only") and the available catalogued counters with their estimates and documented drops.
+
+**Cleanup attempts.** Battles above zero do not say which enemies earlier battles defeated, so enemy-defeat banners are shown as a range (1 to the full defence) rather than assumed.
+
+**Fleet.** Fleet slot scoring is unvalidated ([`ROADMAP.md`](../ROADMAP.md#real-battle-scoring-validation)). A fleet last battle therefore shows the target, an indicative full-fleet ceiling and the attempt note only. It says precise Fleet conditions can't be calculated yet. It gives no per-ship loss, health/protection or empty-slot guidance, and ignores catalogued fleet `undersize`.
+
+**Cannot calculate.** A missing scoring rule or an invalid score shows **Cannot calculate precisely** with the reason, never a confident zero.
+
+**Refresh.** Score typing updates the card in place without re-rendering the score field, so input focus is kept. The final-score marker, Battles, Cleared, Used + Cleared / Used + Lost, Undo and Reset Round all re-render it. The only UI state kept is whether the disclosure is open, held in memory.
 
 ---
 
