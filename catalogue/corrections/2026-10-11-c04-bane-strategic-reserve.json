@@ -1,0 +1,140 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/66",
+  "baseline": {
+    "commit": "d03c8e7a54c5b31ba8d495ca4e6eea038325dde4",
+    "catalogueVersion": 11,
+    "checksum": "sha256:a303b2167b2ea88d1598b038d34e689c9bdbcd383ccd54264308bce77099f53c"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-11-01-C04",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Mark the BANE and SEE_BANE counters as strategic reserve",
+      "rationale": "Activates the existing Round Mode strategic-reserve behaviour for both counter definitions that consume Darth Bane, so a hidden-zone Round applies the mild one-tier ranking nudge and the 'Consider holding' note to them. Owner-agreed content (Group 4C, issue #37). Data only: the allocation engine and the confirm-before-Mark-used enhancement are not part of this change. Names, required and recommended members and IDs are unchanged. No counter definition currently carries the flag.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/66#issuecomment-6107153129",
+        "decidedAt": "2026-10-11T08:30:00Z",
+        "contentChecksum": "sha256:50d76604ec4dfa71922d5a7a17ba5a36d5aa4cfb2dfe9988e95ba802f98216c7"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/37#issuecomment-6106572010",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #37",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Owner-agreed C04: append strategicReserve: true to the complete BANE and SEE_BANE counter definitions, activating the existing mild Round Mode ranking and hold warning while enemy zones remain hidden, with no change to standalone Counters sort or user selection."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/66",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #66",
+            "publishedOrObservedAt": "2026-10-11",
+            "accessedAt": "2026-10-11",
+            "supports": "Exact before/after rows for BANE and SEE_BANE and the runtime acceptance criteria."
+          }
+        ],
+        "conditions": "Round Mode with at least one hidden opponent zone; no effect on the Counters screen or once the whole board is revealed.",
+        "confidence": "High for the data change (the property is already permitted by the source schema and read by the client); runtime behaviour is covered by the existing strategic-reserve tests.",
+        "limitations": "This does not predict which hidden defence Bane should be saved for. BANE and SEE_BANE both require DARTH_BANE, so they share one unit and cannot both be used."
+      },
+      "affectedReferences": [
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BANE"
+          },
+          "effect": "Gains strategicReserve: true; name, required and recommended members unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "SEE_BANE"
+          },
+          "effect": "Gains strategicReserve: true; name, required and recommended members unchanged."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5"
+          },
+          "effect": "none — checked: 11 BANE and 1 SEE_BANE matchup rows reference these IDs; no matchup row is edited."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3"
+          },
+          "effect": "none — checked: 10 BANE and 1 SEE_BANE matchup rows reference these IDs; no matchup row is edited."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Round Mode only: BANE and SEE_BANE rank one tier weaker while hidden zones remain and show a hold warning; still selectable and markable as used.",
+        "3v3": "Same Round Mode behaviour as 5v5.",
+        "FLEET": "none — checked",
+        "counters": "The two counter definitions gain strategicReserve: true; the Counters-screen order is unchanged.",
+        "roundAvailability": "none — checked (required members unchanged; the two counters still share DARTH_BANE)",
+        "scoring": "none — checked",
+        "strategicReserve": "BANE and SEE_BANE become High reserve; no other definition is flagged."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"BANE\"][\"strategicReserve\"]",
+        "payload[\"counterDefinitions\"][\"SEE_BANE\"][\"strategicReserve\"]"
+      ],
+      "changes": [
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "BANE"
+          },
+          "before": {
+            "id": "BANE",
+            "name": "Bane",
+            "required": [
+              "DARTH_BANE"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "BANE",
+            "name": "Bane",
+            "required": [
+              "DARTH_BANE"
+            ],
+            "recommended": [],
+            "strategicReserve": true
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "id": "SEE_BANE"
+          },
+          "before": {
+            "id": "SEE_BANE",
+            "name": "SEE and Bane",
+            "required": [
+              "SITH_ETERNAL_EMPEROR",
+              "DARTH_BANE"
+            ],
+            "recommended": []
+          },
+          "after": {
+            "id": "SEE_BANE",
+            "name": "SEE and Bane",
+            "required": [
+              "SITH_ETERNAL_EMPEROR",
+              "DARTH_BANE"
+            ],
+            "recommended": [],
+            "strategicReserve": true
+          }
+        }
+      ]
+    }
+  ]
+}
