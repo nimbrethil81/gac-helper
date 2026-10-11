@@ -40,7 +40,7 @@
     {
       "defence": "Leviathan",
       "counters": [
-        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Reinforce Scimitar first" },
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Scimitar-first is lineup-dependent. Confirm capital stars, Darth Revan relics, enemy starters and reinforcement order; TIE Reaper variants need their own mirror plan." },
         { "counterId": "EXECUTOR", "tier": "C", "bannerScore": 57, "undersize": 1 },
         { "counterId": "PROFUNDITY", "tier": "C", "bannerScore": 57, "undersize": 1 }
       ]

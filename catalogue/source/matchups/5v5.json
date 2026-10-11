@@ -130,7 +130,7 @@
     {
       "defence": "GAS",
       "counters": [
-        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0 }
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Standard lineup: CLS / Han Solo / Chewbacca / Threepio & Chewie, with C-3PO as a recommended fifth. Check the chosen fifth unit, relics, mods and active datacrons before committing." }
       ]
     },
     {
@@ -174,7 +174,7 @@
       "counters": [
         { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "LEIA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
-        { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
+        { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Datacron-sensitive: confirm the exact Great Mothers squad and current Gungan datacron before committing; this is not an unconditional preferred counter." },
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "PHOENIX", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3 }
@@ -227,7 +227,7 @@
       "counters": [
         { "counterId": "SEE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
         { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0 }
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Conditional: confirm a Traya / Nihilus / Savage core, Traya and Savage GAC omicrons, relics and an appropriate active datacron against the exact Jocasta Nu variant. Do not assume a clean full-banner clear." }
       ]
     },
     {
@@ -341,7 +341,7 @@
     {
       "defence": "Rey (GL)",
       "counters": [
-        { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Standard" },
+        { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Use a full squad with no Galactic Legend allies that activates Starkiller's unique and GAC omicron: Palpatine, Mara Jade (The Emperor's Hand), Starkiller, one Jedi and one Light Side Unaligned Force User. Check the exact Rey allies and active datacrons." },
         { "counterId": "BANE", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Efficient" },
         { "counterId": "JML", "tier": "C", "bannerScore": 63, "undersize": 0, "notes": "Standard" },
         { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
