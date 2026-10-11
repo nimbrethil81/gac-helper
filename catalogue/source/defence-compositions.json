@@ -4,6 +4,7 @@
     { "defence": "CT-7567 Rex", "mode": "3v3", "units": ["CT_7567_REX", "CT_5555_FIVES", "CAPTAIN_REX"] },
     { "defence": "Cassian Andor (Undercover)", "mode": "5v5", "units": ["CASSIAN_ANDOR_UNDERCOVER", "VEL_SARTHA", "CINTA_KAZ", "KLEYA_MARKI", "LUTHEN_RAEL"] },
     { "defence": "Chief Chirpa", "mode": "3v3", "units": ["CHIEF_CHIRPA", "PRINCESS_KNEESAA", "LOGRAY"] },
+    { "defence": "Chief Chirpa", "mode": "5v5", "units": ["CHIEF_CHIRPA", "LOGRAY", "PAPLOO", "EWOK_ELDER", "PRINCESS_KNEESAA"] },
     { "defence": "Darth Malgus", "mode": "3v3", "units": ["DARTH_MALGUS", "SITH_MARAUDER", "SITH_EMPIRE_TROOPER"] },
     { "defence": "Emperor Palpatine (Duel's End Vader)", "mode": "5v5", "units": ["EMPEROR_PALPATINE", "DARTH_VADER_DUALS_END", "MARA_JADE", "GRAND_MOFF_TARKIN"] },
     { "defence": "Enoch", "mode": "3v3", "units": ["CAPTAIN_ENOCH", "NIGHT_TROOPER", "DEATH_TROOPER_PERIDEA"] },
