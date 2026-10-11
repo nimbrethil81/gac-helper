@@ -168,7 +168,7 @@ test("an invalid unit ID is rejected", () => {
 });
 
 test("an out-of-range score is rejected against the mode's scoring ceiling", () => {
-  // docs/SCORING_REFERENCE.md: 57 (3v3), 65 (5v5), 73 (fleet).
+  // tests/scoring-rules.test.js: 57 (3v3), 65 (5v5), 73 (fleet).
   expectRejected(baseDocument({ operations: [matchupUpdate({ bannerScore: 66 })] }), "RANGE");
   assert.doesNotThrow(() => validateChange(baseDocument({ operations: [matchupUpdate({ bannerScore: 65 })] })));
 

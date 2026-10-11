@@ -8,11 +8,11 @@ Read the documentation relevant to the task:
 
 - `docs/SPEC.md` — authoritative **current system**: architecture, data model, API, persistence, behaviour and current design decisions.
 - `ROADMAP.md` — **future work only**: planned, candidate, deferred, research and conditional items.
-- `docs/SCORING_REFERENCE.md` — authoritative **scoring maths and scoring-data authoring guidance**.
+- `docs/CATALOGUE_SOURCE.md` — catalogue authoring procedure, including **scoring-data authoring guidance** (`bannerScore`, `undersize`, scoring rows).
 - `README.md` — project entry point and headline capabilities only.
 
 For any change to existing behaviour, read `docs/SPEC.md` first.  
-For scoring work, also read `docs/SCORING_REFERENCE.md`.  
+For scoring work, also read the scoring sections of `docs/SPEC.md` and `docs/CATALOGUE_SOURCE.md`. Scoring authority is split: `catalogue/source/scoring.json` owns the constants, `app.js` owns the calculations, `tests/scoring-rules.test.js` pins the expected results, and `ROADMAP.md` tracks unresolved real-battle validation.  
 For proposed features, check `ROADMAP.md`.
 
 ## Documentation rules
@@ -25,7 +25,7 @@ In particular:
 
 - SPEC describes **how the shipped system works now**, not release history or future plans.
 - ROADMAP describes **future work**, not shipped functionality.
-- SCORING_REFERENCE owns **scoring maths and authoring guidance**, not general app behaviour.
+- Scoring values live in `scoring.json` and expected results live in tests; documents explain them, they do not restate tables of values.
 - README stays a **brief entry point**.
 
 When roadmap work ships, remove it from ROADMAP and describe the resulting behaviour in SPEC.
@@ -60,7 +60,7 @@ Review the diff and verify:
 
 1. The change is limited to the requested scope.
 2. Current behaviour still matches `docs/SPEC.md`, updating it if necessary.
-3. Scoring changes are reflected in `docs/SCORING_REFERENCE.md` where necessary.
+3. Scoring changes are reflected in `scoring.json`, the scoring regression tests and, where behaviour or authoring guidance changes, `docs/SPEC.md` / `docs/CATALOGUE_SOURCE.md`.
 4. Future work is reflected in `ROADMAP.md`, not SPEC.
 5. README is updated only if headline capabilities or documentation navigation changed.
 6. No information has been unnecessarily duplicated across documents.

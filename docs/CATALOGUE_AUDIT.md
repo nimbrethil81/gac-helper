@@ -1,6 +1,6 @@
 # Catalogue integrity and parity audit
 
-**Scope.** How to run the read-only catalogue audit (issue #34), what its findings mean and where its limits are. It is the gate for the Git-native catalogue import ([`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md), #41), and the same rules validate the compiled Git source during the [fortnightly counter review](CATALOGUE_SOURCE.md#fortnightly-counter-review). Shipped app behaviour belongs in [`SPEC.md`](SPEC.md); scoring constants belong in [`SCORING_REFERENCE.md`](SCORING_REFERENCE.md). The individual rules, severities and runtime-effect wording live in `RULES` in `scripts/catalogue-audit-lib.js` and are printed in every report's legend; they are not restated here.
+**Scope.** How to run the read-only catalogue audit (issue #34), what its findings mean and where its limits are. It is the gate for the Git-native catalogue import ([`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md), #41), and the same rules validate the compiled Git source during the [fortnightly counter review](CATALOGUE_SOURCE.md#fortnightly-counter-review). Shipped app behaviour belongs in [`SPEC.md`](SPEC.md); scoring constants belong in `catalogue/source/scoring.json` ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#scoring-data-authoring)). The individual rules, severities and runtime-effect wording live in `RULES` in `scripts/catalogue-audit-lib.js` and are printed in every report's legend; they are not restated here.
 
 **Update this document when** the audit's input routes, commands, severity model or known limitations change, or a new baseline snapshot replaces the current one.
 
@@ -79,4 +79,4 @@ Older ARCH-103 CSV exports (`data/exports/*`) are also accepted, with the limita
 - **Parity mirrors the repository `Code.gs`.** A mismatch cannot say whether the Sheet changed between captures or the deployed Apps Script differs from the repository. A lock-step test fails whenever the `Code.gs` data path changes without the emulator being reviewed.
 - **Alias detection is deliberately narrow.** Other misspellings appear only as `DEFENCE_ONLY_IDENTITY` (info).
 - **Runtime-effect text describes current `app.js`** lookups (exact mode key, then `ANY`; board options from `counters[mode]`). Revisit it when those lookups change.
-- **Scoring constants** (full-squad banner ceilings and unit counts) mirror `SCORING_REFERENCE.md` in `scripts/catalogue-audit-lib.js`; change both together.
+- **Scoring constants** (full-squad banner ceilings and unit counts) in `scripts/catalogue-audit-lib.js` mirror the clean full-squad ceilings that `scoring.json` produces and `tests/scoring-rules.test.js` pins; change them together.

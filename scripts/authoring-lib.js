@@ -56,7 +56,7 @@ const IDENTITY_REASONS = Object.freeze([
 ]);
 const ACTOR_ORIGINS = Object.freeze(["HUMAN", "AUTOMATION"]);
 
-// Full-squad, first-attempt, clean-clear ceilings from docs/SCORING_REFERENCE.md.
+// Full-squad, first-attempt, clean-clear ceilings, as pinned by tests/scoring-rules.test.js.
 // banner_score carries no undersize or attempt adjustment, so the ceiling is the
 // flawless full-squad total for the mode.
 const BANNER_CEILING = Object.freeze({ "3V3": 57, "5V5": 65, FLEET: 73 });

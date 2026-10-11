@@ -1,6 +1,6 @@
 # SWGOH GAC Helper — Roadmap
 
-**Scope.** This document contains forward-looking product ideas and planned work only. It must not document functionality that has already shipped, current system behaviour in detail, release history, or scoring methodology. Current system behaviour belongs in `docs/SPEC.md`; release history is retrievable from Git history and GitHub work records; scoring authoring guidance belongs in `docs/SCORING_REFERENCE.md`.
+**Scope.** This document contains forward-looking product ideas and planned work only. It must not document functionality that has already shipped, current system behaviour in detail, release history, or scoring methodology. Current system behaviour belongs in `docs/SPEC.md`; release history is retrievable from Git history and GitHub work records; scoring-data authoring guidance belongs in `docs/CATALOGUE_SOURCE.md`.
 
 **Update this document when** future work is added, reprioritised, deferred, abandoned, or ships. Items may be **Planned**, **Candidate**, **Deferred**, **Research**, or **Future / conditional**. When an item ships, remove it from this roadmap: document the resulting current behaviour in `docs/SPEC.md`.
 
@@ -10,7 +10,7 @@
 
 *Planned*
 
-The current allocation engine can choose undersized counters when they bank more; the remaining piece is a per-battle "field exactly N units for maximum banners" recommendation that accounts for what the player can safely win with in a *specific* battle, rather than the per-counter safe-drop count the catalogue holds today. The banner arithmetic is settled (the wiki fleet ladder confirms +1 per unit dropped end to end); what remains is a per-situation winnability judgement finer than the single `Undersize` number per counter — likely dependent on opponent-roster or outcome data the app does not yet hold.
+The current allocation engine can choose undersized counters when they bank more; the remaining piece is a per-battle "field exactly N units for maximum banners" recommendation that accounts for what the player can safely win with in a *specific* battle, rather than the per-counter safe-drop count the catalogue holds today. The squad banner arithmetic is settled (net +1 per deliberately empty slot); fleet slot eligibility is not (see [Real-battle scoring validation](#real-battle-scoring-validation)). What remains is a per-situation winnability judgement finer than the single `Undersize` number per counter — likely dependent on opponent-roster or outcome data the app does not yet hold.
 
 ## Candidates
 
@@ -79,9 +79,17 @@ Whether Comlink or any accessible read-only endpoint exposes live GAC board/matc
 
 ### Real-battle scoring validation
 
-*Research*
+*Research — precise Fleet tactical guidance is blocked pending this evidence*
 
-Validate the fleet per-ship and defeated-enemy scoring values against a real GAC battle before relying on them for finer-grained efficiency modelling. The current points-to-win calculation uses the full-clean-clear best case and does not depend on this validation. If the values are confirmed, consider whether a more detailed battle-efficiency calculator is useful.
+Squad scoring is adequately evidenced for precise guidance: the per-battle values, the 5v5 (65 full squad, 69 solo) and 3v3 (57 full squad, 59 solo) ceilings and the territory-clear bonuses match the [swgoh.wiki Grand Arena Championships](https://swgoh.wiki/wiki/Grand_Arena_Championships) banner tables (page last edited 13 April 2025, accessed 11 October 2026), and an EA community manager confirmed 69 as the 5v5 solo maximum ([devtrackers.gg, 2021](https://devtrackers.gg/swgoh/p/1f896cbc-new-gac-attack-points-scoring-incorrect-in-game)). These are pinned in `tests/scoring-rules.test.js`.
+
+Fleet is not. The wiki's Fleet table counts **7** scoring members (73 full, 79 solo), which the authored `OWN_UNITS` / `ENEMY_UNITS` = 7 rows mirror, but the evidence conflicts on what those 7 are:
+
+- A fleet line-up is a capital ship, starting ships and reinforcements, and reinforcement capacity depends on the capital ship's star level ([devtrackers.gg, 2020](https://devtrackers.gg/swgoh/p/64267b90-players-can-set-extra-reinforcements-in-fleet-battles-in-grand-arena): 4 reinforcements with a 5★ capital ship in Grand Arena). Whether the maximum line-up is 7 or 8 ships, and whether the capital ship is one of the 7 scoring members, is unconfirmed.
+- An EA support reply (2020-era forum thread, seen only as a search excerpt; the page returned 403) says a locked reinforcement slot earns **no** unused-slot banners, and the same thread quotes an older 72-point fleet maximum that predates the defeated-enemy bonus.
+- The 2021 community-manager confirmation covers squads only; the post explicitly left fleet unused reinforcements and the capital ship unresolved.
+
+Until a real GAC fleet battle (or a current official source) settles them, treat these as unknown: the scoring member count by capital / starting / reinforcement slot; which empty slots earn `UNUSED_SLOT` (locked vs available reinforcements, starting slots); and whether a reduced fleet's maximum is reachable. The 73 / 79 figures are **theoretical ceilings only**. Points-to-win and the whole-board ceiling use the full-clean-clear best case, so they remain indicative for fleet. Record the battle evidence (line-up, capital-ship stars, slots used, banner breakdown screenshot) before changing `scoring.json` or relying on fleet values for per-battle tactical advice.
 
 ## Future / conditional
 
