@@ -8,7 +8,7 @@
 
 ## 0. Current position
 
-GAC Helper is a single-user hobby PWA. Its canonical counter catalogue is authored in Google Sheets and served through Google Apps Script.
+GAC Helper is a single-user hobby PWA. Its canonical counter catalogue is the version-controlled Git-native source served as a static Pages release (see the ADR-ARCH-116 note above and [§5.1](#51-accepted-catalogue-target--git-native-static-catalogue)); the Google Sheet and Apps Script `action=data` are frozen rollback material. The Sheet-based description in §0–§4 is historical context.
 
 Application source, tests, documentation, Apps Script and paused future-architecture assets now live in a single public repository: `nimbrethil81/gac-helper`.
 
@@ -56,9 +56,9 @@ The current architecture optimises for:
 
 ### 2.1 Canonical catalogue and human authoring
 
-Google Sheets remains the canonical catalogue and the day-to-day human authoring workbench.
+*Superseded by ADR-ARCH-116 (see §5.1): the Sheet is no longer canonical and Apps Script `action=data` is no longer used by the app.* Historically, Google Sheets was the canonical catalogue and authoring workbench.
 
-Google Apps Script remains responsible for:
+Google Apps Script was responsible for:
 
 - `action=data` — builds and serves the catalogue/configuration payload consumed by the PWA;
 - `action=roster` — proxies the roster request to Comlink.
