@@ -741,10 +741,10 @@ test("board picker includes mode-specific defences without matchups and commits 
         { territory: "FRONT_TOP", type: "SQUAD" },
         { territory: "FRONT_TOP", index: 0, name: "", attempts: 0, cleared: false },
         { mode: "5v5" }, "my")`);
-    assert.match(row, /<option value="Chief Chirpa">Chief Chirpa<\/option>/);
-    assert.equal((row.match(/<option value="Chief Chirpa">/g) || []).length, 1);
-    assert.doesNotMatch(row, /<option value="Three Only">|<option value="Executor">/);
-    assert.match(row, /<option value="Countered Team">/);
+    assert.match(row, /<option value="Chief Chirpa"\s*>Chief Chirpa<\/option>/);
+    assert.equal((row.match(/<option value="Chief Chirpa"\s*>/g) || []).length, 1);
+    assert.doesNotMatch(row, /<option value="Three Only"|<option value="Executor"/);
+    assert.match(row, /<option value="Countered Team"\s*>/);
 
     const five = h.run(`captureDefenceSnapshot("5v5", ${JSON.stringify(defenceTemplate("5v5", "Chief Chirpa"))})`);
     assert.equal(JSON.stringify(five.characterIds), JSON.stringify(["CHIEF_CHIRPA", "LOGRAY", "PAPLOO", "EWOK_ELDER", "PRINCESS_KNEESAA"]));
