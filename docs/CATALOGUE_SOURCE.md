@@ -1,8 +1,8 @@
 # Git-native catalogue source
 
-**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #35 and #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, fortnightly research/reconciliation, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The live app (v3.6, issue #43) reads the static release; [`SPEC.md`](SPEC.md) describes that runtime.** Apps Script `action=data` and the frozen Sheet are no longer read; they remain only as the cutover rollback route ([Cutover](#cutover)).
+**Scope.** Contributor and operator procedure for the Git-authored catalogue in `catalogue/` (issues #35 and #41–#43, [`ADR-ARCH-116`](decisions/ADR-ARCH-116-git-native-catalogue.md)): layout, fortnightly research/reconciliation, scoring-data authoring, import, compile, release record, corrections, the static release on Pages, the app cutover, and rollback. The schema and payload contracts are owned by ADR-ARCH-116 §4–§7; validation rules and severities are owned by the shared audit ([`CATALOGUE_AUDIT.md`](CATALOGUE_AUDIT.md)). **The live app (v3.6, issue #43) reads the static release; [`SPEC.md`](SPEC.md) describes that runtime.** Apps Script `action=data` and the frozen Sheet are no longer read; they remain only as the cutover rollback route ([Cutover](#cutover)).
 
-**Update this document when** the source layout, review/evidence protocol, commands, correction procedure, release/deployment procedure, budget or migration status changes.
+**Update this document when** the source layout, review/evidence protocol, scoring-data authoring guidance, commands, correction procedure, release/deployment procedure, budget or migration status changes.
 
 ## Layout
 
@@ -230,7 +230,7 @@ For every resolved finding, compare all relevant source rows, not just the initi
 | `defence-teams.json` | exact `defence` + mode | `threat`, notes | Round Battle Order fragility; `ANY` fallback only where explicitly authored |
 | `defence-compositions.json` | exact `defence` + mode | ordered member IDs, including intentionally incomplete sets | My Board/defence snapshot unit commitment and availability |
 
-If a finding changes scoring data or its interpretation, stop and request a separately scoped scoring review against `SCORING_REFERENCE.md`; do not smuggle it into a counter proposal. Check whether an apparently new attacker is merely the same attacking archetype under another name or a lineup variant already represented by a `Counter_ID`. Prefer amending the existing identity when that identity is confirmed; do not add a redundant counter just to repeat a matchup. Cross-file consequences must be one identified change set and must list every dependent row.
+If a finding changes scoring data or its interpretation, stop and request a separately scoped scoring review (see [Scoring data authoring](#scoring-data-authoring)); do not smuggle it into a counter proposal. Check whether an apparently new attacker is merely the same attacking archetype under another name or a lineup variant already represented by a `Counter_ID`. Prefer amending the existing identity when that identity is confirmed; do not add a redundant counter just to repeat a matchup. Cross-file consequences must be one identified change set and must list every dependent row.
 
 ### Proposal contract
 
@@ -305,6 +305,19 @@ Store or post the report where its links and decision history remain reviewable;
 Before handing off, re-read each proposed before row from the recorded commit, confirm all three modes have a recorded coverage result, run the shared release gate without modifying source, and check that the history links any superseded proposal rather than duplicating it. A later source change makes the proposal stale: re-reconcile it against fresh `main` and obtain the owner's content approval for the resulting exact change set before it is applied (#36, simplified by #68).
 
 Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the latest one is the history to check for duplicates. Recurring execution is currently a manual trigger only: no scheduled task is active, and any future schedule needs the owner's chosen day/time and a verified route (issue #37). The first pilot is [`CR-2026-10-10-01`](reviews/CR-2026-10-10-01.md).
+
+## Scoring data authoring
+
+Scoring authority is split, with one home per fact: `catalogue/source/scoring.json` owns the banner constants; `app.js` (`scoreRule`, `battleBestCase`, `remainingBannersForBoard`) owns the arithmetic; `tests/scoring-rules.test.js` pins the expected ceilings and bonus arithmetic; [`SPEC.md`](SPEC.md#69-points-to-win) describes how the app uses them; unresolved real-battle evidence is tracked in [`ROADMAP.md`](../ROADMAP.md#real-battle-scoring-validation). Change a scoring row only through a separately scoped, evidenced scoring change that updates the regression tests in the same pull request — never inside a counter proposal and never on assumption.
+
+**`bannerScore` and `undersize` own non-overlapping parts of a counter's value.**
+
+- `bannerScore` is the expected **full-squad, first-attempt, clean-clear** result. Place it against the meaning ladder for its mode in `catalogue/source/score-meanings.json` (the flawless value at the top of each ladder is that mode's clean full-squad ceiling). It is an estimate of a typical clear, not a guarantee.
+- Never bake attempt state into `bannerScore`: a second- or third-attempt win is worth less, but the app applies that from the board's Battles count at runtime.
+- Never bake undersizing into `bannerScore`. `undersize` is the most units the counter can deliberately leave empty from a full squad **and still win cleanly** (`0` = field the full squad); it must leave at least one unit fielded. Under the current scoring each deliberately empty eligible slot trades the three per-unit bonuses (surviving, full health, full protection) for one unused-slot bonus, a net **+1 banner** in a flawless win, so the app reads `bannerScore + undersize` as the achievable best. Author `undersize` only from evidence that the reduced line-up actually wins; mathematical upside alone is not evidence.
+- Fleet: slot eligibility for unused-slot banners (capital ship, starting ships, locked vs available reinforcements) is not validated. Do not raise a fleet `undersize` on the strength of the unused-slot arithmetic alone.
+
+**Unit-count rows.** `OWN_UNITS` (the attacker's units earning per-unit bonuses) and `ENEMY_UNITS` (enemy units defeated in a clean clear) are separate inputs so the model never assumes the two sides match. Squad formats rely on the app's format fallbacks (5 for 5v5, 3 for 3v3); the authored `FLEET` rows are 7, matching the published 7-member Fleet scoring table. An explicit row overrides the fallback, so any row added must equal the format's real count.
 
 ## Static release on Pages
 

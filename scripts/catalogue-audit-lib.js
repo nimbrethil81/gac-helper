@@ -86,8 +86,9 @@ const SCORING_MODES = Object.freeze(["5v5", "3v3", "ANY"]);
 const RESERVE_TRUE = Object.freeze(["TRUE", "YES", "Y", "1"]);
 const RESERVE_FALSE = Object.freeze(["", "FALSE", "NO", "N", "0"]);
 
-// Owned by docs/SCORING_REFERENCE.md: full-squad first-attempt ceilings and the
-// unit count per format (undersize can drop at most units − 1).
+// Derived from catalogue/source/scoring.json and pinned by tests/scoring-rules.test.js:
+// full-squad first-attempt ceilings and the unit count per format (undersize can
+// drop at most units − 1).
 const BANNER_CEILING = Object.freeze({ "5v5": 65, "3v3": 57, FLEET: 73 });
 const UNIT_COUNT = Object.freeze({ "5v5": 5, "3v3": 3, FLEET: 7 });
 
