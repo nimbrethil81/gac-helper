@@ -108,11 +108,11 @@ There is no server-side catalogue service.
 * **Google Apps Script** — a `doGet` web app. The app calls only `action=roster&allyCode=…`. That action posts the ally code server-side to the Comlink roster provider, normalises the response and returns deduplicated unit base IDs. Keeping the call server-side hides the Comlink endpoint and avoids browser CORS constraints. Apps Script does no `Character_ID` mapping or roster classification. The same deployment still serves the legacy `action=data` catalogue from a frozen Google Sheet. The app does not read it; both are kept unedited only as the route for rolling back the catalogue cutover ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#cutover)).
 * **SWGOH Comlink** — a self-hosted service on Render that talks directly to the game's read-only APIs. Its `/player` response supplies `rosterUnit[].definitionId`; the Apps Script takes the base-ID portion before the rarity suffix and returns that compact list to the client.
 
-The roster path is deliberately thin. Apps Script validates the request and the provider response, then returns the player's owned base IDs and a sync timestamp. All mapping and classification is left to the client. This keeps the payload small, which matters on poor wifi, and keeps the catalogue as the source of truth for the ID mapping.
+Apps Script validates the request and provider response and returns only the owned base IDs and a sync timestamp; all mapping and classification is client-side, so the catalogue stays the source of truth for ID mapping.
 
 ### 3.3 Data Flow
 
-The counter-data flow is **read-only**: the app fetches the static catalogue but never writes back to it. This is a deliberate architectural choice — it keeps the app simple and avoids the authentication, write-API, concurrency, and security overhead that write-back would introduce.
+The counter-data flow is **read-only**: the app fetches the static catalogue and never writes back to it.
 
 Roster import is also read-only. The request path is **PWA → Apps Script → Comlink → game API**; the response returns through Apps Script as a compact list of owned unit base IDs plus a sync timestamp. No roster data is written back to the game or stored anywhere but the device.
 
@@ -161,13 +161,12 @@ The catalogue source under `catalogue/source/` is the **schema source of truth**
 
 These fields own **non-overlapping** parts of a counter's value. Each feeds the allocation engine (see [§6.8](#68-allocation-engine)) at a different level:
 - **`tier`** (`S` / `A` / `B` / `C`) — a **reliability** measure: how consistently the counter wins, as a deliberate authoring judgement. This is the engine's *primary* sort key (safety first).
-  - Tier is defined as reliability rather than efficiency precisely so it does not duplicate `bannerScore`. The coverage → tier → banners ordering only makes sense if they measure different things: how *safely* a counter wins versus how *much* it banks.
-  - Tier stays a hand-authored judgement because reliability depends on skill, investment, mods and RNG. The app holds no data on any of these and cannot compute it.
+  - Tier measures reliability, not efficiency, so it does not duplicate `bannerScore` (how *safely* a counter wins versus how *much* it banks). It is hand-authored because the app holds no data on skill, investment, mods or RNG.
   - Suggested rubric: **S** = wins reliably even at moderate investment or imperfect play; **A** = wins consistently with the right units and reasonable play; **B** = works but is matchup- or RNG-sensitive; **C** = situational, often needs specific conditions.
 - **`bannerScore`** — the expected value of a **full-squad, first-attempt, clean clear**, with any undersize premium removed. It is the engine's *tiebreak within a tier* (value second). It is an authored estimate, not a guaranteed result. Authoring guidance and the per-mode meaning ladder are in [`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#scoring-data-authoring).
 - **`undersize`** — a non-negative integer **droppable-unit count**: the maximum units the counter can drop from a full squad and still win cleanly. `0` means field the full squad. Each unit dropped is worth **+1 banner** over the full clean clear. For squads the engine ranks by the undersize-adjusted score (`bannerScore` + count), the achievable best (see [§6.8](#68-allocation-engine)). For Fleet the count is reinforcement slots left empty, and the +1 depends on those slots being unlocked, so it is shown as a conditional bonus and never added to ranking (see [§6.9](#69-points-to-win)). The client still reads any non-numeric value as `0`.
 
-Tier is the app's reliability axis; the app does not consume a separate reliability field. *Manual-play effort* is a distinct concern, orthogonal to how good a counter is. It is not folded into Tier: it is tracked as potential future work in [`ROADMAP.md`](../ROADMAP.md) and partly served today by the free-text `notes`.
+Tier is the only reliability field. Manual-play effort is not part of Tier (see [`ROADMAP.md`](../ROADMAP.md)); free-text `notes` partly serve it today.
 
 A counter's display name is never authored on a matchup: the compiler resolves it from `counters.json`. Every referenced counter must exist in `counters.json`. A squad matchup may reference only character counters, and a `FLEET` matchup only ship counters. The release gate rejects anything else.
 
@@ -202,11 +201,9 @@ The scoring rules also support the First Attack rule (see [§6.12](#612-first-at
 
 **Defence teams** (`defence-teams.json`) — authored attributes of an **enemy** defence team. Each row is one (defence team, mode) combination, with a `threat` rating and optional free-text `notes`. Mode is `5v5`, `3v3`, `FLEET` or `ANY`; a mode-specific row beats an `ANY` row, mirroring how scoring rules resolve. This is the only file keyed on a defence team rather than a counter. Its key is the **display name** used in the matchup files, which is also the string the opponent board stores. The board, the counter catalogue and this file therefore all agree on one name.
 
-> **Why Threat has to be authored.** Battle Order needs to know how hard a defence team is. Every signal the app could derive that from measures the **data**, not the enemy: how many counters are catalogued, what tiers they carry, what they score.
->
-> A thinly documented easy team would look scarcer than a Galactic Legend with two well-known answers. A Galactic Legend with one excellent S-tier counter would look *easy* by every derived measure, because its difficulty lies in the scarcity of the answer rather than in the fight. `threat` is therefore a hand-authored judgement, exactly as `tier` is, and for the same reason: it encodes signal the app holds no data on. See [§6.11](#611-battle-order).
+`threat` is hand-authored because every derivable signal (counter count, tiers, scores) measures the data rather than the enemy and would misrank, e.g., a Galactic Legend with one excellent counter. See [§6.11](#611-battle-order).
 
-The file is **sparse by design**. A defence team with no row reads as `NORMAL`, so Battle Order works with no ratings at all and improves as ratings are added. The intended pattern is to rate only the teams the automatic ordering gets wrong: in practice, Galactic Legends and any thinly documented easy team. Name-keying has one real fragility: renaming a defence team in a matchup file would silently orphan its rating. The release gate guards against this. A defence-team or defence-composition name that misses every matchup in its mode but nearly matches one is a candidate alias, and it blocks publication until the owner resolves it. Nothing is ever renamed automatically.
+The file is **sparse by design**. A defence team with no row reads as `NORMAL`; rate only teams the automatic ordering gets wrong (in practice Galactic Legends and thinly documented easy teams). Renaming a defence team in a matchup file would silently orphan its rating. The release gate guards against this. A defence-team or defence-composition name that misses every matchup in its mode but nearly matches one is a candidate alias, and it blocks publication until the owner resolves it. Nothing is ever renamed automatically.
 
 **Defence compositions** (`defence-compositions.json`) — optional canonical unit membership for saved My Board identities. Each row is one (defence team, mode) combination with its list of `Character_ID`s. It exists only to turn a saved defence identity into the exact character and ship IDs that must be unavailable on attack. A mode-specific row beats `ANY`.
 
@@ -254,7 +251,7 @@ Stable identifiers are central to the data model. Names can change; IDs must not
 
 **Threat** — enumerated: `EXTREME`, `HIGH`, `NORMAL`, `LOW`. Any other non-blank value fails the release gate; a blank value is only a warning. The client resolves a blank or unrecognised value to `NORMAL`, so bad data falls back to the default rather than sorting to the top of the battle order.
 
-**Defence_Team** — the one identifier in the model that is a **display name rather than a stable ID**. Defence teams have never had an ID. They exist only as the `defence` name in the matchup files, which is also what the opponent board stores. Defence teams and defence compositions (see [§4.1](#41-catalogue-structure)) key on that same string rather than introducing a `Defence_Team_ID`. A second identifier for a concept with no other attributes would cost more in authoring friction than it saves. The trade-off is accepted deliberately, with the release gate's candidate-alias check as the guard.
+**Defence_Team** — the one identifier in the model that is a **display name rather than a stable ID**. Defence teams have never had an ID. They exist only as the `defence` name in the matchup files, which is also what the opponent board stores. Defence teams and defence compositions (see [§4.1](#41-catalogue-structure)) key on that same string; there is no `Defence_Team_ID`, and the release gate's candidate-alias check guards against renames.
 
 ---
 
@@ -591,7 +588,7 @@ The best case assumes a full squad. A deliberately empty eligible slot earns the
 
 **Fleet slot model.** The 7 fleet `OWN_UNITS` are the 3 starting slots and the 4 reinforcement slots; the capital ship earns no per-unit banners. The 4th reinforcement slot is locked unless the attacking capital ship is 7★, and a locked slot earns nothing, so a 5★–6★ capital's full fleet is 6 scoring ships (70 on a first attempt) against 7 (73). Only an empty **unlocked reinforcement slot** is treated as confirmed to earn `UNUSED_SLOT`; an empty starting slot, and an unsummoned reinforcement, are not confirmed to score, so formations that rely on them (the top of the 73–79 ladder) are theoretical. All 7 defending slots — starting ships plus reinforcement slots, including unset, unsummoned or locked ones — count as defeated enemies, and the defending capital ship does not. The evidence for each rule is in [`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#fleet-slot-rules); what remains unconfirmed is tracked in [`ROADMAP.md`](../ROADMAP.md#real-battle-scoring-validation).
 
-**Data caveat.** Points-to-win uses full-clean-clear best cases. Squad ceilings are corroborated by published game scoring tables. Fleet battles are counted at the 7★ full-fleet best case (73 on a first attempt), which overstates a 5★–6★ capital by 3 per battle; the app does not know capital-ship stars outside the Last Battle advisor.
+**Data caveat.** Points-to-win uses full-clean-clear best cases. Squad ceilings are corroborated by published game scoring tables. Fleet battles are counted at the 7★ full-fleet best case (73 on a first attempt), which overstates a 5★–6★ capital by 3 per battle; the app does not know capital-ship stars outside the Last Battle advisor. Fleet precision is therefore a ceiling, not a guarantee: formations relying on empty starting slots or unsummoned reinforcements are unconfirmed, and any change to these rules is tracked in [`ROADMAP.md`](../ROADMAP.md#real-battle-scoring-validation) rather than decided here.
 
 ### 6.10 Can I Still Win?
 
