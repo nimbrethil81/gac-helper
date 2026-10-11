@@ -177,7 +177,7 @@
         { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "PHOENIX", "tier": "A", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3, "notes": "Queen Amidala preferred" }
+        { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3 }
       ]
     },
     {
