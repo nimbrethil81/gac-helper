@@ -37,7 +37,7 @@ When roadmap work ships, remove it from ROADMAP and describe the resulting behav
 1. Create a dedicated branch from current `main`.
 2. Make and validate the scoped changes.
 3. Commit and push the branch.
-4. Open a pull request targeting `main`.
+4. Open a pull request targeting `main`. Once the scoped work is validated, open it without asking for permission: the pull request is the owner's review checkpoint. Opening it does not authorise merging or deployment.
 5. The owner reviews and merges the pull request.
 6. An agent must not merge its own pull request unless the owner explicitly instructs it to do so.
 
