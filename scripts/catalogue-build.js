@@ -12,10 +12,16 @@
 //       Compile source to the seven-key payload and run the shared rule set.
 //   release [--check]
 //       Record (or, with --check, verify) catalogue/release.json.
-//   corrections <list.json> [--preview <id>] [--apply <id>]
+//   corrections <list.json> [--preview <id>] [--apply <id>]...
 //       Check a correction list against the current source. Schema-2 previews
-//       show the complete source/payload diff; apply writes one exact approved
-//       proposal on a fresh branch and never versions or deploys it.
+//       show the complete source/payload diff; apply writes the named approved
+//       proposals (one or a validated group) atomically on a fresh branch and
+//       never versions or deploys them.
+//   corrections <list.json> --record-approval <id> --decision <url> --decided-at <ISO>
+//       Record the owner's decision link and generate the content checksum.
+//   corrections <list.json> --rebaseline
+//       Move the recorded baseline to fresh main when every proposal still
+//       applies with identical content and compiled effect; otherwise escalate.
 //
 // Exit codes: 0 ok, 1 gate/consistency failure, 2 unusable input.
 
@@ -32,11 +38,12 @@ const {
   applyCorrections,
   auditSource,
   compileSource,
-  correctionChecksum,
+  contentChecksum,
   importSnapshot,
   isApplied,
   readCorrections,
   readSource,
+  validateModernCorrections,
   writeSource,
   writeSourceAtomically
 } = require("./catalogue-source-lib.js");
@@ -64,6 +71,10 @@ function parseOptions(argv) {
     else if (arg === "--release-file") options.releaseFile = take();
     else if (arg === "--repo") options.repo = take();
     else if (arg === "--base-ref") options.baseRef = take();
+    else if (arg === "--record-approval") options.recordApproval = take();
+    else if (arg === "--decision") options.decision = take();
+    else if (arg === "--decided-at") options.decidedAt = take();
+    else if (arg === "--rebaseline") options.rebaseline = true;
     else if (arg === "--check") options.check = true;
     else if (arg === "--apply") options.apply.push(take());
     else if (arg === "--preview") options.preview.push(take());
@@ -103,7 +114,7 @@ function previewLines(document, correction, plan) {
     `=== ${correction.id} — ${correction.title} ===`,
     `Decision: ${correction.status}; disposition: ${correction.disposition}`,
     `Baseline: ${document.baseline.commit} / v${document.baseline.catalogueVersion} / ${document.baseline.checksum}`,
-    `Approval checksum: ${correctionChecksum(document, correction)}`,
+    `Content checksum (generated evidence, not an owner sign-off): ${contentChecksum(correction)}`,
     `Approval reference: ${correction.approval?.reference ?? "none — not approved"}`,
     "Source-row preview:"
   ];
@@ -147,6 +158,23 @@ function planModernCorrection(source, current, correction) {
     throw new Error(`${correction.id}: compiled impact differs from expectedPayloadPaths (expected ${JSON.stringify(expectedPaths)}, actual ${JSON.stringify(actualPaths)})`);
   }
   return { next, after, differences, impactDeclared: expectedPaths.length > 0 };
+}
+
+// One atomic result for a group of approved proposals: the combined source must
+// pass the release gate and change exactly the union of the declared paths.
+function planModernGroup(source, current, chosen) {
+  const next = applyCorrections(source, chosen);
+  const after = auditSource(next);
+  if (after.summary.releaseGate !== "PASS") {
+    const failures = after.findings.filter((finding) => finding.severity === "blocking" || finding.severity === "owner-approval");
+    throw new Error(`combined result of ${chosen.map((entry) => entry.id).join(", ")} fails the release gate (${failures.slice(0, 8).map((finding) => `${finding.code} ${finding.subject}`).join("; ")})`);
+  }
+  const actual = diffPayloads(current.payload, after.payload).map((difference) => difference.path).sort();
+  const expected = chosen.flatMap((entry) => entry.expectedPayloadPaths).sort();
+  if (!isDeepStrictEqual(actual, expected)) {
+    throw new Error(`combined compiled impact differs from the approved paths (expected ${JSON.stringify(expected)}, actual ${JSON.stringify(actual)}); a proposal has an unexpected side effect or overlaps another`);
+  }
+  return { next, after };
 }
 
 function verifyModernBaseline(document, sourceDir, releaseFile, options, { applying = false } = {}) {
@@ -295,6 +323,65 @@ function commandRelease(options) {
   return { exitCode: 0, lines: [`release.json: v${catalogueVersion} ${checksum}${current && current.checksum === checksum ? " (unchanged)" : ""}`] };
 }
 
+// Record the owner's explicit decision. The owner supplies a link and date;
+// the content checksum is generated here and is not something to approve.
+function commandRecordApproval(document, file, options) {
+  if (document.schema !== CHANGE_SET_SCHEMA) throw new Error("--record-approval needs a schema-2 change set");
+  const correction = document.corrections.find((entry) => entry.id === options.recordApproval);
+  if (!correction) throw new Error(`No correction ${options.recordApproval} in ${file}`);
+  if (correction.status !== "PENDING_OWNER_APPROVAL") throw new Error(`${correction.id} is ${correction.status}; only a pending proposal can be recorded as approved`);
+  if (!options.decision || !options.decidedAt) throw new Error("--record-approval needs --decision <GitHub comment/review URL> and --decided-at <ISO UTC>");
+  const next = JSON.parse(JSON.stringify(document));
+  const target = next.corrections.find((entry) => entry.id === correction.id);
+  target.status = "APPROVED";
+  target.approval = { reference: options.decision, decidedAt: options.decidedAt, contentChecksum: contentChecksum(target) };
+  validateModernCorrections(next);
+  fs.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`);
+  return { exitCode: 0, lines: [`${correction.id} recorded as APPROVED by ${options.decision}.`, `Generated content checksum: ${target.approval.contentChecksum}`, "Nothing was applied, committed, merged or deployed."] };
+}
+
+// Move the baseline to fresh main without a new owner decision, but only when
+// every proposal still applies with the same content and the same compiled
+// effect. Anything else is a substantive change for the owner to decide.
+function commandRebaseline(document, file, options, repo, sourceDir, releaseFile) {
+  if (document.schema !== CHANGE_SET_SCHEMA) throw new Error("--rebaseline needs a schema-2 change set");
+  const { source, findings } = loadSourceOrThrow(sourceDir);
+  const current = auditSource(source, { readFindings: findings });
+  if (current.summary.releaseGate !== "PASS") throw new Error("current source fails the release gate; refusing to rebaseline");
+  const release = JSON.parse(fs.readFileSync(releaseFile, "utf8"));
+  if (release.schema !== 1 || release.checksum !== current.input.checksum) throw new Error("release.json does not match the compiled source; run the release checks first");
+  const head = git(repo, ["rev-parse", "HEAD"]);
+  const baseRef = options.baseRef ?? "refs/remotes/origin/main";
+  const base = git(repo, ["rev-parse", "--verify", baseRef]);
+  if (head !== base) throw new Error(`HEAD is ${head} but ${baseRef} is ${base}; rebaseline from fresh main`);
+  const fresh = { commit: head, catalogueVersion: release.catalogueVersion, checksum: release.checksum };
+  if (isDeepStrictEqual(fresh, document.baseline)) return { exitCode: 0, lines: ["Baseline already equals fresh main; nothing to do."] };
+  const next = JSON.parse(JSON.stringify(document));
+  next.baseline = fresh;
+  for (const correction of next.corrections) {
+    const decision = `${correction.id} (${correction.title})`;
+    if (isApplied(source, correction)) throw new Error(`OWNER DECISION NEEDED: ${decision} is already in the source on fresh main; remove it from this change set before rebaselining`);
+    try {
+      planModernCorrection(source, current, correction);
+    } catch (error) {
+      throw new Error(`OWNER DECISION NEEDED: ${decision} no longer matches what was approved on fresh main — ${error.message}`);
+    }
+    if (correction.approval && Object.hasOwn(correction.approval, "changeSetChecksum")) {
+      correction.approval = { reference: correction.approval.reference, decidedAt: correction.approval.decidedAt, contentChecksum: contentChecksum(correction) };
+    }
+  }
+  validateModernCorrections(next);
+  fs.writeFileSync(file, `${JSON.stringify(next, null, 2)}\n`);
+  return {
+    exitCode: 0,
+    lines: [
+      `Rebaselined ${next.corrections.length} proposal(s): ${document.baseline.commit.slice(0, 12)} v${document.baseline.catalogueVersion} -> ${fresh.commit.slice(0, 12)} v${fresh.catalogueVersion}.`,
+      "Every before row, approved content, compiled effect and the release gate re-validated unchanged; no new owner decision is needed.",
+      "Nothing was applied, committed, merged or deployed."
+    ]
+  };
+}
+
 function commandCorrections(options) {
   const file = options.positional[0];
   if (!file) throw new Error("corrections needs a correction list file");
@@ -302,21 +389,26 @@ function commandCorrections(options) {
   const repo = path.resolve(options.repo ?? process.cwd());
   const sourceDir = options.source ?? path.join(repo, DEFAULT_SOURCE);
   const releaseFile = options.releaseFile ?? path.join(repo, RELEASE_FILE);
-  if (document.schema === CHANGE_SET_SCHEMA && options.apply.length > 1) throw new Error("apply exactly one approved proposal per reviewed commit");
-  if (document.schema === CHANGE_SET_SCHEMA && options.apply.length === 1) {
-    const correction = document.corrections.find((entry) => entry.id === options.apply[0]);
-    if (!correction) throw new Error(`No correction ${options.apply[0]} in ${file}`);
+  if (options.recordApproval) return commandRecordApproval(document, file, options);
+  if (options.rebaseline) return commandRebaseline(document, file, options, repo, sourceDir, releaseFile);
+  if (new Set(options.apply).size !== options.apply.length) throw new Error("--apply names a proposal more than once");
+  if (document.schema === CHANGE_SET_SCHEMA && options.apply.length > 0) {
+    const group = options.apply.map((id) => {
+      const entry = document.corrections.find((candidate) => candidate.id === id);
+      if (!entry) throw new Error(`No correction ${id} in ${file}`);
+      return entry;
+    });
     const working = loadSourceOrThrow(sourceDir);
-    if (isApplied(working.source, correction)) {
-      if (correction.status !== "APPROVED") throw new Error(`${correction.id} is present in the source but is ${correction.status}, not APPROVED`);
+    if (group.every((entry) => isApplied(working.source, entry))) {
+      for (const entry of group) if (entry.status !== "APPROVED") throw new Error(`${entry.id} is present in the source but is ${entry.status}, not APPROVED`);
       const recorded = sourceAtCommit(repo, document.baseline.commit);
-      if (recorded.findings.length) throw new Error(`${correction.id}: recorded baseline source is unreadable`);
-      const expected = applyCorrections(recorded.source, [correction]);
-      if (!isDeepStrictEqual(working.source, expected)) throw new Error(`${correction.id}: appears applied but the source contains other changes; refusing an ambiguous no-op`);
+      if (recorded.findings.length) throw new Error("recorded baseline source is unreadable");
+      const expected = applyCorrections(recorded.source, group);
+      if (!isDeepStrictEqual(working.source, expected)) throw new Error(`${group.map((entry) => entry.id).join(", ")} appear applied but the source contains other changes; refusing an ambiguous no-op`);
       return {
         exitCode: 0,
         lines: [
-          `${correction.id} [APPROVED] ${correction.title}: already applied; exact idempotent no-op.`,
+          ...group.map((entry) => `${entry.id} [APPROVED] ${entry.title}: already applied; exact idempotent no-op.`),
           "No files were written, and nothing was committed, merged or deployed."
         ]
       };
@@ -364,7 +456,7 @@ function commandCorrections(options) {
       if (!outstanding.includes(correction)) throw new Error(`${id} is already applied`);
       return correction;
     });
-    const next = document.schema === CHANGE_SET_SCHEMA ? plans.get(chosen[0].id).next : applyCorrections(source, chosen);
+    const next = document.schema === CHANGE_SET_SCHEMA ? planModernGroup(source, current, chosen).next : applyCorrections(source, chosen);
     if (document.schema === CHANGE_SET_SCHEMA) writeSourceAtomically(sourceDir, next);
     else writeSource(sourceDir, next);
     lines.push(

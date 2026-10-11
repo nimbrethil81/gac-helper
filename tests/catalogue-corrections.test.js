@@ -12,7 +12,7 @@ const test = require("node:test");
 const { execFileSync } = require("node:child_process");
 
 const { auditSnapshot, diffPayloads, loadSnapshot, payloadChecksum } = require("../scripts/catalogue-audit-lib.js");
-const { applyCorrections, auditSource, compileSource, correctionChecksum, importSnapshot, isApplied, readCorrections, readSource, writeSource } = require("../scripts/catalogue-source-lib.js");
+const { applyCorrections, auditSource, compileSource, contentChecksum, correctionChecksum, importSnapshot, isApplied, readCorrections, readSource, writeSource } = require("../scripts/catalogue-source-lib.js");
 const { run } = require("../scripts/catalogue-build.js");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -62,7 +62,7 @@ function modernDocument(source, baseline, correction, { approved = false } = {})
   const document = { schema: 2, contract: "gac-catalogue-change-set:v1", issue: "https://github.com/nimbrethil81/gac-helper/issues/36", baseline, corrections: [correction] };
   if (approved) {
     correction.status = "APPROVED";
-    correction.approval = { reference: "https://github.com/nimbrethil81/gac-helper/issues/36#issuecomment-123456789", decidedAt: "2099-01-03T12:00:00Z", changeSetChecksum: correctionChecksum(document, correction) };
+    correction.approval = { reference: "https://github.com/nimbrethil81/gac-helper/issues/36#issuecomment-123456789", decidedAt: "2099-01-03T12:00:00Z", contentChecksum: contentChecksum(correction) };
   }
   return document;
 }
@@ -204,7 +204,7 @@ test("schema-2 contract makes add, amend and retire explicit and preserves unrel
   assert.equal(readCorrections(file).contract, "gac-catalogue-change-set:v1");
 });
 
-test("approval is an exact GitHub decision tied to the baseline and diff checksum", (t) => {
+test("approval is an exact GitHub decision tied to a generated content checksum", (t) => {
   const source = committed.source;
   const correction = modernCorrection(source, { change: amendFirstMatchup(source) });
   const baseline = { commit: "b".repeat(40), catalogueVersion: 6, checksum: payloadChecksum(compileSource(source)) };
@@ -212,6 +212,17 @@ test("approval is an exact GitHub decision tied to the baseline and diff checksu
   assert.equal(readCorrections(writeDocument(tempDir(t), document)).corrections[0].status, "APPROVED");
 
   document.corrections[0].changes[0].after.counters[0].notes = "Changed after approval";
+  assert.throws(() => readCorrections(writeDocument(tempDir(t), document)), /content changed after it was approved/);
+});
+
+test("a legacy baseline-bound checksum still verifies and still detects tampering", (t) => {
+  const source = committed.source;
+  const baseline = { commit: "b".repeat(40), catalogueVersion: 6, checksum: payloadChecksum(compileSource(source)) };
+  const document = modernDocument(source, baseline, modernCorrection(source, { change: amendFirstMatchup(source) }), { approved: true });
+  const approval = document.corrections[0].approval;
+  document.corrections[0].approval = { reference: approval.reference, decidedAt: approval.decidedAt, changeSetChecksum: correctionChecksum(document, document.corrections[0]) };
+  readCorrections(writeDocument(tempDir(t), document));
+  document.baseline = { ...baseline, catalogueVersion: 7 };
   assert.throws(() => readCorrections(writeDocument(tempDir(t), document)), /does not approve this exact baseline and diff/);
 });
 
@@ -370,10 +381,10 @@ test("a synthetic post-v6 approved release moves past the migration proof while 
   const first = modernCorrection(source, { change: amendFirstMatchup(source, "Synthetic release one") });
   const file = writeDocument(repo.dir, modernDocument(source, bound, first, { approved: true }));
 
-  // Stale approval: content edited after the owner approved the checksum.
+  // Stale approval: content edited after the owner approved the content.
   const stale = JSON.parse(fs.readFileSync(file, "utf8"));
   stale.corrections[0].changes[0].after.counters[0].notes = "edited after approval";
-  assert.throws(() => readCorrections(writeDocument(repo.dir, stale, "stale.json")), /does not approve this exact baseline and diff/);
+  assert.throws(() => readCorrections(writeDocument(repo.dir, stale, "stale.json")), /content changed after it was approved/);
 
   assert.equal(run(["corrections", file, ...ref, "--apply", first.id]).exitCode, 0);
   // Undeclared source edit: release.json no longer records the compiled source until released.
@@ -411,4 +422,167 @@ test("a synthetic post-v6 approved release moves past the migration proof while 
   assert.equal(run(["corrections", secondFile, ...ref, "--apply", second.id]).exitCode, 0);
   assert.equal(run(["release", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 0);
   assert.equal(JSON.parse(fs.readFileSync(repo.releaseFile, "utf8")).catalogueVersion, repo.release.catalogueVersion + 2);
+});
+
+// ─── #68: one content decision, automated checksum validation ────────────────
+
+function approvedFixture(t, extra = {}) {
+  const repo = fixtureRepo(t);
+  const source = readSource(repo.sourceDir).source;
+  const baseline = { commit: repo.commit, catalogueVersion: repo.release.catalogueVersion, checksum: repo.release.checksum };
+  return { repo, source, baseline, args: (file) => ["corrections", file, "--repo", repo.dir, "--base-ref", "refs/remotes/origin/main"], ...extra };
+}
+
+function secondMatchupChange(source, note = "Second synthetic approved rehearsal") {
+  const rows = source["matchups/5v5.json"].filter((row) => row.counters.length > 1);
+  const before = rows[1];
+  const after = JSON.parse(JSON.stringify(before));
+  after.counters[1].notes = note;
+  return { file: "matchups/5v5.json", operation: "AMEND", stableKey: { mode: "5v5", defence: before.defence }, before, after };
+}
+
+test("record-approval stores the owner's link and generates the checksum itself", (t) => {
+  const f = approvedFixture(t);
+  const correction = modernCorrection(f.source, { change: amendFirstMatchup(f.source) });
+  const file = writeDocument(f.repo.dir, modernDocument(f.source, f.baseline, correction));
+  const link = "https://github.com/nimbrethil81/gac-helper/issues/68#issuecomment-1";
+
+  const missing = run([...f.args(file), "--record-approval", correction.id]);
+  assert.equal(missing.exitCode, 2);
+  assert.match(missing.lines[0], /needs --decision/);
+
+  const recorded = run([...f.args(file), "--record-approval", correction.id, "--decision", link, "--decided-at", "2099-01-03T12:00:00Z"]);
+  assert.equal(recorded.exitCode, 0, recorded.lines.join("\n"));
+  const stored = readCorrections(file).corrections[0];
+  assert.equal(stored.status, "APPROVED");
+  assert.deepEqual(stored.approval, { reference: link, decidedAt: "2099-01-03T12:00:00Z", contentChecksum: contentChecksum(stored) });
+
+  const again = run([...f.args(file), "--record-approval", correction.id, "--decision", link, "--decided-at", "2099-01-03T12:00:00Z"]);
+  assert.match(again.lines[0], /only a pending proposal/);
+  const bad = run([...f.args(file), "--record-approval", "NOPE-ID-01", "--decision", link, "--decided-at", "2099-01-03T12:00:00Z"]);
+  assert.match(bad.lines[0], /No correction/);
+});
+
+test("changing only the baseline revalidates automatically without a new owner decision", (t) => {
+  const f = approvedFixture(t);
+  const correction = modernCorrection(f.source, { change: amendFirstMatchup(f.source) });
+  const file = writeDocument(f.repo.dir, modernDocument(f.source, f.baseline, correction, { approved: true }));
+  const approval = JSON.stringify(readCorrections(file).corrections[0].approval);
+
+  // main moves with an unrelated, non-catalogue commit and an unrelated catalogue change.
+  const other = f.source["matchups/5v5.json"].filter((row) => row.counters.length > 1)[2];
+  const unrelated = JSON.parse(JSON.stringify(f.source));
+  unrelated["matchups/5v5.json"].find((row) => row.defence === other.defence).counters[0].notes = "Unrelated landed change";
+  writeSource(f.repo.sourceDir, unrelated);
+  assert.equal(run(["release", "--source", f.repo.sourceDir, "--release-file", f.repo.releaseFile]).exitCode, 0);
+  git(f.repo.dir, "add", "-A");
+  git(f.repo.dir, "commit", "-q", "-m", "unrelated catalogue change");
+  git(f.repo.dir, "update-ref", "refs/remotes/origin/main", git(f.repo.dir, "rev-parse", "HEAD"));
+
+  const stale = run(f.args(file));
+  assert.equal(stale.exitCode, 2);
+  assert.match(stale.lines[0], /baseline moved|base commit moved/);
+
+  const rebased = run([...f.args(file), "--rebaseline"]);
+  assert.equal(rebased.exitCode, 0, rebased.lines.join("\n"));
+  const after = readCorrections(file);
+  assert.equal(after.baseline.commit, git(f.repo.dir, "rev-parse", "HEAD"));
+  assert.equal(JSON.stringify(after.corrections[0].approval), approval, "the owner's decision and generated checksum are untouched");
+  const applied = run([...f.args(file), "--apply", correction.id]);
+  assert.equal(applied.exitCode, 0, applied.lines.join("\n"));
+  assert.equal(run([...f.args(file), "--rebaseline"]).exitCode, 2, "applied proposals are refused");
+});
+
+test("rebaseline escalates in plain English when the approved rows or effect changed", (t) => {
+  const f = approvedFixture(t);
+  const correction = modernCorrection(f.source, { change: amendFirstMatchup(f.source) });
+  const file = writeDocument(f.repo.dir, modernDocument(f.source, f.baseline, correction, { approved: true }));
+  const before = fs.readFileSync(file, "utf8");
+
+  const edited = JSON.parse(JSON.stringify(f.source));
+  edited["matchups/5v5.json"].find((row) => row.defence === correction.changes[0].stableKey.defence).counters[0].notes = "Someone else edited the same row";
+  writeSource(f.repo.sourceDir, edited);
+  assert.equal(run(["release", "--source", f.repo.sourceDir, "--release-file", f.repo.releaseFile]).exitCode, 0);
+  git(f.repo.dir, "add", "-A");
+  git(f.repo.dir, "commit", "-q", "-m", "conflicting change");
+  git(f.repo.dir, "update-ref", "refs/remotes/origin/main", git(f.repo.dir, "rev-parse", "HEAD"));
+
+  const result = run([...f.args(file), "--rebaseline"]);
+  assert.equal(result.exitCode, 2);
+  assert.match(result.lines[0], /OWNER DECISION NEEDED: .*no longer matches what was approved/);
+  assert.equal(fs.readFileSync(file, "utf8"), before, "the change set is untouched");
+});
+
+test("a tampered approved proposal or a changed expected effect needs a new decision", (t) => {
+  const f = approvedFixture(t);
+  const correction = modernCorrection(f.source, { change: amendFirstMatchup(f.source) });
+  const document = modernDocument(f.source, f.baseline, correction, { approved: true });
+  const tampered = JSON.parse(JSON.stringify(document));
+  tampered.corrections[0].changes[0].after.counters[0].tier = "C";
+  assert.throws(() => readCorrections(writeDocument(f.repo.dir, tampered, "t1.json")), /content changed after it was approved/);
+  const widened = JSON.parse(JSON.stringify(document));
+  widened.corrections[0].expectedPayloadPaths.push('payload["counters"]["5v5"]["Elsewhere"][0]["notes"]');
+  assert.throws(() => readCorrections(writeDocument(f.repo.dir, widened, "t2.json")), /content changed after it was approved/);
+});
+
+test("approved proposals apply as one atomic group without pulling in unapproved ones", (t) => {
+  const f = approvedFixture(t);
+  const one = modernCorrection(f.source, { id: "CR-2099-01-01-P01", change: amendFirstMatchup(f.source) });
+  const two = modernCorrection(f.source, { id: "CR-2099-01-01-P02", change: secondMatchupChange(f.source) });
+  const three = modernCorrection(f.source, { id: "CR-2099-01-01-P03", change: secondMatchupChange(f.source, "Pending only") });
+  three.changes[0].stableKey = { mode: "5v5", defence: f.source["matchups/5v5.json"].filter((row) => row.counters.length > 1)[3].defence };
+  const rowThree = f.source["matchups/5v5.json"].filter((row) => row.counters.length > 1)[3];
+  three.changes[0].before = rowThree;
+  three.changes[0].after = JSON.parse(JSON.stringify(rowThree));
+  three.changes[0].after.counters[0].notes = "Pending only";
+  three.affectedReferences[0].stableKey = three.changes[0].stableKey;
+  three.expectedPayloadPaths = diffPayloads(compileSource(f.source), compileSource(applyCorrections(f.source, [three]))).map((d) => d.path);
+
+  const document = { schema: 2, contract: "gac-catalogue-change-set:v1", issue: "https://github.com/nimbrethil81/gac-helper/issues/68", baseline: f.baseline, corrections: [one, two, three] };
+  for (const entry of [one, two]) {
+    entry.status = "APPROVED";
+    entry.approval = { reference: "https://github.com/nimbrethil81/gac-helper/issues/68#issuecomment-7", decidedAt: "2099-01-03T12:00:00Z", contentChecksum: contentChecksum(entry) };
+  }
+  const file = writeDocument(f.repo.dir, document);
+
+  const withPending = run([...f.args(file), "--apply", one.id, "--apply", three.id]);
+  assert.equal(withPending.exitCode, 2);
+  assert.match(withPending.lines[0], /PENDING_OWNER_APPROVAL; only APPROVED/);
+  assert.deepEqual(readSource(f.repo.sourceDir).source, f.source, "nothing written");
+
+  const dup = run([...f.args(file), "--apply", one.id, "--apply", one.id]);
+  assert.match(dup.lines[0], /more than once/);
+
+  const group = run([...f.args(file), "--apply", one.id, "--apply", two.id]);
+  assert.equal(group.exitCode, 0, group.lines.join("\n"));
+  assert.deepEqual(readSource(f.repo.sourceDir).source, applyCorrections(f.source, [one, two]));
+  assert.ok(!JSON.stringify(readSource(f.repo.sourceDir).source).includes("Pending only"));
+  const again = run([...f.args(file), "--apply", one.id, "--apply", two.id]);
+  assert.equal(again.exitCode, 0, again.lines.join("\n"));
+  assert.match(again.lines.join("\n"), /exact idempotent no-op/);
+});
+
+test("a group is refused whole when a member is already applied or the combined effect is unexpected", (t) => {
+  const f = approvedFixture(t);
+  const one = modernCorrection(f.source, { id: "CR-2099-01-01-P01", change: amendFirstMatchup(f.source) });
+  const two = modernCorrection(f.source, { id: "CR-2099-01-01-P02", change: secondMatchupChange(f.source) });
+  const document = { schema: 2, contract: "gac-catalogue-change-set:v1", issue: "https://github.com/nimbrethil81/gac-helper/issues/68", baseline: f.baseline, corrections: [one, two] };
+  for (const entry of [one, two]) {
+    entry.status = "APPROVED";
+    entry.approval = { reference: "https://github.com/nimbrethil81/gac-helper/issues/68#issuecomment-7", decidedAt: "2099-01-03T12:00:00Z", contentChecksum: contentChecksum(entry) };
+  }
+  const file = writeDocument(f.repo.dir, document);
+  assert.equal(run([...f.args(file), "--apply", one.id]).exitCode, 0);
+  const partial = run([...f.args(file), "--apply", one.id, "--apply", two.id]);
+  assert.equal(partial.exitCode, 2);
+  assert.match(partial.lines[0], /baseline moved|already applied/);
+  assert.deepEqual(readSource(f.repo.sourceDir).source, applyCorrections(f.source, [one]), "the unapplied member was not written either");
+});
+
+test("overlapping corrections in one change set are refused", (t) => {
+  const f = approvedFixture(t);
+  const one = modernCorrection(f.source, { id: "CR-2099-01-01-P01", change: amendFirstMatchup(f.source) });
+  const two = modernCorrection(f.source, { id: "CR-2099-01-01-P02", change: amendFirstMatchup(f.source, "Same row, other note") });
+  const document = { schema: 2, contract: "gac-catalogue-change-set:v1", issue: "https://github.com/nimbrethil81/gac-helper/issues/68", baseline: f.baseline, corrections: [one, two] };
+  assert.throws(() => readCorrections(writeDocument(f.repo.dir, document)), /overlaps/);
 });

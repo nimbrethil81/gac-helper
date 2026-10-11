@@ -25,7 +25,9 @@ npm run catalogue:release                           # record version/checksum (b
 npm run catalogue:release -- --check                # verify release.json (CI)
 npm run catalogue:corrections -- <list.json>        # check every correction applies and what it resolves
 npm run catalogue:corrections -- <list.json> --preview <id>   # complete source + compiled-payload preview
-npm run catalogue:corrections -- <list.json> --apply <id>   # APPROVED corrections only
+npm run catalogue:corrections -- <list.json> --apply <id> [--apply <id>...]   # APPROVED corrections only; several ids = one atomic group
+npm run catalogue:corrections -- <list.json> --record-approval <id> --decision <url> --decided-at <ISO>
+npm run catalogue:corrections -- <list.json> --rebaseline   # revalidate unchanged approved content on fresh main
 npm run catalogue:import -- <snapshot-dir>          # migration import (see below)
 npm run catalogue:ledger                            # releases recorded on main; fails on a reused/decreasing version
 npm run catalogue:site -- --out <dir>               # build and verify the complete Pages artifact (CI, deploy)
@@ -61,13 +63,13 @@ Schema 1 is retained only so the migration corrections remain reproducible. New 
 
 Each document records the proposal issue/PR and an exact baseline `{commit, catalogueVersion, checksum}`. Each proposal records its stable ID, disposition, rationale, evidence and limitations; affected references; expected 5v5, 3v3 and FLEET/Counters/Round/scoring/strategic-reserve impact; and every expected compiled payload path. Every source change has a file, stable row key, operation, and exact endpoints: Add is `before: "ABSENT"`, Retire is `after: "REMOVE"`, and Amend contains both complete rows. Array order is data and must be present exactly in those rows.
 
-The preview prints the complete before/after rows and every field-level difference in the compiled seven-key payload. It also prints an approval checksum calculated from the proposal ID, baseline and exact ordered changes. Approval is valid only when all three agree:
+The preview prints the complete before/after rows and every field-level difference in the compiled seven-key payload, plus a generated **content checksum** over the proposal ID, its exact ordered changes and its `expectedPayloadPaths`. The checksum is machine evidence, not a decision: the owner makes one meaningful **content decision** (Approved/Rejected/Deferred on the exact rows and effect, in plain English) and never copies, reads or signs a digest. Content approval is distinct from merge and from `Deploy Pages Live`; it authorises only that exact change in a branch/PR. An approval is valid only when:
 
 - `status` is `APPROVED`;
-- `approval.reference` links to the exact owner's GitHub issue comment or PR review;
-- `approval.changeSetChecksum` is the checksum printed by preview.
+- `approval.reference` links to the exact owner's GitHub issue comment or PR review, and `approval.decidedAt` is its UTC time;
+- `approval.contentChecksum` equals the checksum the tooling computes for the stored content. It is written by `--record-approval`, not by hand.
 
-Changing the baseline or any `before`/`after` value invalidates the checksum and needs a new owner decision. A topic, report, issue assignment or PR is not implicit approval. Pending, rejected and deferred proposals can be previewed but never applied.
+Editing any `before`/`after` row or `expectedPayloadPaths` after approval fails validation and needs a new owner decision. The checksum excludes the baseline, so a moved `main` alone does not invalidate it. Approvals recorded before #68 carry a baseline-bound `changeSetChecksum` and still verify; `--rebaseline` migrates them. A topic, report, issue assignment or PR is not implicit approval. Pending, rejected and deferred proposals can be previewed but never applied.
 
 Minimal pending proposal shape (replace every placeholder; rows are complete source rows, not fragments):
 
@@ -122,14 +124,14 @@ Minimal pending proposal shape (replace every placeholder; rows are complete sou
 }
 ```
 
-After approval, change the status and replace `approval: null` with `{ "reference": "https://github.com/.../issues/NN#issuecomment-NNN", "decidedAt": "<ISO UTC>", "changeSetChecksum": "<preview checksum>" }`.
+After the owner's explicit decision, record it with `npm run catalogue:corrections -- <file> --record-approval <proposal-id> --decision <comment-or-review URL> --decided-at <ISO UTC>`. This sets the status, stores the link and date, and generates `contentChecksum`. Never run it for content the owner has not explicitly approved.
 
 ### Compare → preview → apply
 
 1. Fetch `main`, confirm `catalogue:release -- --check` and `catalogue:compile -- --gate release`, and record the full `origin/main` SHA plus `catalogue/release.json` in the schema-2 file. Work from that exact commit. Do not use the frozen Sheet, Apps Script `action=data` or an old review as the baseline.
 2. Describe one proposal as one coherent set of source changes. Include all dependent rows or list them under `affectedReferences` with `effect: "none — checked"`. Scoring and board-configuration files are refused by this counter workflow; they need their own approved scope and scoring review. A pending draft may start with `expectedPayloadPaths: []`; preview prints the paths to copy into the file. An approved proposal may not leave this list empty.
 3. Run `npm run catalogue:corrections -- <file> --preview <proposal-id>`, fill any draft payload paths it reports, then run preview again. The command refuses malformed source, missing/duplicate IDs, overlapping stable keys, stale/ambiguous `before` rows, unexpected Add presence, candidate defence aliases, broken references, a release-gate failure, or any compiled path not declared in `expectedPayloadPaths`. Review the printed source and seven-key payload diff before approval.
-4. After the owner approves that exact checksum and posts the decision, record the decision link/date/checksum. Create a dedicated branch at the still-current baseline and run `npm run catalogue:corrections -- <file> --apply <proposal-id>`. Apply refuses `main`, detached HEAD, a moved `origin/main`, a moved HEAD, a changed release/source baseline, tracked catalogue edits, multiple proposal IDs, and any status other than `APPROVED`. It stages the complete source in a temporary directory and swaps it only after the coherent result passes; it does not update `release.json`, commit, merge or deploy. Repeating an already completed exact apply is a no-op; extra changes make it fail.
+4. After the owner approves the exact content and posts the decision, run `--record-approval` as above. Create a dedicated branch at the still-current baseline and run `npm run catalogue:corrections -- <file> --apply <proposal-id>`. Repeat `--apply` to apply several separately approved proposals as one **group**: each must be `APPROVED`, none may overlap another, and the combined source must pass the release gate and change exactly the union of the declared `expectedPayloadPaths`. A group is applied whole or not at all, and unapproved proposals are never pulled in. Apply refuses `main`, detached HEAD, a moved `origin/main`, a moved HEAD, a changed release/source baseline, tracked catalogue edits, and any status other than `APPROVED`. It stages the complete source in a temporary directory and swaps it only after the coherent result passes; it does not update `release.json`, commit, merge or deploy. Repeating an already completed exact apply is a no-op; extra changes make it fail.
 5. Run `npm run catalogue:release`. A real content change must create exactly one higher version; a no-op stays on the same version. Then run:
 
    ```bash
@@ -143,7 +145,7 @@ After approval, change the status and replace `approval: null` with `{ "referenc
    ```
 
    The schema-2 preview's exact `expectedPayloadPaths` comparison proves that all other matchups, definitions, defence compositions, scores, aliases and lookup order are unchanged. Relevant app regression tests still cover Round, availability and all three modes.
-6. Before committing or opening the PR, fetch `origin/main` again. If its SHA is no longer the recorded baseline, stop: re-reconcile the expected rows on fresh `main`, regenerate the preview checksum and obtain a new approval. Do not optimistically overwrite or treat a clean textual rebase as permission. Commit one approved proposal, its schema-2 file, source and new `release.json` together unless the owner separately approved an explicitly grouped equivalent.
+6. Before committing or opening the PR, fetch `origin/main` again. If its SHA is no longer the recorded baseline, switch to fresh `main` and run `npm run catalogue:corrections -- <file> --rebaseline`, then repeat the preview and checks. Rebaseline moves the baseline automatically only when every proposal's `before` rows still match, its approved content and `expectedPayloadPaths` are identical, the combined release gate passes and nothing is already applied. No new owner approval is requested. Otherwise it stops with `OWNER DECISION NEEDED` and the plain-English reason, and the agent asks the owner for a new decision. Also stop and ask in plain words if the implementation materially differs from what was approved, unrelated changes appear, identity or evidence is ambiguous, or more scope is needed. Never ask the owner to approve a digest. Commit the approved proposal(s) of one validated group, the schema-2 file, source and new `release.json` together; keep per-proposal IDs, decision links and dates in the PR description for audit.
 7. Open a PR to `main` and attach the preview/check output. Owner review and merge publish nothing. Only the owner's later manual **Deploy Pages Live** run from `main` can publish.
 
 ### Publish verification and recovery
@@ -300,7 +302,7 @@ Store or post the report where its links and decision history remain reviewable;
 - YYYY-MM-DD — owner decision recorded (link)
 ```
 
-Before handing off, re-read each proposed before row from the recorded commit, confirm all three modes have a recorded coverage result, run the shared release gate without modifying source, and check that the history links any superseded proposal rather than duplicating it. A later source change makes the proposal stale: re-reconcile it against fresh `main` and obtain approval for the resulting exact change set before #36 applies anything.
+Before handing off, re-read each proposed before row from the recorded commit, confirm all three modes have a recorded coverage result, run the shared release gate without modifying source, and check that the history links any superseded proposal rather than duplicating it. A later source change makes the proposal stale: re-reconcile it against fresh `main` and obtain the owner's content approval for the resulting exact change set before it is applied (#36, simplified by #68).
 
 Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the latest one is the history to check for duplicates. Recurring execution is currently a manual trigger only: no scheduled task is active, and any future schedule needs the owner's chosen day/time and a verified route (issue #37). The first pilot is [`CR-2026-10-10-01`](reviews/CR-2026-10-10-01.md).
 
