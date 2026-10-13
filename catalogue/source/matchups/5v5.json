@@ -93,6 +93,13 @@
       ]
     },
     {
+      "defence": "Dash Rendar",
+      "counters": [
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Standard CLS/Han/Chewbacca/C-3PO/Threepio & Chewie. Evidence is from a close Dash/Nest/Vandor/Qi'ra variant using L3-37 instead of Young Lando; handle Vandor revives and Nest." },
+        { "counterId": "GAS", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Full GAS/501st. Evidence is from a close Dash/Nest/Vandor/Qi'ra variant using L3-37 instead of Young Lando; conserve GAS if needed elsewhere." }
+      ]
+    },
+    {
       "defence": "Dr Aphra",
       "counters": [
         { "counterId": "JML", "tier": "A", "bannerScore": 60, "undersize": 0 },
@@ -197,6 +204,13 @@
         { "counterId": "VEERS", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Cleanup" },
         { "counterId": "JMK", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
         { "counterId": "REVA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Cleanup risk" }
+      ]
+    },
+    {
+      "defence": "Jawas",
+      "counters": [
+        { "counterId": "MALAK", "tier": "B", "bannerScore": 61, "undersize": 4, "notes": "Solo Darth Malak only. Small historical 5v5 sample; confirm relics, survivability and current datacron. Undersize requires one attacker." },
+        { "counterId": "KYLO_REN_SOLO", "tier": "B", "bannerScore": 60, "undersize": 4, "notes": "Original Kylo Ren solo (not Unmasked or SLKR). Conditional on strong relics and surviving Jawa thermal detonators; small historical 5v5 sample." }
       ]
     },
     {

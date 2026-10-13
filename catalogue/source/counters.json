@@ -34,6 +34,7 @@
     { "id": "JKR", "name": "Jedi Knight Revan", "required": ["JEDI_KNIGHT_REVAN"], "recommended": [] },
     { "id": "JMK", "name": "Jedi Master Kenobi", "required": ["JEDI_MASTER_KENOBI"], "recommended": [] },
     { "id": "JML", "name": "Jedi Master Luke", "required": ["JEDI_MASTER_LUKE"], "recommended": [] },
+    { "id": "KYLO_REN_SOLO", "name": "Kylo Ren (solo)", "required": ["KYLO_REN"], "recommended": [] },
     { "id": "LEIA", "name": "Leia Organa (GL)", "required": ["LEIA_ORGANA", "CAPTAIN_DROGAN", "R2_D2"], "recommended": [] },
     { "id": "LEVIATHAN", "name": "Leviathan", "required": ["LEVIATHAN"], "recommended": [] },
     { "id": "LORD_VADER", "name": "Lord Vader", "required": ["LORD_VADER"], "recommended": [] },
