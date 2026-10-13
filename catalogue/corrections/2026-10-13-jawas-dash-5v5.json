@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/100",
   "baseline": {
-    "commit": "50f86b3ef3662e5c47e3b3d9d8ecea56be5d3476",
+    "commit": "f632f84325c658f65df6165074d0bdbb85c62584",
     "catalogueVersion": 14,
     "checksum": "sha256:0612b9cdc5e7c3e10bc93ca72ad642757e665f97ee5e393404a90d71639ce91c"
   },
   "corrections": [
     {
       "id": "CR-2026-10-13-01-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "ADD",
       "title": "Add 5v5 Jawas defence with solo Darth Malak and solo Kylo Ren counters",
       "rationale": "Chief Nebit-led Jawas (Chief Nebit, Dathcha, Jawa, Jawa Engineer, Jawa Scavenger) has no 5v5 row. Owner review of 13 October 2026 approved original Kylo Ren solo and Darth Malak solo in principle; this adds them plus the new KYLO_REN_SOLO counter definition. Tier, score and notes are authoring proposals, not measured average banners.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/100#issuecomment-6140311370",
+        "decidedAt": "2026-10-13T07:11:34Z",
+        "contentChecksum": "sha256:1da03a68eca8f2d2f260c0ffe7da1107d3e95b1c7f21211ec9ce9cf6071cee8b"
+      },
       "provenance": {
         "evidence": [
           {
@@ -123,11 +127,15 @@
     },
     {
       "id": "CR-2026-10-13-01-P02",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "ADD",
       "title": "Add 5v5 Dash Rendar defence with CLS and GAS counters",
       "rationale": "The Dash Rendar 5v5 squad (Dash Rendar, Enfys Nest, Vandor Chewbacca, Young Lando, Qi'ra) has no 5v5 row. Owner review of 13 October 2026 approved CLS and GAS in principle and deferred Bounty Hunters. Existing CLS and GAS definitions are reused.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/100#issuecomment-6140311370",
+        "decidedAt": "2026-10-13T07:11:34Z",
+        "contentChecksum": "sha256:9c3eef6333e512220d3d2c6d2f167f128690106671c4af82a18ad9e00c8a556d"
+      },
       "provenance": {
         "evidence": [
           {
