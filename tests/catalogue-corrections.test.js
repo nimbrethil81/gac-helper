@@ -463,6 +463,17 @@ test("record-approval stores the owner's link and generates the checksum itself"
   assert.match(bad.lines[0], /No correction/);
 });
 
+test("record-approval accepts an anchored issue body that explicitly records the decision", (t) => {
+  const f = approvedFixture(t);
+  const correction = modernCorrection(f.source, { change: amendFirstMatchup(f.source) });
+  const file = writeDocument(f.repo.dir, modernDocument(f.source, f.baseline, correction));
+  const link = "https://github.com/nimbrethil81/gac-helper/issues/103#issue-5827821880";
+
+  const recorded = run([...f.args(file), "--record-approval", correction.id, "--decision", link, "--decided-at", "2099-01-03T12:00:00Z"]);
+  assert.equal(recorded.exitCode, 0, recorded.lines.join("\n"));
+  assert.equal(readCorrections(file).corrections[0].approval.reference, link);
+});
+
 test("changing only the baseline revalidates automatically without a new owner decision", (t) => {
   const f = approvedFixture(t);
   const correction = modernCorrection(f.source, { change: amendFirstMatchup(f.source) });

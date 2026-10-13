@@ -1,0 +1,278 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/103",
+  "baseline": {
+    "commit": "7ca58483db9825d87d64e88647d4c4dedb588bb2",
+    "catalogueVersion": 15,
+    "checksum": "sha256:24c93b634f2200c9a5aa3e24bbe2ee6e9f51b0d98eab6c735a1921abf4a4583a"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-13-02-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Add the approved Profundity mirror counter",
+      "rationale": "The owner won a Profundity mirror in the 13 October 2026 GAC round and explicitly approved the existing PROFUNDITY counter at A tier with a conservative 67-banner planning estimate and no undersize. The matchup-specific note records the tested formation and its limitations without changing the global counter definition.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/103#issue-5827821880",
+        "decidedAt": "2026-10-13T09:22:29Z",
+        "contentChecksum": "sha256:41ed391dfe145ebc7f72d5a7af3e6a031335c48951281591d7c8bc404be23c71"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/103",
+            "publisher": "Repository owner",
+            "publishedOrObservedAt": "2026-10-13",
+            "accessedAt": "2026-10-13",
+            "supports": "The owner reports one successful Profundity mirror and approves PROFUNDITY at A/67/0 with the stated starting fleet, preferred first reinforcement and play conditions."
+          }
+        ],
+        "conditions": "FLEET only. Profundity mirror starting Han's Millennium Falcon, Outrider and Rebel Y-wing; Imperial TIE Bomber is the preferred first reinforcement. Protect Outrider and manage Download progress. Full fleet recommended.",
+        "confidence": "Low-Medium: one owner field result supports the matchup, while A tier and 67 banners are explicitly conservative planning estimates rather than measured averages.",
+        "limitations": "Single field result; capital-ship stars, full reinforcement bench, relics, exact turn order and opponent development are not recorded. Lineup development and RNG affect reliability. Imperial TIE Bomber is also suggested for the approved Chimaera matchup, and the current capital-ship-only dependency model cannot prove both complete lineups are simultaneously available."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/FLEET.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Profundity"
+          },
+          "effect": "Append the approved PROFUNDITY A/67/0 matchup row after all four existing counters."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "PROFUNDITY"
+          },
+          "effect": "none - checked: the existing capital-ship-only definition is reused unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "ANY",
+            "defence": "Profundity"
+          },
+          "effect": "none - checked: Profundity remains HIGH."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "none",
+        "FLEET": "Profundity gains the approved Profundity mirror option with matchup-specific lineup guidance.",
+        "counters": "The Profundity detail list gains one A/67/0 mirror row; the existing counter definition is unchanged.",
+        "roundAvailability": "The allocator can assign the existing PROFUNDITY identity by capital ship and continues to enforce defending, used and duplicate capital-ship exclusion; supporting-ship overlap is guidance only.",
+        "scoring": "No scoring rules change; the authored full-fleet first-attempt planning estimate is 67.",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"FLEET\"][\"Profundity\"][4]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/FLEET.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Profundity"
+          },
+          "before": {
+            "defence": "Profundity",
+            "counters": [
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 2
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "A",
+                "bannerScore": 69,
+                "undersize": 1,
+                "notes": "Hounds Tooth starts"
+              },
+              {
+                "counterId": "EXECUTRIX",
+                "tier": "B",
+                "bannerScore": 67,
+                "undersize": 1
+              },
+              {
+                "counterId": "MALEVOLENCE",
+                "tier": "C",
+                "bannerScore": 57,
+                "undersize": 2
+              }
+            ]
+          },
+          "after": {
+            "defence": "Profundity",
+            "counters": [
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 2
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "A",
+                "bannerScore": 69,
+                "undersize": 1,
+                "notes": "Hounds Tooth starts"
+              },
+              {
+                "counterId": "EXECUTRIX",
+                "tier": "B",
+                "bannerScore": 67,
+                "undersize": 1
+              },
+              {
+                "counterId": "MALEVOLENCE",
+                "tier": "C",
+                "bannerScore": 57,
+                "undersize": 2
+              },
+              {
+                "counterId": "PROFUNDITY",
+                "tier": "A",
+                "bannerScore": 67,
+                "undersize": 0,
+                "notes": "Profundity mirror. Start Han's Millennium Falcon, Outrider and Rebel Y-wing. Imperial TIE Bomber is the preferred first reinforcement to disrupt Rebel assists. Protect Outrider and manage Download progress. Lineup development, turn order and RNG affect reliability. Full fleet recommended."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-13-02-P02",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Add the approved Chimaera counter for Marauder Negotiator",
+      "rationale": "The owner won with Chimaera against the stated Negotiator Marauder starting fleet in the 13 October 2026 GAC round and explicitly approved the existing CHIMAERA counter at A tier with a conservative 67-banner planning estimate and no undersize. The matchup-specific note captures the required formation without changing the global counter definition.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/103#issue-5827821880",
+        "decidedAt": "2026-10-13T09:22:29Z",
+        "contentChecksum": "sha256:126b2116c6139fe1e1064d84ba83bf3da54a5a94b8ba1314324969b039c29f21"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/103",
+            "publisher": "Repository owner",
+            "publishedOrObservedAt": "2026-10-13",
+            "accessedAt": "2026-10-13",
+            "supports": "The owner reports one approximately 69-banner Chimaera win over Negotiator with Anakin's Eta-2, Marauder and BTL-B Y-wing starters and approves CHIMAERA at A/67/0 with the stated Empire formation."
+          }
+        ],
+        "conditions": "FLEET only. Enemy start: Anakin's Eta-2, Marauder and BTL-B Y-wing. Chimaera start: TIE Advanced x1, Imperial TIE Fighter and Imperial TIE Bomber; TIE Defender is the key reinforcement and TIE/IN Interceptor supports. Full fleet and developed Empire ships recommended.",
+        "confidence": "Low-Medium: one owner field result supports the matchup, while A tier and 67 banners are explicitly conservative planning estimates rather than measured averages.",
+        "limitations": "Single field result of approximately 69 banners; capital-ship stars, full reinforcement bench, relics, exact turn order and opponent development are not recorded. Unending Loyalty and Marauder require careful management. Imperial TIE Bomber is also suggested for the approved Profundity mirror, and the current capital-ship-only dependency model cannot prove both complete lineups are simultaneously available."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/FLEET.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Negotiator"
+          },
+          "effect": "Append the approved CHIMAERA A/67/0 matchup row after all three existing counters."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CHIMAERA"
+          },
+          "effect": "none - checked: the existing capital-ship-only definition is reused unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "ANY",
+            "defence": "Leviathan"
+          },
+          "effect": "none - checked: Leviathan remains EXTREME; Executor and Profundity remain HIGH."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "none",
+        "FLEET": "Negotiator gains the approved Chimaera option for the Marauder starting fleet with matchup-specific lineup guidance.",
+        "counters": "The Negotiator detail list gains one A/67/0 Chimaera row; the existing counter definition is unchanged.",
+        "roundAvailability": "The allocator can assign the existing CHIMAERA identity by capital ship and continues to enforce defending, used and duplicate capital-ship exclusion; supporting-ship overlap is guidance only.",
+        "scoring": "No scoring rules change; the authored full-fleet first-attempt planning estimate is 67.",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"FLEET\"][\"Negotiator\"][3]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/FLEET.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Negotiator"
+          },
+          "before": {
+            "defence": "Negotiator",
+            "counters": [
+              {
+                "counterId": "PROFUNDITY",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1
+              },
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": {
+            "defence": "Negotiator",
+            "counters": [
+              {
+                "counterId": "PROFUNDITY",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1
+              },
+              {
+                "counterId": "EXECUTOR",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1
+              },
+              {
+                "counterId": "LEVIATHAN",
+                "tier": "S",
+                "bannerScore": 71,
+                "undersize": 1
+              },
+              {
+                "counterId": "CHIMAERA",
+                "tier": "A",
+                "bannerScore": 67,
+                "undersize": 0,
+                "notes": "Against Anakin's Eta-2, Marauder and BTL-B Y-wing. Recommended start: TIE Advanced x1, Imperial TIE Fighter and Imperial TIE Bomber. TIE Defender is the key reinforcement; TIE/IN Interceptor provides support. Requires developed Empire ships. Manage Unending Loyalty and Marauder carefully. Full fleet recommended."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

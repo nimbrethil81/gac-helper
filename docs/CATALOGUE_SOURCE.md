@@ -66,7 +66,7 @@ Each document records the proposal issue/PR and an exact baseline `{commit, cata
 The preview prints the complete before/after rows and every field-level difference in the compiled seven-key payload, plus a generated **content checksum** over the proposal ID, its exact ordered changes and its `expectedPayloadPaths`. The checksum is machine evidence, not a decision: the owner makes one meaningful **content decision** (Approved/Rejected/Deferred on the exact rows and effect, in plain English) and never copies, reads or signs a digest. Content approval is distinct from merge and from `Deploy Pages Live`; it authorises only that exact change in a branch/PR. An approval is valid only when:
 
 - `status` is `APPROVED`;
-- `approval.reference` links to the exact owner's GitHub issue comment or PR review, and `approval.decidedAt` is its UTC time;
+- `approval.reference` links to the exact owner's GitHub issue body, issue comment or PR review that explicitly records the decision, and `approval.decidedAt` is its UTC time;
 - `approval.contentChecksum` equals the checksum the tooling computes for the stored content. It is written by `--record-approval`, not by hand.
 
 Editing any `before`/`after` row or `expectedPayloadPaths` after approval fails validation and needs a new owner decision. The checksum excludes the baseline, so a moved `main` alone does not invalidate it. Approvals recorded before #68 carry a baseline-bound `changeSetChecksum` and still verify; `--rebaseline` migrates them. A topic, report, issue assignment or PR is not implicit approval. Pending, rejected and deferred proposals can be previewed but never applied.
@@ -124,7 +124,7 @@ Minimal pending proposal shape (replace every placeholder; rows are complete sou
 }
 ```
 
-After the owner's explicit decision, record it with `npm run catalogue:corrections -- <file> --record-approval <proposal-id> --decision <comment-or-review URL> --decided-at <ISO UTC>`. This sets the status, stores the link and date, and generates `contentChecksum`. Never run it for content the owner has not explicitly approved.
+After the owner's explicit decision, record it with `npm run catalogue:corrections -- <file> --record-approval <proposal-id> --decision <issue-body-comment-or-review URL> --decided-at <ISO UTC>`. The URL must include the exact GitHub anchor (`#issue-…`, `#issuecomment-…` or `#pullrequestreview-…`) for the text that records the decision. This sets the status, stores the link and date, and generates `contentChecksum`. Never run it for content the owner has not explicitly approved.
 
 ### Compare → preview → apply
 

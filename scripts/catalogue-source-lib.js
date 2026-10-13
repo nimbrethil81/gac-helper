@@ -516,8 +516,8 @@ function validateModernCorrections(document) {
       // sign-off. Legacy approvals carry a baseline-bound changeSetChecksum.
       const legacy = Boolean(correction.approval) && Object.hasOwn(correction.approval, "changeSetChecksum");
       exactKeys(correction.approval, ["reference", "decidedAt", legacy ? "changeSetChecksum" : "contentChecksum"], `${where}.approval`);
-      if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(issues|pull)\/\d+#(?:issuecomment|pullrequestreview)-\d+$/.test(correction.approval.reference ?? "")) {
-        throw new Error(`${where}.approval.reference: must link to the exact GitHub issue comment or pull-request review`);
+      if (!/^https:\/\/github\.com\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/(issues|pull)\/\d+#(?:issue|issuecomment|pullrequestreview)-\d+$/.test(correction.approval.reference ?? "")) {
+        throw new Error(`${where}.approval.reference: must link to the exact GitHub issue body, issue comment or pull-request review`);
       }
       nonEmptyString(correction.approval.decidedAt, `${where}.approval.decidedAt`);
       if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(correction.approval.decidedAt)) throw new Error(`${where}.approval.decidedAt: use an ISO UTC timestamp`);

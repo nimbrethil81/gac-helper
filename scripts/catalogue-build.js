@@ -330,7 +330,7 @@ function commandRecordApproval(document, file, options) {
   const correction = document.corrections.find((entry) => entry.id === options.recordApproval);
   if (!correction) throw new Error(`No correction ${options.recordApproval} in ${file}`);
   if (correction.status !== "PENDING_OWNER_APPROVAL") throw new Error(`${correction.id} is ${correction.status}; only a pending proposal can be recorded as approved`);
-  if (!options.decision || !options.decidedAt) throw new Error("--record-approval needs --decision <GitHub comment/review URL> and --decided-at <ISO UTC>");
+  if (!options.decision || !options.decidedAt) throw new Error("--record-approval needs --decision <GitHub issue body/comment/review URL> and --decided-at <ISO UTC>");
   const next = JSON.parse(JSON.stringify(document));
   const target = next.corrections.find((entry) => entry.id === correction.id);
   target.status = "APPROVED";

@@ -60,7 +60,8 @@
       "counters": [
         { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 71, "undersize": 1 },
         { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 71, "undersize": 1 },
-        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1 }
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1 },
+        { "counterId": "CHIMAERA", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Against Anakin's Eta-2, Marauder and BTL-B Y-wing. Recommended start: TIE Advanced x1, Imperial TIE Fighter and Imperial TIE Bomber. TIE Defender is the key reinforcement; TIE/IN Interceptor provides support. Requires developed Empire ships. Manage Unending Loyalty and Marauder carefully. Full fleet recommended." }
       ]
     },
     {
@@ -69,7 +70,8 @@
         { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 2 },
         { "counterId": "EXECUTOR", "tier": "A", "bannerScore": 69, "undersize": 1, "notes": "Hounds Tooth starts" },
         { "counterId": "EXECUTRIX", "tier": "B", "bannerScore": 67, "undersize": 1 },
-        { "counterId": "MALEVOLENCE", "tier": "C", "bannerScore": 57, "undersize": 2 }
+        { "counterId": "MALEVOLENCE", "tier": "C", "bannerScore": 57, "undersize": 2 },
+        { "counterId": "PROFUNDITY", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Profundity mirror. Start Han's Millennium Falcon, Outrider and Rebel Y-wing. Imperial TIE Bomber is the preferred first reinforcement to disrupt Rebel assists. Protect Outrider and manage Download progress. Lineup development, turn order and RNG affect reliability. Full fleet recommended." }
       ]
     },
     {
