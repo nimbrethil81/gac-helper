@@ -1,0 +1,221 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/100",
+  "baseline": {
+    "commit": "50f86b3ef3662e5c47e3b3d9d8ecea56be5d3476",
+    "catalogueVersion": 14,
+    "checksum": "sha256:0612b9cdc5e7c3e10bc93ca72ad642757e665f97ee5e393404a90d71639ce91c"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-13-01-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "ADD",
+      "title": "Add 5v5 Jawas defence with solo Darth Malak and solo Kylo Ren counters",
+      "rationale": "Chief Nebit-led Jawas (Chief Nebit, Dathcha, Jawa, Jawa Engineer, Jawa Scavenger) has no 5v5 row. Owner review of 13 October 2026 approved original Kylo Ren solo and Darth Malak solo in principle; this adds them plus the new KYLO_REN_SOLO counter definition. Tier, score and notes are authoring proposals, not measured average banners.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.gg/gac/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-10-13",
+            "accessedAt": "2026-10-13",
+            "supports": "NOT VERIFIED: the agent could not obtain matchup-specific evidence for Jawas from SWGOH.GG; the issue cites a small historical 5v5 sample that has not been independently verified, and the draft's placeholder URLs/dates were not adopted."
+          }
+        ],
+        "conditions": "5v5 only. Jawas = Chief Nebit, Dathcha, Jawa, Jawa Engineer, Jawa Scavenger. Solo attackers: Darth Malak; original Kylo Ren (not Unmasked or SLKR). Relics, datacron and game version not verified.",
+        "confidence": "Low until matchup-specific evidence is obtained.",
+        "limitations": "Small historical 5v5 samples only; bannerScore 61/60 are base full-team-equivalent estimates excluding the undersize premium (undersize 4 is the separate solo signal). Kylo is conditional on strong relics and surviving thermal detonators."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jawas"
+          },
+          "effect": "New defence row between Jabba and Jedi Knight Revan."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "KYLO_REN_SOLO"
+          },
+          "effect": "New counter definition between JML and LEIA; requires existing unit KYLO_REN."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "MALAK"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jawas"
+          },
+          "effect": "none - checked: no Jawas threat row is added."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Jawas becomes a 5v5 defence with two solo counters.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Jawas becomes a 5v5 defence with two solo counters.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"KYLO_REN_SOLO\"]",
+        "payload[\"counters\"][\"5v5\"][\"Jawas\"]"
+      ],
+      "changes": [
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "KYLO_REN_SOLO"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "KYLO_REN_SOLO",
+            "name": "Kylo Ren (solo)",
+            "required": [
+              "KYLO_REN"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jawas"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Jawas",
+            "counters": [
+              {
+                "counterId": "MALAK",
+                "tier": "B",
+                "bannerScore": 61,
+                "undersize": 4,
+                "notes": "Solo Darth Malak only. Small historical 5v5 sample; confirm relics, survivability and current datacron. Undersize requires one attacker."
+              },
+              {
+                "counterId": "KYLO_REN_SOLO",
+                "tier": "B",
+                "bannerScore": 60,
+                "undersize": 4,
+                "notes": "Original Kylo Ren solo (not Unmasked or SLKR). Conditional on strong relics and surviving Jawa thermal detonators; small historical 5v5 sample."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-13-01-P02",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "ADD",
+      "title": "Add 5v5 Dash Rendar defence with CLS and GAS counters",
+      "rationale": "The Dash Rendar 5v5 squad (Dash Rendar, Enfys Nest, Vandor Chewbacca, Young Lando, Qi'ra) has no 5v5 row. Owner review of 13 October 2026 approved CLS and GAS in principle and deferred Bounty Hunters. Existing CLS and GAS definitions are reused.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.gg/gac/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-10-13",
+            "accessedAt": "2026-10-13",
+            "supports": "NOT VERIFIED: the agent could not obtain matchup-specific evidence for Dash Rendar from SWGOH.GG; the issue says evidence comes from a close variant using L3-37 instead of Young Lando, which is unverified here."
+          }
+        ],
+        "conditions": "5v5 only. Dash Rendar, Enfys Nest, Vandor Chewbacca, Young Lando, Qi'ra. Evidence variant uses L3-37 in place of Young Lando.",
+        "confidence": "Low-Medium: the lineup evidence is for a close variant, not the exact squad, and is unverified by the agent.",
+        "limitations": "Evidence is for a variant with L3-37 rather than Young Lando. Scores 61/62 are authoring proposals. Bounty Hunters deferred by the owner."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Dash Rendar"
+          },
+          "effect": "New defence row between Darth Malgus and Dr Aphra."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CLS"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "GAS"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Training Rey"
+          },
+          "effect": "none - checked: existing VEERS B/61/undersize 0 row retained unchanged by owner decision."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Dash Rendar becomes a 5v5 defence with CLS and GAS counters.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Dash Rendar becomes a 5v5 defence with CLS and GAS counters.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Dash Rendar\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Dash Rendar"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Dash Rendar",
+            "counters": [
+              {
+                "counterId": "CLS",
+                "tier": "A",
+                "bannerScore": 61,
+                "undersize": 0,
+                "notes": "Standard CLS/Han/Chewbacca/C-3PO/Threepio & Chewie. Evidence is from a close Dash/Nest/Vandor/Qi'ra variant using L3-37 instead of Young Lando; handle Vandor revives and Nest."
+              },
+              {
+                "counterId": "GAS",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Full GAS/501st. Evidence is from a close Dash/Nest/Vandor/Qi'ra variant using L3-37 instead of Young Lando; conserve GAS if needed elsewhere."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
