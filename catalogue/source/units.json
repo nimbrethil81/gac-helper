@@ -319,6 +319,7 @@
     { "id": "TUSKEN_CHIEFTAN", "name": "Tusken Chieftain", "unitType": "CHARACTER", "externalId": "TUSKENCHIEFTAIN" },
     { "id": "TUSKEN_RAIDER", "name": "Tusken Raider", "unitType": "CHARACTER", "externalId": "TUSKENRAIDER" },
     { "id": "TUSKEN_SHAMAN", "name": "Tusken Shaman", "unitType": "CHARACTER", "externalId": "TUSKENSHAMAN" },
+    { "id": "TUSKEN_WARRIOR", "name": "Tusken Warrior", "unitType": "CHARACTER", "externalId": "TUSKENHUNTRESS" },
     { "id": "URORRURRR", "name": "URoRRuR'R'R", "unitType": "CHARACTER", "externalId": "URORRURRR" },
     { "id": "VEL_SARTHA", "name": "Vel Sartha", "unitType": "CHARACTER", "externalId": "VEL" },
     { "id": "VISAS_MARR", "name": "Visas Marr", "unitType": "CHARACTER", "externalId": "VISASMARR" },
