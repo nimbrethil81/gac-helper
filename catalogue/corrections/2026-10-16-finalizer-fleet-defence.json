@@ -1,0 +1,176 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/107",
+  "baseline": {
+    "commit": "c0c0ba6cf3ee298caf3be3f771484deb271cd117",
+    "catalogueVersion": 17,
+    "checksum": "sha256:bd96fdbb404d6da51fac1b8cc71ca5f348696374d81cc7db67a9f585365b5899"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-16-02-P01",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Add FLEET Finalizer defence with provisional Malevolence, Negotiator and Home One counters",
+      "rationale": "Finalizer (First Order capital ship, externalId CAPITALFINALIZER) is a distinct defensive fleet with no FLEET row; the attacking FINALIZER counter ID is untouched. Matchup-level GAC evidence was inaccessible (SWGOH.GG returns HTTP 403 to the agent), so per the owner's instruction of 16 October 2026 these are provisional authoring estimates built from kit mechanics, existing catalogue conventions and dated community experience. Tiers and banner scores are conservative estimates, not observed or measured results. Refine after real GAC battles.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/107#issuecomment-6210973284",
+        "decidedAt": "2026-10-16T08:04:20Z",
+        "contentChecksum": "sha256:c550100468b994b58df902c10a6d4d995e3eb8b92be7f06876ca77df740911b7"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.gg/gac/ship-counters/CAPITALFINALIZER/?season_id=CHAMPIONSHIPS_GRAND_ARENA_GA2_EVENT_SEASON_84",
+            "publisher": "SWGOH.GG (as cited in issue #107)",
+            "publishedOrObservedAt": "2026-10-16",
+            "accessedAt": "2026-10-16",
+            "supports": "NOT VERIFIED BY THE AGENT: the page returned HTTP 403. The issue reports about 3,540 Season 84 battles and about 98% aggregate offensive wins against Finalizer. That is an aggregate across all attackers, not any specific fleet's win rate, and it is not used for any tier or score below."
+          },
+          {
+            "url": "https://forums.ea.com/discussions/swgoh-strategy-and-tips-en/kit-reveal-finalizer/3557736",
+            "publisher": "EA forums (kit reveal, launch-era; mirrored on devtrackers.gg)",
+            "publishedOrObservedAt": "2026-10-16",
+            "accessedAt": "2026-10-16",
+            "supports": "Observed 2026-10-16; post date unknown (launch-era). Kit mechanics only, read via search excerpt: Finalizer is offence-focused (Hunted debuff cuts out-of-turn damage and bonus turn meter; Ravage hits all enemies with bonus damage per Hunted enemy) and is recommended with Kylo Ren's Command Shuttle feeding TIE Silencer, with Hound's Tooth better as a reinforcement. It does not give any counter result. Current ability text may have changed."
+          },
+          {
+            "url": "https://kahzgul.substack.com/p/fleet-counters-for-the-modern-gac",
+            "publisher": "Kahzgul (community GAC fleet guide)",
+            "publishedOrObservedAt": "2025-03-07",
+            "accessedAt": "2026-10-16",
+            "supports": "Says 'Raddus and Finalizer can both surprise with holds'; calls Malevolence 'a competent play' (preferred on offence), Negotiator strong on defence early and mid-game but weak in the endgame, and Home One 'kinda sucks without the MilF' (emergency use only). It has no Finalizer-matchup sections, predates Rogue One and says it is no longer accurate. Used only as general ship-quality context."
+          },
+          {
+            "url": "https://www.swgoh.tv/video/31020-home-one-counters-chimaera-negotiator-finalizer-executor-malevolence-vs-mirror-more-swgoh",
+            "publisher": "BitDynasty / swgoh.tv (cited in issue #107, not re-opened by the agent)",
+            "publishedOrObservedAt": "2022-11-23",
+            "accessedAt": "2026-10-16",
+            "supports": "As cited in the issue: a recorded Home One win against Finalizer at about 01:20. Historical demonstration only; not current reliability evidence."
+          },
+          {
+            "url": "https://www.reddit.com/r/SWGalaxyofHeroes/comments/v73j67/",
+            "publisher": "Reddit r/SWGalaxyOfHeroes (cited in issue #107, not re-opened by the agent)",
+            "publishedOrObservedAt": "2026-10-16",
+            "accessedAt": "2026-10-16",
+            "supports": "Post dated 2022 per the issue; observed 2026-10-16. As cited in the issue: a player reports Malevolence beating Finalizer. Dated and anecdotal."
+          }
+        ],
+        "conditions": "FLEET mode only. Defence is a Finalizer-led First Order fleet; the usual starters, reinforcements and Hunted-debuff behaviour are not verified and no fixed defensive lineup is claimed. Attacking fleets assume developed ships, a full seven-ship fleet and a 7-star capital ship (the catalogue fleet-scoring basis). Home One needs a developed Rebel fleet including Rebel B-wing; Negotiator needs a developed fleet including Marauder. Those supporting ships are not in units.json and are not roster-enforced.",
+        "confidence": "Low. No current, independently identifiable per-attacker result was verified. Malevolence is the most credible candidate; Negotiator and Home One are weaker and more conditional.",
+        "limitations": "bannerScore 67 / 64 / 61 and the tiers are unmeasured estimates chosen from the catalogue's existing FLEET score meanings (67 standard clean win, 64 occasionally lose a ship, 61 usually lose a ship); SWGOH.GG 'Avg' banners are not imported. undersize 0 is the conservative default, not a measured claim. The order is by estimated reliability, cheapest-working-first, not a ranking proven by data. Chimaera, Leviathan, Executor, Profundity, Raddus, Executrix, Endurance and the Finalizer mirror are deferred: no credible Finalizer-specific evidence was found, so none is added."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/FLEET.json",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Finalizer"
+          },
+          "effect": "New defence row between Executrix and Home One."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "MALEVOLENCE"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "NEGOTIATOR"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "HOME_ONE"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "FINALIZER"
+          },
+          "effect": "none - checked: the attacking Finalizer counter is untouched; it is distinct from this defence."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "FINALIZER"
+          },
+          "effect": "none - checked: CAPITAL_SHIP, externalId CAPITALFINALIZER, already present."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Finalizer",
+            "mode": "FLEET"
+          },
+          "effect": "none - checked: no threat row added; default NORMAL."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Finalizer",
+            "mode": "FLEET"
+          },
+          "effect": "none - checked: no fixed starters are inferred or added."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "none",
+        "FLEET": "Finalizer becomes a searchable FLEET defence with three provisional counters.",
+        "counters": "Finalizer shows Malevolence, Negotiator and Home One in that order.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"FLEET\"][\"Finalizer\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/FLEET.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "FLEET",
+            "defence": "Finalizer"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Finalizer",
+            "counters": [
+              {
+                "counterId": "MALEVOLENCE",
+                "tier": "A",
+                "bannerScore": 67,
+                "undersize": 0,
+                "notes": "Provisional estimate, not a measured result. Economical option; Finalizer is offence-focused, so confirm the enemy opening lineup, Hunted-debuff pressure and reinforcements. Full fleet unless separately validated."
+              },
+              {
+                "counterId": "NEGOTIATOR",
+                "tier": "B",
+                "bannerScore": 64,
+                "undersize": 0,
+                "notes": "Provisional estimate, not a measured result. Requires a developed Negotiator fleet with Marauder; confirm the enemy First Order opening lineup. Full fleet."
+              },
+              {
+                "counterId": "HOME_ONE",
+                "tier": "B",
+                "bannerScore": 61,
+                "undersize": 0,
+                "notes": "Provisional estimate, not a measured result. Needs a developed Rebel fleet including Rebel B-wing; only a historical recorded win, so treat as a fallback. Full fleet."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
