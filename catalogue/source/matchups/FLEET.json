@@ -31,6 +31,14 @@
       ]
     },
     {
+      "defence": "Finalizer",
+      "counters": [
+        { "counterId": "MALEVOLENCE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Provisional estimate, not a measured result. Economical option; Finalizer is offence-focused, so confirm the enemy opening lineup, Hunted-debuff pressure and reinforcements. Full fleet unless separately validated." },
+        { "counterId": "NEGOTIATOR", "tier": "B", "bannerScore": 64, "undersize": 0, "notes": "Provisional estimate, not a measured result. Requires a developed Negotiator fleet with Marauder; confirm the enemy First Order opening lineup. Full fleet." },
+        { "counterId": "HOME_ONE", "tier": "B", "bannerScore": 61, "undersize": 0, "notes": "Provisional estimate, not a measured result. Needs a developed Rebel fleet including Rebel B-wing; only a historical recorded win, so treat as a fallback. Full fleet." }
+      ]
+    },
+    {
       "defence": "Home One",
       "counters": [
         { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 73, "undersize": 2 },
