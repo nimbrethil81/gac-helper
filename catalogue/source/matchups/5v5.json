@@ -77,6 +77,12 @@
       ]
     },
     {
+      "defence": "Cobb Vanth",
+      "counters": [
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "B", "bannerScore": 62, "undersize": 0, "notes": "Provisional: one directly observed comfortable win with no attacking-character losses against Cobb Vanth, Chief Nebit, Lobot, Coruscant Underworld Police and Tusken Warrior with Cobb's GAC omicron active and no datacron. Not a measured win rate or banner result." }
+      ]
+    },
+    {
       "defence": "Dark Trooper Moff Gideon",
       "counters": [
         { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 1 }

@@ -1,0 +1,156 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/105",
+  "baseline": {
+    "commit": "d530894de59bf589fbc1d4427e35e543f1631996",
+    "catalogueVersion": 16,
+    "checksum": "sha256:b15a6e314d3625173e35080041316c0d3f6199493940c21cb4ddd1b50862c675"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-16-01-P01",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Add 5v5 Cobb Vanth defence with provisional Bo-Katan (Mand'alor) counter (CV-01)",
+      "rationale": "Cobb Vanth (Cobb Vanth, Chief Nebit, Lobot, Coruscant Underworld Police, Tusken Warrior) has no 5v5 row. Owner-observed battle evidence of 16 October 2026: Bo-Katan (Mand'alor) won comfortably with zero attacking-character losses. Tier B, bannerScore 62 and undersize 0 are owner-approved provisional authoring values, not a measured banner result. Adds the missing Tusken Warrior unit so the five-member composition is exact.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/105#issuecomment-6209142413",
+        "decidedAt": "2026-10-16T05:58:51Z",
+        "contentChecksum": "sha256:bc349f60d9d373e0a390d7fba0aaa04c3a150c4ead3c777e5e9f1a108966c6b7"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/105",
+            "publisher": "Owner (issue #105, CV-01)",
+            "publishedOrObservedAt": "2026-10-16",
+            "accessedAt": "2026-10-16",
+            "supports": "One directly observed 5v5 battle: Bo-Katan (Mand'alor) beat Cobb Vanth / Chief Nebit / Lobot / Coruscant Underworld Police / Tusken Warrior comfortably with no attacking-character losses. Also one observed loss of Admiral Raddus / Rogue One to the same defence (negative evidence; not added)."
+          },
+          {
+            "url": "https://github.com/swgoh-utils/gamedata",
+            "publisher": "swgoh-utils/gamedata (extracted game data, commit 005fa193f50d93b9cb8767d5476531832ae4a3ed, 2026-10-14)",
+            "publishedOrObservedAt": "2026-10-14",
+            "accessedAt": "2026-10-16",
+            "supports": "units.json has a combatType-1 (character), obtainable unit with baseId TUSKENHUNTRESS whose English name (UNIT_TUSKENHUNTRESS_NAME in Loc_ENG_US) is 'Tusken Warrior'. Cobb Vanth, Chief Nebit, Lobot and Coruscant Underworld Police baseIds match existing units.json externalIds."
+          }
+        ],
+        "conditions": "5v5 only. Defence: Cobb Vanth (leader), Chief Nebit, Lobot, Coruscant Underworld Police, Tusken Warrior. Cobb's GAC omicron active; no datacron. Attacker: Bo-Katan (Mand'alor) with the existing BO_KATAN_MANDALORE definition (Bo-Katan Mand'alor, IG-12 and Grogu, Paz Vizsla).",
+        "confidence": "Low: a single directly observed win; no statistical win rate is implied.",
+        "limitations": "One observed win only. Tier B is deliberately conservative; 62 is a standard-clean-win estimate, not a measured banner result. Does not cover other omicron/datacron states or other lineups. Admiral Raddus / Rogue One lost and is not added. Great Mothers, Satele Shan and other candidates are deferred pending specific evidence. TUSKENHUNTRESS is the game's internal ID for the unit displayed as Tusken Warrior."
+      },
+      "affectedReferences": [
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "TUSKEN_WARRIOR"
+          },
+          "effect": "New unit Tusken Warrior (externalId TUSKENHUNTRESS), sorted after TUSKEN_SHAMAN."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Cobb Vanth",
+            "mode": "5v5"
+          },
+          "effect": "New canonical five-member composition, leader first; used for own-defence availability in Round Mode."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Cobb Vanth"
+          },
+          "effect": "New defence row with only BO_KATAN_MANDALORE."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BO_KATAN_MANDALORE"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Cobb Vanth",
+            "mode": "5v5"
+          },
+          "effect": "none - checked: no threat row added; default NORMAL."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Cobb Vanth becomes a searchable 5v5 defence with one counter, Bo-Katan (Mand'alor), tier B, bannerScore 62, undersize 0.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Cobb Vanth appears in 5v5 Counters with Bo-Katan (Mand'alor) as the only counter.",
+        "roundAvailability": "Allocating Cobb Vanth on the user's own 5v5 defence reserves its five canonical units; Tusken Warrior becomes a recognised roster unit.",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"characterDefinitions\"][\"TUSKEN_WARRIOR\"]",
+        "payload[\"counters\"][\"5v5\"][\"Cobb Vanth\"]",
+        "payload[\"defenceCompositions\"][\"5v5\"][\"Cobb Vanth\"]"
+      ],
+      "changes": [
+        {
+          "file": "units.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "TUSKEN_WARRIOR"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "TUSKEN_WARRIOR",
+            "name": "Tusken Warrior",
+            "unitType": "CHARACTER",
+            "externalId": "TUSKENHUNTRESS"
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Cobb Vanth",
+            "mode": "5v5"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Cobb Vanth",
+            "mode": "5v5",
+            "units": [
+              "COBB_VANTH",
+              "CHIEF_NEBIT",
+              "LOBOT",
+              "CORUSCANT_UNDERWORLD_POLICE",
+              "TUSKEN_WARRIOR"
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Cobb Vanth"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Cobb Vanth",
+            "counters": [
+              {
+                "counterId": "BO_KATAN_MANDALORE",
+                "tier": "B",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Provisional: one directly observed comfortable win with no attacking-character losses against Cobb Vanth, Chief Nebit, Lobot, Coruscant Underworld Police and Tusken Warrior with Cobb's GAC omicron active and no datacron. Not a measured win rate or banner result."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
