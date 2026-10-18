@@ -3,8 +3,8 @@
   "defenceTeams": [
     { "defence": "Ahsoka Tano (GL)", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Carth Onasi", "mode": "ANY", "threat": "LOW" },
-    { "defence": "Chief Chirpa", "mode": "5v5", "threat": "NORMAL" },
     { "defence": "Cassian Andor (Undercover)", "mode": "5v5", "threat": "HIGH", "notes": "Rebel Fighter: Cassian lead, Vel Sartha, Cinta Kaz, Kleya Marki, Luthen Rael; all R7 in captured board." },
+    { "defence": "Chief Chirpa", "mode": "5v5", "threat": "NORMAL" },
     { "defence": "Emperor Palpatine (Duel's End Vader)", "mode": "5v5", "threat": "HIGH", "notes": "Palpatine lead + Duel's End Vader (omicron) + Mara Jade; Tarkin confirmed for this variant; fifth unknown." },
     { "defence": "Executor", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Gungans", "mode": "5v5", "threat": "HIGH" },
@@ -14,6 +14,7 @@
     { "defence": "Lord Vader", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Major Partagaz", "mode": "5v5", "threat": "HIGH", "notes": "ISB: Partagaz lead, Director Krennic, Dedra Meero, KX Security Droid, Imperial Probe Droid; all R7 in captured board." },
     { "defence": "Profundity", "mode": "ANY", "threat": "HIGH" },
+    { "defence": "Rotta the Hutt", "mode": "5v5", "threat": "HIGH", "notes": "Rotta the Hutt lead, Cad Bane, Greedo, Mob Enforcer, Gamorrean Guard; observed with Rotta's focused datacron equipped." },
     { "defence": "The Stranger", "mode": "ANY", "threat": "EXTREME" }
   ]
 }

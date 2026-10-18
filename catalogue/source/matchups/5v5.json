@@ -134,8 +134,8 @@
     {
       "defence": "Finn (Zorii Resistance)",
       "counters": [
-        { "counterId": "MOTHER_TALZIN", "tier": "A", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "MOTHER_TALZIN", "tier": "B", "bannerScore": 59, "undersize": 0, "notes": "Provisional: in one user-reported 5v5 battle Mother Talzin (Nightsisters) lost to Finn (Zorii Resistance) without defeating a single defender. Can fail outright; B / 59 is a conservative planning value, not a measured result or a reliable win." },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "One user-reported 5v5 win came on a second attempt (after a failed Mother Talzin battle) against all five surviving defenders, which may have had reduced protection, health or altered cooldowns. Supports keeping A / 62; not a proven fresh-battle win rate or 62-banner result." },
         { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "BAYLAN", "tier": "S", "bannerScore": 61, "undersize": 0 }
       ]
@@ -369,10 +369,22 @@
       ]
     },
     {
+      "defence": "Rotta the Hutt",
+      "counters": [
+        { "counterId": "SEE", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Provisional: one directly observed full-size SEE victory against Rotta / Cad Bane / Greedo / Mob Enforcer / Gamorrean Guard with Rotta's focused datacron active. Exact other attackers, banners, relics and datacron modifiers were not recorded; not an established win rate. Check current datacron and roster before committing." }
+      ]
+    },
+    {
       "defence": "SLKR",
       "counters": [
         { "counterId": "JML", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
         { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Strong" }
+      ]
+    },
+    {
+      "defence": "SLKR (Dark Side Vision Rey)",
+      "counters": [
+        { "counterId": "JML", "tier": "B", "bannerScore": 55, "undersize": 0, "notes": "Provisional, lineup-specific: repeated user-reported 5v5 JML losses to SLKR with Rey (Dark Side Vision), no datacron. JML can lose outright here; B / 55 is a conservative planning value (down from the generic SLKR S / 63), not a measured result or a dependable win. Does not apply to SLKR without Dark Side Vision Rey or to 3v3." }
       ]
     },
     {
