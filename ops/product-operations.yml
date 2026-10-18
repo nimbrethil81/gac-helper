@@ -1,5 +1,5 @@
 schema_version: 1
-framework_ref: a4ec8946be42a3b2b1ad58392b7c9865a532e6eb
+framework_repository: nimbrethil81/pwa-product-ops
 
 product:
   name: SWGOH GAC Helper
