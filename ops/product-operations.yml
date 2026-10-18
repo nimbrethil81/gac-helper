@@ -30,6 +30,19 @@ health_signals:
   - kind: github_workflow
     name: Deploy Pages Live
     path: .github/workflows/deploy-pages-live.yml
+  - kind: http_endpoint
+    name: Live GitHub Pages app
+    url: https://nimbrethil81.github.io/gac-helper/
+    expected_status: 200
+  - kind: external_dependency
+    name: Roster import proxy
+    url: https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec
+    role: Google Apps Script proxy used by roster import
+  - kind: external_dependency
+    name: SWGOH Comlink
+    url: https://gac-helper-comlink.onrender.com
+    role: Render-hosted Comlink service called by the roster import proxy
+    cold_start_tolerance: true
 
 documentation:
   include:
@@ -42,4 +55,6 @@ documentation:
 
 exclusions:
   - Deploy Pages Live is manually triggered; absence of a recent run is not itself a health finding.
+  - A slow Render response consistent with an expected free-tier cold start is not itself a health finding; sustained failure or roster-import unavailability is.
+  - Prefer a safe end-to-end roster-import probe when one is available without exposing sensitive data; otherwise assess the Google Apps Script proxy and Render-hosted Comlink dependency separately.
   - Catalogue counter research, matchup validation, scoring evidence gathering and gameplay or domain judgement are product work, not Product Operations.
