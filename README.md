@@ -25,7 +25,6 @@ https://nimbrethil81.github.io/gac-helper/
 
 - [`docs/SPEC.md`](docs/SPEC.md) — authoritative specification of the current system, architecture, data model, and behaviour.
 - [`docs/TARGET_ARCHITECTURE.md`](docs/TARGET_ARCHITECTURE.md) — current platform/delivery architecture plus the preserved parked future data/automation design.
-- [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) — current operating model, work-package disposition, restart gates, and parked architecture plan.
 - [`ROADMAP.md`](ROADMAP.md) — forward-looking product ideas and planned, candidate, deferred, research, or conditional work.
 - [`docs/CATALOGUE_AUDIT.md`](docs/CATALOGUE_AUDIT.md) — read-only catalogue integrity and parity audit: usage, severities and limitations.
 - [`docs/CATALOGUE_SOURCE.md`](docs/CATALOGUE_SOURCE.md) — Git-native catalogue: source, scoring-data authoring, compile, corrections, static Pages release, cutover and rollback.
