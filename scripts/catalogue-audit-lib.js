@@ -74,6 +74,9 @@ const MATCHUP_MODES = Object.freeze(["5v5", "3v3", "FLEET"]);
 const DEFENCE_MODES = Object.freeze(["5v5", "3v3", "FLEET", "ANY"]);
 const SQUAD_MODES = Object.freeze(["5v5", "3v3"]);
 const TIERS = Object.freeze(["S", "A", "B", "C"]);
+// Tactical matchup roles (issues #112/#115): a step in a multi-battle plan, not a
+// one-shot win. Such an entry has no tier, banner score or undersize.
+const MATCHUP_ROLES = Object.freeze(["SETUP", "CLEANUP"]);
 const THREATS = Object.freeze(["EXTREME", "HIGH", "NORMAL", "LOW"]);
 const UNIT_TYPES = Object.freeze(["CHARACTER", "SHIP", "CAPITAL_SHIP"]);
 const SHIP_TYPES = Object.freeze(["SHIP", "CAPITAL_SHIP"]);
@@ -141,6 +144,10 @@ const RULES = Object.freeze({
   BANNER_SCORE_NO_MEANING: ["warning", "No Score_Meanings row exists for this mode and Banner Score."],
   UNDERSIZE_NONNUMERIC: ["warning", "Undersize is blank or non-numeric and is read as 0."],
   UNDERSIZE_INVALID: ["blocking", "Undersize is fractional, negative or larger than the format allows."],
+  MATCHUP_ROLE_INVALID: ["blocking", "A tactical matchup's role is not exactly SETUP or CLEANUP."],
+  MATCHUP_ROLE_SCORED: ["blocking", "A SETUP/CLEANUP matchup carries a tier, banner score or undersize; tactical steps are never ranked or projected as wins."],
+  MATCHUP_ROLE_NOTES_BLANK: ["blocking", "A SETUP/CLEANUP matchup has no notes stating its purpose and conditions."],
+  MATCHUP_CLEANUP_WITHOUT_SETUP: ["warning", "A defence lists a CLEANUP step but no SETUP step that creates the weakened state it depends on."],
   DEFENCE_MODE_CASE: ["owner-approval", "A defence-tab Mode differs from a valid mode only by case; the app's exact lookup never matches it."],
   DEFENCE_MODE_INVALID: ["blocking", "A defence-tab Mode is not 5v5, 3v3, FLEET or ANY."],
   DEFENCE_MODE_BLANK: ["warning", "A defence-tab Mode is blank and is read as ANY."],
@@ -794,6 +801,7 @@ function modelFromPayload(payload, add) {
           defence,
           counterId: entry?.counterId,
           counterName: entry?.counter,
+          role: entry?.role,
           tier: entry?.tier,
           bannerScore: entry?.bannerScore,
           undersize: entry?.undersize,
@@ -999,6 +1007,15 @@ function checkMatchups(model, add, units, scoreMeanings) {
       add("DERIVED_VALUE_MISMATCH", { ...context, observed: jsonValue(matchup.counterName), expected: JSON.stringify(definition.name), effect: "Counter card name disagrees with counterDefinitions" });
     }
 
+    if (matchup.role !== undefined) {
+      if (!MATCHUP_ROLES.includes(matchup.role)) add("MATCHUP_ROLE_INVALID", { ...context, observed: jsonValue(matchup.role), expected: MATCHUP_ROLES.join(" | "), effect: "The entry is hidden from every screen and from allocation" });
+      const scored = ["tier", "bannerScore", "undersize"].filter((field) => matchup[field] !== undefined);
+      if (scored.length) add("MATCHUP_ROLE_SCORED", { ...context, observed: scored.join(", "), expected: "no tier, bannerScore or undersize", effect: "A fabricated value would suggest a one-shot win" });
+      if (isBlank(matchup.notes)) add("MATCHUP_ROLE_NOTES_BLANK", { ...context, observed: jsonValue(matchup.notes ?? ""), expected: "what the step achieves and when it applies", effect: "The tactic shows with no explanation" });
+      checkMatchupUnitTypes(matchup, mode, counterId, types, add, context);
+      continue;
+    }
+
     if (!TIERS.includes(matchup.tier)) add("TIER_INVALID", { ...context, observed: jsonValue(matchup.tier), expected: TIERS.join(" | "), effect: "Tier sorts last and displays incorrectly" });
 
     const ceiling = BANNER_CEILING[mode];
@@ -1021,12 +1038,13 @@ function checkMatchups(model, add, units, scoreMeanings) {
       add("UNDERSIZE_INVALID", { ...context, observed: jsonValue(undersize), expected: `whole number 0..${maxUndersize ?? "max"}`, effect: "Undersize-adjusted ranking uses an impossible drop count" });
     }
 
-    const set = types.get(counterId);
-    if (set && MATCHUP_MODES.includes(mode)) {
-      const fleet = mode === "FLEET";
-      const wrong = fleet ? set.has("CHARACTER") : SHIP_TYPES.some((type) => set.has(type));
-      if (wrong) add("MATCHUP_UNIT_TYPE_MODE", { ...context, observed: [...set].sort().join(", "), expected: fleet ? "SHIP/CAPITAL_SHIP members" : "CHARACTER members", effect: "Availability gates on units that cannot be fielded in this mode" });
-    }
+    checkMatchupUnitTypes(matchup, mode, counterId, types, add, context);
+  }
+
+  for (const [key, matchups] of groupBy(model.matchups, (matchup) => `${trimmed(matchup.mode)}\u0000${trimmed(matchup.defence)}`)) {
+    if (!matchups.some((matchup) => matchup.role === "CLEANUP") || matchups.some((matchup) => matchup.role === "SETUP")) continue;
+    const [mode, defence] = key.split("\u0000");
+    add("MATCHUP_CLEANUP_WITHOUT_SETUP", { location: matchups.filter((matchup) => matchup.role === "CLEANUP").map((matchup) => matchup.at).join("; "), mode, subject: defence, observed: "CLEANUP only", expected: "a SETUP step for the same defence", effect: "The cleanup's pre-weakened condition has no documented first battle" });
   }
 
   for (const [key, matchups] of groupBy(model.matchups, (matchup) => `${trimmed(matchup.mode)}\u0000${trimmed(matchup.defence)}\u0000${trimmed(matchup.counterId)}`)) {
@@ -1042,6 +1060,14 @@ function checkMatchups(model, add, units, scoreMeanings) {
       effect: "The counter is listed twice for this defence"
     });
   }
+}
+
+function checkMatchupUnitTypes(matchup, mode, counterId, types, add, context) {
+  const set = types.get(counterId);
+  if (!set || !MATCHUP_MODES.includes(mode)) return;
+  const fleet = mode === "FLEET";
+  const wrong = fleet ? set.has("CHARACTER") : SHIP_TYPES.some((type) => set.has(type));
+  if (wrong) add("MATCHUP_UNIT_TYPE_MODE", { ...context, observed: [...set].sort().join(", "), expected: fleet ? "SHIP/CAPITAL_SHIP members" : "CHARACTER members", effect: "Availability gates on units that cannot be fielded in this mode" });
 }
 
 function defenceMode(raw, add, context) {
@@ -1593,6 +1619,7 @@ function renderMarkdown(report) {
 module.exports = {
   BANNER_CEILING,
   CATALOGUE_TABS,
+  MATCHUP_ROLES,
   EXCLUDED_PERSONAL_TABS,
   RULES,
   SEVERITIES,

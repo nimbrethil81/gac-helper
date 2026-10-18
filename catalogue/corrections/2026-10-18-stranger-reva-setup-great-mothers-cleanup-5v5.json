@@ -1,0 +1,200 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/115",
+  "baseline": {
+    "commit": "8dcb59b25902f3a1475a6f23b133f5fa6d661a2c",
+    "catalogueVersion": 19,
+    "checksum": "sha256:c49b114eaceb3e73e243e9f031365d8ba604881477999b60a748c813e2e4d462"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-18-02-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Add Reva (setup) and Great Mothers (conditional cleanup) multi-battle steps to 5v5 The Stranger (#112, #115)",
+      "rationale": "Owner-approved scope of #112 (option A only) and #115: show Reva / Inquisitors as a deliberate first-battle weakening attempt and Great Mothers as a conditional cleanup win against a pre-weakened four-defender Stranger remnant, without a fabricated tier, banner score, undersize or win rate. Uses the new tactical matchup role (SETUP / CLEANUP) added in the same pull request: such entries carry only counterId, role and notes, are shown in a separate Multi-battle options section, and are never ranked, allocated or projected by Round Mode. The six existing one-shot rows keep their order and scores. Because both steps live on the same row, the two issues form one proposal; #112's decision covers the Reva step and #115's the Great Mothers step and the shared representation.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/115#issue-5907440368",
+        "decidedAt": "2026-10-18T07:56:20Z",
+        "contentChecksum": "sha256:1f8fee01dea7d2d8ba83440b22df6e16e74991e9fcbbd326c05375a095387d59"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/112",
+            "publisher": "Owner (issue #112)",
+            "publishedOrObservedAt": "2026-10-18",
+            "accessedAt": "2026-10-18",
+            "supports": "One user-reported 5v5 battle: Reva / Inquisitors eliminated one The Stranger defender and reduced the health of the others; not a win. Numerous Galactic Legend attempts against The Stranger have failed."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/115",
+            "publisher": "Owner (issue #115)",
+            "publishedOrObservedAt": "2026-10-18",
+            "accessedAt": "2026-10-18",
+            "supports": "One user-reported 5v5 Great Mothers cleanup win against The Stranger with four defenders remaining, after the Reva / Inquisitors battle had eliminated one defender and weakened the others."
+          }
+        ],
+        "conditions": "5v5 only. Defence: The Stranger (exact members, omicrons and datacrons not reported). Setup: existing REVA definition (Third Sister, Grand Inquisitor, Seventh Sister). Cleanup: existing GREAT_MOTHERS definition (Great Mothers required); only after the setup battle has removed a defender and damaged the rest.",
+        "confidence": "Low: one user-reported battle for each step.",
+        "limitations": "No win rate, banner result, sample size or repeatability for either step. The Great Mothers squad and the four remaining defenders were not recorded. Not evidence for a fresh-team Great Mothers or Reva win, for any other four-defender remnant, for 3v3 or for other defences. Existing The Stranger rows (JABBA, SATELE_SHAN, SEE, JMK, SEE_BANE, THE_STRANGER) unchanged."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "The Stranger"
+          },
+          "effect": "Appends REVA (role SETUP) and GREAT_MOTHERS (role CLEANUP) after the six unchanged one-shot rows."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "effect": "none - checked: 3v3 unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "REVA"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "GREAT_MOTHERS"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "The Stranger",
+            "mode": "ANY"
+          },
+          "effect": "none - checked: threat EXTREME unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "The Stranger gains two multi-battle steps shown only in Counters: Reva (Setup) and Great Mothers (Cleanup), with no tier, banners or undersize. One-shot counters and their order and scores are unchanged.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "5v5 The Stranger shows a Multi-battle options section after its one-shot counters: Reva as a weakening battle and Great Mothers as a conditional cleanup.",
+        "roundAvailability": "none: Round allocation, Next Up, My Board recommendations and the Last Battle advisor never use the two steps; Mark Used still records Reva or Great Mothers as used.",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"The Stranger\"][6]",
+        "payload[\"counters\"][\"5v5\"][\"The Stranger\"][7]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "The Stranger"
+          },
+          "before": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "JABBA",
+                "tier": "B",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "SATELE_SHAN",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "SEE",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "B",
+                "bannerScore": 60,
+                "undersize": 0
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "THE_STRANGER",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "JABBA",
+                "tier": "B",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "SATELE_SHAN",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "SEE",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "JMK",
+                "tier": "B",
+                "bannerScore": 60,
+                "undersize": 0
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "THE_STRANGER",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "REVA",
+                "role": "SETUP",
+                "notes": "Weakening battle only, not expected to win. In one user-reported 5v5 battle Reva (Inquisitors) defeated one Stranger defender and damaged the others. Use it to remove one or more defenders and wear down health or protection, then plan a second team to finish (see the Great Mothers cleanup). One battle only: no win rate, banner result or repeatability."
+              },
+              {
+                "counterId": "GREAT_MOTHERS",
+                "role": "CLEANUP",
+                "notes": "Conditional cleanup, not a fresh-team counter. One user-reported 5v5 win against four remaining Stranger defenders after a Reva (Inquisitors) setup battle had removed one and weakened the rest. Do not expect the same against a full-strength Stranger or an unweakened remnant. Great Mothers squad, the four remaining defenders and banners were not recorded."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

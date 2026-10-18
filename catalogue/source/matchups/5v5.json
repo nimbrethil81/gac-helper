@@ -438,7 +438,9 @@
         { "counterId": "SEE", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "JMK", "tier": "B", "bannerScore": 60, "undersize": 0 },
         { "counterId": "SEE_BANE", "tier": "S", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "THE_STRANGER", "tier": "A", "bannerScore": 62, "undersize": 0 }
+        { "counterId": "THE_STRANGER", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "REVA", "role": "SETUP", "notes": "Weakening battle only, not expected to win. In one user-reported 5v5 battle Reva (Inquisitors) defeated one Stranger defender and damaged the others. Use it to remove one or more defenders and wear down health or protection, then plan a second team to finish (see the Great Mothers cleanup). One battle only: no win rate, banner result or repeatability." },
+        { "counterId": "GREAT_MOTHERS", "role": "CLEANUP", "notes": "Conditional cleanup, not a fresh-team counter. One user-reported 5v5 win against four remaining Stranger defenders after a Reva (Inquisitors) setup battle had removed one and weakened the rest. Do not expect the same against a full-strength Stranger or an unweakened remnant. Great Mothers squad, the four remaining defenders and banners were not recorded." }
       ]
     },
     {

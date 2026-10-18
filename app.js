@@ -1432,6 +1432,26 @@ function lastBattleAdvice(input) {
     });
 }
 
+// Tactical catalogue entries (issues #112/#115) carry a `role` instead of a tier,
+// banner score and undersize: SETUP is a deliberate weakening battle that is not
+// expected to win, CLEANUP is a win only against a defence an earlier battle has
+// already weakened. Neither is a one-shot counter, so allocation, ranking and
+// every banner projection use oneShotCounters(); only the Counters screen shows
+// tactical entries, in their own section.
+const TACTICAL_ROLES = { SETUP: "Setup", CLEANUP: "Cleanup" };
+
+function isTacticalEntry(c) {
+    return !!(c && c.role);
+}
+
+function oneShotCounters(list) {
+    return (list || []).filter(c => !isTacticalEntry(c));
+}
+
+function tacticalEntries(list) {
+    return (list || []).filter(c => isTacticalEntry(c) && TACTICAL_ROLES[c.role]);
+}
+
 // Live adapter: the engine over current Round state. Reads, never writes.
 function currentLastBattleAdvice(extra) {
     const team = lastUnclearedTeam(board);
@@ -1440,7 +1460,7 @@ function currentLastBattleAdvice(extra) {
         const tDef = board.territories.find(t => t.territory === team.territory);
         const modeKey = tDef ? territoryModeKey(tDef) : board.mode;
         const seen = new Set();
-        counters = ((gacData[modeKey] && gacData[modeKey][team.name]) || []).filter(c => {
+        counters = oneShotCounters(gacData[modeKey] && gacData[modeKey][team.name]).filter(c => {
             if (seen.has(c.counterId)) return false;
             seen.add(c.counterId);
             return true;
@@ -1520,7 +1540,7 @@ function buildEligibleTeams() {
                 return;
             }
 
-            const all = (gacData[modeKey] && gacData[modeKey][team.name]) || [];
+            const all = oneShotCounters(gacData[modeKey] && gacData[modeKey][team.name]);
             const seen = new Set();
             const candidates = [];
             const defenceBlocked = [];
@@ -1725,9 +1745,12 @@ function buildReasons(eligible, assign, reserveActive) {
         // No assignment — explain why.
         let reason;
         if (t.candidates.length === 0) {
-            const all = (gacData[t.modeKey] && gacData[t.modeKey][t.name]) || [];
+            const listed = (gacData[t.modeKey] && gacData[t.modeKey][t.name]) || [];
+            const all = oneShotCounters(listed);
             if (all.length === 0) {
-                reason = "No counters in the catalogue for this team yet.";
+                reason = tacticalEntries(listed).length
+                    ? "No one-shot counters in the catalogue for this team; see Counters for multi-battle options."
+                    : "No counters in the catalogue for this team yet.";
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
                 // v3.2: distinguish "you sent them all" from "a unit they need went
                 // out with something else" — the second is not obvious from the board.
@@ -1740,6 +1763,9 @@ function buildReasons(eligible, assign, reserveActive) {
                         : "All your counters for this team have been used.";
             } else {
                 reason = "You don't own a counter for this team.";
+            }
+            if (all.length && tacticalEntries(listed).some(c => getCounterStatus(c.counterId) === "available")) {
+                reason += " Multi-battle options you can field are listed in Counters.";
             }
         } else {
             const committed = t.candidates.find(c => assignedByCounter[c.counterId]);
@@ -2963,17 +2989,27 @@ function buildCounterCardHtml(counter) {
     const spentNote = status === "spent" ? spentReason(counter.counterId) : null;
     const defenceNote = status === "on-defence" ? defenceReason(counter.counterId) : null;
 
+    // A tactical entry has no tier, banners or undersize to show: its role badge
+    // and one plain line about what the battle is for take their place.
+    const tactical = isTacticalEntry(counter);
+    const badge = tactical
+        ? `<span class="tier-badge role-badge">${TACTICAL_ROLES[counter.role]}</span>`
+        : `<span class="tier-badge" style="background:${getTierColour(counter.tier)};">
+            ${counter.tier}
+        </span>`;
+
     return `
-<div class="counter-card ${dimClass}">
+<div class="counter-card ${tactical ? "tactical-card " : ""}${dimClass}">
 
     <div class="card-header">
         <div class="team-name">${counter.counter}</div>
         <span class="${statusClass}">${statusText}</span>
-        <span class="tier-badge" style="background:${getTierColour(counter.tier)};">
-            ${counter.tier}
-        </span>
+        ${badge}
     </div>
 
+    ${tactical ? `<div>🧭 <strong>Role:</strong> ${counter.role === "SETUP"
+        ? "weakening battle — not expected to win. Plan a second team to finish the defence."
+        : "conditional cleanup — only after an earlier battle has weakened this defence. Not a fresh-team counter."}</div>` : `
     <div>🎯 <strong>Expected Banners:</strong> ${counter.bannerScore || "-"}</div>
     ${(() => {
         const fleet = currentMode === "FLEET";
@@ -2983,7 +3019,7 @@ function buildCounterCardHtml(counter) {
                 ? `<div>👥 <strong>Undersize:</strong> ${fleetUndersizeText(us)}</div>`
                 : `<div>👥 <strong>Undersize:</strong> drop up to ${us.drop} → ${us.total} banners (+${us.bonus})</div>`)
             : `<div>👥 <strong>Undersize:</strong> ${fleet ? "full fleet" : "full squad"}</div>`;
-    })()}
+    })()}`}
 
     <div>
         📝 <strong>Notes:</strong> ${counter.notes || "-"}
@@ -3051,9 +3087,8 @@ function showCounters() {
     const team = teamSelect.value;
     if (!team) return;
 
-    const allCounters = sortCounters(
-        (gacData[currentMode] && gacData[currentMode][team]) || []
-    );
+    const listed = (gacData[currentMode] && gacData[currentMode][team]) || [];
+    const allCounters = sortCounters(oneShotCounters(listed));
 
     if (!hasRoster() && counterFilter !== "all") {
         resultsEl.innerHTML =
@@ -3061,38 +3096,44 @@ function showCounters() {
         return;
     }
 
-    let filtered;
+    // Tactical steps follow the same filter but keep their authored order, so a
+    // setup battle reads before the cleanup that depends on it.
+    const keep = c => counterFilter === "all" ||
+        (counterFilter === "owned" ? getCounterStatus(c.counterId) !== "not-owned"
+                                   : getCounterStatus(c.counterId) === "available");
+    const filtered = allCounters.filter(keep);
+    const tactics = tacticalEntries(listed).filter(keep);
 
-    if (counterFilter === "all") {
-        filtered = allCounters;
-
+    let html;
+    if (filtered.length) {
+        html = filtered.map(buildCounterCardHtml).join("");
+    } else if (allCounters.length === 0) {
+        html = tactics.length ? "<p class='empty-state'>No one-shot counters are catalogued for this team.</p>" : "";
     } else if (counterFilter === "owned") {
-        filtered = allCounters.filter(c => getCounterStatus(c.counterId) !== "not-owned");
-
-        if (filtered.length === 0) {
-            resultsEl.innerHTML = "<p class='empty-state'>You don't own any counters for this team.</p>";
-            return;
-        }
-
+        html = "<p class='empty-state'>You don't own any counters for this team.</p>";
     } else {
-        filtered = allCounters.filter(c => getCounterStatus(c.counterId) === "available");
-
-        if (filtered.length === 0) {
-            const ownsAny  = allCounters.some(c => getOwnership(c.counterId).owned);
-            const anyOnDefence = allCounters.some(c => getCounterStatus(c.counterId) === "on-defence");
-            const anySpent = allCounters.some(c => getCounterStatus(c.counterId) === "spent");
-            resultsEl.innerHTML = !ownsAny
-                ? "<p class='empty-state'>You don't own any counters for this team.</p>"
-                : anyOnDefence
-                    ? "<p class='empty-state'>Your remaining counters for this team are committed to defence.</p>"
-                : anySpent
-                    ? "<p class='empty-state'>Your remaining counters for this team need units you've already used this round.</p>"
-                    : "<p class='empty-state'>You've used all your counters for this team.</p>";
-            return;
-        }
+        const ownsAny  = allCounters.some(c => getOwnership(c.counterId).owned);
+        const anyOnDefence = allCounters.some(c => getCounterStatus(c.counterId) === "on-defence");
+        const anySpent = allCounters.some(c => getCounterStatus(c.counterId) === "spent");
+        html = !ownsAny
+            ? "<p class='empty-state'>You don't own any counters for this team.</p>"
+            : anyOnDefence
+                ? "<p class='empty-state'>Your remaining counters for this team are committed to defence.</p>"
+            : anySpent
+                ? "<p class='empty-state'>Your remaining counters for this team need units you've already used this round.</p>"
+                : "<p class='empty-state'>You've used all your counters for this team.</p>";
     }
 
-    resultsEl.innerHTML = filtered.map(buildCounterCardHtml).join("");
+    if (tactics.length) {
+        html += `
+<div class="tactics-section">
+    <div class="tactics-heading">Multi-battle options</div>
+    <p class="tactics-intro">Not one-shot counters: no tier or expected banners, and Round Mode never assigns them.</p>
+    ${tactics.map(buildCounterCardHtml).join("")}
+</div>`;
+    }
+
+    resultsEl.innerHTML = html;
 }
 
 // ─── ROUND VIEW (v2.1) ────────────────────────────────────────────────────────

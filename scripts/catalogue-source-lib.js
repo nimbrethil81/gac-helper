@@ -22,6 +22,7 @@ const { canonicalJson, sha256 } = require("./baseline-lib.js");
 
 const {
   CATALOGUE_TABS,
+  MATCHUP_ROLES,
   auditPayload,
   collector,
   compareFindings,
@@ -56,10 +57,15 @@ const FILES = Object.freeze({
   }]))
 });
 const MATCHUP_ENTRY = { required: { counterId: "string", tier: "string", bannerScore: "number", undersize: "number" }, optional: { notes: "string" } };
+// A tactical entry (issues #112/#115) is a counter used as one step of a
+// multi-battle plan rather than a one-shot win: SETUP weakens a defence for a
+// later attack, CLEANUP is a conditional win against an already weakened one.
+// It carries no tier, banner score or undersize, so nothing ranks or projects it.
+const MATCHUP_TACTIC_ENTRY = { required: { counterId: "string", role: "string", notes: "string" } };
 
 // Field order used when writing rows, so imports and corrections diff cleanly.
 const FIELD_ORDER = ["id", "defence", "mode", "league", "territory", "type", "teamCount", "ruleId", "battleType", "value",
-  "name", "unitType", "externalId", "strategicReserve", "required", "recommended", "threat", "units", "counterId", "tier",
+  "name", "unitType", "externalId", "strategicReserve", "required", "recommended", "threat", "units", "counterId", "role", "tier",
   "bannerScore", "undersize", "meaning", "notes", "counters",
   // Correction lists (catalogue/corrections/*.json).
   "baseline", "baselineChecksum", "issue", "approval", "status", "title", "resolves", "references",
@@ -226,7 +232,9 @@ function importFromPayload(payload, scoreMeanings = []) {
   for (const mode of MATCHUP_MODES) {
     source[`matchups/${mode}.json`] = sortRows(`matchups/${mode}.json`, Object.entries(payload.counters[mode] ?? {}).map(([defence, entries]) => ({
       defence,
-      counters: entries.map((entry) => withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes"))
+      counters: entries.map((entry) => (entry.role !== undefined
+        ? { counterId: entry.counterId, role: entry.role, notes: entry.notes }
+        : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
     })));
   }
   return source;
@@ -305,6 +313,10 @@ function compileSource(source) {
     for (const { defence, counters } of defences) {
       const list = payload.counters[mode][defence] ?? (payload.counters[mode][defence] = []);
       for (const entry of counters ?? []) {
+        if (entry.role !== undefined) {
+          list.push({ counterId: entry.counterId, counter: counterNames.get(entry.counterId) ?? "", role: entry.role, notes: entry.notes ?? "" });
+          continue;
+        }
         list.push({
           counterId: entry.counterId,
           counter: counterNames.get(entry.counterId) ?? "",
@@ -363,7 +375,7 @@ function validateSource(source, add) {
     rows.forEach((row, index) => {
       const location = `${file} ${spec.array}[${index}]`;
       if (checkRow(row, spec, location, add) && spec.array === "defences") {
-        row.counters.forEach((entry, entryIndex) => checkRow(entry, MATCHUP_ENTRY, `${location}.counters[${entryIndex}]`, add));
+        row.counters.forEach((entry, entryIndex) => checkRow(entry, entry && typeof entry === "object" && "role" in entry ? MATCHUP_TACTIC_ENTRY : MATCHUP_ENTRY, `${location}.counters[${entryIndex}]`, add));
       }
     });
     if (spec.sortBy) {
@@ -611,6 +623,7 @@ module.exports = {
   FILES,
   IMPORT_BLOCKERS,
   MATCHUP_MODES,
+  MATCHUP_ROLES,
   RELEASE_CONTRACT,
   SOURCE_SCHEMA,
   applyCorrections,

@@ -248,6 +248,36 @@ body {
     font-weight: bold;
 }
 
+/* ─── MULTI-BATTLE OPTIONS (setup / cleanup entries) ─────────────── */
+
+.tactics-section {
+    margin-top: 20px;
+    padding-top: 6px;
+    border-top: 1px dashed #22324a;
+}
+
+.tactics-heading {
+    font-size: 15px;
+    font-weight: bold;
+    color: var(--jedi-blue);
+}
+
+.tactics-intro {
+    margin: 4px 0 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.counter-card.tactical-card {
+    border-style: dashed;
+}
+
+.role-badge {
+    background: transparent;
+    border: 1px solid var(--muted);
+    color: var(--text);
+}
+
 /* ─── STATUS WORDS ───────────────────────────────────────────────── */
 
 .status-available {
