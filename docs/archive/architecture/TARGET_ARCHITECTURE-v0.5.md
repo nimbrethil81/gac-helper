@@ -38,7 +38,7 @@ Google Sheets is the canonical authored catalogue. Apps Script serves both the c
 
 **The paused future database-backed maintenance evolution** — §§4–13 below, plus the database-backed parts of §§14–16:
 
-A Postgres-compatible canonical store, evidence and assessment tables, a version-controlled human authoring path, a deterministic policy applier and an immutable static catalogue artifact with a release pointer. This design is complete, largely implemented and preserved unchanged. It is **not** active Stage-1 work. It requires a new persistent-store provider decision at **GATE-150** ([`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) §7.1) before any part of it is deployed, and it stays behind that gate until automated evidence-driven maintenance is actually being built.
+A Postgres-compatible canonical store, evidence and assessment tables, a version-controlled human authoring path, a deterministic policy applier and an immutable static catalogue artifact with a release pointer. This design is complete, largely implemented and preserved unchanged. It is **not** active Stage-1 work. It requires a new persistent-store provider decision at **GATE-150** ([`IMPLEMENTATION_PLAN-2026-09-22.md`](IMPLEMENTATION_PLAN-2026-09-22.md#71-gate-150--persistent-maintenance-store-decision) §7.1) before any part of it is deployed, and it stays behind that gate until automated evidence-driven maintenance is actually being built.
 
 Sections that describe the paused path carry a status note saying so. Where an active-path behaviour differs from the paused design, the active behaviour is stated explicitly and wins.
 
@@ -1190,7 +1190,7 @@ Google Sheets, `action=data` and `action=roster` are unchanged throughout Stage 
 
 ### Persistent maintenance-store gate (GATE-150)
 
-Before any part of the paused database path is deployed, and before Stage 2 implementation begins, GATE-150 must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate the paused implementation against it. It is independent of the evidence gate below; both must be resolved before Stage 2. See [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) §7.1 and [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §9.
+Before any part of the paused database path is deployed, and before Stage 2 implementation begins, GATE-150 must select a persistent maintenance-store provider, assess its cost and free-tier constraints, and revalidate the paused implementation against it. It is independent of the evidence gate below; both must be resolved before Stage 2. See [`IMPLEMENTATION_PLAN-2026-09-22.md`](IMPLEMENTATION_PLAN-2026-09-22.md#71-gate-150--persistent-maintenance-store-decision) §7.1 and [ADR-ARCH-113](decisions/ADR-ARCH-113-stage1-rebaseline.md) §9.
 
 ### Evidence and runner entry gate
 

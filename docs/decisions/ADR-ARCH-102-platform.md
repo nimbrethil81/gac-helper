@@ -4,7 +4,7 @@
 **Decision date:** 2026-09-21.
 **Repository evidence SHA:** `907189cf69dad9adeaab2ee5f1b165871cfe34da` (branch `claude/arch-102-platform-decisions-k02zai`, created from `main` at this SHA with no divergence).
 
-**Scope.** This ADR records the Stage-1 platform decisions for the target architecture described in [`TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md) and sequenced in [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md), work package ARCH-102. It resolves host, environment, publication, secret, role and threat-model questions that ARCH-102 was scoped to answer before manual cloud configuration (ARCH-104) and schema work (ARCH-105) begin. It does not itself create, configure or modify any external service, database, worker, secret, environment, workflow or production release. Every external-provider fact in this document was not verified against a live provider API or console in this session; such facts are labelled `[ASSUMPTION]` and must be re-verified during ARCH-104, as required by the control thread.
+**Scope.** This ADR records the Stage-1 platform decisions for the target architecture described in [`TARGET_ARCHITECTURE.md`](../TARGET_ARCHITECTURE.md) and sequenced in [the archived implementation plan](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md), work package ARCH-102. It resolves host, environment, publication, secret, role and threat-model questions that ARCH-102 was scoped to answer before manual cloud configuration (ARCH-104) and schema work (ARCH-105) begin. It does not itself create, configure or modify any external service, database, worker, secret, environment, workflow or production release. Every external-provider fact in this document was not verified against a live provider API or console in this session; such facts are labelled `[ASSUMPTION]` and must be re-verified during ARCH-104, as required by the control thread.
 
 ## Evidence labels
 
@@ -31,7 +31,7 @@ Each substantive claim below is tagged:
 6. **[DECISION]** GitHub repository secrets plus explicit manual `workflow_dispatch` triggers replace GitHub Environments as the Stage-1 production gate. GitHub Environments with required reviewers are a GitHub Team/Enterprise feature on private repositories; GitHub Free does not offer them for a private repo ([ASSUMPTION] — current GitHub plan-feature matrix, must be re-verified at ARCH-104 in case Free-tier entitlements have changed). Repository secrets scoped to the repository, combined with a workflow that only runs on manual dispatch by the repository owner, is the Stage-1 substitute gate.
 7. **[DECISION]** Manual operation is mandatory for Stage 1 and remains available in every later stage. The architecture must support, at minimum:
    - a manual authoring run (human catalogue change without SQL, per `TARGET_ARCHITECTURE.md` §6);
-   - a manual candidate/review run (report-only maintenance review, per `TARGET_ARCHITECTURE.md` §8 and `IMPLEMENTATION_PLAN.md` §13.2);
+   - a manual candidate/review run (report-only maintenance review, per `TARGET_ARCHITECTURE.md` §8 and [the archived implementation plan §17.2](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md#172-maintenance-review-paused));
    - a manual publication run (candidate → `READY` → deployed → `DEPLOYED`, §4 below);
    - a manual rollback run (repoint to a prior compatible release, §5 below).
    Scheduling (Stage 3) is an additional trigger for the same underlying commands and code paths — it is never a separate, less-guarded implementation.
@@ -164,14 +164,14 @@ This is additive and structurally compatible with the current `action=data` cont
 
 ## 8. Manual-run entry points
 
-Per §1.7 and `IMPLEMENTATION_PLAN.md` §13, every one of the following is a manually triggerable command/workflow, independent of any schedule, and each is also the exact code path a future scheduled trigger (Stage 3) reuses — a manual trigger is never a separate, less-guarded implementation:
+Per §1.7 and [the archived implementation plan §17](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md#17-manual-and-on-demand-operations), every one of the following is a manually triggerable command/workflow, independent of any schedule, and each is also the exact code path a future scheduled trigger (Stage 3) reuses — a manual trigger is never a separate, less-guarded implementation:
 
 1. **Manual authoring run** — prepare a validated change file, dry-run it, inspect the diff, apply through the authoring loader, generate and validate an `AUTHORING` candidate, then optionally publish through the normal gates (§4). Entry point: a repository script/command runnable locally, and optionally a `workflow_dispatch` workflow for the same command.
 2. **Manual candidate/review run** — trigger a maintenance report-only review outside the schedule, accepting bounded inputs (mode, cycle key). Report-only is the default; it never writes `catalogue_state`. Entry point: `workflow_dispatch` with report-only as the default input value.
 3. **Manual publication run** — the protocol in §4.1, invoked explicitly; never runs as a side effect of another workflow.
 4. **Manual rollback run** — the protocol in §5, invoked explicitly, naming the target prior release.
 
-Every manual entry point records who/what triggered it and remains idempotent for the same logical unit of work (release, authoring change, or maintenance cycle/mode), per `IMPLEMENTATION_PLAN.md` §13.2.
+Every manual entry point records who/what triggered it and remains idempotent for the same logical unit of work (release, authoring change, or maintenance cycle/mode), per [the archived implementation plan §17.2](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md#172-maintenance-review-paused).
 
 ## 9. Threat model
 
@@ -251,9 +251,9 @@ Current Supabase free-tier pausing behaviour (inactivity window, resume mechanis
 
 ## 11. Consequences for later work packages
 
-- **ARCH-104** becomes the single guided manual configuration session referenced by `IMPLEMENTATION_PLAN.md` §5; it must re-verify every `[ASSUMPTION]` in this ADR (GitHub Free plan-feature limits, Supabase free-tier pausing behaviour, Cloudflare Workers versioned-deployment semantics, current cost and account-limit state) before creating the Supabase project or any secret, and must create only the Stage-1 roles listed in §7.
+- **ARCH-104** becomes the single guided manual configuration session referenced by [the archived implementation plan §5](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md#5-stage-1-work-packages); it must re-verify every `[ASSUMPTION]` in this ADR (GitHub Free plan-feature limits, Supabase free-tier pausing behaviour, Cloudflare Workers versioned-deployment semantics, current cost and account-limit state) before creating the Supabase project or any secret, and must create only the Stage-1 roles listed in §7.
 - **ARCH-105** implements the schema using the §7 role boundaries and, if any `SECURITY DEFINER` function is used, the §9.1 controls and negative permission tests as acceptance criteria, not optional follow-up.
-- **ARCH-108** implements the §4.1 `READY`/`DEPLOYED` protocol precisely (including the new release `status` value and the recorded Cloudflare deployment identifier), the §4.2 recovery/reconciliation command, and the GitHub Actions concurrency group; its existing acceptance criteria in `IMPLEMENTATION_PLAN.md` ("two concurrent publishers cannot lose one another's changes", "artifact failure leaves the previous pointer current") are satisfied by this protocol rather than by a cross-system atomic transaction.
+- **ARCH-108** implements the §4.1 `READY`/`DEPLOYED` protocol precisely (including the new release `status` value and the recorded Cloudflare deployment identifier), the §4.2 recovery/reconciliation command, and the GitHub Actions concurrency group; its existing acceptance criteria in [the archived implementation plan](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md#arch-108--catalogue-generator-validator-and-publisher) ("two concurrent publishers cannot lose one another's changes", "artifact failure leaves the previous pointer current") are satisfied by this protocol rather than by a cross-system atomic transaction.
 - **ARCH-109** and the PWA's cache/refresh logic continue to rely on the static pointer (§4) as authoritative for what the phone sees; no change to that principle is introduced here.
 - **ARCH-110** must add explicit rehearsal of every row in the §4.2 failure-window table, plus the concurrency-group behaviour, to its required exercises.
 - **ARCH-111/ARCH-112** own the actual origin/production-URL change and client-state migration; this ADR records the environment model and hosting decision they implement but performs none of the eight migration steps itself (export/import/cutover/fallback-retirement), per the control-thread instruction not to perform cutover actions in this task. The existing public `gac-helper` repository and its GitHub Pages deployment remain an untouched fallback through the Stage-1 acceptance window, and `LIVE_REPO_PAT` is retired only at the approved exit gate.

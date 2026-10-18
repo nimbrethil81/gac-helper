@@ -4,7 +4,7 @@
 **Decision date:** 2026-09-22.
 **Repository evidence SHA:** `1ae213ce48be1f9af096deda43bfb3ea70976501` (confirmed as the tip of `origin/main`, and confirmed to contain pull request #17, "Document controlled 5v5 and 3v3 bootstrap stages").
 
-**Identifier note.** `ARCH-113` is a decision-record identifier only. It is **not** a new implementation work package. The Stage-1 work packages remain ARCH-101–ARCH-112, re-scoped where this ADR requires it in [`IMPLEMENTATION_PLAN.md`](../IMPLEMENTATION_PLAN.md).
+**Identifier note.** `ARCH-113` is a decision-record identifier only. It is **not** a new implementation work package. The Stage-1 work packages remain ARCH-101–ARCH-112, re-scoped where this ADR requires it in [the archived implementation plan](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md#5-stage-1-work-packages).
 
 **Scope.** This ADR re-baselines the **active Stage-1 delivery path** following the decision not to create a third Supabase Free project. It supersedes the now-inapplicable database-hosting, static-catalogue-publication and Supabase-configuration parts of [`ADR-ARCH-102-platform.md`](ADR-ARCH-102-platform.md), and leaves the rest of that ADR in force. It changes documentation only: it creates, configures or modifies no external service, database, Worker, secret, environment, workflow, Google Sheet, Apps Script deployment or production release, and it deletes no completed implementation work.
 
@@ -188,4 +188,4 @@ All **[ASSUMPTION]**, none verified in this session:
 
 ## 12. Status
 
-This ADR is **Accepted** for Stage-1 planning purposes. It authorises no external-service creation, configuration, secret, environment, workflow dispatch, database, deployment or production release. `TARGET_ARCHITECTURE.md` (v0.5) and `IMPLEMENTATION_PLAN.md` are updated alongside it to reflect the revised active path; `SPEC.md`, `README.md`, `ROADMAP.md` and `changelog.md` are deliberately unchanged, because no shipped behaviour, headline capability, roadmap item or release has changed.
+This ADR is **Accepted** for Stage-1 planning purposes. It authorises no external-service creation, configuration, secret, environment, workflow dispatch, database, deployment or production release. `TARGET_ARCHITECTURE.md` (v0.5) and the [implementation plan now archived](../archive/architecture/IMPLEMENTATION_PLAN-2026-09-22.md) were updated alongside it to reflect the revised active path; `SPEC.md`, `README.md`, `ROADMAP.md` and `changelog.md` are deliberately unchanged, because no shipped behaviour, headline capability, roadmap item or release has changed.
