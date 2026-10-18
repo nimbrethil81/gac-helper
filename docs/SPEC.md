@@ -166,6 +166,8 @@ These fields own **non-overlapping** parts of a counter's value. Each feeds the 
 - **`bannerScore`** — the expected value of a **full-squad, first-attempt, clean clear**, with any undersize premium removed. It is the engine's *tiebreak within a tier* (value second). It is an authored estimate, not a guaranteed result. Authoring guidance and the per-mode meaning ladder are in [`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#scoring-data-authoring).
 - **`undersize`** — a non-negative integer **droppable-unit count**: the maximum units the counter can drop from a full squad and still win cleanly. `0` means field the full squad. Each unit dropped is worth **+1 banner** over the full clean clear. For squads the engine ranks by the undersize-adjusted score (`bannerScore` + count), the achievable best (see [§6.8](#68-allocation-engine)). For Fleet the count is reinforcement slots left empty, and the +1 depends on those slots being unlocked, so it is shown as a conditional bonus and never added to ranking (see [§6.9](#69-points-to-win)). The client still reads any non-numeric value as `0`.
 
+**Tactical steps.** A matchup entry may instead carry a `role` — `SETUP` or `CLEANUP` — with its `notes` and no `tier`, `bannerScore` or `undersize`. It records a counter used as one step of a multi-battle plan rather than a one-shot win: `SETUP` is a deliberate weakening battle that is not expected to win; `CLEANUP` is a win only against a defence an earlier battle has already weakened, never a fresh-team counter. The notes must state the step's purpose and conditions. The release gate blocks an unknown role, blank notes and any tier, banner score or undersize on a tactical step, and warns when a defence has a `CLEANUP` step but no `SETUP` step. Tactical steps are shown only on the Counters screen ([§6.1](#61-counter-lookup)); Round allocation, Next Up, My Board recommendations and the Last Battle advisor never treat them as coverage or project banners for them. The same `Counter_ID` can be a one-shot counter for one defence and a tactical step for another.
+
 Tier is the only reliability field. Manual-play effort is not part of Tier (see [`ROADMAP.md`](../ROADMAP.md)); free-text `notes` partly serve it today.
 
 A counter's display name is never authored on a matchup: the compiler resolves it from `counters.json`. Every referenced counter must exist in `counters.json`. A squad matchup may reference only character counters, and a `FLEET` matchup only ship counters. The release gate rejects anything else.
@@ -302,6 +304,7 @@ The app reads two read-only interfaces: the static catalogue on its own Pages or
 ```
 
 **counters** — keyed by mode, then by defence team name, to an ordered array of counter entries `{counterId, counter, tier, bannerScore, undersize, notes}`.
+- A tactical step ([§4.1](#41-catalogue-structure)) is `{counterId, counter, role, notes}` instead, with `role` `SETUP` or `CLEANUP`; it has no `tier`, `bannerScore` or `undersize` key.
 - `counter` is the display name from `counters.json`.
 - `undersize` is the non-negative droppable-unit count.
 - `notes` is `""` when absent.
@@ -405,6 +408,8 @@ The user selects a mode (5v5 / 3v3 / Fleet) and a defence team, and sees the ava
 The undersize line reflects the droppable-unit count (see [§4.1](#41-catalogue-structure)): a counter that can shed units reads "drop up to N → X banners (+N)", showing the reconstructed best-case total; a counter that cannot reads "full squad". A fleet counter reads "leave up to N reinforcement slots empty for up to +N — unlocked slots only (the 4th needs a 7★ capital ship)", with no reconstructed total, since the screen does not know the capital ship's stars; one that cannot reads "full fleet". Round recommendations and Next Up use the same fleet wording.
 
 The **Fleet** segment shows fleet counters exactly as the squad modes show squad counters — enemy fleet defence teams and the ship counters that beat them. When the catalogue holds no fleet matchups, the Fleet view shows a plain "no fleet counters yet" message in place of the dropdown and results, and fills in automatically once fleet counters are authored. Fleet is a browsing view on this screen; it is not a whole-board format (see [§6.7](#67-round-boards)).
+
+Tactical steps ([§4.1](#41-catalogue-structure)) appear after the one-shot counters in a separate **Multi-battle options** section, in authored order so a setup reads before the cleanup that depends on it. Each card shows a **Setup** or **Cleanup** badge in place of the tier and a plain role line ("weakening battle — not expected to win…" / "conditional cleanup — only after an earlier battle has weakened this defence…") in place of expected banners and undersize, plus status, notes and **Mark Used**. The Owned and Available filters apply to them too. When a defence has no one-shot counters, the one-shot area says so above the section.
 
 A wayfinding line on the Counters screen points the user to the Round screen for round tracking and reset — those responsibilities live there, not here (see [§6.6](#66-round-screen)).
 
@@ -518,7 +523,7 @@ The allocation engine surfaces per-team counter recommendations across the whole
 **When it engages.** The engine is always active while a board exists. When two or more visible-uncleared teams share at least one eligible-and-owned-and-unused counter, an explicit **overlap notice** appears at the top of the board ("Shared counters detected — recommendations below account for the overlap"), announcing that the recommendations are actively arbitrating between competing claims rather than treating each team in isolation.
 
 **Eligibility.** For each visible-uncleared board team, the engine derives the set of counters that are:
-- Present in the counter catalogue for that team (the board's squad format for squad territories, the FLEET catalogue for the fleet territory).
+- Present in the counter catalogue for that team as a one-shot counter (the board's squad format for squad territories, the FLEET catalogue for the fleet territory). Tactical setup/cleanup steps are never candidates; when the player owns no one-shot counter but can field a tactical step, the team's reason says so and points to Counters.
 - **Owned** by the player (all required units present — reuses `getOwnership()`).
 - **Still fieldable** this round — neither marked used itself, requiring a unit committed to defence, nor requiring a unit an earlier used counter has already spent (status `available`; see [§6.5](#65-counter-status)).
 
