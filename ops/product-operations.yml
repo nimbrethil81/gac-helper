@@ -1,0 +1,45 @@
+schema_version: 1
+framework_ref: a4ec8946be42a3b2b1ad58392b7c9865a532e6eb
+
+product:
+  name: SWGOH GAC Helper
+  repository: nimbrethil81/gac-helper
+
+capabilities:
+  project_health:
+    enabled: true
+  documentation_integrity:
+    enabled: true
+
+canonical_sources:
+  - concern: agent_contract
+    path: AGENTS.md
+  - concern: current_system
+    path: docs/SPEC.md
+  - concern: future_work
+    path: ROADMAP.md
+  - concern: catalogue_authoring
+    path: docs/CATALOGUE_SOURCE.md
+  - concern: public_entry_point
+    path: README.md
+
+health_signals:
+  - kind: github_workflow
+    name: CI
+    path: .github/workflows/ci.yml
+  - kind: github_workflow
+    name: Deploy Pages Live
+    path: .github/workflows/deploy-pages-live.yml
+
+documentation:
+  include:
+    - AGENTS.md
+    - README.md
+    - ROADMAP.md
+    - docs/**/*.md
+  exclude:
+    - docs/archive/**
+
+exclusions:
+  - Deploy Pages Live is manually triggered; absence of a recent run is not itself a health finding.
+  - Catalogue counter research, matchup validation, scoring evidence gathering and gameplay or domain judgement are product work, not Product Operations.
