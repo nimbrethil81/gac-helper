@@ -20,6 +20,8 @@
     { "defence": "Qui-Gon Jinn", "mode": "3v3", "units": ["QUI_GON_JINN", "JEDI_KNIGHT_ANAKIN", "PLO_KOON"] },
     { "defence": "Reva", "mode": "3v3", "units": ["THIRD_SISTER", "GRAND_INQUISITOR", "SEVENTH_SISTER"] },
     { "defence": "Rey (GL)", "mode": "3v3", "units": ["REY", "BEN_SOLO", "REY_JEDI_TRAINING"] },
+    { "defence": "Rotta the Hutt", "mode": "5v5", "units": ["ROTTA_THE_HUTT", "CAD_BANE", "GREEDO", "MOB_ENFORCER", "GAMORREAN_GUARD"] },
+    { "defence": "SLKR (Dark Side Vision Rey)", "mode": "5v5", "units": ["SUPREME_LEADER_KYLO_REN", "REY_DARK_SIDE_VISION"] },
     { "defence": "Saw Gerrera", "mode": "3v3", "units": ["SAW_GERRERA", "LUTHEN_RAEL", "KLEYA_MARKI"] },
     { "defence": "Stormtrooper Luke", "mode": "3v3", "units": ["STORMTROOPER_LUKE", "PRINCESS_LEIA", "STORMTROOPER_HAN"] }
   ]

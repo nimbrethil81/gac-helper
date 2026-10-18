@@ -1,0 +1,530 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/108",
+  "baseline": {
+    "commit": "0de105d0a99293084a24afb19dfe57b38d64a637",
+    "catalogueVersion": 18,
+    "checksum": "sha256:55900c5b96fd1df0ac67decc5f0b3d289a7f5b84a3c5d71e9c8ad8254b7aeb50"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-18-01-P01",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Add 5v5 Rotta the Hutt defence with provisional SEE counter (#108)",
+      "rationale": "Rotta the Hutt has no 5v5 row. Owner-observed battle of 16 October 2026: Sith Eternal Emperor (existing SEE counter, not SEE_BANE) won at full size against Rotta the Hutt (lead), Cad Bane, Greedo, Mob Enforcer and Gamorrean Guard with Rotta's focused datacron equipped. Tier B, bannerScore 60 and undersize 0 are the owner-approved conservative provisional authoring values, not measurements. Threat HIGH: a hard 5v5 team with a single provisional counter, which the automatic ordering would otherwise rate NORMAL. Adds the three missing units so the five-member composition is exact.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/108#issue-5880516314",
+        "decidedAt": "2026-10-16T07:57:58Z",
+        "contentChecksum": "sha256:3cab19deceec8d58a71d89e7678023cc880d697f0c1f4c5560736519b1f10800"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/108",
+            "publisher": "Owner (issue #108)",
+            "publishedOrObservedAt": "2026-10-16",
+            "accessedAt": "2026-10-18",
+            "supports": "One directly observed 5v5 win by SEE with no undersize against Rotta the Hutt (lead), Cad Bane, Greedo, Mob Enforcer and Gamorrean Guard, with Rotta's focused datacron equipped."
+          },
+          {
+            "url": "https://github.com/swgoh-utils/gamedata",
+            "publisher": "swgoh-utils/gamedata (extracted game data, commit 005fa193f50d93b9cb8767d5476531832ae4a3ed, 2026-10-14)",
+            "publishedOrObservedAt": "2026-10-14",
+            "accessedAt": "2026-10-18",
+            "supports": "units.json has obtainable combatType-1 (character) units RACCOON, GREEDO and HUMANTHUG whose English names (Loc_ENG_US) are 'Rotta the Hutt', 'Greedo' and 'Mob Enforcer'. CADBANE and GAMORREANGUARD match the existing CAD_BANE and GAMORREAN_GUARD externalIds."
+          }
+        ],
+        "conditions": "5v5 only. Defence: Rotta the Hutt (lead), Cad Bane, Greedo, Mob Enforcer, Gamorrean Guard, with Rotta's focused datacron equipped. Attacker: the existing SEE definition (Sith Eternal Emperor required), five attackers.",
+        "confidence": "Low: a single directly observed win; no win rate is implied.",
+        "limitations": "One observed win only. The other four attackers, banners, relic levels and datacron modifiers were not recorded. Tier B and 60 are conservative planning values, not a measured banner result. SEE_BANE, SLKR, Lord Vader and JMK/CAT remain research-only and are not added. RACCOON and HUMANTHUG are the game's internal IDs for Rotta the Hutt and Mob Enforcer."
+      },
+      "affectedReferences": [
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "GREEDO"
+          },
+          "effect": "New unit Greedo (externalId GREEDO)."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "MOB_ENFORCER"
+          },
+          "effect": "New unit Mob Enforcer (externalId HUMANTHUG)."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "ROTTA_THE_HUTT"
+          },
+          "effect": "New unit Rotta the Hutt (externalId RACCOON)."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Rotta the Hutt",
+            "mode": "5v5"
+          },
+          "effect": "New 5v5 threat row HIGH with the observed lineup and datacron note."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Rotta the Hutt",
+            "mode": "5v5"
+          },
+          "effect": "New canonical five-member composition, leader first."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rotta the Hutt"
+          },
+          "effect": "New defence row with only SEE (B, 60, undersize 0)."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "SEE"
+          },
+          "effect": "none - checked: existing definition (SITH_ETERNAL_EMPEROR required) reused unchanged; SEE_BANE not referenced."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "CAD_BANE"
+          },
+          "effect": "none - checked: existing unit reused."
+        },
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "GAMORREAN_GUARD"
+          },
+          "effect": "none - checked: existing unit reused."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Rotta the Hutt becomes a 5v5 defence with one counter, SEE, tier B, bannerScore 60, undersize 0, with a provisional/datacron note.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Rotta the Hutt appears in 5v5 Counters with Sith Eternal Emperor as the only counter.",
+        "roundAvailability": "Allocating Rotta the Hutt on the user's own 5v5 defence reserves its five canonical units; Rotta, Greedo and Mob Enforcer become recognised roster units. Battle Order rates the defence HIGH.",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"characterDefinitions\"][\"GREEDO\"]",
+        "payload[\"characterDefinitions\"][\"MOB_ENFORCER\"]",
+        "payload[\"characterDefinitions\"][\"ROTTA_THE_HUTT\"]",
+        "payload[\"counters\"][\"5v5\"][\"Rotta the Hutt\"]",
+        "payload[\"defenceCompositions\"][\"5v5\"][\"Rotta the Hutt\"]",
+        "payload[\"defenceTeams\"][\"5v5\"][\"Rotta the Hutt\"]"
+      ],
+      "changes": [
+        {
+          "file": "units.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "GREEDO"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "GREEDO",
+            "name": "Greedo",
+            "unitType": "CHARACTER",
+            "externalId": "GREEDO"
+          }
+        },
+        {
+          "file": "units.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "MOB_ENFORCER"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "MOB_ENFORCER",
+            "name": "Mob Enforcer",
+            "unitType": "CHARACTER",
+            "externalId": "HUMANTHUG"
+          }
+        },
+        {
+          "file": "units.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "ROTTA_THE_HUTT"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "ROTTA_THE_HUTT",
+            "name": "Rotta the Hutt",
+            "unitType": "CHARACTER",
+            "externalId": "RACCOON"
+          }
+        },
+        {
+          "file": "defence-teams.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Rotta the Hutt",
+            "mode": "5v5"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Rotta the Hutt",
+            "mode": "5v5",
+            "threat": "HIGH",
+            "notes": "Rotta the Hutt lead, Cad Bane, Greedo, Mob Enforcer, Gamorrean Guard; observed with Rotta's focused datacron equipped."
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Rotta the Hutt",
+            "mode": "5v5"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Rotta the Hutt",
+            "mode": "5v5",
+            "units": [
+              "ROTTA_THE_HUTT",
+              "CAD_BANE",
+              "GREEDO",
+              "MOB_ENFORCER",
+              "GAMORREAN_GUARD"
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Rotta the Hutt"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Rotta the Hutt",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "B",
+                "bannerScore": 60,
+                "undersize": 0,
+                "notes": "Provisional: one directly observed full-size SEE victory against Rotta / Cad Bane / Greedo / Mob Enforcer / Gamorrean Guard with Rotta's focused datacron active. Exact other attackers, banners, relics and datacron modifiers were not recorded; not an established win rate. Check current datacron and roster before committing."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-18-01-P02",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Add 5v5 SLKR (Dark Side Vision Rey) variant with downgraded JML (B / 55) (#110)",
+      "rationale": "The owner reports repeated Jedi Master Luke losses in 5v5 against Supreme Leader Kylo Ren with Rey (Dark Side Vision), without any datacron, and approved a composition-specific downgrade of JML from S / 63 to B / 55. The only existing row is the generic 5v5 SLKR defence (JML S / 63), which must not be downgraded. The catalogue already separates lineup variants as their own defence identity (for example 'Emperor Palpatine (Duel's End Vader)'), so the variant is added as a new 5v5 defence 'SLKR (Dark Side Vision Rey)' carrying only the approved JML row. No new metadata or schema is introduced. Adds the missing Rey (Dark Side Vision) unit and a partial composition (the two reported members only).",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/110#issue-5907039358",
+        "decidedAt": "2026-10-18T06:56:23Z",
+        "contentChecksum": "sha256:4dc098e862e172327338df037607813fb4e3ceaaba7c3c785c7f89be6890ac7f"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/110",
+            "publisher": "Owner (issue #110)",
+            "publishedOrObservedAt": "2026-10-18",
+            "accessedAt": "2026-10-18",
+            "supports": "Repeated user-observed 5v5 JML failures against SLKR with Rey (Dark Side Vision), no datacron. No sample size, win rate or banner distribution was reported."
+          },
+          {
+            "url": "https://github.com/swgoh-utils/gamedata",
+            "publisher": "swgoh-utils/gamedata (extracted game data, commit 005fa193f50d93b9cb8767d5476531832ae4a3ed, 2026-10-14)",
+            "publishedOrObservedAt": "2026-10-14",
+            "accessedAt": "2026-10-18",
+            "supports": "units.json has an obtainable combatType-1 (character) unit DARKREY whose English name (Loc_ENG_US) is 'Rey (Dark Side Vision)', distinct from GLREY ('Rey', the GL) and REY ('Rey (Scavenger)'). SUPREMELEADERKYLOREN matches the existing SUPREME_LEADER_KYLO_REN externalId."
+          }
+        ],
+        "conditions": "5v5 only, no datacron. Defence: Supreme Leader Kylo Ren lead with Rey (Dark Side Vision); other members not reported. Attacker: existing JML definition (Jedi Master Luke required).",
+        "confidence": "Low: repeated user-observed losses with no recorded sample size; B / 55 is a conservative planning value.",
+        "limitations": "Other defence members, relics and attacker lineup not recorded. 55 is a planning value, not a measured mean; JML can lose outright. The generic SLKR row (JML S / 63, Bane S / 65) and all 3v3 rows are unchanged. The variant row lists only JML because no other counter has been assessed against it; Bane is not copied across without evidence. DARKREY is the game's internal ID for Rey (Dark Side Vision)."
+      },
+      "affectedReferences": [
+        {
+          "file": "units.json",
+          "stableKey": {
+            "id": "REY_DARK_SIDE_VISION"
+          },
+          "effect": "New unit Rey (Dark Side Vision) (externalId DARKREY); existing REY (GLREY, the GL) is unchanged."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "SLKR (Dark Side Vision Rey)",
+            "mode": "5v5"
+          },
+          "effect": "New partial composition: the two reported members, leader first."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "SLKR (Dark Side Vision Rey)"
+          },
+          "effect": "New defence row with only JML (B, 55, undersize 0) and a loss-risk note."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "SLKR"
+          },
+          "effect": "none - checked: generic SLKR row (JML S / 63, Bane S / 65) unchanged."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "SLKR"
+          },
+          "effect": "none - checked: 3v3 unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "JML"
+          },
+          "effect": "none - checked: existing definition reused unchanged."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "SLKR (Dark Side Vision Rey)",
+            "mode": "5v5"
+          },
+          "effect": "none - checked: no threat row added, matching generic SLKR (default NORMAL)."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "New defence 'SLKR (Dark Side Vision Rey)' with one counter, JML, tier B, bannerScore 55, undersize 0, with a can-lose-outright note. Generic SLKR unchanged.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Searching SLKR in 5v5 Counters lists both SLKR and SLKR (Dark Side Vision Rey).",
+        "roundAvailability": "Allocating the variant on the user's own 5v5 defence reserves Supreme Leader Kylo Ren and Rey (Dark Side Vision) (partial identity); Rey (Dark Side Vision) becomes a recognised roster unit.",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"characterDefinitions\"][\"REY_DARK_SIDE_VISION\"]",
+        "payload[\"counters\"][\"5v5\"][\"SLKR (Dark Side Vision Rey)\"]",
+        "payload[\"defenceCompositions\"][\"5v5\"][\"SLKR (Dark Side Vision Rey)\"]"
+      ],
+      "changes": [
+        {
+          "file": "units.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "REY_DARK_SIDE_VISION"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "REY_DARK_SIDE_VISION",
+            "name": "Rey (Dark Side Vision)",
+            "unitType": "CHARACTER",
+            "externalId": "DARKREY"
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "SLKR (Dark Side Vision Rey)",
+            "mode": "5v5"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "SLKR (Dark Side Vision Rey)",
+            "mode": "5v5",
+            "units": [
+              "SUPREME_LEADER_KYLO_REN",
+              "REY_DARK_SIDE_VISION"
+            ]
+          }
+        },
+        {
+          "file": "matchups/5v5.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "SLKR (Dark Side Vision Rey)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "SLKR (Dark Side Vision Rey)",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "B",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Provisional, lineup-specific: repeated user-reported 5v5 JML losses to SLKR with Rey (Dark Side Vision), no datacron. JML can lose outright here; B / 55 is a conservative planning value (down from the generic SLKR S / 63), not a measured result or a dependable win. Does not apply to SLKR without Dark Side Vision Rey or to 3v3."
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-10-18-01-P03",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Differentiate Mother Talzin (B / 59) and Darth Traya (A / 62) vs 5v5 Finn (Zorii Resistance) (#111)",
+      "rationale": "Owner-reported 5v5 battles against Finn (Zorii Resistance): Mother Talzin / Nightsisters lost the first battle without defeating any defender; Darth Traya / Sith then won a second battle against all five surviving defenders. Owner-approved: Talzin A / 62 to B / 59 (provisional) with a possible-loss warning; Traya retained at A / 62 with a note that the win was a second attempt. Starkiller and Baylan rows and the authored order are unchanged.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/111#issue-5907206846",
+        "decidedAt": "2026-10-18T07:21:18Z",
+        "contentChecksum": "sha256:993ad59f73c413cf5e98c42a26705ef6a734a62e8a961bbf72678e3932eadb60"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/111",
+            "publisher": "Owner (issue #111)",
+            "publishedOrObservedAt": "2026-10-18",
+            "accessedAt": "2026-10-18",
+            "supports": "One user-reported 5v5 Mother Talzin loss against Finn (Zorii Resistance) with zero defenders defeated, followed by one Darth Traya win on the second battle against all five surviving defenders. No banner counts reported."
+          }
+        ],
+        "conditions": "5v5 only. Defence: Finn (Zorii Resistance); exact members, omicrons and datacrons not reported. Traya's win was a cleanup attempt: defenders may have had depleted protection/health or altered cooldowns from the first battle.",
+        "confidence": "Low: one battle per counter, the second not a fresh-battle result.",
+        "limitations": "No sample size, win rate or banner result. B / 59 for Talzin is a planning score; Traya's retained A / 62 is not a proven first-attempt A-tier or 62-banner outcome. 3v3 Finn (Zorii Resistance) and other Finn/Resistance defences are unchanged."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "effect": "MOTHER_TALZIN A / 62 to B / 59 with loss warning; TRAYA stays A / 62 with second-attempt note; STARKILLER, BAYLAN and order unchanged."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "effect": "none - checked: 3v3 unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "MOTHER_TALZIN"
+          },
+          "effect": "none - checked: definition unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "TRAYA"
+          },
+          "effect": "none - checked: definition unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Finn (Zorii Resistance): Mother Talzin drops from A / 62 to B / 59, so the allocation engine prefers Traya, Starkiller or Baylan when available; Traya unchanged at A / 62. Both gain explanatory notes.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Mother Talzin shows tier B, 59 banners and a can-fail-outright note; Traya shows the second-attempt note.",
+        "roundAvailability": "none",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Finn (Zorii Resistance)\"][0][\"bannerScore\"]",
+        "payload[\"counters\"][\"5v5\"][\"Finn (Zorii Resistance)\"][0][\"notes\"]",
+        "payload[\"counters\"][\"5v5\"][\"Finn (Zorii Resistance)\"][0][\"tier\"]",
+        "payload[\"counters\"][\"5v5\"][\"Finn (Zorii Resistance)\"][1][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Finn (Zorii Resistance)"
+          },
+          "before": {
+            "defence": "Finn (Zorii Resistance)",
+            "counters": [
+              {
+                "counterId": "MOTHER_TALZIN",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Finn (Zorii Resistance)",
+            "counters": [
+              {
+                "counterId": "MOTHER_TALZIN",
+                "tier": "B",
+                "bannerScore": 59,
+                "undersize": 0,
+                "notes": "Provisional: in one user-reported 5v5 battle Mother Talzin (Nightsisters) lost to Finn (Zorii Resistance) without defeating a single defender. Can fail outright; B / 59 is a conservative planning value, not a measured result or a reliable win."
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "One user-reported 5v5 win came on a second attempt (after a failed Mother Talzin battle) against all five surviving defenders, which may have had reduced protection, health or altered cooldowns. Supports keeping A / 62; not a proven fresh-battle win rate or 62-banner result."
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "S",
+                "bannerScore": 62,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 61,
+                "undersize": 0
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
