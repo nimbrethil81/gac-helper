@@ -675,7 +675,7 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     if (!target) return;
     const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
-    if (side !== "my" && !confirmReserveUse(counterId)) return;
+    if (side !== "my" && !confirmReserveUse(counterId, territoryKey + ":" + index)) return;
 
     dismissPendingUndoFor(side, territoryKey, index);
 
@@ -714,7 +714,7 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
     if (!target) return;
     const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team || team.cleared) return;
-    if (side !== "my" && !confirmReserveUse(counterId)) return;
+    if (side !== "my" && !confirmReserveUse(counterId, territoryKey + ":" + index)) return;
 
     dismissPendingUndoFor(side, territoryKey, index);
 
@@ -838,24 +838,45 @@ function clearTerritory(side, territoryKey) {
     render();
 }
 
-// Strategic reserve: spending a High-reserve counter (see isHighReserve) on the
-// Opponent Board while any enemy zone is still hidden asks first, because it may
-// be needed for a harder matchup later. Hidden-zone status is read at click time.
-// Returns false (and the caller must change nothing) when the player keeps it
-// available. Nothing to confirm for a normal counter, a fully revealed board, or a
-// counter that is already used. Uses the same native confirm() as the other
-// Round confirmations, so OK = use it now, Cancel = keep it available.
-function confirmReserveUse(counterId) {
-    if (!isHighReserve(counterId) || usedTeams.includes(counterId) || !roundHasHiddenZones(board)) return true;
-    const def = counterDefinitions[counterId] || {};
-    const name = def.name || counterId;
-    return confirm(`Use ${name} now?\n\nSome enemy squads are still hidden. ${name} may be needed for a more difficult matchup later.\n\nOK uses ${name} now. Cancel keeps it available.`);
+// Opponent Board action guard: combine hidden-zone reserve with a fresh engine
+// check of visible-board expenditure. Call before any write, focus change or Undo
+// dismissal, so Cancel is a complete no-op. OK always permits the user override.
+function confirmReserveUse(counterId, targetKey) {
+    if (usedTeams.includes(counterId)) return true;
+    if (board && getCounterStatus(counterId) !== "available") return true;
+    const name = getCounterName(counterId);
+    const messages = [];
+    // Derive a fresh plan without assigning roundPlan or changing any UI/state.
+    // The action's own defence is excluded from the remaining-board check: this
+    // is expected expenditure there, even if a failed battle later needs cleanup.
+    if (board && getCounterStatus(counterId) === "available") {
+        const plan = computeRoundPlan();
+        const intendedKey = targetKey || Object.keys(plan.assign)
+            .find(key => plan.assign[key].counterId === counterId);
+        const impact = assessCounterUseImpact(plan, counterId, intendedKey);
+        if (impact.affected.length) {
+            const affected = impact.affected[0];
+            const via = affected.sharedRequiredCharacters.length
+                ? ` through ${affected.sharedRequiredCharacters.map(getCharacterName).join(", ")}` : "";
+            const remaining = affected.remaining
+                ? `${getCounterName(affected.remaining.counterId)} (${affected.remaining.tier} tier) remains in the plan; that is a weaker option, not a guaranteed win.`
+                : "No one-shot counter remains assigned there.";
+            messages.push(impact.state === "limited"
+                ? `Using ${name} may weaken coverage for ${affected.defenceName}${via}. Remaining coverage is uncertain because the allocation check reached its search limit.`
+                : `Using ${name} would weaken coverage for ${affected.defenceName}${via}. ${remaining}`);
+        }
+    }
+    if (isHighReserve(counterId) && roundHasHiddenZones(board)) {
+        messages.push(`Some enemy squads are still hidden. ${name} may be needed for a more difficult matchup later.`);
+    }
+    if (!messages.length) return true;
+    return confirm(`Use ${name} now?\n\n${messages.join("\n\n")}\n\nOK: Use anyway. Cancel: Keep available.`);
 }
 
 // Mark a counter used straight from a board recommendation. The plan re-solves
 // on the render that follows — no stored plan to keep in sync.
-function markCounterUsedFromBoard(counterId) {
-    if (!confirmReserveUse(counterId)) return;
+function markCounterUsedFromBoard(counterId, targetKey) {
+    if (!confirmReserveUse(counterId, targetKey)) return;
     if (!usedTeams.includes(counterId)) {
         usedTeams.push(counterId);
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
@@ -2101,6 +2122,45 @@ function buildConservationDiagnostics(eligible, solved) {
             reason: "Tier is an ordinal reliability category; runtime data has no structured evidence confidence or win probability."
         }
     };
+}
+
+// Action-time engine diagnostic, using SC-01's eligibility/required-unit snapshot
+// and the existing bounded solver. No persisted or render state is changed. One
+// counterfactual solve checks whether the rest of the selected plan can retain
+// its coverage and ordinal tier profile after this composition is spent.
+function assessCounterUseImpact(plan, counterId, targetKey) {
+    const empty = { state: "unchanged", affected: [] };
+    if (!plan) return empty;
+    const remaining = plan.eligible.filter(t => !t.custom && t.key !== targetKey);
+    const spent = requiredChars(counterId);
+    const conflicts = (team, candidate) => candidate.counterId === counterId ||
+        candidateRequiredCharacters(team, candidate.counterId).some(ch => spent.includes(ch));
+    const claimed = remaining.filter(t => plan.assign[t.key] && conflicts(t, plan.assign[t.key]));
+    if (!claimed.length) return empty;
+    const after = solveAllocation(remaining.map(t => Object.assign({}, t, {
+        candidates: t.candidates.filter(c => !conflicts(t, c))
+    })), plan.reserveActive);
+    const before = remaining.filter(t => plan.assign[t.key]).map(t => plan.assign[t.key]);
+    // Override risk describes authored reliability, not the hidden reserve nudge;
+    // two equally tiered routes are not a dynamic quality loss merely because
+    // one has a reserve flag. Hidden-zone concern is explained separately.
+    const profile = before.map(c => tierSortValue(c.tier)).sort((a, b) => b - a);
+    const afterProfile = Object.values(after.assign).map(c => tierSortValue(c.tier)).sort((a, b) => b - a);
+    if (after.coverage > before.length || (after.coverage === before.length &&
+        compareTierProfiles(afterProfile, profile) <= 0)) return empty;
+    const affected = remaining.filter(t => {
+        const previous = plan.assign[t.key];
+        const next = after.assign[t.key];
+        return previous && (!next || tierSortValue(next.tier) > tierSortValue(previous.tier));
+    }).map(t => ({
+        defenceId: t.key,
+        defenceName: t.name,
+        previous: assignmentDetails(plan.assign[t.key], t),
+        remaining: assignmentDetails(after.assign[t.key], t),
+        sharedRequiredCharacters: candidateRequiredCharacters(t, plan.assign[t.key].counterId)
+            .filter(ch => spent.includes(ch))
+    }));
+    return { state: after.search.exhausted ? "limited" : "changed", affected };
 }
 
 function computeRoundPlan() {
@@ -3765,19 +3825,20 @@ function renderNextUpRow(pick, isFleet) {
         ? `<div class="nextup-opener-note">First attack of the round — the bonus is paid once, whatever happens. Play this one full squad.</div>`
         : "";
 
-    const warningLine = (opener && pick.warning)
-        ? `<div class="nextup-warning">⚠ ${pick.warning}</div>`
-        : "";
+    const risk = allocationRiskText(roundPlan, pick.territory + ":" + pick.index);
+    const warnings = [opener && pick.warning, risk].filter(Boolean);
+    const warningLine = warnings.length
+        ? `<div class="nextup-warning" role="note">⚠ ${warnings.map(escapeHtml).join(" ")}</div>` : "";
 
     return `
 <button class="nextup-row ${opener ? "nextup-row-opener" : ""}" onclick="focusBoardTeam('${pick.territory}', ${pick.index})">
-    <div class="nextup-target">${track}${label} · ${pick.name}</div>
+    <div class="nextup-target">${track}${escapeHtml(label)} · ${escapeHtml(pick.name)}</div>
     <div class="nextup-counter">
-        🎯 <strong>${c.counter}</strong>
-        <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
+        🎯 <strong>${escapeHtml(c.counter)}</strong>
+        <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
         <span class="nextup-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="nextup-reason">${pick.reason}</div>${undersizeLine}${openerNote}${warningLine}
+    <div class="nextup-reason">${escapeHtml(pick.reason)}</div>${undersizeLine}${openerNote}${warningLine}
 </button>
 `;
 }
@@ -4146,26 +4207,65 @@ function adjustedScore(counter, isFleet) {
 // blocks the counter — it is advisory text alongside the normal recommendation.
 const RESERVE_WARNING_TEXT = "Consider holding — strong flexible counter and hidden zones remain.";
 
-function renderReserveAlternatives(alts) {
+// Wording consumes engine diagnostics only; it never counts candidates or infers
+// scarcity from notes, enemy threat, or the strategicReserve catalogue flag.
+function conservationReason(plan, key) {
+    const diagnostics = plan && plan.visibleBoardConservation;
+    if (!diagnostics || diagnostics.changed !== true) return null;
+    const tradeoff = diagnostics.tradeoffs.find(t => t.defenceId === key);
+    if (!tradeoff || !tradeoff.selected || !tradeoff.baseline) return null;
+    const destination = tradeoff.preservedFor.find(other => {
+        const change = diagnostics.tradeoffs.find(t => t.defenceId === other.defenceId);
+        return change && (!change.baseline || tierSortValue(other.tier) < tierSortValue(change.baseline.tier));
+    });
+    if (!destination) return null;
+    return `Keeps ${getCounterName(destination.counterId)} (${destination.tier} tier) for ${destination.defenceName}, where the alternative allocation is weaker.`;
+}
+
+function allocationRiskText(plan, key) {
+    const diagnostics = plan && plan.visibleBoardConservation;
+    const warning = diagnostics && diagnostics.warnings.find(w => w.defenceId === key);
+    if (!warning) return null;
+    if (warning.status === "low-tier") return `${warning.tier}-tier option — risky; a win is not assured.`;
+    if (warning.status === "compromised") return diagnostics.search.exhausted
+        ? "No counter assigned in the current plan; the allocation search reached its limit."
+        : "No credible allocation here without compromising another defence.";
+    return null; // the existing reason distinguishes catalogue, roster and round availability
+}
+
+function renderReserveAlternatives(alts, targetKey, reserveActive = true) {
+    const targetArg = targetKey ? `, '${targetKey}'` : "";
     return alts.map(c => `
     <div class="board-rec-reserve-alt">
         <div class="board-rec-reserve-alt-line">
             🎯 ${escapeHtml(c.counter)}
-            <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
-            <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
+            <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
+            <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}'${targetArg})">Mark used</button>
         </div>
-        <div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>
+        ${reserveActive && isHighReserve(c.counterId) ? `<div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>` : ""}
     </div>`).join("");
 }
 
 function renderTeamRecommendation(side, territoryKey, team, modeKey) {
-    if (!roundPlan || team.cleared || !team.name) return "";
+    if (side === "my" || !roundPlan || team.cleared || !team.name) return "";
 
-    const info = roundPlan.reasons[territoryKey + ":" + team.index];
+    const targetKey = territoryKey + ":" + team.index;
+    const info = roundPlan.reasons[targetKey];
     if (!info) return "";
     const blocked = (info.defenceBlocked || []).map(c => `
     <div class="board-rec-blocked"><span>On defence</span> ${escapeHtml(c.counter)}</div>`).join("");
-    const reserveAltsHtml = renderReserveAlternatives(info.reserveAlternatives || []);
+    const conservation = conservationReason(roundPlan, targetKey);
+    const alternatives = (info.reserveAlternatives || []).slice();
+    if (conservation) {
+        const tradeoff = roundPlan.visibleBoardConservation.tradeoffs.find(t => t.defenceId === targetKey);
+        const eligible = roundPlan.eligible.find(t => t.key === targetKey);
+        const alternative = eligible.candidates.find(c => c.counterId === tradeoff.baseline.counterId);
+        if (alternative && !alternatives.some(c => c.counterId === alternative.counterId)) alternatives.push(alternative);
+    }
+    const reserveAltsHtml = renderReserveAlternatives(alternatives, targetKey, roundPlan.reserveActive);
+    const reason = conservation || info.reason;
+    const risk = allocationRiskText(roundPlan, targetKey);
+    const riskHtml = risk ? `<div class="nextup-warning" role="note">⚠ ${escapeHtml(risk)}</div>` : "";
 
     if (info.counter) {
         const c = info.counter;
@@ -4186,16 +4286,16 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         return `
 <div class="board-rec">
     <div class="board-rec-line">
-        🎯 <strong>${c.counter}</strong>
-        <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${c.tier}</span>
+        🎯 <strong>${escapeHtml(c.counter)}</strong>
+        <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="board-rec-reason">${info.reason}</div>${undersizeLine}${reserveWarningLine}
+    <div class="board-rec-reason">${escapeHtml(reason)}</div>${riskHtml}${undersizeLine}${reserveWarningLine}
     ${squadDisclosure}
     <div class="board-rec-actions">
         <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
         <button class="board-rec-btn board-rec-btn-secondary" onclick="markUsedAndLost('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Lost</button>
-        <button class="board-rec-btn board-rec-btn-tertiary" onclick="markCounterUsedFromBoard('${c.counterId}')">Mark used</button>
+        <button class="board-rec-btn board-rec-btn-tertiary" onclick="markCounterUsedFromBoard('${c.counterId}', '${targetKey}')">Mark used</button>
     </div>${blocked}${reserveAltsHtml}
 </div>
 `;
@@ -4203,7 +4303,7 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
 
     return `
 <div class="board-rec board-rec-none">
-    <div class="board-rec-reason">${info.reason}</div>${blocked}${reserveAltsHtml}
+    <div class="board-rec-reason">${escapeHtml(reason)}</div>${riskHtml}${blocked}${reserveAltsHtml}
 </div>
 `;
 }

@@ -107,7 +107,7 @@ test("Scenario A: an adequate non-reserve counter outranks a High-reserve counte
     assert.match(html, /Reliable Squad/);
     assert.match(html, /Darth Bane/, "Bane must remain visible on the card");
     assert.match(html, /Consider holding/, "Bane's row must carry the hold warning");
-    assert.match(html, /markCounterUsedFromBoard\('BANE'\)/, "Bane must remain selectable via Mark used");
+    assert.match(html, /markCounterUsedFromBoard\('BANE', 'FRONT_BOTTOM:0'\)/, "Bane must remain selectable via Mark used");
 });
 
 // ── Scenario B: hidden zone, only weak alternatives ─────────────────────────
@@ -268,7 +268,7 @@ test("real catalogue: hidden zones nudge an adequate non-reserve option above BA
     assert.ok(info.reserveAlternatives.some(c => c.counterId === "BANE"));
     const html = h.run(`renderTeamRecommendation("opponent", "FRONT_BOTTOM", board.teams.find(t => t.territory === "FRONT_BOTTOM"), "3v3")`);
     assert.match(html, /Consider holding/);
-    assert.match(html, /markCounterUsedFromBoard\('BANE'\)/);
+    assert.match(html, /markCounterUsedFromBoard\('BANE', 'FRONT_BOTTOM:0'\)/);
 });
 
 test("real catalogue: SEE_BANE is still chosen over a materially weaker option, with the hold warning", () => {
@@ -299,4 +299,29 @@ test("real catalogue: the Counters-screen order is unchanged by the reserve flag
     delete flagless.BANE.strategicReserve; delete flagless.SEE_BANE.strategicReserve;
     h.run(`counterDefinitions = ${JSON.stringify(flagless)};`);
     assert.equal(h.run(`sortCounters(${JSON.stringify(rows)}).map(c => c.counterId).join(",")`), order);
+});
+
+test("real revealed 5v5 board: spending unflagged SEE on Malgus warns about The Stranger", () => {
+    const h = harness();
+    const owned = [...new Set([...realDefs.SEE.required, ...realDefs.JKCK.required])];
+    h.run(`
+        board = createRoundBoard("KYBER", "5v5", [{ territory: "FRONT_TOP", type: "SQUAD", teamCount: 2 }], "opponent", "r", "now");
+        board.teams[0].name = "Darth Malgus";
+        board.teams[1].name = "The Stranger";
+        gacData = ${JSON.stringify(realPayload.counters)};
+        counterDefinitions = ${JSON.stringify(realDefs)};
+        characterDefinitions = ${JSON.stringify(realPayload.characterDefinitions)};
+        ownedCharacters = ${JSON.stringify(owned)};
+        usedTeams = [];
+        roundPlan = computeRoundPlan();
+        globalThis.promptText = null;
+        confirm = message => { promptText = message; return false; };
+        markCounterUsedFromBoard("SEE", "FRONT_TOP:0");
+    `);
+    assert.equal(h.run(`roundPlan.visibleBoardConservation.changed`), false,
+        "coverage alone already protects SEE; a click still evaluates the actual expenditure");
+    assert.match(h.run(`promptText`), /The Stranger/);
+    assert.match(h.run(`promptText`), /Sith Eternal Emperor/);
+    assert.match(h.run(`promptText`), /No one-shot counter remains assigned there/);
+    assert.equal(h.run(`usedTeams.length`), 0);
 });

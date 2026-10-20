@@ -128,3 +128,25 @@ test("first attack is spent after a loss", () => {
 test("recommendation card renders all three actions with Used + Lost secondary", () => {
     assert.match(source, /board-rec-btn-primary" onclick="markUsedAndCleared[^]*board-rec-btn-secondary" onclick="markUsedAndLost[^]*board-rec-btn-tertiary" onclick="markCounterUsedFromBoard/);
 });
+
+test("Used + Lost on a hidden-zone reserve: cancel is a no-op, confirm increments once, Undo restores", () => {
+    const h = harness();
+    setUp(h, "5v5");
+    h.run(`
+        counterDefinitions = { BANE: { name: "Bane", required: ["BANE_UNIT"], strategicReserve: true } };
+        ownedCharacters = ["BANE_UNIT"];
+        confirm = () => false;
+        focusedTeamKey = "FRONT_TOP:0";
+    `);
+    const before = h.run(`JSON.stringify({ board, usedTeams, focusedTeamKey, pendingUndo })`);
+    h.run(`markUsedAndLost("opponent", "FRONT_TOP", 0, "BANE")`);
+    assert.equal(h.run(`JSON.stringify({ board, usedTeams, focusedTeamKey, pendingUndo })`), before);
+    assert.equal(h.stored("usedTeams"), undefined);
+    h.run(`confirm = () => true; markUsedAndLost("opponent", "FRONT_TOP", 0, "BANE")`);
+    assert.equal(att(h, "FRONT_TOP", 0), 1);
+    assert.equal(h.run(`board.teams[0].cleared`), false);
+    assert.equal(h.run(`usedTeams.filter(id => id === "BANE").length`), 1);
+    h.run(`undoPendingAction()`);
+    assert.equal(att(h, "FRONT_TOP", 0), 0);
+    assert.equal(h.run(`usedTeams.length`), 0);
+});

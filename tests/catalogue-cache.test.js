@@ -474,6 +474,6 @@ test("the service worker bypasses the catalogue at a site root too", () => {
 
 test("the service worker shell cache is bumped so installed apps pick up the cutover", () => {
     const text = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-    assert.match(text, /const CACHE_NAME = 'swgoh-shell-v25';/);
+    assert.match(text, /const CACHE_NAME = 'swgoh-shell-v26';/);
     assert.doesNotMatch(text, /catalogue\/current\.json/, "the catalogue is never precached");
 });
