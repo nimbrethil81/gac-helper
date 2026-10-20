@@ -1480,7 +1480,7 @@ function currentLastBattleAdvice(extra) {
     }, extra || {}));
 }
 
-// ─── ALLOCATION ENGINE (v2.1) ─────────────────────────────────────────────────
+// ─── ALLOCATION ENGINE (SC-01) ────────────────────────────────────────────────
 // Pure derivation from board + roster + used state. Recomputed on every Round
 // render; nothing here is persisted. Exclusivity is enforced at two levels:
 // a counter can be assigned to at most one team, and two counters that share
@@ -1518,7 +1518,10 @@ function effectiveTierRank(counter, reserveActive) {
     return (reserveActive && isHighReserve(counter.counterId)) ? base + RESERVE_TIER_PENALTY : base;
 }
 
-// Every visible, uncleared, named board team plus its available counters.
+// Every visible, uncleared, named board team plus its catalogue and available
+// counters. candidateStates is deliberately fully materialised here so the
+// visible-board scarcity pass below is a pure derivation: it does not need to
+// consult roster, used-team or defence state itself.
 function buildEligibleTeams() {
     const eligible = [];
     if (!board) return eligible;
@@ -1543,75 +1546,278 @@ function buildEligibleTeams() {
             const all = oneShotCounters(gacData[modeKey] && gacData[modeKey][team.name]);
             const seen = new Set();
             const candidates = [];
+            const candidateStates = [];
             const defenceBlocked = [];
             all.forEach(c => {
                 if (seen.has(c.counterId)) return;
                 seen.add(c.counterId);
                 const status = getCounterStatus(c.counterId);
+                const ownership = getOwnership(c.counterId);
+                candidateStates.push({
+                    counterId: c.counterId,
+                    counter: c.counter,
+                    tier: c.tier,
+                    requiredCharacters: requiredChars(c.counterId).slice(),
+                    owned: ownership.owned,
+                    status,
+                    fieldable: status === "available"
+                });
                 if (status === "available") candidates.push(c);
                 if (status === "on-defence") defenceBlocked.push(c);
             });
 
             eligible.push({ key, territory: tDef.territory, index: team.index,
-                            name: team.name, modeKey, custom: false, candidates, defenceBlocked });
+                            name: team.name, modeKey, custom: false, candidates,
+                            candidateStates, defenceBlocked });
         });
     });
 
     return eligible;
 }
 
-// Scarcity-first ordered search with pruning. Objective (Option A, lexicographic):
-// maximise teams covered, then prefer stronger tiers, then (while hidden zones
-// remain) fewer strategic-reserve counters spent, then higher banner totals.
-// The reserve step is a no-op whenever reserveActive is false — every plan scores
-// reserveCount 0, so behaviour is byte-for-byte unchanged outside Round Mode's
-// hidden-zone window (see roundHasHiddenZones). The first complete path is the
-// greedy scarcity-first answer, so even if the node budget is exhausted the
-// result is never worse than greedy.
-function solveAllocation(teams, reserveActive) {
-    const order = teams.slice().sort((a, b) => a.candidates.length - b.candidates.length);
+// Pure, deterministic description of the real choices on the visible board.
+// Direct conflicts name a reused counter identity or shared required character;
+// resourceGroups close that graph transitively, so SEE and Bane are not reported
+// as two independent fallback routes when SEE_BANE connects both of them.
+function assessVisibleBoardScarcity(eligible) {
+    const teams = eligible.filter(t => !t.custom && t.name).map(t => ({
+        defenceId: t.key,
+        defenceName: t.name,
+        mode: t.modeKey,
+        custom: t.custom,
+        candidates: (t.candidateStates || []).map(c => ({
+            counterId: c.counterId,
+            tier: c.tier,
+            requiredCharacters: c.requiredCharacters.slice(),
+            owned: c.owned,
+            fieldable: c.fieldable,
+            status: c.status
+        }))
+    }));
+
+    const uses = new Map();
+    teams.forEach(t => t.candidates.filter(c => c.fieldable).forEach(c => {
+        if (!uses.has(c.counterId)) {
+            uses.set(c.counterId, {
+                counterId: c.counterId,
+                requiredCharacters: c.requiredCharacters.slice(),
+                defences: []
+            });
+        }
+        uses.get(c.counterId).defences.push({ defenceId: t.defenceId, tier: c.tier });
+    }));
+
+    const identities = [...uses.values()].sort((a, b) => a.counterId.localeCompare(b.counterId));
+    identities.forEach(identity => identity.defences.sort((a, b) => a.defenceId.localeCompare(b.defenceId)));
+    const directConflicts = [];
+    const parent = new Map(identities.map(identity => [identity.counterId, identity.counterId]));
+    const find = id => {
+        let root = id;
+        while (parent.get(root) !== root) root = parent.get(root);
+        while (parent.get(id) !== id) {
+            const next = parent.get(id);
+            parent.set(id, root);
+            id = next;
+        }
+        return root;
+    };
+    const unite = (a, b) => {
+        const ar = find(a);
+        const br = find(b);
+        if (ar === br) return;
+        if (ar < br) parent.set(br, ar);
+        else parent.set(ar, br);
+    };
+
+    identities.forEach(identity => {
+        const defenceIds = [...new Set(identity.defences.map(d => d.defenceId))];
+        if (defenceIds.length > 1) {
+            directConflicts.push({
+                type: "counter-identity",
+                counterIds: [identity.counterId],
+                requiredCharacters: identity.requiredCharacters.slice(),
+                defenceIds
+            });
+        }
+    });
+
+    for (let i = 0; i < identities.length; i++) {
+        for (let j = i + 1; j < identities.length; j++) {
+            const a = identities[i];
+            const b = identities[j];
+            const shared = a.requiredCharacters.filter(ch => b.requiredCharacters.includes(ch));
+            if (!shared.length) continue;
+            unite(a.counterId, b.counterId);
+            const defenceIds = [...new Set([
+                ...a.defences.map(d => d.defenceId),
+                ...b.defences.map(d => d.defenceId)
+            ])].sort();
+            if (defenceIds.length > 1) {
+                directConflicts.push({
+                    type: "required-character",
+                    counterIds: [a.counterId, b.counterId],
+                    requiredCharacters: shared.slice().sort(),
+                    defenceIds
+                });
+            }
+        }
+    }
+
+    const grouped = new Map();
+    identities.forEach(identity => {
+        const root = find(identity.counterId);
+        if (!grouped.has(root)) grouped.set(root, []);
+        grouped.get(root).push(identity);
+    });
+    const resourceGroups = [...grouped.values()].map(group => {
+        const counterIds = group.map(identity => identity.counterId).sort();
+        const defenceIds = [...new Set(group.flatMap(identity => identity.defences.map(d => d.defenceId)))].sort();
+        const characterCounts = new Map();
+        group.forEach(identity => identity.requiredCharacters.forEach(character =>
+            characterCounts.set(character, (characterCounts.get(character) || 0) + 1)));
+        const requiredCharacters = [...characterCounts.entries()]
+            .filter(([, count]) => group.length === 1 || count > 1)
+            .map(([character]) => character).sort();
+        const hasDirectGap = counterIds.length > 2 && counterIds.some((counterId, index) =>
+            counterIds.slice(index + 1).some(otherId => {
+                const a = uses.get(counterId);
+                const b = uses.get(otherId);
+                return !a.requiredCharacters.some(ch => b.requiredCharacters.includes(ch));
+            }));
+        return { counterIds, requiredCharacters, defenceIds, indirect: hasDirectGap };
+    }).filter(group => group.defenceIds.length > 1 && (
+        group.counterIds.length > 1 || directConflicts.some(conflict => conflict.counterIds[0] === group.counterIds[0])
+    )).sort((a, b) => a.counterIds.join("|").localeCompare(b.counterIds.join("|")));
+
+    return {
+        state: "assessed",
+        teams,
+        directConflicts: directConflicts.sort((a, b) =>
+            (a.counterIds.join("|") + a.defenceIds.join("|")).localeCompare(
+                b.counterIds.join("|") + b.defenceIds.join("|"))),
+        resourceGroups,
+        quality: {
+            state: "limited",
+            reason: "Runtime matchup data supplies ordinal tiers but no structured evidence confidence."
+        }
+    };
+}
+
+function compareTierProfiles(a, b) {
+    const length = Math.max(a.length, b.length);
+    for (let i = 0; i < length; i++) {
+        const av = a[i] == null ? -1 : a[i];
+        const bv = b[i] == null ? -1 : b[i];
+        if (av !== bv) return av - bv;
+    }
+    return 0;
+}
+
+// Scarcity-first ordered search with pruning. After maximising coverage, compare
+// each plan's tiers from weakest to strongest. This maximin-style ordinal profile
+// prefers A+A over S+B without pretending tiers are numeric probabilities. The
+// former summed-tier objective is retained in the same traversal as a bounded
+// counterfactual for diagnostics; no per-candidate re-solves are needed.
+function solveAllocation(teams, reserveActive, nodeBudget) {
+    const order = teams.slice().sort((a, b) =>
+        a.candidates.length - b.candidates.length || a.key.localeCompare(b.key));
 
     let best = null;
+    let baselineBest = null;
     let nodes = 0;
-    const NODE_BUDGET = 50000;
+    let exhausted = false;
+    const NODE_BUDGET = Number.isInteger(nodeBudget) && nodeBudget >= 0 ? nodeBudget : 50000;
 
     const usedCounters = new Set();
     const usedChars = new Set();
     const assign = {};
 
-    function isBetter(cov, tier, reserveCount, ban) {
-        if (!best) return true;
-        if (cov !== best.coverage) return cov > best.coverage;
-        if (tier !== best.tierSum) return tier < best.tierSum;
-        if (reserveCount !== best.reserveCount) return reserveCount < best.reserveCount;
-        return ban > best.bannerSum;
-    }
-
-    function dfs(i, cov, tier, reserveCount, ban) {
-        nodes++;
-        if (nodes > NODE_BUDGET) return;
-
-        // Coverage upper bound: even covering every remaining team can't win.
-        const bound = cov + (order.length - i);
-        if (best && bound < best.coverage) return;
-
-        if (i === order.length) {
-            if (isBetter(cov, tier, reserveCount, ban)) {
-                best = { assign: { ...assign }, coverage: cov, tierSum: tier, reserveCount, bannerSum: ban };
-            }
-            return;
-        }
-
-        const t = order[i];
-        const cands = t.candidates.slice().sort((a, b) => {
+    function sortedCandidates(t) {
+        return t.candidates.slice().sort((a, b) => {
             const d = effectiveTierRank(a, reserveActive) - effectiveTierRank(b, reserveActive);
             if (d !== 0) return d;
             const adj = adjustedScore(b, t.modeKey === "FLEET") - adjustedScore(a, t.modeKey === "FLEET");
             if (adj !== 0) return adj;
-            // Equal achievable total: prefer the safer counter — the one relying on
-            // less undersizing (higher full-squad score banks the same with no risk).
-            return (Number(b.bannerScore) || 0) - (Number(a.bannerScore) || 0);
+            const full = (Number(b.bannerScore) || 0) - (Number(a.bannerScore) || 0);
+            if (full !== 0) return full;
+            return 0; // stable catalogue order is the final deterministic tie-break
         });
+    }
+
+    function candidate(cov, tierRanks, reserveCount, ban) {
+        return {
+            assign: { ...assign },
+            coverage: cov,
+            tierProfile: tierRanks.slice().sort((a, b) => b - a),
+            tierSum: tierRanks.reduce((sum, rank) => sum + rank, 0),
+            reserveCount,
+            bannerSum: ban
+        };
+    }
+
+    function isBetter(candidatePlan, current, useProfile) {
+        if (!current) return true;
+        if (candidatePlan.coverage !== current.coverage) return candidatePlan.coverage > current.coverage;
+        if (useProfile) {
+            const profileOrder = compareTierProfiles(candidatePlan.tierProfile, current.tierProfile);
+            if (profileOrder !== 0) return profileOrder < 0;
+        } else if (candidatePlan.tierSum !== current.tierSum) {
+            return candidatePlan.tierSum < current.tierSum;
+        }
+        if (candidatePlan.reserveCount !== current.reserveCount) return candidatePlan.reserveCount < current.reserveCount;
+        return candidatePlan.bannerSum > current.bannerSum;
+    }
+
+    function consider(cov, tierRanks, reserveCount, ban) {
+        const plan = candidate(cov, tierRanks, reserveCount, ban);
+        if (isBetter(plan, best, true)) best = plan;
+        if (isBetter(plan, baselineBest, false)) baselineBest = plan;
+    }
+
+    // Seed both objectives with the deterministic greedy path. A tiny or exhausted
+    // budget therefore degrades to a complete usable assignment rather than empty.
+    function seedGreedy() {
+        let cov = 0;
+        let reserveCount = 0;
+        let ban = 0;
+        const tierRanks = [];
+        order.forEach(t => {
+            const chosen = sortedCandidates(t).find(c =>
+                !usedCounters.has(c.counterId) &&
+                !requiredChars(c.counterId).some(ch => usedChars.has(ch)));
+            if (!chosen) return;
+            usedCounters.add(chosen.counterId);
+            requiredChars(chosen.counterId).forEach(ch => usedChars.add(ch));
+            assign[t.key] = chosen;
+            cov++;
+            tierRanks.push(effectiveTierRank(chosen, reserveActive));
+            reserveCount += reserveActive && isHighReserve(chosen.counterId) ? 1 : 0;
+            ban += adjustedScore(chosen, t.modeKey === "FLEET");
+        });
+        consider(cov, tierRanks, reserveCount, ban);
+        Object.keys(assign).forEach(key => delete assign[key]);
+        usedCounters.clear();
+        usedChars.clear();
+    }
+
+    function dfs(i, cov, tierRanks, reserveCount, ban) {
+        if (nodes >= NODE_BUDGET) {
+            exhausted = true;
+            return;
+        }
+        nodes++;
+
+        // Coverage upper bound: even covering every remaining team can't win.
+        const bound = cov + (order.length - i);
+        if (best && baselineBest && bound < best.coverage && bound < baselineBest.coverage) return;
+
+        if (i === order.length) {
+            consider(cov, tierRanks, reserveCount, ban);
+            return;
+        }
+
+        const t = order[i];
+        const cands = sortedCandidates(t);
 
         for (const c of cands) {
             if (usedCounters.has(c.counterId)) continue;
@@ -1622,7 +1828,7 @@ function solveAllocation(teams, reserveActive) {
             req.forEach(ch => usedChars.add(ch));
             assign[t.key] = c;
 
-            dfs(i + 1, cov + 1, tier + effectiveTierRank(c, reserveActive),
+            dfs(i + 1, cov + 1, tierRanks.concat(effectiveTierRank(c, reserveActive)),
                 reserveCount + (reserveActive && isHighReserve(c.counterId) ? 1 : 0),
                 ban + adjustedScore(c, t.modeKey === "FLEET"));
 
@@ -1632,11 +1838,16 @@ function solveAllocation(teams, reserveActive) {
         }
 
         // Branch where this team is left uncovered.
-        dfs(i + 1, cov, tier, reserveCount, ban);
+        dfs(i + 1, cov, tierRanks, reserveCount, ban);
     }
 
-    dfs(0, 0, 0, 0, 0);
-    return best || { assign: {}, coverage: 0, tierSum: 0, reserveCount: 0, bannerSum: 0 };
+    seedGreedy();
+    dfs(0, 0, [], 0, 0);
+    return Object.assign({}, best, {
+        baselineAssign: baselineBest.assign,
+        baselineTierProfile: baselineBest.tierProfile,
+        search: { nodes, budget: NODE_BUDGET, exhausted }
+    });
 }
 
 // Detect when undersizing is what won a counter its recommendation (v2.9). Returns
@@ -1793,17 +2004,112 @@ function buildReasons(eligible, assign, reserveActive) {
     return reasons;
 }
 
+function assignmentCounterId(assign, key) {
+    return assign[key] ? assign[key].counterId : null;
+}
+
+function assignmentDetails(counter, team) {
+    return counter ? {
+        counterId: counter.counterId,
+        tier: counter.tier,
+        defenceId: team.key,
+        defenceName: team.name
+    } : null;
+}
+
+function candidateRequiredCharacters(team, counterId) {
+    const state = (team.candidateStates || []).find(candidate => candidate.counterId === counterId);
+    return state ? state.requiredCharacters : [];
+}
+
+// SC-01 diagnostic contract for the later Round UI. Every change is established
+// by comparing two objectives over the exact same bounded traversal. Trade-offs
+// name the counter, defence and required-unit conflict that moved it; warnings
+// describe the selected plan rather than claiming an unmodelled win probability.
+function buildConservationDiagnostics(eligible, solved) {
+    const selected = solved.assign;
+    const baseline = solved.baselineAssign;
+    const complete = !solved.search.exhausted;
+    const changedKeys = eligible.filter(t =>
+        assignmentCounterId(selected, t.key) !== assignmentCounterId(baseline, t.key));
+    const changed = complete ? changedKeys.length > 0 : null;
+
+    const tradeoffs = complete ? changedKeys.map(team => {
+        const selectedCounter = selected[team.key] || null;
+        const baselineCounter = baseline[team.key] || null;
+        const baselineRequired = baselineCounter
+            ? candidateRequiredCharacters(team, baselineCounter.counterId)
+            : [];
+        const preservedFor = baselineCounter ? Object.entries(selected).filter(([otherKey, counter]) => {
+            if (otherKey === team.key) return false;
+            const otherTeam = eligible.find(candidate => candidate.key === otherKey);
+            if (!otherTeam) return false;
+            const selectedRequired = candidateRequiredCharacters(otherTeam, counter.counterId);
+            return counter.counterId === baselineCounter.counterId ||
+                baselineRequired.some(character => selectedRequired.includes(character));
+        }).map(([otherKey, counter]) => {
+            const otherTeam = eligible.find(candidate => candidate.key === otherKey);
+            const selectedRequired = candidateRequiredCharacters(otherTeam, counter.counterId);
+            return {
+                defenceId: otherKey,
+                defenceName: otherTeam.name,
+                counterId: counter.counterId,
+                tier: counter.tier,
+                sharedRequiredCharacters: baselineRequired.filter(character => selectedRequired.includes(character))
+            };
+        }) : [];
+        return {
+            defenceId: team.key,
+            defenceName: team.name,
+            selected: assignmentDetails(selectedCounter, team),
+            baseline: assignmentDetails(baselineCounter, team),
+            preservedFor
+        };
+    }) : [];
+
+    const warnings = eligible.filter(t => !t.custom).flatMap(team => {
+        const chosen = selected[team.key];
+        if (!chosen) {
+            return [{
+                defenceId: team.key,
+                defenceName: team.name,
+                status: team.candidates.length ? "compromised" : "no-credible-coverage",
+                counterId: null,
+                tier: null
+            }];
+        }
+        return tierSortValue(chosen.tier) >= tierSortValue("B") ? [{
+            defenceId: team.key,
+            defenceName: team.name,
+            status: "low-tier",
+            counterId: chosen.counterId,
+            tier: chosen.tier
+        }] : [];
+    });
+
+    return {
+        state: complete ? (changed ? "changed" : "unchanged") : "limited",
+        changed,
+        motivation: changed ? "visible-board-scarcity" : null,
+        selectedTierProfile: solved.tierProfile.slice(),
+        baselineTierProfile: solved.baselineTierProfile.slice(),
+        tradeoffs,
+        warnings,
+        search: Object.assign({}, solved.search),
+        quality: {
+            state: "limited",
+            reason: "Tier is an ordinal reliability category; runtime data has no structured evidence confidence or win probability."
+        }
+    };
+}
+
 function computeRoundPlan() {
     if (!board) return null;
 
     const eligible = buildEligibleTeams();
 
-    // Overlap: at least one available counter is eligible against 2+ teams.
-    const counts = {};
-    eligible.forEach(t => t.candidates.forEach(c => {
-        counts[c.counterId] = (counts[c.counterId] || 0) + 1;
-    }));
-    const overlap = Object.values(counts).some(n => n >= 2);
+    const visibleBoardScarcity = assessVisibleBoardScarcity(eligible);
+    const overlap = visibleBoardScarcity.resourceGroups.length > 0;
 
     // Strategic reserve activates only in Round Mode, and only while at least one
     // enemy zone remains hidden behind the reveal chain (see roundHasHiddenZones).
@@ -1814,8 +2120,19 @@ function computeRoundPlan() {
 
     const solved = solveAllocation(eligible.filter(t => !t.custom), reserveActive);
     const reasons = buildReasons(eligible, solved.assign, reserveActive);
+    const visibleBoardConservation = buildConservationDiagnostics(
+        eligible.filter(t => !t.custom), solved);
 
-    return { eligible, overlap, assign: solved.assign, reasons, reserveActive };
+    return {
+        eligible,
+        overlap,
+        assign: solved.assign,
+        reasons,
+        reserveActive,
+        hiddenZoneReserve: { active: reserveActive },
+        visibleBoardScarcity,
+        visibleBoardConservation
+    };
 }
 
 // ─── BATTLE ORDER (v3.0) ──────────────────────────────────────────────────────
