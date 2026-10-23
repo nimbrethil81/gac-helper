@@ -475,8 +475,27 @@ test("the service worker bypasses the catalogue at a site root too", () => {
     assert.equal(handles("http://localhost:8080/app.js"), true);
 });
 
-test("the service worker shell cache is bumped so installed apps pick up the current shell", () => {
+test("the service worker installs a versioned shell cache without precaching the catalogue", async () => {
     const text = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-    assert.match(text, /const CACHE_NAME = 'swgoh-shell-v30';/);
+    let install;
+    let cacheName;
+    let precached;
+    const context = {
+        URL,
+        self: {
+            location: new URL("https://example.test/gac-helper/service-worker.js"),
+            addEventListener: (type, handler) => { if (type === "install") install = handler; }
+        },
+        caches: { open: async name => {
+            cacheName = name;
+            return { addAll: async files => { precached = Array.from(files); } };
+        } }
+    };
+    vm.runInNewContext(text, context, { filename: "service-worker.js" });
+    let installing;
+    install({ waitUntil: promise => { installing = promise; } });
+    await installing;
+    assert.match(cacheName, /^swgoh-shell-v[1-9]\d*$/);
+    assert.deepEqual(precached, ["./", "./index.html", "./app.js", "./styles.css", "./manifest.json"]);
     assert.doesNotMatch(text, /catalogue\/current\.json/, "the catalogue is never precached");
 });
