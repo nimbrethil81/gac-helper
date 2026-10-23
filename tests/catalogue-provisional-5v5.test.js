@@ -8,7 +8,8 @@ const { compileSource, readSource } = require("../scripts/catalogue-source-lib.j
 
 // Regression pins for the provisional 5v5 rows from issues #108 (Rotta the
 // Hutt / SEE), #110 (SLKR with Dark Side Vision Rey / JML) and #111 (Finn
-// (Zorii Resistance) / Talzin and Traya). They check the compiled catalogue and
+// (Zorii Resistance) / Talzin and Traya), and #125/#126 (Hondo / JMK and Leia).
+// They check the compiled catalogue and
 // that Round Mode allocates the exact counter identities, honouring roster and
 // used-team availability.
 
@@ -35,7 +36,7 @@ function harness() {
     return { run: expression => vm.runInContext(expression, context) };
 }
 
-function planFor(defence, ownedCharacters, usedTeams) {
+function planFor(defence, ownedCharacters, usedTeams, otherDefence = "") {
     const h = harness();
     const config = [
         { territory: "FRONT_TOP", type: "SQUAD", teamCount: 1 },
@@ -51,6 +52,7 @@ function planFor(defence, ownedCharacters, usedTeams) {
         defenceCompositions = ${JSON.stringify(payload.defenceCompositions)};
         board = createRoundBoard("KYBER", "5v5", ${JSON.stringify(config)}, "opponent", "round", "now");
         board.teams.find(t => t.territory === "FRONT_BOTTOM").name = ${JSON.stringify(defence)};
+        board.teams.find(t => t.territory === "FRONT_TOP").name = ${JSON.stringify(otherDefence)};
         ownedCharacters = ${JSON.stringify(ownedCharacters)};
         usedTeams = ${JSON.stringify(usedTeams)};
         expandedCounterCards = new Set();
@@ -73,6 +75,43 @@ test("#108 Rotta the Hutt 5v5 offers only the provisional full-size SEE counter"
     const ext = id => payload.characterDefinitions[id].externalId;
     assert.deepEqual(["ROTTA_THE_HUTT", "GREEDO", "MOB_ENFORCER", "CAD_BANE", "GAMORREAN_GUARD"].map(ext),
         ["RACCOON", "GREEDO", "HUMANTHUG", "CADBANE", "GAMORREANGUARD"]);
+});
+
+test("#125/#126 Hondo retains its existing answers and adds only provisional full-size Leia and JMK", () => {
+    const rows = payload.counters["5v5"]["Pirate King Hondo Ohnaka"];
+    assert.deepEqual(strip(rows), [
+        { counterId: "CERE", tier: "S", bannerScore: 63, undersize: 0 },
+        { counterId: "BAYLAN", tier: "S", bannerScore: 63, undersize: 0 },
+        { counterId: "SLKR", tier: "A", bannerScore: 63, undersize: 0 },
+        { counterId: "LEIA", tier: "A", bannerScore: 62, undersize: 0 },
+        { counterId: "JMK", tier: "B", bannerScore: 58, undersize: 0 }
+    ]);
+    assert.deepEqual(rows.slice(0, 3).map(row => row.notes), ["Preferred", "Strong", "Strong"]);
+    assert.match(rows[3].notes, /Leia Organa \(GL, leader\), R2-D2, Captain Drogan, Mon Mothma, C-3PO/);
+    assert.match(rows[3].notes, /One owner-observed full victory/);
+    assert.match(rows[3].notes, /no established win rate or datacron independence/);
+    assert.match(rows[4].notes, /Jedi Master Kenobi \(leader\), Ahsoka Tano \(Snips, not GL\), Commander Ahsoka Tano \(CAT\), General Kenobi, Wat Tambor/);
+    assert.match(rows[4].notes, /possible attack loss after defeating three defenders/);
+    assert.match(rows[4].notes, /Three defender defeats are not guaranteed/);
+    assert.match(rows[4].notes, /A loss is not a victory or a 58-banner result/);
+    for (const row of rows.slice(3)) assert.match(row.notes, /owner-approved planning estimate.*not measured banners or an average/);
+    assert.equal(payload.counters["3v3"]["Pirate King Hondo Ohnaka"].some(row => ["JMK", "LEIA"].includes(row.counterId)), false);
+    assert.deepEqual(payload.counterDefinitions.JMK, { name: "Jedi Master Kenobi", required: ["JEDI_MASTER_KENOBI"], recommended: [] });
+    assert.deepEqual(payload.counterDefinitions.LEIA, { name: "Leia Organa (GL)", required: ["LEIA_ORGANA", "CAPTAIN_DROGAN", "R2_D2"], recommended: [] });
+});
+
+test("#125/#126 Hondo ordering, core roster filtering and used-team state follow existing policy", () => {
+    const defence = "Pirate King Hondo Ohnaka";
+    const core = ["JEDI_MASTER_KENOBI", "LEIA_ORGANA", "CAPTAIN_DROGAN", "R2_D2"];
+    assert.equal(planFor(defence, [...core, "CERE_JUNDA", "TARON_MALICOS"], []), "CERE");
+    assert.equal(planFor(defence, [...core, "SUPREME_LEADER_KYLO_REN"], []), "SLKR");
+    assert.equal(planFor(defence, core, []), "LEIA");
+    assert.equal(planFor(defence, core, ["LEIA"]), "JMK");
+    assert.equal(planFor(defence, ["LEIA_ORGANA", "R2_D2"], []), null);
+    assert.equal(planFor(defence, core, ["LEIA", "JMK"]), null);
+    // Leia is the sole owned answer to GL Ahsoka; ordinary whole-board
+    // conservation spends the conditional JMK option on Hondo to cover both.
+    assert.equal(planFor(defence, core, [], "Ahsoka Tano (GL)"), "JMK");
 });
 
 test("#108 Round Mode assigns SEE to Rotta, never substitutes SEE and Bane, and honours roster and used state", () => {
