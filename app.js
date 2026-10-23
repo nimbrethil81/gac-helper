@@ -265,8 +265,9 @@ function normaliseBoard(bd, side) {
 }
 
 function validDefenceSnapshot(snapshot, mode) {
-    return snapshot && snapshot.schema === 1 && snapshot.mode === mode &&
-        Array.isArray(snapshot.characterIds) && Array.isArray(snapshot.unresolvedTeams);
+    return snapshot && [1, 2].includes(snapshot.schema) && snapshot.mode === mode &&
+        Array.isArray(snapshot.characterIds) && Array.isArray(snapshot.unresolvedTeams) &&
+        (snapshot.schema === 1 || (Array.isArray(snapshot.slots) && Array.isArray(snapshot.legacyCharacterIds)));
 }
 
 function loadBoard() {
@@ -288,6 +289,7 @@ function loadBoard() {
     } else if (normaliseBoard(myBoard, "my")) {
         saveBoard("my");
     }
+    if (upgradeLegacyDefenceSnapshot()) saveBoard("opponent");
 }
 
 function saveBoard(side) {
@@ -544,45 +546,77 @@ function resolveDefenceTeamCharacters(teamName, mode) {
     if (matches.length !== 1) return null;
     // Counter_Composition models a strategic attacking core, not necessarily
     // every unit fielded on defence. It is useful as a safe lower bound, but the
-    // snapshot must remain visibly partial until Defence_Composition is authored.
+    // snapshot stays unresolved until the player confirms a saved lineup.
     return { characterIds: [...new Set(matches[0][1].required)], complete: false };
 }
 
-function captureDefenceSnapshot(mode, source) {
-    const namedTeams = source && Array.isArray(source.teams)
-        ? source.teams.filter(t => t && t.name)
-        : [];
-    const characterIds = new Set();
-    const unresolvedTeams = [];
+function defenceSnapshotSlots(source) {
+    return (source && Array.isArray(source.teams) ? source.teams : []).filter(Boolean).map(team => ({
+        territory: team.territory, index: team.index, name: team.name || "", customName: team.customName || "",
+        type: defenceTemplateTeamType(source, team), characterIds: [], confirmed: false, reviewed: false
+    }));
+}
 
-    namedTeams.forEach(team => {
-        const resolved = resolveDefenceTeamCharacters(team.name, mode);
-        if (!resolved || !resolved.characterIds.length) {
-            unresolvedTeams.push(team.customName || team.name);
-            return;
+// Keep the existing aggregate availability contract. A removed member remains
+// blocked whenever another slot (or the unattributed legacy set) still holds it.
+function aggregateDefenceSnapshot(snapshot) {
+    snapshot.characterIds = [...new Set([...snapshot.legacyCharacterIds, ...snapshot.slots.flatMap(slot => slot.characterIds)])];
+    snapshot.unresolvedTeams = snapshot.slots.filter(slot => slot.name && !slot.confirmed).map(slot => slot.customName || slot.name);
+    snapshot.sourceTeamCount = snapshot.slots.filter(slot => slot.name).length;
+    return snapshot;
+}
+
+function hasLegacyDefenceReview(snapshot) {
+    return snapshot && snapshot.schema === 2 && (snapshot.legacyReviewRequired === true || snapshot.legacyCharacterIds.length > 0);
+}
+
+function captureDefenceSnapshot(mode, source, savedTemplate = source) {
+    const slots = defenceSnapshotSlots(source);
+    slots.forEach(slot => {
+        if (!slot.name) return;
+        const saved = savedTemplate && defenceTemplateTeamAt(savedTemplate, slot.territory, slot.index);
+        const selection = sameDefenceIdentity(slot, saved) && defenceTemplateTeamType(savedTemplate, saved) === slot.type &&
+            readDefenceTemplateLineup(mode, slot.territory, slot.index);
+        if (selection && selection.source === "saved") {
+            slot.characterIds = [...new Set(selection.validation.characterIds)];
+            slot.confirmed = selection.confirmed;
+            slot.lineup = JSON.parse(JSON.stringify(selection.lineup));
+            slot.source = "saved";
+        } else {
+            const resolved = resolveDefenceTeamCharacters(slot.name, slot.type === "FLEET" ? "FLEET" : mode);
+            // Catalogue membership is a conservative lower bound, never player
+            // confirmation, even if the authored row happens to be complete.
+            slot.characterIds = resolved ? resolved.characterIds.filter(id => {
+                const unit = characterDefinitions[id];
+                return !unit || (slot.type === "FLEET" ? ["SHIP", "CAPITAL_SHIP"].includes(unit.unitType) : unit.unitType === "CHARACTER");
+            }) : [];
+            slot.source = "catalogue";
         }
-        resolved.characterIds.forEach(id => characterIds.add(id));
-        if (!resolved.complete) unresolvedTeams.push(team.customName || team.name);
     });
+    return aggregateDefenceSnapshot({ schema: 2, mode, capturedAt: new Date().toISOString(), slots,
+        legacyCharacterIds: [], missingSavedDefence: !slots.some(slot => slot.name) });
+}
 
-    return {
-        schema: 1,
-        mode: mode,
-        capturedAt: new Date().toISOString(),
-        sourceTeamCount: namedTeams.length,
-        characterIds: [...characterIds],
-        unresolvedTeams: [...new Set(unresolvedTeams)],
-        missingSavedDefence: namedTeams.length === 0
-    };
+// Aggregate-only snapshots cannot prove which slot held any old ID. Preserve
+// EVERY blocker, without catalogue resolution or trusting future template edits.
+function upgradeLegacyDefenceSnapshot() {
+    const previous = board && board.defenceSnapshot;
+    if (!validDefenceSnapshot(previous, board && board.mode) || previous.schema !== 1 || !myBoard) return false;
+    board.defenceSnapshot = aggregateDefenceSnapshot({ ...previous, schema: 2,
+        slots: defenceSnapshotSlots(myBoard), legacyCharacterIds: [...previous.characterIds],
+        legacySourceTeamCount: previous.sourceTeamCount, legacyUnresolvedTeams: [...previous.unresolvedTeams],
+        legacyReviewRequired: previous.characterIds.length > 0 || previous.unresolvedTeams.length > 0 || previous.sourceTeamCount > 0 });
+    return true;
 }
 
 // Schema-4 rounds predate defence snapshots. On first load after the catalogue is
 // available, freeze the paired My Board as a best-effort migration and never
 // derive it again. New rounds always snapshot the saved template in createBoard.
 function ensureDefenceSnapshotForActiveRound() {
+    if (upgradeLegacyDefenceSnapshot()) saveBoard("opponent");
     if (!board || validDefenceSnapshot(board.defenceSnapshot, board.mode)) return;
     if (!myBoard || (!Object.keys(counterDefinitions).length && !Object.keys(defenceCompositions).length)) return;
-    board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard);
+    board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard, loadDefenceTemplate(board.mode));
     board.schema = BOARD_SCHEMA;
     myBoard.schema = BOARD_SCHEMA;
     saveBoard("opponent");
@@ -591,15 +625,130 @@ function ensureDefenceSnapshotForActiveRound() {
 
 // A round started with no saved defence has nothing to filter. The player may
 // still commit their filled-in My Board once, by confirmed action; after that
-// the snapshot is immutable like any other.
+// later changes require the per-slot correction flow like any other snapshot.
 function adoptMyBoardAsRoundDefence() {
     if (!board || !myBoard || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return;
     if (!board.defenceSnapshot.missingSavedDefence) return;
     if (!myBoard.teams.some(t => t && t.name)) return;
     if (!confirm(`Use your current My Board as this round's ${board.mode} defence? Those units will be marked unavailable for attack, and later My Board edits won't change it.`)) return;
-    board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard);
+    const captured = captureDefenceSnapshot(board.mode, myBoard, loadDefenceTemplate(board.mode));
+    captured.legacyCharacterIds = [...board.defenceSnapshot.characterIds];
+    board.defenceSnapshot = aggregateDefenceSnapshot(captured);
     saveBoard("opponent");
     render();
+}
+
+// A template supplied after setup can fill empty, untouched slots. Never replace
+// a live identity or progress, and never reuse a different identity's lineup.
+function savedDefenceAdoptionCandidate() {
+    if (!board || !myBoard || !board.defenceSnapshot || !board.defenceSnapshot.missingSavedDefence) return null;
+    const saved = loadDefenceTemplate(board.mode);
+    if (!saved) return null;
+    const candidate = JSON.parse(JSON.stringify(myBoard));
+    let added = false;
+    candidate.teams.forEach(team => {
+        const assignment = defenceTemplateTeamAt(saved, team.territory, team.index);
+        if (!team.name && !team.cleared && !(team.attempts > 0) && assignment && assignment.name) {
+            team.name = assignment.name;
+            team.customName = assignment.customName || "";
+            added = true;
+        }
+    });
+    return added ? candidate : null;
+}
+
+function adoptSavedTemplateAsRoundDefence() {
+    const candidate = savedDefenceAdoptionCandidate();
+    if (!candidate) return;
+    if (!confirm(`Use the saved ${board.mode} defence in empty, untouched My Board slots and freeze this round's defence? Existing identities and battle progress stay. Attack availability will change; later template edits will not update this round.`)) return;
+    const captured = captureDefenceSnapshot(board.mode, candidate, loadDefenceTemplate(board.mode));
+    captured.legacyCharacterIds = [...board.defenceSnapshot.characterIds];
+    // Only identity fields in eligible empty slots change. Preserve live objects
+    // and all other fields, including progress not copied into the snapshot.
+    candidate.teams.forEach(team => {
+        const live = defenceTemplateTeamAt(myBoard, team.territory, team.index);
+        if (live && !live.name && team.name) { live.name = team.name; live.customName = team.customName; }
+    });
+    board.defenceSnapshot = aggregateDefenceSnapshot(captured);
+    saveBoard("my");
+    saveBoard("opponent");
+    render();
+}
+
+function roundDefenceCorrection(mode, territory, index) {
+    const snapshot = board && board.defenceSnapshot;
+    if (!validDefenceSnapshot(snapshot, board && board.mode) || snapshot.schema !== 2 || mode !== board.mode || snapshot.missingSavedDefence) return { error: "No matching active-round defence slot." };
+    const slot = defenceTemplateTeamAt({ teams: snapshot.slots }, territory, index);
+    const saved = loadDefenceTemplate(mode);
+    const team = saved && defenceTemplateTeamAt(saved, territory, index);
+    if (!slot || !slot.name) return { error: "No deployed identity was frozen in this slot." };
+    if (!sameDefenceIdentity(slot, team) || defenceTemplateTeamType(saved, team) !== slot.type) return { error: "The saved identity differs from this round's frozen team. Restore that identity in this saved slot before applying its lineup." };
+    const selection = readDefenceTemplateLineup(mode, territory, index);
+    if (!selection || selection.source !== "saved" || !selection.confirmed) return { error: "Confirm a valid saved lineup before applying it to this round." };
+    const ids = selection.validation.characterIds;
+    const conflicts = snapshot.slots.filter(other => other !== slot && other.characterIds.some(id => ids.includes(id)));
+    if (conflicts.length) return { error: "A selected unit is already blocked by another current-round defence slot. Correct that slot first." };
+    const next = aggregateDefenceSnapshot({ ...snapshot, slots: snapshot.slots.map(other => other === slot
+        ? { ...slot, characterIds: [...ids], confirmed: true, reviewed: true, source: "saved", lineup: JSON.parse(JSON.stringify(selection.lineup)) } : other) });
+    return { slot, next, added: next.characterIds.filter(id => !snapshot.characterIds.includes(id)),
+        released: snapshot.characterIds.filter(id => !next.characterIds.includes(id)),
+        changed: !slot.confirmed || JSON.stringify(slot.lineup) !== JSON.stringify(selection.lineup) || (hasLegacyDefenceReview(snapshot) && !slot.reviewed) };
+}
+
+function defenceAvailabilityChange(correction) {
+    const names = ids => ids.map(getCharacterName).join(", ");
+    return `Attack availability will change. Newly blocked: ${names(correction.added) || "none"}. Released from defence: ${names(correction.released) || "none"}.${hasLegacyDefenceReview(board.defenceSnapshot) ? " Legacy uncertainty and unattributed blocks stay until every slot is reviewed and you confirm a full rebaseline." : ""}`;
+}
+
+function applySavedLineupToRound(mode, territory, index) {
+    const correction = roundDefenceCorrection(mode, territory, index);
+    if (correction.error) {
+        defenceLineupsMessage = { kind: "error", text: correction.error };
+        render();
+        return false;
+    }
+    if (!correction.changed || !confirm(`Apply the saved corrected lineup to ${TERRITORY_LABELS[territory] || territory} ${index + 1}: ${correction.slot.customName || correction.slot.name}?\n\n${defenceAvailabilityChange(correction)}\n\nOnly this slot's membership changes. Recorded battles and scores stay.`)) return false;
+    board.defenceSnapshot = correction.next;
+    saveBoard("opponent");
+    defenceLineupsMessage = { kind: "ok", text: "Saved lineup applied to this round. Attack availability updated." };
+    render();
+    return true;
+}
+
+function reviewEmptyRoundDefenceSlot(territory, index) {
+    const snapshot = board && board.defenceSnapshot;
+    if (!hasLegacyDefenceReview(snapshot)) return;
+    const slot = defenceTemplateTeamAt({ teams: snapshot.slots }, territory, index);
+    const live = myBoard && defenceTemplateTeamAt(myBoard, territory, index);
+    if (!slot || slot.name || !live || live.name || live.cleared || live.attempts > 0) return;
+    if (!confirm(`Review ${TERRITORY_LABELS[territory] || territory} ${index + 1} as empty for this round? Confirm there was no deployed defence here. Legacy units stay blocked until you separately confirm the full rebaseline.`)) return;
+    slot.reviewed = true;
+    saveBoard("opponent");
+    render();
+}
+
+function canRebaselineRoundDefence(snapshot) {
+    return hasLegacyDefenceReview(snapshot) && snapshot.slots.length > 0 &&
+        snapshot.slots.every(roundDefenceSlotReviewed);
+}
+
+function roundDefenceSlotReviewed(slot) {
+    if (!slot.reviewed) return false;
+    if (slot.name) return slot.confirmed;
+    const live = myBoard && defenceTemplateTeamAt(myBoard, slot.territory, slot.index);
+    return !!live && !live.name && !live.cleared && !(live.attempts > 0);
+}
+
+function rebaselineRoundDefence() {
+    const snapshot = board && board.defenceSnapshot;
+    if (!canRebaselineRoundDefence(snapshot)) return false;
+    const next = aggregateDefenceSnapshot({ ...snapshot, legacyCharacterIds: [], legacyReviewRequired: false });
+    const released = snapshot.characterIds.filter(id => !next.characterIds.includes(id));
+    if (!confirm(`Replace ALL unattributed legacy defence blocks with the reviewed current-round assignments?\n\nYou reviewed every slot, including empty slots. Attack availability will change. Released from defence: ${released.map(getCharacterName).join(", ") || "none"}.\n\nConfirm this full defence rebaseline. Battles, used attackers and scores stay.`)) return false;
+    board.defenceSnapshot = next;
+    saveBoard("opponent");
+    render();
+    return true;
 }
 
 function saveDefenceTemplateFromMyBoard() {
@@ -725,7 +874,7 @@ function createBoard() {
     const savedDefence = loadDefenceTemplate(mode);
     board = createRoundBoard(league, mode, cfg, "opponent", roundId, createdAt);
     myBoard = applyDefenceTemplate(createRoundBoard(league, mode, cfg, "my", roundId, createdAt));
-    board.defenceSnapshot = captureDefenceSnapshot(mode, savedDefence);
+    board.defenceSnapshot = captureDefenceSnapshot(mode, myBoard, savedDefence);
     activeBoardSide = "opponent";
     boardModeDraft = null;
     expandedCounterCards = new Set();
@@ -3639,6 +3788,7 @@ function renderDefenceLineups() {
         ${template ? `<div class="round-stat">${escapeHtml(leagueLabel(league) || "Saved layout")} · ${defenceLineupsMode} · ${template.teams.length} slots including Fleet</div>` : ""}
         <div class="lineup-progress" role="status">${count("Confirmed")} / ${populated.length} populated teams confirmed · ${count("Needs confirmation")} need confirmation · ${count("Incomplete")} incomplete</div>
         ${defenceLineupsMessage ? `<div class="roster-msg roster-msg-${defenceLineupsMessage.kind}" role="status">${escapeHtml(defenceLineupsMessage.text)}</div>` : ""}
+        ${renderRoundDefenceReview()}
     </div>`;
     if (!template || !template.territories.length) return header + `<div class="empty-state">Choose a league to create this format's saved layout.${!Object.keys(boardConfig).length ? " Board configuration has not loaded yet; refresh when connected." : ""}</div>`;
     return header + template.territories.map(t => `<div class="board-territory">
@@ -3662,7 +3812,35 @@ function renderDefenceLineupTeam(template, territory, team) {
         ${team.name ? `<div class="lineup-team-status">${defenceLineupStatus(selection)}</div>
             ${selection && selection.validation && !selection.validation.valid ? `<p class="roster-msg roster-msg-warn">${escapeHtml(defenceLineupErrorText(selection.validation.errors))}</p>` : ""}
             ${editing ? renderDefenceLineupEditor(selection) : `<button class="roster-data-btn" onclick="openDefenceLineupEditor(${args})">Edit lineup</button>`}` : `<div class="roster-saved-line">Empty slot</div>`}
+        ${renderRoundDefenceCorrection(template.mode, team.territory, team.index)}
     </div>`;
+}
+
+function renderRoundDefenceCorrection(mode, territory, index) {
+    if (!board || board.mode !== mode || !board.defenceSnapshot || board.defenceSnapshot.missingSavedDefence) return "";
+    const snapshot = board.defenceSnapshot;
+    const slot = snapshot.schema === 2 && defenceTemplateTeamAt({ teams: snapshot.slots }, territory, index);
+    if (!slot || !slot.name) return "";
+    const correction = roundDefenceCorrection(mode, territory, index);
+    const label = `Current round: ${slot.customName || slot.name}`;
+    if (correction.error) return `<p class="roster-saved-line">${escapeHtml(label)}. ${escapeHtml(correction.error)}</p>`;
+    if (!correction.changed) return `<p class="roster-saved-line">${escapeHtml(label)} · Saved lineup matches this round.</p>`;
+    return `<div class="lineup-proposal"><strong>${escapeHtml(label)}</strong><p>${escapeHtml(defenceAvailabilityChange(correction))}</p>
+        <button class="roster-data-btn" onclick="applySavedLineupToRound('${mode}', '${territory}', ${index})">Apply saved lineup to this round</button></div>`;
+}
+
+function renderRoundDefenceReview() {
+    if (!board || board.mode !== defenceLineupsMode || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return "";
+    const snapshot = board.defenceSnapshot;
+    if (snapshot.missingSavedDefence) {
+        return savedDefenceAdoptionCandidate() ? `<div class="lineup-proposal"><p>This round started without saved defence. Adopt this format's saved teams into empty, untouched My Board slots. Existing identities and battle progress stay; attack availability will change.</p><button class="roster-data-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button></div>` : "";
+    }
+    if (!hasLegacyDefenceReview(snapshot)) return "";
+    const reviewed = snapshot.slots.filter(roundDefenceSlotReviewed).length;
+    const empty = snapshot.slots.filter(slot => !slot.name && !roundDefenceSlotReviewed(slot)).map(slot => `<button class="roster-data-btn" onclick="reviewEmptyRoundDefenceSlot('${slot.territory}', ${slot.index})">Review empty ${escapeHtml(TERRITORY_LABELS[slot.territory] || slot.territory)} ${slot.index + 1}</button>`).join("");
+    const original = `<p>${snapshot.legacySourceTeamCount > 0 ? `The original aggregate recorded ${snapshot.legacySourceTeamCount} populated teams. ` : ""}${snapshot.legacyUnresolvedTeams && snapshot.legacyUnresolvedTeams.length ? `Original unresolved identities: ${snapshot.legacyUnresolvedTeams.map(escapeHtml).join(", ")}. ` : ""}These may differ from My Board; verify the actual deployments in every slot.</p>`;
+    return `<div class="lineup-proposal"><strong>Legacy defence review</strong><p>${snapshot.legacyCharacterIds.length} unattributed units remain blocked. ${reviewed} / ${snapshot.slots.length} round slots reviewed. Apply a confirmed saved lineup to each deployed slot below and explicitly review empty slots. Only a full rebaseline can release unattributed blocks.</p>${original}${empty}
+        <button class="roster-data-btn" onclick="rebaselineRoundDefence()" ${canRebaselineRoundDefence(snapshot) ? "" : "disabled"}>Review complete — confirm full defence rebaseline</button></div>`;
 }
 
 function renderDefenceLineupMember(field, index, unitType, label, selected) {
@@ -4013,13 +4191,16 @@ function renderDefenceSnapshotStatus() {
         const action = canAdopt
             ? `<button class="defence-adopt-btn" onclick="adoptMyBoardAsRoundDefence()">Use My Board as this round's defence</button>`
             : ` Fill in My Board to set this round's defence.`;
-        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence when this round started — defence availability is not being filtered.${action}</div>`;
+        const savedAction = savedDefenceAdoptionCandidate() ? `<button class="defence-adopt-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button>` : "";
+        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence when this round started — defence availability is not being filtered.${action}${savedAction}</div>`;
     }
     const count = snapshot.characterIds.length;
     const summary = `<div class="round-stat">Defence: ${count} unit${count === 1 ? "" : "s"} unavailable</div>`;
-    if (!snapshot.unresolvedTeams.length) return summary;
+    const legacy = hasLegacyDefenceReview(snapshot)
+        ? `<div class="roster-msg roster-msg-warn round-defence-status">${snapshot.legacyCharacterIds.length ? `${snapshot.legacyCharacterIds.length} legacy defence units have no slot attribution and remain blocked.` : "Legacy defence deployments remain unverified, with no known unit IDs."} Review all round slots in More → Defence Lineups before a full rebaseline.</div>` : "";
+    if (!snapshot.unresolvedTeams.length) return summary + legacy;
     const n = snapshot.unresolvedTeams.length;
-    return summary + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. Some characters may still appear available for attack.</div>`;
+    return summary + legacy + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. Some characters may still appear available for attack.</div>`;
 }
 
 function renderBoardSwitch() {

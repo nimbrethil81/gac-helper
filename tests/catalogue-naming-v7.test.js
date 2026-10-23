@@ -308,8 +308,13 @@ test("old My Board and template names persist, and the frozen defence snapshot i
   // A later launch: saved state from storage, then the v7 catalogue (as from cache).
   const h = harness(Object.fromEntries(setup.values));
   h.run("loadBoard()");
+  const migrated = h.json("board.defenceSnapshot");
+  assert.equal(migrated.schema, 2);
+  assert.deepEqual(migrated.characterIds, frozen.characterIds, "migration retains every frozen blocker");
+  assert.deepEqual(migrated.legacyCharacterIds, frozen.characterIds, "old membership remains unattributed");
+  assert.equal(migrated.capturedAt, frozen.capturedAt);
   withCatalogue(h);
-  assert.deepEqual(h.json("board.defenceSnapshot"), frozen, "snapshot not re-derived from the renamed catalogue");
+  assert.deepEqual(h.json("board.defenceSnapshot"), migrated, "snapshot not re-derived from the renamed catalogue");
   assert.equal(h.run(`myBoard.teams.find(t => t.territory === "FRONT_BOTTOM").name`), "Rex");
   assert.equal(JSON.parse(h.values.get("defenceTemplate:3v3")).teams.find((t) => t.territory === "FRONT_BOTTOM").name, "Rex");
   const row = h.run(`renderBoardTeamRow(myBoard.territories.find(t => t.territory === "FRONT_BOTTOM"),
@@ -319,5 +324,5 @@ test("old My Board and template names persist, and the frozen defence snapshot i
   h.run(`setBoardTeam("my", "FRONT_BOTTOM", 0, "CT-7567 Rex")`);
   assert.equal(JSON.parse(h.values.get("defenceTemplate:3v3")).teams.find((t) => t.territory === "FRONT_BOTTOM").name, "CT-7567 Rex",
     "manual reselection updates the format's template");
-  assert.deepEqual(h.json("board.defenceSnapshot"), frozen, "the round's snapshot stays frozen after reselection");
+  assert.deepEqual(h.json("board.defenceSnapshot"), migrated, "the round's snapshot stays frozen after reselection");
 });
