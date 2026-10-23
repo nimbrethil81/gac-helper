@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const { compileSource, readSource } = require("../scripts/catalogue-source-lib.js");
 
 function harness(initialStorage = {}) {
     const values = new Map(Object.entries(initialStorage));
@@ -283,4 +284,29 @@ test("editing future templates leaves all active Round state, filtering and pers
     assert.deepEqual([h.values.get("boardData"), h.values.get("myBoardData")], stored);
     assert.equal(h.run("isCharacterOnDefence('F')"), true);
     assert.equal(h.run("isCharacterOnDefence('A')"), false);
+});
+
+test("compiled character registry reaches both lineup pickers and roster base-ID import", () => {
+    const h = setup();
+    const { source: catalogue } = readSource(path.join(__dirname, "..", "catalogue", "source"));
+    const payload = compileSource(catalogue);
+    h.run(`applyCataloguePayload(${JSON.stringify(payload)})`);
+    const units = catalogue["units.json"];
+    const characters = units.filter(unit => unit.unitType === "CHARACTER");
+    assert.equal(characters.length, 341);
+    assert.equal(units.length - characters.length, 52);
+    for (const mode of ["5v5", "3v3"]) {
+        h.run(`defenceLineupsMode = ${JSON.stringify(mode)}`);
+        const options = h.run("renderDefenceLineupMember('characterIds', 0, 'CHARACTER', 'Member 1', '')");
+        for (const unit of characters) assert.ok(options.includes(`value="${unit.id}"`), `${mode}: ${unit.name} selectable`);
+        for (const unit of units.filter(unit => unit.unitType !== "CHARACTER")) assert.ok(!options.includes(`value="${unit.id}"`), `${mode}: ships excluded`);
+    }
+    const classified = JSON.parse(h.run(`JSON.stringify(classifyBaseIds(${JSON.stringify(units.map(unit => unit.externalId))}, {unitTypes: ['CHARACTER', 'SHIP', 'CAPITAL_SHIP']}))`));
+    assert.deepEqual(classified.ownedUnitIds, units.map(unit => unit.id), "every registered base ID retains its internal identity");
+    assert.deepEqual(classified.unknown, []);
+    for (const [baseId, internalId] of [["HUYANG", "HUYANG"], ["GOPHERANTS", "GROGU_AND_ANZELLANS"], ["HUNTERS3", "HUNTER_MERCENARY"], ["HERASYNDULLAS3", "HERA_SYNDULLA"]]) {
+        assert.equal(h.run(`baseIdToUnit[${JSON.stringify(baseId)}].characterId`), internalId);
+    }
+    assert.equal(h.run("baseIdToUnit.B1MERCDROID"), undefined, "future November release excluded at the October audit cutoff");
+    assert.equal(h.run("baseIdToUnit.EMBOANDKEIBU"), undefined, "announced Conquest unit without current playability proof stays blocked");
 });
