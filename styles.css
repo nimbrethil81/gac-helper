@@ -394,6 +394,20 @@ body {
     cursor: pointer;
 }
 
+.more-menu-entry + .more-menu-entry { margin-top: 10px; }
+.lineup-progress { margin-top: 12px; font-size: 14px; line-height: 1.5; }
+.lineup-team { padding: 14px 0; border-top: 1px solid #22324a; }
+.lineup-team-status { margin: 8px 0; font-size: 14px; font-weight: bold; }
+.lineup-field { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; font-size: 13px; color: var(--muted); }
+.lineup-field .board-team-select { width: 100%; min-height: 44px; }
+.lineup-editor { margin-top: 12px; }
+.lineup-undersize { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; }
+.lineup-undersize input { width: 20px; height: 20px; flex-shrink: 0; }
+.lineup-proposal { margin: 14px 0; padding: 12px; border: 1px solid #22324a; border-radius: 8px; font-size: 13px; line-height: 1.5; }
+.lineup-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.lineup-actions .roster-data-btn { flex: 1 1 120px; min-height: 44px; }
+.lineup-editor button:disabled { opacity: 0.45; cursor: default; }
+
 /* ─── ROSTER ─────────────────────────────────────────────────────── */
 
 .roster-saved-line {
