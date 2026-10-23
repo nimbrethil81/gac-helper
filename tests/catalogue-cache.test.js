@@ -405,7 +405,10 @@ test("a catalogue update mid-round leaves saved personal game state untouched", 
         boardData: JSON.stringify({ schema: 5, league: "KYBER", mode: "5v5", createdAt: "2026-10-10T08:00:00.000Z", roundId: "r1", territories: [], teams: [], defenceSnapshot: { mode: "5v5", unitIds: ["DARTH_BANE"], unresolved: [] } }),
         myBoardData: JSON.stringify({ schema: 5, league: "KYBER", mode: "5v5", createdAt: "2026-10-10T08:00:00.000Z", roundId: "r1", territories: [], teams: [] }),
         bannerData: JSON.stringify({ myScore: 123, opponentScore: 98 }),
-        "defenceTemplate:5v5": JSON.stringify({ schema: 1, mode: "5v5", teams: [] }),
+        "defenceTemplate:5v5": JSON.stringify({ schema: 2, mode: "5v5", teams: [{
+            territory: "FRONT_TOP", index: 0, name: "Saved wall", customName: "",
+            lineup: { characterIds: ["DARTH_BANE"], intentionalUndersize: true, confirmed: true }
+        }] }),
         gacLeague: "KYBER",
         gacLastSquadMode: "3v3"
     };

@@ -35,7 +35,7 @@ const ROSTER_SYNC_STALE_MS = 1000 * 60 * 60 * 12; // background sync only if old
 const BOARD_SCHEMA = 5;                       // v5: persisted defence-availability snapshot
 const BOARD_KEY = "boardData";               // opponent board (legacy-compatible key)
 const MY_BOARD_KEY = "myBoardData";           // player's defence for the current round
-const DEFENCE_TEMPLATE_SCHEMA = 1;
+const DEFENCE_TEMPLATE_SCHEMA = 2;              // v2: player-selected, explicitly confirmed lineups
 const DEFENCE_TEMPLATE_KEY_PREFIX = "defenceTemplate:";
 const LEAGUE_KEY = "gacLeague";              // persisted user setting
 const LAST_SQUAD_MODE_KEY = "gacLastSquadMode"; // remembers 5v5/3v3 while browsing Fleet
@@ -311,23 +311,210 @@ function templateKey(mode) {
     return DEFENCE_TEMPLATE_KEY_PREFIX + mode;
 }
 
+// Migration is additive and independent of catalogue loading. In particular, a
+// bad lineup must not hide otherwise usable saved identities or league layout.
 function loadDefenceTemplate(mode) {
+    if (!["5v5", "3v3"].includes(mode)) return null;
     try {
         const parsed = JSON.parse(localStorage.getItem(templateKey(mode)) || "null");
-        if (parsed && parsed.schema === DEFENCE_TEMPLATE_SCHEMA &&
-            parsed.mode === mode && Array.isArray(parsed.teams)) return parsed;
+        if (!parsed || ![1, DEFENCE_TEMPLATE_SCHEMA].includes(parsed.schema) ||
+            parsed.mode !== mode || !Array.isArray(parsed.teams)) return null;
+        if (parsed.schema === 1) {
+            parsed.schema = DEFENCE_TEMPLATE_SCHEMA;
+            // Schema 1 had no player confirmation contract. Never promote any
+            // unexpected legacy lineup field to confirmed data.
+            parsed.teams = parsed.teams.map(team => team && team.lineup
+                ? { ...team, lineup: { ...team.lineup, confirmed: false } } : team);
+            persistDefenceTemplate(parsed);
+        }
+        return parsed;
     } catch (e) {
         console.error(`Defence template parse failed for ${mode}`, e);
     }
     return null;
 }
 
+function persistDefenceTemplate(template) {
+    try {
+        localStorage.setItem(templateKey(template.mode), JSON.stringify(template));
+        return true;
+    } catch (e) {
+        console.error(`Defence template save failed for ${template.mode}`, e);
+        return false;
+    }
+}
+
+function defenceTemplateTeamAt(template, territory, index) {
+    const matches = template.teams.filter(t => t && t.territory === territory && t.index === index);
+    return matches.length === 1 ? matches[0] : null;
+}
+
+function sameDefenceIdentity(a, b) {
+    return !!a && !!b && (a.name || "") === (b.name || "") &&
+        (a.customName || "") === (b.customName || "");
+}
+
+function defenceTemplateTeamType(template, team) {
+    const territory = Array.isArray(template.territories) &&
+        template.territories.find(t => t && t.territory === team.territory);
+    // Legacy identity-only templates may lack layout metadata. Back Top is the
+    // Fleet territory in every supported league; never use the browsing toggle.
+    return territory ? territory.type : team.territory === "BACK_TOP" ? "FLEET" : "SQUAD";
+}
+
+// Partial drafts are valid but incomplete. Only a deliberately selected
+// intentionalUndersize state allows a non-empty short squad to be confirmed.
+function validateDefenceLineup(lineup, mode, type) {
+    const errors = [];
+    const characterIds = [];
+    if (!isPlainObject(lineup)) return { valid: false, complete: false, characterIds, errors: ["invalid-lineup"] };
+    if (!["5v5", "3v3"].includes(mode)) errors.push("invalid-mode");
+    if (!["SQUAD", "FLEET"].includes(type)) errors.push("invalid-territory-type");
+    const members = (value, unitType, field) => {
+        if (!Array.isArray(value)) { errors.push(`invalid-${field}`); return []; }
+        value.forEach(id => {
+            if (typeof id !== "string" || !Object.hasOwn(characterDefinitions, id) ||
+                !characterDefinitions[id] || characterDefinitions[id].unitType !== unitType) errors.push(`invalid-unit:${field}:${id}`);
+            else characterIds.push(id);
+        });
+        return value;
+    };
+    let complete = false;
+    if (type === "FLEET") {
+        const capital = lineup.capitalShipId === undefined ? "" : lineup.capitalShipId;
+        if (typeof capital !== "string") errors.push("invalid-capitalShipId");
+        else if (capital) members([capital], "CAPITAL_SHIP", "capitalShipId");
+        const starters = members(lineup.startingShipIds === undefined ? [] : lineup.startingShipIds, "SHIP", "startingShipIds");
+        const reinforcements = members(lineup.reinforcementIds === undefined ? [] : lineup.reinforcementIds, "SHIP", "reinforcementIds");
+        if (starters.length > 3 || reinforcements.length > 4) errors.push("invalid-size");
+        if (lineup.characterIds !== undefined || lineup.intentionalUndersize !== undefined) errors.push("invalid-fleet-fields");
+        // Reinforcement capacity is a maximum, never a required count. Capital
+        // stars are not known here, so no locked-slot requirement is inferred.
+        complete = !!capital && starters.length === 3;
+    } else if (type === "SQUAD") {
+        const ids = members(lineup.characterIds === undefined ? [] : lineup.characterIds, "CHARACTER", "characterIds");
+        const size = mode === "3v3" ? 3 : 5;
+        if (ids.length > size) errors.push("invalid-size");
+        if (lineup.intentionalUndersize !== undefined && typeof lineup.intentionalUndersize !== "boolean") errors.push("invalid-undersize-state");
+        if (lineup.capitalShipId !== undefined || lineup.startingShipIds !== undefined || lineup.reinforcementIds !== undefined) errors.push("invalid-squad-fields");
+        complete = ids.length === size || (ids.length > 0 && ids.length < size && lineup.intentionalUndersize === true);
+    }
+    if (new Set(characterIds).size !== characterIds.length) errors.push("duplicate-unit");
+    return { valid: errors.length === 0, complete: errors.length === 0 && complete, characterIds, errors };
+}
+
+// Saved assignments (including progressive drafts) share one unit pool across
+// every territory. Catalogue proposals do not claim any of that pool.
+function validateDefenceTemplate(template) {
+    const teams = [];
+    const holders = new Map();
+    const slots = new Map();
+    template.teams.forEach(team => {
+        if (!team) return;
+        const result = team.lineup === undefined
+            ? { valid: true, complete: false, characterIds: [], errors: [] }
+            : validateDefenceLineup(team.lineup, template.mode, defenceTemplateTeamType(template, team));
+        const row = { territory: team.territory, index: team.index, ...result };
+        if (!team.name && team.lineup !== undefined) row.errors.push("missing-identity");
+        const slot = `${team.territory}:${team.index}`;
+        if (slots.has(slot)) {
+            row.errors.push("duplicate-slot");
+            slots.get(slot).errors.push("duplicate-slot");
+        }
+        slots.set(slot, row);
+        new Set(row.characterIds).forEach(id => {
+            if (holders.has(id)) {
+                row.errors.push(`duplicate-assignment:${id}`);
+                holders.get(id).errors.push(`duplicate-assignment:${id}`);
+            } else holders.set(id, row);
+        });
+        teams.push(row);
+    });
+    teams.forEach(row => {
+        row.valid = row.errors.length === 0;
+        row.complete = row.valid && row.complete;
+    });
+    return { valid: teams.every(t => t.valid), complete: teams.length > 0 && teams.every(t => t.complete), teams };
+}
+
+function suggestDefenceLineup(teamName, mode, type) {
+    if (!teamName || teamName === NOT_IN_CATALOGUE) return null;
+    const catalogueMode = type === "FLEET" ? "FLEET" : mode;
+    const specific = defenceCompositions[catalogueMode];
+    const any = defenceCompositions.ANY;
+    let ids = specific && Object.hasOwn(specific, teamName) ? specific[teamName] :
+        any && Object.hasOwn(any, teamName) ? any[teamName] : undefined;
+    let source = "defence-composition";
+    // An explicitly authored partial/invalid row must not be silently replaced
+    // by a different core. Fallback names must match exactly and uniquely.
+    if (ids === undefined) {
+        const matches = Object.values(counterDefinitions).filter(def => def && def.name === teamName);
+        if (matches.length !== 1 || !Array.isArray(matches[0].required) || !matches[0].required.length) return null;
+        ids = matches[0].required;
+        source = "required-core";
+    }
+    if (!Array.isArray(ids)) return null;
+    const lineup = type === "FLEET" ? {
+        capitalShipId: "",
+        startingShipIds: [],
+        reinforcementIds: [],
+        confirmed: false
+    } : { characterIds: [...ids], intentionalUndersize: false, confirmed: false };
+    if (type === "FLEET") {
+        // Flat catalogue membership carries no starter/reinforcement roles.
+        // Expose the membership as a proposal; never invent those roles.
+        const errors = [];
+        const types = ids.map(id => Object.hasOwn(characterDefinitions, id) && characterDefinitions[id] && characterDefinitions[id].unitType);
+        if (types.some(type => !["SHIP", "CAPITAL_SHIP"].includes(type))) errors.push("invalid-fleet-unit");
+        if (new Set(ids).size !== ids.length) errors.push("duplicate-unit");
+        if (types.filter(type => type === "CAPITAL_SHIP").length > 1 || types.filter(type => type === "SHIP").length > 7) errors.push("invalid-size");
+        return { source, lineup, suggestedCharacterIds: [...ids], confirmed: false, complete: false,
+            validation: { valid: errors.length === 0, complete: false, characterIds: [...ids], errors } };
+    }
+    const validation = validateDefenceLineup(lineup, mode, type);
+    return { source, lineup, confirmed: false, complete: validation.complete, validation };
+}
+
+function readDefenceTemplateLineup(mode, territory, index) {
+    const template = loadDefenceTemplate(mode);
+    const team = template && defenceTemplateTeamAt(template, territory, index);
+    if (!team) return null;
+    if (team.lineup !== undefined) {
+        const validation = validateDefenceTemplate(template).teams.find(t => t.territory === territory && t.index === index);
+        return { source: "saved", lineup: team.lineup, validation,
+            complete: validation.complete, confirmed: !!team.lineup && team.lineup.confirmed === true && validation.complete };
+    }
+    return suggestDefenceLineup(team.name, mode, defenceTemplateTeamType(template, team));
+}
+
+// The expected identity prevents a stale editor from attaching members to a
+// newly selected team. Confirmation requires this explicit write option; a
+// catalogue proposal or an incoming lineup.confirmed flag cannot confirm itself.
+function writeDefenceTemplateLineup(mode, territory, index, identity, lineup, options = {}) {
+    const template = loadDefenceTemplate(mode);
+    const team = template && defenceTemplateTeamAt(template, territory, index);
+    if (!team || !team.name || !sameDefenceIdentity(team, identity)) return { ok: false, errors: ["identity-mismatch"] };
+    if (lineup === null) delete team.lineup;
+    else {
+        const validation = validateDefenceLineup(lineup, mode, defenceTemplateTeamType(template, team));
+        if (!validation.valid || (options.confirm === true && !validation.complete)) {
+            return { ok: false, errors: validation.errors.concat(options.confirm === true && !validation.complete ? ["incomplete-lineup"] : []) };
+        }
+        team.lineup = { ...lineup, confirmed: options.confirm === true };
+    }
+    const validation = validateDefenceTemplate(template);
+    const current = validation.teams.find(t => t.territory === territory && t.index === index);
+    // Other legacy/corrupt slots must not prevent progressive completion here.
+    if (!current.valid) return { ok: false, errors: current.errors };
+    template.updatedAt = new Date().toISOString();
+    return { ok: persistDefenceTemplate(template), validation };
+}
+
 function applyDefenceTemplate(bd) {
     const template = loadDefenceTemplate(bd.mode);
     if (!template) return bd;
-    const identities = new Map(template.teams.map(t => [`${t.territory}:${t.index}`, t]));
     bd.teams.forEach(team => {
-        const saved = identities.get(`${team.territory}:${team.index}`);
+        const saved = defenceTemplateTeamAt(template, team.territory, team.index);
         if (!saved) return;
         team.name = typeof saved.name === "string" ? saved.name : "";
         team.customName = typeof saved.customName === "string" ? saved.customName : "";
@@ -414,21 +601,23 @@ function adoptMyBoardAsRoundDefence() {
 
 function saveDefenceTemplateFromMyBoard() {
     if (!myBoard) return;
+    const previous = loadDefenceTemplate(myBoard.mode);
     const template = {
         schema: DEFENCE_TEMPLATE_SCHEMA,
         mode: myBoard.mode,
         league: myBoard.league,
         updatedAt: new Date().toISOString(),
         territories: myBoard.territories.map(t => ({ ...t })),
-        // Identity only: attempts and cleared state must never leak into a template.
-        teams: myBoard.teams.map(t => ({
-            territory: t.territory,
-            index: t.index,
-            name: t.name || "",
-            customName: t.customName || ""
-        }))
+        // Progress flags never enter templates. Preserve saved members only at
+        // the same slot with the same identity; never copy by team name alone.
+        teams: myBoard.teams.map(t => {
+            const row = { territory: t.territory, index: t.index, name: t.name || "", customName: t.customName || "" };
+            const saved = previous && defenceTemplateTeamAt(previous, t.territory, t.index);
+            if (row.name && sameDefenceIdentity(row, saved) && saved.lineup !== undefined) row.lineup = saved.lineup;
+            return row;
+        })
     };
-    localStorage.setItem(templateKey(myBoard.mode), JSON.stringify(template));
+    persistDefenceTemplate(template);
 }
 
 function clearDefenceTemplate(mode) {
