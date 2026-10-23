@@ -638,17 +638,21 @@ function adoptMyBoardAsRoundDefence() {
     render();
 }
 
-// A template supplied after setup can fill empty, untouched slots. Never replace
-// a live identity or progress, and never reuse a different identity's lineup.
+// Explicitly fill empty frozen identities, preserving live names and progress.
+// A name entered by the old My Board UI requires an exact saved-identity match.
 function savedDefenceAdoptionCandidate() {
-    if (!board || !myBoard || !board.defenceSnapshot || !board.defenceSnapshot.missingSavedDefence) return null;
+    if (!board || !myBoard || !validDefenceSnapshot(board.defenceSnapshot, board.mode) || board.defenceSnapshot.schema !== 2) return null;
+    const snapshot = board.defenceSnapshot;
     const saved = loadDefenceTemplate(board.mode);
     if (!saved) return null;
     const candidate = JSON.parse(JSON.stringify(myBoard));
     let added = false;
     candidate.teams.forEach(team => {
         const assignment = defenceTemplateTeamAt(saved, team.territory, team.index);
-        if (!team.name && !team.cleared && !(team.attempts > 0) && assignment && assignment.name) {
+        const frozen = defenceTemplateTeamAt({ teams: snapshot.slots }, team.territory, team.index);
+        const canFill = frozen && !frozen.name && (snapshot.missingSavedDefence || team.name || team.cleared || team.attempts > 0);
+        if (canFill && assignment && assignment.name && (!team.name || sameDefenceIdentity(team, assignment)) &&
+                defenceTemplateTeamType(saved, assignment) === defenceTemplateTeamType(myBoard, team)) {
             team.name = assignment.name;
             team.customName = assignment.customName || "";
             added = true;
@@ -660,16 +664,36 @@ function savedDefenceAdoptionCandidate() {
 function adoptSavedTemplateAsRoundDefence() {
     const candidate = savedDefenceAdoptionCandidate();
     if (!candidate) return;
-    if (!confirm(`Use the saved ${board.mode} defence in empty, untouched My Board slots and freeze this round's defence? Existing identities and battle progress stay. Attack availability will change; later template edits will not update this round.`)) return;
-    const captured = captureDefenceSnapshot(board.mode, candidate, loadDefenceTemplate(board.mode));
-    captured.legacyCharacterIds = [...board.defenceSnapshot.characterIds];
+    const saved = loadDefenceTemplate(board.mode);
+    const captured = captureDefenceSnapshot(board.mode, candidate, saved);
+    const previous = board.defenceSnapshot;
+    const conflict = captured.slots.some(slot => {
+        const frozen = defenceTemplateTeamAt({ teams: previous.slots }, slot.territory, slot.index);
+        return frozen && !frozen.name && slot.name && slot.confirmed && previous.slots.some(other =>
+            (other.territory !== slot.territory || other.index !== slot.index) && other.characterIds.some(id => slot.characterIds.includes(id)));
+    });
+    if (conflict) {
+        const text = "A saved lineup uses a unit already blocked by another current-round defence slot. Correct that slot before filling this identity.";
+        defenceLineupsMessage = { kind: "error", text };
+        if (currentView === "round") alert(text);
+        render();
+        return;
+    }
+    if (!confirm(`Fill empty My Board identities from the saved ${board.mode} defence, including slots with recorded Battles or Cleared? Existing named identities, frozen lineups and all battle progress stay. Newly filled slots will block their known units from attack; later template edits will not update this round.`)) return;
+    const next = { ...previous, missingSavedDefence: false, slots: previous.slots.map(slot => {
+        const live = defenceTemplateTeamAt(myBoard, slot.territory, slot.index);
+        const filled = defenceTemplateTeamAt({ teams: captured.slots }, slot.territory, slot.index);
+        const assignment = defenceTemplateTeamAt(saved, slot.territory, slot.index);
+        return !slot.name && live && filled && filled.name && sameDefenceIdentity(filled, assignment) &&
+            defenceTemplateTeamType(saved, assignment) === slot.type && (!live.name || sameDefenceIdentity(live, filled)) ? filled : slot;
+    }) };
     // Only identity fields in eligible empty slots change. Preserve live objects
     // and all other fields, including progress not copied into the snapshot.
     candidate.teams.forEach(team => {
         const live = defenceTemplateTeamAt(myBoard, team.territory, team.index);
         if (live && !live.name && team.name) { live.name = team.name; live.customName = team.customName; }
     });
-    board.defenceSnapshot = aggregateDefenceSnapshot(captured);
+    board.defenceSnapshot = aggregateDefenceSnapshot(next);
     saveBoard("my");
     saveBoard("opponent");
     render();
@@ -3510,6 +3534,13 @@ function getCounterStatus(counterId) {
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 
+function openRoundDefenceLineups() {
+    if (!board) return;
+    defenceLineupsMode = board.mode;
+    defenceLineupsMessage = null;
+    setView("defence-lineups");
+}
+
 function setView(view) {
     if (currentView === "defence-lineups" && view !== currentView) {
         if (!closeDefenceLineupEditor()) return;
@@ -3782,6 +3813,7 @@ function renderDefenceLineups() {
     const options = LEAGUES.map(l => `<option value="${l}" ${league === l ? "selected" : ""} ${!(boardConfig[l] || {})[defenceLineupsMode] ? "disabled" : ""}>${leagueLabel(l)}</option>`).join("");
     const header = `<div class="round-card">
         <div class="round-title">🛡️ DEFENCE LINEUPS</div>
+        ${board ? `<button class="more-back" onclick="setView('round')">← Back to Round</button>` : ""}
         <p class="roster-import-helper">Reusable defence for future rounds. Saving here does not change your current round. No roster import is needed.</p>
         <div class="mode-toggle" aria-label="Defence template format">${["5v5", "3v3"].map(mode => `<button class="mode-button ${mode === defenceLineupsMode ? "active" : ""}" onclick="setDefenceLineupsMode('${mode}')">${mode}</button>`).join("")}</div>
         <label class="lineup-field">League / layout<select class="board-team-select" onchange="setDefenceLineupsLeague(this.value)"><option value="">Select league…</option>${options}</select></label>
@@ -3789,6 +3821,7 @@ function renderDefenceLineups() {
         <div class="lineup-progress" role="status">${count("Confirmed")} / ${populated.length} populated teams confirmed · ${count("Needs confirmation")} need confirmation · ${count("Incomplete")} incomplete</div>
         ${defenceLineupsMessage ? `<div class="roster-msg roster-msg-${defenceLineupsMessage.kind}" role="status">${escapeHtml(defenceLineupsMessage.text)}</div>` : ""}
         ${renderRoundDefenceReview()}
+        ${template ? `<button class="template-clear-btn" onclick="clearDefenceTemplate('${defenceLineupsMode}')">Clear saved ${defenceLineupsMode} template</button>` : ""}
     </div>`;
     if (!template || !template.territories.length) return header + `<div class="empty-state">Choose a league to create this format's saved layout.${!Object.keys(boardConfig).length ? " Board configuration has not loaded yet; refresh when connected." : ""}</div>`;
     return header + template.territories.map(t => `<div class="board-territory">
@@ -3832,14 +3865,12 @@ function renderRoundDefenceCorrection(mode, territory, index) {
 function renderRoundDefenceReview() {
     if (!board || board.mode !== defenceLineupsMode || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return "";
     const snapshot = board.defenceSnapshot;
-    if (snapshot.missingSavedDefence) {
-        return savedDefenceAdoptionCandidate() ? `<div class="lineup-proposal"><p>This round started without saved defence. Adopt this format's saved teams into empty, untouched My Board slots. Existing identities and battle progress stay; attack availability will change.</p><button class="roster-data-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button></div>` : "";
-    }
-    if (!hasLegacyDefenceReview(snapshot)) return "";
+    const adoption = savedDefenceAdoptionCandidate() ? `<div class="lineup-proposal"><p>Fill empty round identities from this format's saved defence, including slots with recorded Battles or Cleared. Existing named identities, frozen lineups and battle progress stay; attack availability will change.</p><button class="roster-data-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button></div>` : "";
+    if (snapshot.missingSavedDefence || !hasLegacyDefenceReview(snapshot)) return adoption;
     const reviewed = snapshot.slots.filter(roundDefenceSlotReviewed).length;
     const empty = snapshot.slots.filter(slot => !slot.name && !roundDefenceSlotReviewed(slot)).map(slot => `<button class="roster-data-btn" onclick="reviewEmptyRoundDefenceSlot('${slot.territory}', ${slot.index})">Review empty ${escapeHtml(TERRITORY_LABELS[slot.territory] || slot.territory)} ${slot.index + 1}</button>`).join("");
     const original = `<p>${snapshot.legacySourceTeamCount > 0 ? `The original aggregate recorded ${snapshot.legacySourceTeamCount} populated teams. ` : ""}${snapshot.legacyUnresolvedTeams && snapshot.legacyUnresolvedTeams.length ? `Original unresolved identities: ${snapshot.legacyUnresolvedTeams.map(escapeHtml).join(", ")}. ` : ""}These may differ from My Board; verify the actual deployments in every slot.</p>`;
-    return `<div class="lineup-proposal"><strong>Legacy defence review</strong><p>${snapshot.legacyCharacterIds.length} unattributed units remain blocked. ${reviewed} / ${snapshot.slots.length} round slots reviewed. Apply a confirmed saved lineup to each deployed slot below and explicitly review empty slots. Only a full rebaseline can release unattributed blocks.</p>${original}${empty}
+    return adoption + `<div class="lineup-proposal"><strong>Legacy defence review</strong><p>${snapshot.legacyCharacterIds.length} unattributed units remain blocked. ${reviewed} / ${snapshot.slots.length} round slots reviewed. Apply a confirmed saved lineup to each deployed slot below and explicitly review empty slots. Only a full rebaseline can release unattributed blocks.</p>${original}${empty}
         <button class="roster-data-btn" onclick="rebaselineRoundDefence()" ${canRebaselineRoundDefence(snapshot) ? "" : "disabled"}>Review complete — confirm full defence rebaseline</button></div>`;
 }
 
@@ -4186,21 +4217,27 @@ function renderRound() {
 function renderDefenceSnapshotStatus() {
     if (!board || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return "";
     const snapshot = board.defenceSnapshot;
+    const lineupsLink = `<button class="defence-adopt-btn" onclick="openRoundDefenceLineups()">Review / correct ${board.mode} Defence Lineups</button>`;
     if (snapshot.missingSavedDefence) {
         const canAdopt = myBoard && myBoard.teams.some(t => t && t.name);
         const action = canAdopt
             ? `<button class="defence-adopt-btn" onclick="adoptMyBoardAsRoundDefence()">Use My Board as this round's defence</button>`
-            : ` Fill in My Board to set this round's defence.`;
+            : "";
         const savedAction = savedDefenceAdoptionCandidate() ? `<button class="defence-adopt-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button>` : "";
-        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence when this round started — defence availability is not being filtered.${action}${savedAction}</div>`;
+        return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence when this round started — defence availability is not being filtered.${action}${savedAction}${lineupsLink}</div>`;
     }
     const count = snapshot.characterIds.length;
     const summary = `<div class="round-stat">Defence: ${count} unit${count === 1 ? "" : "s"} unavailable</div>`;
     const legacy = hasLegacyDefenceReview(snapshot)
         ? `<div class="roster-msg roster-msg-warn round-defence-status">${snapshot.legacyCharacterIds.length ? `${snapshot.legacyCharacterIds.length} legacy defence units have no slot attribution and remain blocked.` : "Legacy defence deployments remain unverified, with no known unit IDs."} Review all round slots in More → Defence Lineups before a full rebaseline.</div>` : "";
-    if (!snapshot.unresolvedTeams.length) return summary + legacy;
-    const n = snapshot.unresolvedTeams.length;
-    return summary + legacy + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. Some characters may still appear available for attack.</div>`;
+    const missingIdentities = snapshot.schema === 2 && myBoard ? snapshot.slots.filter(slot => {
+        const live = defenceTemplateTeamAt(myBoard, slot.territory, slot.index);
+        return !slot.name && live && (live.name || live.attempts > 0 || live.cleared);
+    }).length : 0;
+    const savedAction = savedDefenceAdoptionCandidate() ? `<button class="defence-adopt-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button>` : "";
+    const n = snapshot.unresolvedTeams.length + missingIdentities;
+    if (!n) return summary + legacy + lineupsLink;
+    return summary + legacy + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. ${missingIdentities ? `${missingIdentities} round slot${missingIdentities === 1 ? " needs" : "s need"} an applied identity. ` : ""}Some characters may still appear available for attack.${lineupsLink}${savedAction}</div>`;
 }
 
 function renderBoardSwitch() {
@@ -4240,10 +4277,7 @@ function renderBoardSetup() {
         Choose your league, then set up both current-round boards. Opponent Board starts empty; My Board is filled from your saved ${fmt} defence template.
     </div>`;
 
-    const savedTemplate = loadDefenceTemplate(fmt);
-    const templateControl = savedTemplate
-        ? `<button class="template-clear-btn" onclick="clearDefenceTemplate('${fmt}')">Clear saved ${fmt} template</button>`
-        : `<div class="roster-saved-line">No saved ${fmt} defence template yet.</div>`;
+    const templateControl = `<button class="defence-adopt-btn" onclick="defenceLineupsMode = '${fmt}'; setView('defence-lineups')">Manage ${fmt} Defence Lineups</button>`;
 
     return `
 <div class="board-setup-card">
@@ -4293,9 +4327,8 @@ function renderMyBoard() {
         <div>
             <div class="round-title">🛡️ MY BOARD</div>
             <div class="round-stat">${leagueLabel(myBoard.league)} · ${myBoard.mode}</div>
-            <div class="roster-saved-line">Team identities autosave to your ${myBoard.mode} defence template. Battles and Cleared apply only to this round.</div>
+            <div class="roster-saved-line">Frozen defence for this round. Track the opponent's Battles and Cleared here; manage lineups in More.</div>
         </div>
-        <button class="template-clear-btn" onclick="clearDefenceTemplate('${myBoard.mode}')">Clear template</button>
     </div>
 </div>
 `;
@@ -4394,18 +4427,23 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     value="${escapeHtml(team.customName || "")}" oninput="setCustomTeamName('${side}', '${territoryKey}', ${team.index}, this.value)">
 ` : "";
 
+    const frozenSlot = side === "my" && board && board.defenceSnapshot && board.defenceSnapshot.schema === 2
+        ? defenceTemplateTeamAt({ teams: board.defenceSnapshot.slots }, territoryKey, team.index) : null;
+    const identity = frozenSlot || team;
+    const identityControl = side === "my"
+        ? `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : identity.name || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) ? " (saved; not in current catalogue)" : ""}</div>`
+        : `<select class="board-team-select" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select>`;
+
     return `
 ${pendingUndoHtml}
 <div class="board-team-block ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
 <div class="board-team ${team.cleared ? "cleared" : ""}">
-    <select class="board-team-select" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">
-        ${options}
-    </select>
+    ${identityControl}
     <button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${side}', '${territoryKey}', ${team.index})">
         ${team.cleared ? "✓ Cleared" : "Cleared"}
     </button>
 </div>
-${customName}
+${side === "my" ? "" : customName}
 ${team.cleared ? "" : renderAttemptControl(side, territoryKey, team)}
 ${side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey)}
 </div>
