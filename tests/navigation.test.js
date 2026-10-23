@@ -136,7 +136,8 @@ test("More opens the existing My Roster screen with a return to More", () => {
     ]);
     click(h, /<button class="nav-button [^"]*" onclick="(setView\('more'\))"/);
     assert.equal(h.run("currentView"), "more");
-    assert.doesNotMatch(h.appElement.innerHTML, /Defence Lineups|MY ROSTER/);
+    assert.doesNotMatch(h.appElement.innerHTML, /MY ROSTER/);
+    assert.match(h.appElement.innerHTML, /Defence Lineups/);
     assert.match(h.appElement.innerHTML, /My Roster/);
     click(h, /<button class="more-menu-entry" onclick="([^"]+)"/);
     assert.equal(h.run("currentView"), "roster");

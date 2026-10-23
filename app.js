@@ -82,6 +82,9 @@ let currentView = "round";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 let spentCharsCache = { key: null, map: new Map() };  // derived from usedTeams + counterDefinitions (v3.2)
 let searchText = "";
+let defenceLineupsMode = "5v5";        // independent of Counters and active Round
+let defenceLineupEditor = null;         // one unsaved team draft; persistence uses template helpers
+let defenceLineupsMessage = null;
 
 // Roster state. ownedCharacters stays the in-memory array the rest of the
 // app reads; rosterMeta carries provenance for the freshness line.
@@ -3359,6 +3362,9 @@ function getCounterStatus(counterId) {
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
 
 function setView(view) {
+    if (currentView === "defence-lineups" && view !== currentView) {
+        if (!closeDefenceLineupEditor()) return;
+    }
     currentView = view;
     if (view === "roster") {
         loadRoster();          // defensive re-read on entry
@@ -3386,6 +3392,8 @@ function render() {
         viewHtml = renderCounters();
     } else if (currentView === "roster") {
         viewHtml = renderMoreSubview(renderRoster());
+    } else if (currentView === "defence-lineups") {
+        viewHtml = renderMoreSubview(renderDefenceLineups());
     } else if (currentView === "more") {
         viewHtml = renderMore();
     } else {
@@ -3407,7 +3415,7 @@ ${viewHtml}
         <span class="nav-icon">🗺️</span>
         ROUND
     </button>
-    <button class="nav-button ${currentView === "more" || currentView === "roster" ? "active" : ""}" onclick="setView('more')">
+    <button class="nav-button ${["more", "roster", "defence-lineups"].includes(currentView) ? "active" : ""}" onclick="setView('more')">
         <span class="nav-icon">☰</span>
         MORE
     </button>
@@ -3431,8 +3439,261 @@ function renderMore() {
     <button class="more-menu-entry" onclick="setView('roster')">
         <span>👤 My Roster</span><span aria-hidden="true">›</span>
     </button>
+    <button class="more-menu-entry" onclick="setView('defence-lineups')">
+        <span>🛡️ Defence Lineups</span><span aria-hidden="true">›</span>
+    </button>
 </div>
 `;
+}
+
+// ─── REUSABLE DEFENCE LINEUPS ────────────────────────────────────────────────
+
+// Fill empty layout slots for display/editing without creating a template just
+// by opening the screen. Legacy templates without layout metadata retain every
+// saved slot, even when the current catalogue cannot supply their old layout.
+function defenceLineupsTemplate(mode = defenceLineupsMode) {
+    const saved = loadDefenceTemplate(mode);
+    if (!saved) return null;
+    const template = JSON.parse(JSON.stringify(saved));
+    template.teams = template.teams.filter(t => t && typeof t.territory === "string" && Number.isInteger(t.index) && t.index >= 0);
+    template.territories = Array.isArray(template.territories) ? template.territories.filter(t => t && typeof t.territory === "string") : [];
+    if (!template.territories.length) {
+        template.territories = JSON.parse(JSON.stringify((boardConfig[template.league] || {})[mode] || []));
+    }
+    template.teams.filter(Boolean).forEach(team => {
+        let territory = template.territories.find(t => t.territory === team.territory);
+        if (!territory) {
+            territory = { territory: team.territory, type: team.territory === "BACK_TOP" ? "FLEET" : "SQUAD", teamCount: 0 };
+            template.territories.push(territory);
+        }
+        territory.teamCount = Math.max(territory.teamCount, team.index + 1);
+    });
+    template.territories.forEach(t => {
+        for (let index = 0; index < t.teamCount; index++) {
+            if (!defenceTemplateTeamAt(template, t.territory, index)) {
+                template.teams.push({ territory: t.territory, index, name: "", customName: "" });
+            }
+        }
+    });
+    return template;
+}
+
+function closeDefenceLineupEditor() {
+    if (defenceLineupEditor && defenceLineupEditor.dirty && !confirm("Discard unsaved lineup changes? Saved progress will remain.")) return false;
+    defenceLineupEditor = null;
+    return true;
+}
+
+function setDefenceLineupsMode(mode) {
+    if (mode === defenceLineupsMode || !["5v5", "3v3"].includes(mode) || !closeDefenceLineupEditor()) return;
+    defenceLineupsMode = mode;
+    defenceLineupsMessage = null;
+    render();
+}
+
+function setDefenceLineupsLeague(league) {
+    const cfg = (boardConfig[league] || {})[defenceLineupsMode];
+    if (!cfg || !cfg.length || !closeDefenceLineupEditor()) { render(); return; }
+    const previous = defenceLineupsTemplate();
+    if (previous && previous.teams.some(t => t.name) &&
+        !confirm("Change this saved template's league/layout? Teams in matching slots are kept; slots outside the new layout are removed. Your current round will stay unchanged.")) { render(); return; }
+    const teams = [];
+    cfg.forEach(t => {
+        for (let index = 0; index < t.teamCount; index++) {
+            const saved = previous && defenceTemplateTeamAt(previous, t.territory, index);
+            teams.push(saved || { territory: t.territory, index, name: "", customName: "" });
+        }
+    });
+    const ok = persistDefenceTemplate({ schema: DEFENCE_TEMPLATE_SCHEMA, mode: defenceLineupsMode, league,
+        territories: cfg.map(t => ({ ...t })), teams, updatedAt: new Date().toISOString() });
+    defenceLineupsMessage = { kind: ok ? "ok" : "error", text: ok ? "Template layout saved." : "Could not save template layout. Please try again." };
+    render();
+}
+
+function setDefenceLineupsIdentity(territory, index, name, customName = "") {
+    const template = defenceLineupsTemplate();
+    const team = template && defenceTemplateTeamAt(template, territory, index);
+    if (!team || sameDefenceIdentity(team, { name, customName })) return;
+    if (team.lineup !== undefined && !confirm("Change this team's identity and remove its saved unit assignments?")) { render(); return; }
+    if (!closeDefenceLineupEditor()) { render(); return; }
+    team.name = name;
+    team.customName = name === NOT_IN_CATALOGUE ? customName.slice(0, 80) : "";
+    delete team.lineup;
+    template.updatedAt = new Date().toISOString();
+    const ok = persistDefenceTemplate(template);
+    defenceLineupsMessage = { kind: ok ? "ok" : "error", text: ok ? "Team identity saved." : "Could not save team identity. Please try again." };
+    render();
+}
+
+function openDefenceLineupEditor(territory, index) {
+    if (!closeDefenceLineupEditor()) return;
+    const template = defenceLineupsTemplate();
+    const team = template && defenceTemplateTeamAt(template, territory, index);
+    if (!team || !team.name) return;
+    const selected = readDefenceTemplateLineup(defenceLineupsMode, territory, index);
+    const type = defenceTemplateTeamType(template, team);
+    const empty = type === "FLEET" ? { capitalShipId: "", startingShipIds: [], reinforcementIds: [] } : { characterIds: [], intentionalUndersize: false };
+    defenceLineupEditor = { mode: defenceLineupsMode, territory, index, identity: { name: team.name, customName: team.customName }, type,
+        lineup: JSON.parse(JSON.stringify(selected && selected.source === "saved" && isPlainObject(selected.lineup) ? selected.lineup : empty)), dirty: false };
+    defenceLineupsMessage = null;
+    render();
+}
+
+function editDefenceLineupMember(field, index, value) {
+    const editor = defenceLineupEditor;
+    if (!editor) return;
+    if (field === "capitalShipId") editor.lineup.capitalShipId = value;
+    else if (field === "intentionalUndersize") editor.lineup.intentionalUndersize = value === true;
+    else if (["characterIds", "startingShipIds", "reinforcementIds"].includes(field)) {
+        if (!Array.isArray(editor.lineup[field])) editor.lineup[field] = [];
+        editor.lineup[field][index] = value;
+    } else return;
+    editor.lineup.confirmed = false;
+    editor.dirty = true;
+    defenceLineupsMessage = null;
+    render();
+}
+
+function defenceLineupDraft() {
+    const editor = defenceLineupEditor;
+    if (!editor) return null;
+    const lineup = { ...editor.lineup, confirmed: false };
+    ["characterIds", "startingShipIds", "reinforcementIds"].forEach(field => {
+        if (Array.isArray(lineup[field])) lineup[field] = lineup[field].filter(id => id !== "");
+    });
+    return lineup;
+}
+
+function defenceLineupDraftValidation() {
+    const editor = defenceLineupEditor;
+    const template = editor && defenceLineupsTemplate(editor.mode);
+    const team = template && defenceTemplateTeamAt(template, editor.territory, editor.index);
+    if (!team || !sameDefenceIdentity(team, editor.identity)) return { valid: false, complete: false, errors: ["identity-mismatch"] };
+    team.lineup = defenceLineupDraft();
+    return validateDefenceTemplate(template).teams.find(t => t.territory === editor.territory && t.index === editor.index);
+}
+
+function useDefenceLineupProposal() {
+    const editor = defenceLineupEditor;
+    if (!editor || editor.type === "FLEET") return;
+    const proposal = suggestDefenceLineup(editor.identity.name, editor.mode, editor.type);
+    if (!proposal) return;
+    editor.lineup = JSON.parse(JSON.stringify(proposal.lineup));
+    editor.dirty = true;
+    defenceLineupsMessage = null;
+    render();
+}
+
+function clearDefenceLineupDraft() {
+    const editor = defenceLineupEditor;
+    if (!editor) return;
+    editor.lineup = editor.type === "FLEET" ? { capitalShipId: "", startingShipIds: [], reinforcementIds: [] } : { characterIds: [], intentionalUndersize: false };
+    editor.dirty = true;
+    defenceLineupsMessage = null;
+    render();
+}
+
+function defenceLineupErrorText(errors) {
+    return [...new Set(errors.map(error => {
+        if (error.startsWith("duplicate-assignment:")) return `${getCharacterName(error.slice("duplicate-assignment:".length))} is already assigned to another saved team. Remove it there before saving here.`;
+        if (error === "duplicate-unit") return "A unit is selected more than once in this team.";
+        if (error.startsWith("invalid-unit:")) return "A selected unit is unknown or has the wrong unit type. Replace or remove it.";
+        if (error === "incomplete-lineup") return "Complete the required slots before confirming.";
+        if (error === "identity-mismatch") return "The saved team identity changed. Reopen its editor.";
+        if (error === "invalid-size") return "Too many members are selected. Remove the extra members.";
+        return "This saved selection is invalid. Correct its members before saving.";
+    }))].join(" ");
+}
+
+function saveDefenceLineupEditor(confirmLineup = false) {
+    const editor = defenceLineupEditor;
+    if (!editor) return;
+    const result = writeDefenceTemplateLineup(editor.mode, editor.territory, editor.index, editor.identity,
+        defenceLineupDraft(), { confirm: confirmLineup === true });
+    if (result.ok) {
+        editor.lineup = JSON.parse(JSON.stringify(readDefenceTemplateLineup(editor.mode, editor.territory, editor.index).lineup));
+        editor.dirty = false;
+    }
+    defenceLineupsMessage = { kind: result.ok ? "ok" : "error", text: result.ok
+        ? confirmLineup ? "Lineup confirmed and saved." : "Progress saved. Confirm when this lineup is ready."
+        : result.errors ? defenceLineupErrorText(result.errors) : "Could not save progress. Please try again." };
+    render();
+}
+
+function defenceLineupStatus(selection) {
+    return selection && selection.confirmed ? "Confirmed" : selection && selection.complete ? "Needs confirmation" : "Incomplete";
+}
+
+function renderDefenceLineups() {
+    const template = defenceLineupsTemplate();
+    const populated = template ? template.teams.filter(t => t && t.name) : [];
+    const statuses = populated.map(t => defenceLineupStatus(readDefenceTemplateLineup(defenceLineupsMode, t.territory, t.index)));
+    const count = status => statuses.filter(s => s === status).length;
+    const league = template && template.league || "";
+    const options = LEAGUES.map(l => `<option value="${l}" ${league === l ? "selected" : ""} ${!(boardConfig[l] || {})[defenceLineupsMode] ? "disabled" : ""}>${leagueLabel(l)}</option>`).join("");
+    const header = `<div class="round-card">
+        <div class="round-title">🛡️ DEFENCE LINEUPS</div>
+        <p class="roster-import-helper">Reusable defence for future rounds. Saving here does not change your current round. No roster import is needed.</p>
+        <div class="mode-toggle" aria-label="Defence template format">${["5v5", "3v3"].map(mode => `<button class="mode-button ${mode === defenceLineupsMode ? "active" : ""}" onclick="setDefenceLineupsMode('${mode}')">${mode}</button>`).join("")}</div>
+        <label class="lineup-field">League / layout<select class="board-team-select" onchange="setDefenceLineupsLeague(this.value)"><option value="">Select league…</option>${options}</select></label>
+        ${template ? `<div class="round-stat">${escapeHtml(leagueLabel(league) || "Saved layout")} · ${defenceLineupsMode} · ${template.teams.length} slots including Fleet</div>` : ""}
+        <div class="lineup-progress" role="status">${count("Confirmed")} / ${populated.length} populated teams confirmed · ${count("Needs confirmation")} need confirmation · ${count("Incomplete")} incomplete</div>
+        ${defenceLineupsMessage ? `<div class="roster-msg roster-msg-${defenceLineupsMessage.kind}" role="status">${escapeHtml(defenceLineupsMessage.text)}</div>` : ""}
+    </div>`;
+    if (!template || !template.territories.length) return header + `<div class="empty-state">Choose a league to create this format's saved layout.${!Object.keys(boardConfig).length ? " Board configuration has not loaded yet; refresh when connected." : ""}</div>`;
+    return header + template.territories.map(t => `<div class="board-territory">
+        <div class="board-territory-header"><span class="board-territory-title">${escapeHtml(TERRITORY_LABELS[t.territory] || t.territory)}${t.type === "FLEET" ? " · Fleet" : ""}</span></div>
+        ${template.teams.filter(team => team.territory === t.territory).sort((a, b) => a.index - b.index).map(team => renderDefenceLineupTeam(template, t, team)).join("")}
+    </div>`).join("");
+}
+
+function renderDefenceLineupTeam(template, territory, team) {
+    const names = boardSelectableDefenceNames(territory.type === "FLEET" ? "FLEET" : template.mode);
+    const outside = [...new Set(template.teams.filter(t => defenceTemplateTeamType(template, t) === territory.type && t.name && t.name !== NOT_IN_CATALOGUE && !names.includes(t.name)).map(t => t.name))];
+    const args = `'${territory.territory}', ${team.index}`;
+    const options = [`<option value="">Empty slot</option>`, `<option value="${NOT_IN_CATALOGUE}" ${team.name === NOT_IN_CATALOGUE ? "selected" : ""}>Custom / not in catalogue</option>`,
+        ...outside.map(name => `<option value="${escapeHtml(name)}" ${team.name === name ? "selected" : ""}>${escapeHtml(name)} (saved; not in current catalogue)</option>`),
+        ...names.map(name => `<option value="${escapeHtml(name)}" ${team.name === name ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
+    const selection = team.name && readDefenceTemplateLineup(template.mode, territory.territory, team.index);
+    const editing = defenceLineupEditor && defenceLineupEditor.territory === team.territory && defenceLineupEditor.index === team.index;
+    return `<div class="lineup-team">
+        <label class="lineup-field">${territory.type === "FLEET" ? "Fleet" : "Team"} ${team.index + 1}<select class="board-team-select" onchange="setDefenceLineupsIdentity(${args}, this.value)">${options}</select></label>
+        ${team.name === NOT_IN_CATALOGUE ? `<label class="lineup-field">Custom team name<input class="board-team-select" type="text" maxlength="80" placeholder="Optional team name" value="${escapeHtml(team.customName)}" onchange="setDefenceLineupsIdentity(${args}, '${NOT_IN_CATALOGUE}', this.value)"></label>` : ""}
+        ${team.name ? `<div class="lineup-team-status">${defenceLineupStatus(selection)}</div>
+            ${selection && selection.validation && !selection.validation.valid ? `<p class="roster-msg roster-msg-warn">${escapeHtml(defenceLineupErrorText(selection.validation.errors))}</p>` : ""}
+            ${editing ? renderDefenceLineupEditor(selection) : `<button class="roster-data-btn" onclick="openDefenceLineupEditor(${args})">Edit lineup</button>`}` : `<div class="roster-saved-line">Empty slot</div>`}
+    </div>`;
+}
+
+function renderDefenceLineupMember(field, index, unitType, label, selected) {
+    const units = Object.entries(characterDefinitions).filter(([, unit]) => unit && unit.unitType === unitType).sort(([a], [b]) => getCharacterName(a).localeCompare(getCharacterName(b)));
+    const known = units.some(([id]) => id === selected);
+    const options = `<option value="">Empty / remove</option>` + (selected && !known ? `<option value="${escapeHtml(selected)}" selected>${escapeHtml(selected)} (unavailable / invalid)</option>` : "") +
+        units.map(([id]) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(getCharacterName(id))}</option>`).join("");
+    return `<label class="lineup-field">${label}<select class="board-team-select" onchange="editDefenceLineupMember('${field}', ${index}, this.value)">${options}</select></label>`;
+}
+
+function renderDefenceLineupEditor(selection) {
+    const editor = defenceLineupEditor;
+    const lineup = editor.lineup || {};
+    const validation = defenceLineupDraftValidation();
+    const fields = (field, size, type, label) => Array.from({ length: Math.max(size, Array.isArray(lineup[field]) ? lineup[field].length : 0) }, (_, index) =>
+        renderDefenceLineupMember(field, index, type, `${label} ${index + 1}`, (lineup[field] || [])[index] || "")).join("");
+    const members = editor.type === "FLEET"
+        ? `<p class="roster-import-helper">Choose one capital ship and three starting ships. Add 0–4 reinforcements as needed.</p>${renderDefenceLineupMember("capitalShipId", 0, "CAPITAL_SHIP", "Capital ship", lineup.capitalShipId || "")}${fields("startingShipIds", 3, "SHIP", "Starting ship")}${fields("reinforcementIds", 4, "SHIP", "Reinforcement (optional)")}`
+        : `${fields("characterIds", editor.mode === "3v3" ? 3 : 5, "CHARACTER", "Member")}<label class="lineup-undersize"><input type="checkbox" ${lineup.intentionalUndersize === true ? "checked" : ""} onchange="editDefenceLineupMember('intentionalUndersize', 0, this.checked)"> Intentionally deploy an undersized squad</label>`;
+    const proposal = !selection || selection.source !== "saved" ? suggestDefenceLineup(editor.identity.name, editor.mode, editor.type) : null;
+    const ids = proposal && (proposal.suggestedCharacterIds || proposal.lineup.characterIds);
+    const proposed = proposal ? `<div class="lineup-proposal"><strong>Catalogue proposal · ${proposal.complete ? "needs your confirmation" : "incomplete"}</strong>
+        <p>${(ids || []).map(id => escapeHtml(getCharacterName(id))).join(", ") || "No members supplied."}</p>
+        <p>${editor.type === "FLEET" ? "Starting and reinforcement roles are unknown. Assign the proposed ships to roles above." : proposal.complete ? "Review every member before confirming." : "This is a partial or invalid proposal. Fill the remaining slots or deliberately choose undersizing."}</p>
+        ${editor.type !== "FLEET" ? `<button class="roster-data-btn" onclick="useDefenceLineupProposal()">Use proposal in draft</button>` : ""}</div>` : "";
+    return `<div class="lineup-editor"><div class="roster-saved-line">${selection && selection.source === "saved" ? "Saved player assignments" : "No saved player assignments"}${editor.dirty ? " · Unsaved changes" : ""}</div>
+        ${members}${proposed}
+        <div class="roster-msg ${validation.valid ? "roster-msg-warn" : "roster-msg-error"}" role="status">${validation.valid ? validation.complete ? "Ready to confirm." : "Incomplete — you can save progress and finish later." : escapeHtml(defenceLineupErrorText(validation.errors))}</div>
+        <div class="lineup-actions"><button class="roster-data-btn" onclick="saveDefenceLineupEditor()" ${!validation.valid ? "disabled" : ""}>Save progress</button><button class="roster-data-btn roster-undo-btn" onclick="saveDefenceLineupEditor(true)" ${!validation.valid || !validation.complete ? "disabled" : ""}>Confirm lineup</button></div>
+        <div class="lineup-actions"><button class="more-back" onclick="clearDefenceLineupDraft()">Clear members in draft</button><button class="more-back" onclick="if (closeDefenceLineupEditor()) render()">Close editor</button></div>
+    </div>`;
 }
 
 // ─── COUNTERS VIEW ───────────────────────────────────────────────────────────
