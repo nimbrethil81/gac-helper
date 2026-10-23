@@ -327,7 +327,9 @@
       "counters": [
         { "counterId": "CERE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
         { "counterId": "BAYLAN", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
-        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
+        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Provisional: field the full five - Leia Organa (GL, leader), R2-D2, Captain Drogan, Mon Mothma, C-3PO. One owner-observed full victory; 62 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average. Attacker survival/damage details were not recorded; no established win rate or datacron independence." },
+        { "counterId": "JMK", "tier": "B", "bannerScore": 58, "undersize": 0, "notes": "Provisional, conditional: field the full five - Jedi Master Kenobi (leader), Ahsoka Tano (Snips, not GL), Commander Ahsoka Tano (CAT), General Kenobi, Wat Tambor. Owner reports possible full wins and a possible attack loss after defeating three defenders, leaving a cleanup opportunity. Three defender defeats are not guaranteed; no dependable setup/cleanup pairing is established. 58 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average; actual attacker survivors were not recorded. A loss is not a victory or a 58-banner result." }
       ]
     },
     {

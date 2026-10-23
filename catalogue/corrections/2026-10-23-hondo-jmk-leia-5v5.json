@@ -1,0 +1,158 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/125",
+  "baseline": {
+    "commit": "3fc7d606265996dc63a82b65ced417b37ac94ca7",
+    "catalogueVersion": 21,
+    "checksum": "sha256:e0f29951c98cf079277401e6de678e506b1bc83791d0d10aad3ed02ece3abb0b"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-23-125-126-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Add provisional 5v5 JMK and Leia counters versus Pirate King Hondo (#125, #126)",
+      "rationale": "Owner approved JMK B / 58 / undersize 0 and LEIA A / 62 / undersize 0 as provisional planning estimates on the established scoring ladder, with exact attacking fives in supported matchup notes. Both decisions authorise one combined PR. Append Leia then JMK after all existing Hondo counters, preserving their complete rows and order; no global counter requirements or runtime policy changes.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/125#issuecomment-6365167753",
+        "decidedAt": "2026-10-23T12:44:28Z",
+        "contentChecksum": "sha256:644f2d953dd135034f4fddd0a4a80626fae828abb52fce9da16d1a2c56cf1b6d"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/125#issuecomment-6365167753",
+            "publisher": "Owner (issue #125 decision)",
+            "publishedOrObservedAt": "2026-10-23",
+            "accessedAt": "2026-10-23",
+            "supports": "Explicit provisional JMK B / 58 / undersize 0 decision; exact five; possible full wins and losses after three defender defeats; combined implementation authorised."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/126#issuecomment-6365168045",
+            "publisher": "Owner (issue #126 decision)",
+            "publishedOrObservedAt": "2026-10-23",
+            "accessedAt": "2026-10-23",
+            "supports": "Explicit provisional LEIA A / 62 / undersize 0 decision; exact five; single observed full win; combined implementation authorised."
+          }
+        ],
+        "conditions": "5v5 only versus Pirate King Hondo Ohnaka. Full attacking fives as documented in each matchup note. Exact defending lineup, relics, mods, omicrons and datacrons not recorded.",
+        "confidence": "Low: qualitative JMK observations and one Leia full victory; no measured banners or established win rate.",
+        "limitations": "58 and 62 are owner-approved provisional successful-clear planning estimates, not measured outcomes or averages. Actual attacker survival/damage details were not recorded. JMK may lose and three defender defeats are not guaranteed; no dependable setup/cleanup pairing. Leia evidence does not establish datacron independence. Existing global core-based roster filtering does not enforce all matchup-note members."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "effect": "Append LEIA A / 62 and JMK B / 58, both undersize 0; retain CERE, BAYLAN and SLKR rows and order unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "JMK"
+          },
+          "effect": "none - checked: global required/recommended units and strategic-reserve status unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "LEIA"
+          },
+          "effect": "none - checked: global required/recommended units and strategic-reserve status unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Pirate King Hondo offers two additional provisional full-size counters with exact matchup-specific fives and evidence limits in notes.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Existing CERE/BAYLAN/SLKR rows remain ahead; Leia A / 62 and conditional JMK B / 58 are added.",
+        "roundAvailability": "Existing global core-based roster, used-team and required-unit conflict rules apply; lineup notes add no runtime enforcement.",
+        "scoring": "Only the two owner-approved matchup estimates; scoring constants and calculations unchanged.",
+        "strategicReserve": "No definition flags or conservation policy change; ordinary tier/banner ranking and visible-board conservation apply."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Pirate King Hondo Ohnaka\"][3]",
+        "payload[\"counters\"][\"5v5\"][\"Pirate King Hondo Ohnaka\"][4]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "before": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Provisional: field the full five - Leia Organa (GL, leader), R2-D2, Captain Drogan, Mon Mothma, C-3PO. One owner-observed full victory; 62 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average. Attacker survival/damage details were not recorded; no established win rate or datacron independence."
+              },
+              {
+                "counterId": "JMK",
+                "tier": "B",
+                "bannerScore": 58,
+                "undersize": 0,
+                "notes": "Provisional, conditional: field the full five - Jedi Master Kenobi (leader), Ahsoka Tano (Snips, not GL), Commander Ahsoka Tano (CAT), General Kenobi, Wat Tambor. Owner reports possible full wins and a possible attack loss after defeating three defenders, leaving a cleanup opportunity. Three defender defeats are not guaranteed; no dependable setup/cleanup pairing is established. 58 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average; actual attacker survivors were not recorded. A loss is not a victory or a 58-banner result."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
