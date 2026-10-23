@@ -17,7 +17,7 @@ function harness(initialStorage = {}) {
         clearTimeout,
         confirm: () => true,
         alert: message => alerts.push(message),
-        navigator: {},
+        navigator: { onLine: false },
         localStorage: {
             getItem: key => values.has(key) ? values.get(key) : null,
             setItem: (key, value) => values.set(key, String(value)),
@@ -36,6 +36,39 @@ function harness(initialStorage = {}) {
         alerts,
         appElement,
         run: expression => vm.runInContext(expression, context)
+    };
+}
+
+function bottomNav(html) {
+    const nav = html.match(/<nav class="bottom-nav">([\s\S]*?)<\/nav>/)[1];
+    return [...nav.matchAll(/<button class="nav-button ([^"]*)"[^>]*onclick="setView\('([^']+)'\)">[\s\S]*?<\/span>\s*(\w+)\s*<\/button>/g)]
+        .map(([, active, view, label]) => ({ active: active === "active", view, label }));
+}
+
+function click(h, buttonPattern) {
+    const button = h.appElement.innerHTML.match(buttonPattern);
+    assert.ok(button, "navigation control is present");
+    h.run(button[1]);
+}
+
+function savedRoundStorage() {
+    const h = harness();
+    h.run(`
+        board = createRoundBoard("KYBER", "3v3", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.teams[0].name = "Saved enemy";
+        board.teams[0].attempts = 2;
+        myBoard = createCompanionMyBoard(board);
+        myBoard.teams[1].customName = "Saved defence";
+        myBoard.teams[1].cleared = true;
+        saveBoard('opponent');
+        saveBoard('my');
+    `);
+    return {
+        ...Object.fromEntries(h.values),
+        rosterData: JSON.stringify({ schema: 2, owned: ["REY"], source: "manual", savedAt: "2026-10-23T00:00:00Z" }),
+        usedTeams: JSON.stringify(["used-counter"]),
+        bannerData: JSON.stringify({ myScore: 123, oppScore: 234, remaining: null, oppFinal: true, scoresPrefilled: true }),
+        "defenceTemplate:3v3": JSON.stringify({ schema: 1, mode: "3v3", teams: [] })
     };
 }
 
@@ -62,11 +95,11 @@ test("default entry with no active Round shows the normal Round setup state", ()
 });
 
 test("default entry with an active Round shows the existing Round state, not the setup card", () => {
-    const h = harness();
-    h.run(`
-        board = createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
-        render();
-    `);
+    const h = harness(savedRoundStorage());
+    h.run("loadRoster(); loadBoard(); render()");
+    assert.equal(h.run("currentView"), "round");
+    assert.equal(h.run("board.mode"), "3v3");
+    assert.equal(h.run("board.teams[0].attempts"), 2);
     assert.doesNotMatch(h.appElement.innerHTML, /SET UP ROUND/);
     assert.match(h.appElement.innerHTML, /Opponent Board/);
     assert.match(h.appElement.innerHTML, /My Board/);
@@ -93,11 +126,57 @@ test("explicit navigation to Counters still works and stays until the user navig
     assert.equal(h.run("currentView"), "counters");
 });
 
-test("explicit navigation to Roster still works", () => {
-    const h = harness();
-    h.run("setView('roster')");
+test("More opens the existing My Roster screen with a return to More", () => {
+    const h = harness(savedRoundStorage());
+    h.run("loadRoster(); loadBoard(); render()");
+    assert.deepEqual(bottomNav(h.appElement.innerHTML), [
+        { active: false, view: "counters", label: "COUNTERS" },
+        { active: true, view: "round", label: "ROUND" },
+        { active: false, view: "more", label: "MORE" }
+    ]);
+    click(h, /<button class="nav-button [^"]*" onclick="(setView\('more'\))"/);
+    assert.equal(h.run("currentView"), "more");
+    assert.doesNotMatch(h.appElement.innerHTML, /Defence Lineups|MY ROSTER/);
+    assert.match(h.appElement.innerHTML, /My Roster/);
+    click(h, /<button class="more-menu-entry" onclick="([^"]+)"/);
     assert.equal(h.run("currentView"), "roster");
+    // Keep the existing renderer, import controls and filtering surface intact.
+    assert.ok(h.appElement.innerHTML.includes(h.run("renderRoster()")));
     assert.match(h.appElement.innerHTML, /MY ROSTER/);
+    assert.deepEqual(bottomNav(h.appElement.innerHTML).filter(b => b.active).map(b => b.view), ["more"]);
+    click(h, /<button class="more-back" onclick="([^"]+)"/);
+    assert.equal(h.run("currentView"), "more");
+    assert.match(h.appElement.innerHTML, /My Roster/);
+    assert.doesNotMatch(h.appElement.innerHTML, /more-back|MY ROSTER/);
+});
+
+test("offline tab changes and My Roster re-entry preserve saved round and roster state", () => {
+    const h = harness(savedRoundStorage());
+    h.run("loadRoster(); loadBoard(); render()");
+    const storedBefore = Object.fromEntries(h.values);
+    const state = () => h.run("JSON.stringify({ board, myBoard, usedTeams, bannerData, ownedCharacters, rosterMeta })");
+    const stateBefore = state();
+    h.run(`
+        rosterSearch = "Rey";
+        rosterPanelOpen = true;
+        allyCodeDraft = "123456789";
+        setView('more');
+        setView('roster');
+        setView('counters');
+        setView('round');
+        setView('more');
+        setView('roster');
+    `);
+    assert.equal(h.run("rosterSearch"), "Rey");
+    assert.equal(h.run("rosterPanelOpen"), true);
+    assert.equal(h.run("allyCodeDraft"), "123456789");
+    assert.equal(state(), stateBefore);
+    assert.deepEqual(Object.fromEntries(h.values), storedBefore);
+    h.run("setView('round')");
+    assert.match(h.appElement.innerHTML, /Saved enemy/);
+    assert.doesNotMatch(h.appElement.innerHTML, /SET UP ROUND/);
+    assert.equal(state(), stateBefore);
+    assert.deepEqual(Object.fromEntries(h.values), storedBefore);
 });
 
 test("explicit navigation to Round still works from another screen", () => {

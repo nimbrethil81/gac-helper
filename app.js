@@ -3196,7 +3196,9 @@ function render() {
     if (currentView === "counters") {
         viewHtml = renderCounters();
     } else if (currentView === "roster") {
-        viewHtml = renderRoster();
+        viewHtml = renderMoreSubview(renderRoster());
+    } else if (currentView === "more") {
+        viewHtml = renderMore();
     } else {
         viewHtml = renderRound();
     }
@@ -3216,9 +3218,9 @@ ${viewHtml}
         <span class="nav-icon">🗺️</span>
         ROUND
     </button>
-    <button class="nav-button ${currentView === "roster" ? "active" : ""}" onclick="setView('roster')">
-        <span class="nav-icon">👤</span>
-        ROSTER
+    <button class="nav-button ${currentView === "more" || currentView === "roster" ? "active" : ""}" onclick="setView('more')">
+        <span class="nav-icon">☰</span>
+        MORE
     </button>
 </nav>
 `;
@@ -3226,6 +3228,22 @@ ${viewHtml}
     if (currentView === "counters") {
         showCounters();
     }
+}
+
+// More owns secondary screens; their shared back control returns to the menu.
+function renderMoreSubview(content) {
+    return `<button class="more-back" onclick="setView('more')">← Back to More</button>${content}`;
+}
+
+function renderMore() {
+    return `
+<div class="round-card">
+    <div class="round-title">MORE</div>
+    <button class="more-menu-entry" onclick="setView('roster')">
+        <span>👤 My Roster</span><span aria-hidden="true">›</span>
+    </button>
+</div>
+`;
 }
 
 // ─── COUNTERS VIEW ───────────────────────────────────────────────────────────

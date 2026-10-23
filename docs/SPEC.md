@@ -74,7 +74,7 @@ The app is a roster-aware GAC strategist that can recommend attack order, alloca
 
 ## 2. Design Principles
 
-**Mobile first.** The interface is optimised for iPhone and Android, and for installation as a standalone Home Screen PWA. Navigation between top-level views uses a fixed bottom navigation bar.
+**Mobile first.** The interface is optimised for iPhone and Android, and for installation as a standalone Home Screen PWA. A fixed bottom navigation bar provides **Counters / Round / More**, in that order. More contains **My Roster**; nested screens keep More highlighted and provide a **Back to More** control. Switching views does not change saved round or roster state.
 
 **Fast.** Lookup is the critical path. A user should reach a counter list in as few taps as possible, with search and mode selection always to hand.
 
@@ -435,7 +435,7 @@ Both maxima remain optimistic perfect-finish ceilings. The two ranges drive the 
 
 ### 6.4 Roster Management
 
-A dedicated Roster view, reached from the bottom navigation bar, lists the player's units in two sections — **Characters** and **Ships** — with a running owned/total count for each ("X / Y characters · A / B ships owned"). Within the Ships section, capital ships carry a small **Capital** badge so they are distinguishable from regular ships at a glance, mirroring how the game presents them together. A single search box filters both sections at once; while searching, a section with no matches is hidden, and if nothing matches a single empty line is shown. If the loaded data contains no ship definitions at all (e.g. an older cached payload), the Ships section and its count are omitted. The user taps to toggle ownership; ownership is stored locally and feeds directly into availability calculations. A clear-roster action resets all ownership.
+A dedicated Roster view, reached through **More → My Roster**, lists the player's units in two sections — **Characters** and **Ships** — with a running owned/total count for each ("X / Y characters · A / B ships owned"). Within the Ships section, capital ships carry a small **Capital** badge so they are distinguishable from regular ships at a glance, mirroring how the game presents them together. A single search box filters both sections at once; while searching, a section with no matches is hidden, and if nothing matches a single empty line is shown. If the loaded data contains no ship definitions at all (e.g. an older cached payload), the Ships section and its count are omitted. The user taps to toggle ownership; ownership is stored locally and feeds directly into availability calculations. A clear-roster action resets all ownership.
 
 There are three ways to populate the roster, in order of precedence as the recommended path:
 
@@ -485,7 +485,7 @@ The two axes combine into four card states, computed by `getCounterStatus()`:
 
 ### 6.6 Round Screen
 
-The Round screen is the live-match workspace, reached from the middle position of the bottom navigation bar, and is the screen shown by default when the app opens. There is no persisted "last screen" — each fresh load starts on Round; the user can navigate to Counters or Roster within the session as normal. It consolidates three related concerns in a single scrolling view:
+The Round screen is the live-match workspace, reached from the middle position of the bottom navigation bar, and is the screen shown by default when the app opens. There is no persisted "last screen" — each fresh load starts on Round; the user can navigate through the bottom tabs and More menu within the session as normal. It consolidates three related concerns in a single scrolling view:
 
 1. A **round summary card** with the used-team count, defence-filtering status, and the confirmed Reset Round action. It reports the number of canonical units frozen as unavailable. If no saved defence existed for the selected format, it warns that defence availability is not being filtered and, once My Board has at least one team, offers a confirmed **Use My Board as this round's defence** action (see [§6.7](#67-round-boards)); unresolved legacy/custom identities produce a partial-filter warning. Reset clears used teams, banner tracking, Opponent Board and My Board together; saved 5v5/3v3 defence templates are deliberately preserved.
 2. An **Opponent Board / My Board** switch, defaulting to Opponent Board, above the paired current-round boards (see [§6.7](#67-round-boards)). Opponent Board retains allocation and Battle Order, led by the Last Battle advisor when only one defence remains (see [§6.13](#613-last-battle-advisor)); My Board records the opponent's progress against the player's defence.
