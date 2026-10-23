@@ -1,0 +1,159 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/141",
+  "baseline": {
+    "commit": "5c2622603d983449f8ab1f7ab036dc67f5062d58",
+    "catalogueVersion": 23,
+    "checksum": "sha256:04f1db502ad0cc84d25c4f2861c610e9fd16e7594bb2bf8dd90ac3d31f85cee8"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-10-23-141-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Downgrade Baylan Skoll vs Pirate King Hondo 5v5 counter (#141)",
+      "rationale": "Owner reports repeated firsthand 5v5 GAC losses using Baylan Skoll against Pirate King Hondo Ohnaka, consistently defeating zero enemy units. Approved: downgrade the unreliable counter to C, keep the record, and stop it being presented as dependable. S / 63 becomes C / 55 (the lowest existing 5v5 score meaning); the existing tier-first ordering then ranks it behind every other Hondo counter. Other Hondo counters, 3v3 and fleet data are unchanged.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/141#issue-5996598587",
+        "decidedAt": "2026-10-23T11:04:21Z",
+        "contentChecksum": "sha256:b87a5d56882f10129dde4ffd32cc175f8957546c55edfc2b01c03bc2d3ad3d03"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/141",
+            "publisher": "Owner (issue #141)",
+            "publishedOrObservedAt": "2026-10-23",
+            "accessedAt": "2026-10-23",
+            "supports": "Repeated firsthand 5v5 losses with Baylan Skoll against Pirate King Hondo Ohnaka, consistently defeating zero enemy units; downgrade to C at most approved."
+          }
+        ],
+        "conditions": "5v5 only, Baylan Skoll versus Pirate King Hondo Ohnaka. Defending lineup, relics, mods and datacrons were not recorded.",
+        "confidence": "Low-to-medium: repeated firsthand reports with a consistent outcome, but no recorded sample size or win rate.",
+        "limitations": "No sample size, win rate or banners recorded. C / 55 is a conservative planning value, not a measurement. Baylan remains a selectable last-resort option when it is the only owned answer."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "effect": "BAYLAN row S / 63 becomes C / 55 with an unreliability note; row order and the CERE, SLKR, LEIA and JMK rows unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BAYLAN"
+          },
+          "effect": "none - checked: global definition and other defences' Baylan rows unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "Baylan is ranked last among Pirate King Hondo counters and carries a C-tier low-reliability warning when chosen.",
+        "3v3": "none",
+        "FLEET": "none",
+        "counters": "Only the Baylan row versus Pirate King Hondo changes.",
+        "roundAvailability": "none",
+        "scoring": "No scoring constants or calculations change.",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"5v5\"][\"Pirate King Hondo Ohnaka\"][1][\"bannerScore\"]",
+        "payload[\"counters\"][\"5v5\"][\"Pirate King Hondo Ohnaka\"][1][\"notes\"]",
+        "payload[\"counters\"][\"5v5\"][\"Pirate King Hondo Ohnaka\"][1][\"tier\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/5v5.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "before": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Provisional: field the full five - Leia Organa (GL, leader), R2-D2, Captain Drogan, Mon Mothma, C-3PO. One owner-observed full victory; 62 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average. Attacker survival/damage details were not recorded; no established win rate or datacron independence."
+              },
+              {
+                "counterId": "JMK",
+                "tier": "B",
+                "bannerScore": 58,
+                "undersize": 0,
+                "notes": "Provisional, conditional: field the full five - Jedi Master Kenobi (leader), Ahsoka Tano (Snips, not GL), Commander Ahsoka Tano (CAT), General Kenobi, Wat Tambor. Owner reports possible full wins and a possible attack loss after defeating three defenders, leaving a cleanup opportunity. Three defender defeats are not guaranteed; no dependable setup/cleanup pairing is established. 58 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average; actual attacker survivors were not recorded. A loss is not a victory or a 58-banner result."
+              }
+            ]
+          },
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Preferred"
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "C",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Unreliable: owner reports repeated firsthand 5v5 losses to Pirate King Hondo with Baylan Skoll, consistently defeating zero enemy units. C / 55 is an owner-approved conservative downgrade (55 is the lowest existing 5v5 score meaning), not a measured result or win rate; no sample size is recorded. Retained for history; prefer the other Hondo counters."
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 63,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "A",
+                "bannerScore": 62,
+                "undersize": 0,
+                "notes": "Provisional: field the full five - Leia Organa (GL, leader), R2-D2, Captain Drogan, Mon Mothma, C-3PO. One owner-observed full victory; 62 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average. Attacker survival/damage details were not recorded; no established win rate or datacron independence."
+              },
+              {
+                "counterId": "JMK",
+                "tier": "B",
+                "bannerScore": 58,
+                "undersize": 0,
+                "notes": "Provisional, conditional: field the full five - Jedi Master Kenobi (leader), Ahsoka Tano (Snips, not GL), Commander Ahsoka Tano (CAT), General Kenobi, Wat Tambor. Owner reports possible full wins and a possible attack loss after defeating three defenders, leaving a cleanup opportunity. Three defender defeats are not guaranteed; no dependable setup/cleanup pairing is established. 58 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average; actual attacker survivors were not recorded. A loss is not a victory or a 58-banner result."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

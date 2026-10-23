@@ -8,7 +8,7 @@ const { compileSource, readSource } = require("../scripts/catalogue-source-lib.j
 
 // Regression pins for the provisional 5v5 rows from issues #108 (Rotta the
 // Hutt / SEE), #110 (SLKR with Dark Side Vision Rey / JML) and #111 (Finn
-// (Zorii Resistance) / Talzin and Traya), and #125/#126 (Hondo / JMK and Leia).
+// (Zorii Resistance) / Talzin and Traya), and #125/#126 (Hondo / JMK and Leia) and #141 (Baylan / Hondo downgrade).
 // They check the compiled catalogue and
 // that Round Mode allocates the exact counter identities, honouring roster and
 // used-team availability.
@@ -81,12 +81,12 @@ test("#125/#126 Hondo retains its existing answers and adds only provisional ful
     const rows = payload.counters["5v5"]["Pirate King Hondo Ohnaka"];
     assert.deepEqual(strip(rows), [
         { counterId: "CERE", tier: "S", bannerScore: 63, undersize: 0 },
-        { counterId: "BAYLAN", tier: "S", bannerScore: 63, undersize: 0 },
+        { counterId: "BAYLAN", tier: "C", bannerScore: 55, undersize: 0 },
         { counterId: "SLKR", tier: "A", bannerScore: 63, undersize: 0 },
         { counterId: "LEIA", tier: "A", bannerScore: 62, undersize: 0 },
         { counterId: "JMK", tier: "B", bannerScore: 58, undersize: 0 }
     ]);
-    assert.deepEqual(rows.slice(0, 3).map(row => row.notes), ["Preferred", "Strong", "Strong"]);
+    assert.deepEqual([rows[0], rows[2]].map(row => row.notes), ["Preferred", "Strong"]);
     assert.match(rows[3].notes, /Leia Organa \(GL, leader\), R2-D2, Captain Drogan, Mon Mothma, C-3PO/);
     assert.match(rows[3].notes, /One owner-observed full victory/);
     assert.match(rows[3].notes, /no established win rate or datacron independence/);
@@ -112,6 +112,28 @@ test("#125/#126 Hondo ordering, core roster filtering and used-team state follow
     // Leia is the sole owned answer to GL Ahsoka; ordinary whole-board
     // conservation spends the conditional JMK option on Hondo to cover both.
     assert.equal(planFor(defence, core, [], "Ahsoka Tano (GL)"), "JMK");
+});
+
+test("#141 Baylan vs Hondo is downgraded to C / 55 and ranked behind every other Hondo answer", () => {
+    const rows = payload.counters["5v5"]["Pirate King Hondo Ohnaka"];
+    assert.deepEqual(strip(rows), [
+        { counterId: "CERE", tier: "S", bannerScore: 63, undersize: 0 },
+        { counterId: "BAYLAN", tier: "C", bannerScore: 55, undersize: 0 },
+        { counterId: "SLKR", tier: "A", bannerScore: 63, undersize: 0 },
+        { counterId: "LEIA", tier: "A", bannerScore: 62, undersize: 0 },
+        { counterId: "JMK", tier: "B", bannerScore: 58, undersize: 0 }
+    ]);
+    assert.match(rows[1].notes, /repeated firsthand 5v5 losses.*zero enemy units/);
+    assert.match(rows[1].notes, /not a measured result or win rate/);
+    // Other Baylan matchups and 3v3 are untouched.
+    assert.equal(payload.counters["5v5"]["Satele Shan"].find(r => r.counterId === "BAYLAN").tier, "S");
+    assert.equal(payload.counters["3v3"]["Pirate King Hondo Ohnaka"].some(r => r.counterId === "BAYLAN" && r.tier === "C"), false);
+    // Baylan is only chosen when nothing better is owned.
+    const baylan = ["BAYLAN_SKOLL"];
+    const defence = "Pirate King Hondo Ohnaka";
+    assert.equal(planFor(defence, [...baylan, "SUPREME_LEADER_KYLO_REN"], []), "SLKR");
+    assert.equal(planFor(defence, [...baylan, "JEDI_MASTER_KENOBI"], []), "JMK");
+    assert.equal(planFor(defence, baylan, []), "BAYLAN");
 });
 
 test("#108 Round Mode assigns SEE to Rotta, never substitutes SEE and Bane, and honours roster and used state", () => {
