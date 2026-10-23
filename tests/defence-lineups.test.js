@@ -294,7 +294,7 @@ test("compiled character registry reaches both lineup pickers and roster base-ID
     const units = catalogue["units.json"];
     const characters = units.filter(unit => unit.unitType === "CHARACTER");
     assert.equal(characters.length, 341);
-    assert.equal(units.length - characters.length, 52);
+    assert.equal(units.length - characters.length, 70);
     for (const mode of ["5v5", "3v3"]) {
         h.run(`defenceLineupsMode = ${JSON.stringify(mode)}`);
         const options = h.run("renderDefenceLineupMember('characterIds', 0, 'CHARACTER', 'Member 1', '')");
@@ -309,4 +309,101 @@ test("compiled character registry reaches both lineup pickers and roster base-ID
     }
     assert.equal(h.run("baseIdToUnit.B1MERCDROID"), undefined, "future November release excluded at the October audit cutoff");
     assert.equal(h.run("baseIdToUnit.EMBOANDKEIBU"), undefined, "announced Conquest unit without current playability proof stays blocked");
+});
+test("verified fleet registry reaches both fleet roles and imports exact base IDs", () => {
+    const h = setup();
+    const { source: catalogue } = readSource(path.join(__dirname, "..", "catalogue", "source"));
+    h.run(`applyCataloguePayload(${JSON.stringify(compileSource(catalogue))})`);
+    // SWGOH.GG individual Base ID fields, observed 2026-10-23; full evidence in #145's PR.
+    const additions = [
+        ["AHSOKA_TANOS_JEDI_STARFIGHTER", "JEDISTARFIGHTERAHSOKATANO"],
+        ["B_28_EXTINCTION_CLASS_BOMBER", "SITHBOMBER"],
+        ["BTL_B_Y_WING_STARFIGHTER", "YWINGCLONEWARS"],
+        ["COMEUPPANCE", "COMEUPPANCE"],
+        ["FURY_CLASS_INTERCEPTOR", "FURYCLASSINTERCEPTOR"],
+        ["IMPERIAL_TIE_FIGHTER", "TIEFIGHTERIMPERIAL"],
+        ["MG_100_STARFORTRESS_SF_17", "MG100STARFORTRESSSF17"],
+        ["MARAUDER", "MARAUDER"],
+        ["MARK_VI_INTERCEPTOR", "SITHSUPREMACYCLASS"],
+        ["PUNISHING_ONE", "PUNISHINGONE"],
+        ["REBEL_B_WING", "BWINGREBEL"],
+        ["REBEL_Y_WING", "YWINGREBEL"],
+        ["RESISTANCE_X_WING", "XWINGRESISTANCE"],
+        ["ROGUE_ONE", "ROGUEONESHIP"],
+        ["TIE_DAGGER", "TIEDAGGER"],
+        ["TIE_ECHELON", "FIRSTORDERTIEECHELON"],
+        ["UMBARAN_STARFIGHTER", "UMBARANSTARFIGHTER"],
+        ["VULTURE_DROID", "VULTUREDROID"]
+    ];
+    const units = catalogue["units.json"];
+    assert.equal(new Set(units.map(unit => unit.id)).size, units.length);
+    assert.equal(new Set(units.map(unit => unit.externalId)).size, units.length);
+    const ships = units.filter(unit => unit.unitType === "SHIP");
+    const capitals = units.filter(unit => unit.unitType === "CAPITAL_SHIP");
+    assert.equal(ships.length, 59);
+    assert.equal(capitals.length, 11);
+    for (const mode of ["5v5", "3v3"]) {
+        h.run(`defenceLineupsMode = ${JSON.stringify(mode)}`);
+        for (const field of ["startingShipIds", "reinforcementIds"]) {
+            const options = h.run(`renderDefenceLineupMember('${field}', 0, 'SHIP', 'Ship', '')`);
+            for (const ship of ships) assert.ok(options.includes(`value="${ship.id}"`), `${mode} ${field}: ${ship.name}`);
+            for (const unit of units.filter(unit => unit.unitType !== "SHIP")) assert.ok(!options.includes(`value="${unit.id}"`));
+        }
+        const options = h.run("renderDefenceLineupMember('capitalShipId', 0, 'CAPITAL_SHIP', 'Capital', '')");
+        for (const unit of units) assert.equal(options.includes(`value="${unit.id}"`), unit.unitType === "CAPITAL_SHIP");
+    }
+    for (const [internalId, baseId] of additions) {
+        assert.equal(h.run(`baseIdToUnit[${JSON.stringify(baseId)}].characterId`), internalId);
+        assert.equal(h.run(`baseIdToUnit[${JSON.stringify(baseId)}].unitType`), "SHIP");
+    }
+    const bases = additions.map(([, base]) => base);
+    const imported = JSON.parse(h.run(`JSON.stringify(classifyBaseIds(${JSON.stringify([...bases, ...bases])}, {unitTypes: ['SHIP', 'CAPITAL_SHIP']}))`));
+    assert.deepEqual(imported.ownedUnitIds, additions.map(([id]) => id));
+    assert.deepEqual(imported.counts, { CHARACTER: 0, SHIP: 18, CAPITAL_SHIP: 0 });
+    assert.deepEqual(imported.unknown, []);
+    const characterImport = JSON.parse(h.run(`JSON.stringify(classifyBaseIds(${JSON.stringify(bases)}))`));
+    assert.deepEqual(characterImport.ownedUnitIds, []);
+    assert.deepEqual(characterImport.ignoredKnown, bases);
+    assert.deepEqual(characterImport.unknown, []);
+    assert.equal(h.run("baseIdToUnit.XWINGBLACKONE.characterId"), "POE_DAMERONS_X_WING");
+    assert.equal(h.run("baseIdToUnit.XWINGRESISTANCE.characterId"), "RESISTANCE_X_WING");
+});
+
+test("fleet catalogue additions preserve stored lineups and allow the three reported ships to save and reload", () => {
+    const h = setup();
+    const { source: catalogue } = readSource(path.join(__dirname, "..", "catalogue", "source"));
+    const payload = compileSource(catalogue);
+    const previousPayload = JSON.parse(JSON.stringify(payload));
+    const addedIds = ["AHSOKA_TANOS_JEDI_STARFIGHTER","B_28_EXTINCTION_CLASS_BOMBER","BTL_B_Y_WING_STARFIGHTER","COMEUPPANCE","FURY_CLASS_INTERCEPTOR","IMPERIAL_TIE_FIGHTER","MG_100_STARFORTRESS_SF_17","MARAUDER","MARK_VI_INTERCEPTOR","PUNISHING_ONE","REBEL_B_WING","REBEL_Y_WING","RESISTANCE_X_WING","ROGUE_ONE","TIE_DAGGER","TIE_ECHELON","UMBARAN_STARFIGHTER","VULTURE_DROID"];
+    for (const id of addedIds) delete previousPayload.characterDefinitions[id];
+    h.run(`applyCataloguePayload(${JSON.stringify(previousPayload)})`);
+    createTemplate(h, "Executor", "BACK_TOP");
+    h.run(`
+        editDefenceLineupMember("capitalShipId", 0, "EXECUTOR");
+        editDefenceLineupMember("startingShipIds", 0, "HOUNDS_TOOTH");
+        editDefenceLineupMember("startingShipIds", 1, "XANADU_BLOOD");
+        editDefenceLineupMember("startingShipIds", 2, "RAZOR_CREST");
+        editDefenceLineupMember("reinforcementIds", 0, "POE_DAMERONS_X_WING");
+        saveDefenceLineupEditor(true);
+    `);
+    assert.equal(read(h, "5v5", "BACK_TOP").confirmed, true);
+    const before = JSON.stringify(read(h, "5v5", "BACK_TOP"));
+    const stored = h.values.get("defenceTemplate:5v5");
+    h.run(`applyCataloguePayload(${JSON.stringify(payload)})`);
+    assert.equal(JSON.stringify(read(h, "5v5", "BACK_TOP")), before);
+    assert.equal(h.values.get("defenceTemplate:5v5"), stored, "catalogue update never rewrites saved membership");
+    h.run(`
+        openDefenceLineupEditor("BACK_TOP", 0);
+        editDefenceLineupMember("startingShipIds", 0, "RESISTANCE_X_WING");
+        editDefenceLineupMember("startingShipIds", 1, "MG_100_STARFORTRESS_SF_17");
+        editDefenceLineupMember("startingShipIds", 2, "COMEUPPANCE");
+        saveDefenceLineupEditor(true);
+    `);
+    assert.equal(read(h, "5v5", "BACK_TOP").confirmed, true);
+    const restored = setup(Object.fromEntries(h.values));
+    restored.run(`applyCataloguePayload(${JSON.stringify(payload)}); openDefenceLineupEditor('BACK_TOP', 0)`);
+    assert.equal(JSON.stringify(read(restored, "5v5", "BACK_TOP")), JSON.stringify(read(h, "5v5", "BACK_TOP")));
+    assert.equal(restored.run("defenceLineupEditor.lineup.capitalShipId"), "EXECUTOR");
+    assert.deepEqual(JSON.parse(restored.run("JSON.stringify(defenceLineupEditor.lineup.startingShipIds)")), ["RESISTANCE_X_WING", "MG_100_STARFORTRESS_SF_17", "COMEUPPANCE"]);
+    assert.deepEqual(JSON.parse(restored.run("JSON.stringify(defenceLineupEditor.lineup.reinforcementIds)")), ["POE_DAMERONS_X_WING"]);
 });
