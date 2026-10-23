@@ -187,3 +187,51 @@ test("explicit navigation to Round still works from another screen", () => {
     assert.equal(h.run("currentView"), "round");
     assert.match(h.appElement.innerHTML, /SET UP ROUND/);
 });
+
+for (const mode of ["5v5", "3v3"]) {
+    test(`${mode} Round warning opens matching Defence Lineups and returns with side, focus and state intact`, () => {
+        const h = harness();
+        h.run(`
+            board = createRoundBoard("KYBER", "${mode}", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+            myBoard = createCompanionMyBoard(board);
+            myBoard.teams[0].name = "Frozen wall"; myBoard.teams[0].attempts = 2;
+            saveDefenceTemplateFromMyBoard();
+            board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard);
+            board.teams[0].attempts = 3;
+            activeBoardSide = "my"; focusedTeamKey = "FRONT_TOP:0";
+            usedTeams = ["spent-attacker"]; bannerData.remaining = 321;
+            saveBoard("opponent"); saveBoard("my");
+            defenceLineupsMode = "${mode === "5v5" ? "3v3" : "5v5"}";
+            render();
+        `);
+        const state = () => h.run("JSON.stringify({board, myBoard, usedTeams, bannerData, activeBoardSide, focusedTeamKey})");
+        const before = state();
+        assert.match(h.appElement.innerHTML, /1 defence team needs lineup details/);
+        click(h, /<button[^>]*onclick="(openRoundDefenceLineups\(\))"/);
+        assert.equal(h.run("defenceLineupsMode"), mode);
+        assert.equal(h.run("currentView"), "defence-lineups");
+        assert.deepEqual(bottomNav(h.appElement.innerHTML).filter(b => b.active).map(b => b.view), ["more"]);
+        assert.equal(state(), before);
+        h.run(`openDefenceLineupEditor('FRONT_TOP', 0); editDefenceLineupMember('characterIds', 0, 'DRAFT'); confirm = () => false`);
+        click(h, /<button[^>]*onclick="(setView\('round'\))"/);
+        assert.equal(h.run("currentView"), "defence-lineups");
+        assert.equal(h.run("defenceLineupEditor.dirty"), true);
+        assert.equal(state(), before);
+        h.run("confirm = () => true");
+        click(h, /<button[^>]*onclick="(setView\('round'\))"/);
+        assert.equal(h.run("currentView"), "round");
+        assert.equal(state(), before);
+        assert.match(h.appElement.innerHTML, /🛡️ MY BOARD/);
+        assert.doesNotMatch(h.appElement.innerHTML, /setBoardTeam\('my'|setCustomTeamName\('my'|Clear template|Clear saved/);
+    });
+}
+
+test("no-round setup links to the chosen format's templates without exposing round correction controls", () => {
+    const h = harness();
+    h.run(`boardModeDraft = '3v3'; render()`);
+    assert.equal(h.run("renderDefenceSnapshotStatus()"), "");
+    click(h, /<button[^>]*onclick="(defenceLineupsMode = '3v3'; setView\('defence-lineups'\))"/);
+    assert.equal(h.run("defenceLineupsMode"), "3v3");
+    assert.equal(h.run("board"), null);
+    assert.doesNotMatch(h.appElement.innerHTML, /Back to Round|Apply saved lineup to this round|Use saved defence for this round/);
+});
