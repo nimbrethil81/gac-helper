@@ -76,7 +76,7 @@ test("legacy opponent board migration creates My Board without overwriting live 
     assert.ok(h.values.has("myBoardData"));
 });
 
-test("defence templates persist identity only and remain format-specific", () => {
+test("My Board autosaves identity without progress and keeps formats separate", () => {
     const h = harness();
     h.run(`
         myBoard = createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "my", "round", "now");
@@ -751,4 +751,263 @@ test("board picker includes mode-specific defences without matchups and commits 
     assert.equal(five.unresolvedTeams.length, 0);
     const three = h.run(`captureDefenceSnapshot("3v3", ${JSON.stringify(defenceTemplate("3v3", "Chief Chirpa"))})`);
     assert.equal(JSON.stringify(three.characterIds), JSON.stringify(["CHIEF_CHIRPA", "PRINCESS_KNEESAA", "LOGRAY"]));
+});
+
+// ─── PLAYER-CONFIRMED TEMPLATE LINEUPS ────────────────────────────────────
+
+function lineupSetup(mode = "5v5") {
+    const h = harness();
+    h.run(`
+        characterDefinitions = Object.fromEntries([
+            ...["A", "B", "C", "D", "E", "F"].map(id => [id, { unitType: "CHARACTER" }]),
+            ...["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"].map(id => [id, { unitType: "SHIP" }]),
+            ["CAP", { unitType: "CAPITAL_SHIP" }], ["CAP2", { unitType: "CAPITAL_SHIP" }]
+        ]);
+        myBoard = createRoundBoard("KYBER", "${mode}", ${JSON.stringify(basicConfig())}, "my", "round", "now");
+        myBoard.teams.forEach((team, index) => team.name = index === 2 ? "Fleet" : "Wall " + index);
+        saveDefenceTemplateFromMyBoard();
+    `);
+    return h;
+}
+
+function writeLineup(h, lineup, { territory = "FRONT_TOP", index = 0, name = "Wall 0", customName = "", confirm = false, mode = "5v5" } = {}) {
+    return h.run(`writeDefenceTemplateLineup(${JSON.stringify(mode)}, ${JSON.stringify(territory)}, ${index},
+        ${JSON.stringify({ name, customName })}, ${JSON.stringify(lineup)}, {confirm: ${confirm}})`);
+}
+
+function readLineup(h, territory = "FRONT_TOP", mode = "5v5") {
+    return h.run(`readDefenceTemplateLineup("${mode}", "${territory}", 0)`);
+}
+
+const fullSquad = { characterIds: ["A", "B", "C", "D", "E"] };
+const fullFleet = { capitalShipId: "CAP", startingShipIds: ["S1", "S2", "S3"], reinforcementIds: [] };
+
+test("schema-1 template migration preserves both independent layouts and identities", () => {
+    const templates = Object.fromEntries(["5v5", "3v3"].map(mode => [`defenceTemplate:${mode}`, JSON.stringify({
+        schema: 1, mode, league: "KYBER", updatedAt: "original", territories: basicConfig(),
+        teams: [{ territory: "FRONT_TOP", index: 0, name: "__NOT_IN_CATALOGUE__", customName: `${mode} wall` }]
+    })]));
+    const h = harness(templates);
+    for (const mode of ["5v5", "3v3"]) {
+        const original = JSON.parse(templates[`defenceTemplate:${mode}`]);
+        const migrated = JSON.parse(h.run(`JSON.stringify(loadDefenceTemplate("${mode}"))`));
+        assert.deepEqual(migrated, { ...original, schema: 2 });
+        assert.deepEqual(JSON.parse(h.values.get(`defenceTemplate:${mode}`)), migrated);
+    }
+    assert.equal(h.run('loadDefenceTemplate("FLEET")'), null);
+});
+
+test("corrupt lineup fields preserve saved identities, layout, live board and scores", () => {
+    const h = lineupSetup();
+    const template = JSON.parse(h.values.get("defenceTemplate:5v5"));
+    template.teams[0].lineup = { characterIds: "bad", confirmed: true };
+    template.teams.push(null);
+    h.values.set("defenceTemplate:5v5", JSON.stringify(template));
+    assert.equal(readLineup(h).confirmed, false);
+    assert.equal(readLineup(h).validation.valid, false);
+    h.run(`
+        board = createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.teams[0].name = "Live opponent";
+        myBoard.teams[0].attempts = 2;
+        bannerData.myScore = 432;
+        saveBoard("opponent"); saveBoard("my");
+        loadBoard();
+    `);
+    assert.equal(h.run("board.teams[0].name"), "Live opponent");
+    assert.equal(h.run("myBoard.teams[0].attempts"), 2);
+    assert.equal(h.run("bannerData.myScore"), 432);
+    assert.equal(h.run(`applyDefenceTemplate(createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "my", "new", "later")).teams[0].name`), "Wall 0");
+    assert.equal(h.run('loadDefenceTemplate("5v5").territories.length'), 4);
+    h.values.set("defenceTemplate:3v3", "{broken json");
+    assert.equal(h.run('loadDefenceTemplate("3v3")'), null);
+    assert.equal(h.run("board.teams[0].name"), "Live opponent");
+});
+
+test("confirmation is explicit, survives reload and overrides a conflicting catalogue suggestion", () => {
+    const h = lineupSetup();
+    h.run('defenceCompositions = { "5v5": { "Wall 0": ["F"] } }');
+    assert.equal(readLineup(h).source, "defence-composition");
+    assert.equal(writeLineup(h, { ...fullSquad, confirmed: true }).ok, true);
+    assert.equal(readLineup(h).confirmed, false, "a copied proposal flag never confirms itself");
+    assert.equal(writeLineup(h, fullSquad, { confirm: true }).ok, true);
+    assert.equal(readLineup(h).confirmed, true);
+    assert.equal(readLineup(h).source, "saved");
+    assert.deepEqual(Array.from(readLineup(h).lineup.characterIds), fullSquad.characterIds);
+    const restored = harness(Object.fromEntries(h.values));
+    restored.run('characterDefinitions = ' + h.run('JSON.stringify(characterDefinitions)'));
+    assert.equal(readLineup(restored).confirmed, true);
+    restored.run('characterDefinitions = {}');
+    assert.equal(readLineup(restored).confirmed, false, "unknown catalogue cannot validate confirmation");
+    assert.equal(writeLineup(restored, fullSquad, { confirm: true }).ok, false);
+    assert.equal(JSON.parse(restored.values.get("defenceTemplate:5v5")).teams[0].lineup.confirmed, true, "persisted confirmation and IDs are retained while catalogue is unavailable");
+});
+
+test("unchanged My Board autosaves retain confirmation, while changing or clearing identities invalidates only that slot", () => {
+    const h = lineupSetup();
+    assert.equal(writeLineup(h, fullSquad, { confirm: true }).ok, true);
+    assert.equal(writeLineup(h, fullFleet, { territory: "BACK_TOP", name: "Fleet", confirm: true }).ok, true);
+    const saved = JSON.stringify(readLineup(h).lineup);
+    h.run('setBoardTeam("my", "FRONT_TOP", 0, "Wall 0"); setBoardTeam("my", "FRONT_BOTTOM", 0, "Another wall"); saveDefenceTemplateFromMyBoard()');
+    assert.equal(JSON.stringify(readLineup(h).lineup), saved);
+    h.run('setBoardTeam("my", "FRONT_BOTTOM", 0, "Wall 0")');
+    assert.equal(readLineup(h, "FRONT_BOTTOM"), null, "same identity in another slot does not acquire members");
+    h.run('setBoardTeam("my", "FRONT_TOP", 0, "Changed")');
+    assert.equal(readLineup(h), null);
+    assert.equal(readLineup(h, "BACK_TOP").confirmed, true);
+    assert.equal(writeLineup(h, fullSquad, { confirm: true }).ok, false, "stale identity writes are rejected");
+    h.run('setBoardTeam("my", "FRONT_TOP", 0, "Wall 0")');
+    assert.equal(readLineup(h), null, "switching back cannot restore a previous identity's confirmation");
+    writeLineup(h, fullSquad, { confirm: true });
+    h.run('setBoardTeam("my", "FRONT_TOP", 0, "")');
+    assert.equal(h.run('loadDefenceTemplate("5v5").teams[0].lineup'), undefined);
+});
+
+test("custom-name edits and slot moves never reassign confirmed members", () => {
+    const h = lineupSetup();
+    h.run('setBoardTeam("my", "FRONT_TOP", 0, NOT_IN_CATALOGUE); setCustomTeamName("my", "FRONT_TOP", 0, "Custom")');
+    writeLineup(h, fullSquad, { name: "__NOT_IN_CATALOGUE__", customName: "Custom", confirm: true });
+    h.run('setCustomTeamName("my", "FRONT_TOP", 0, "Custom")');
+    assert.equal(readLineup(h).confirmed, true);
+    h.run('setCustomTeamName("my", "FRONT_TOP", 0, "Edited")');
+    assert.equal(readLineup(h), null);
+    writeLineup(h, fullSquad, { name: "__NOT_IN_CATALOGUE__", customName: "Edited", confirm: true });
+    h.run('myBoard.teams[0].index = 1; saveDefenceTemplateFromMyBoard()');
+    assert.equal(h.run('loadDefenceTemplate("5v5").teams[0].lineup'), undefined);
+});
+
+test("squad validation accepts progressive drafts and only deliberate undersizing can be confirmed", () => {
+    for (const mode of ["5v5", "3v3"]) {
+        const h = lineupSetup(mode);
+        const options = { mode };
+        assert.equal(writeLineup(h, { characterIds: ["A", "B"] }, options).ok, true);
+        assert.equal(readLineup(h, "FRONT_TOP", mode).complete, false);
+        assert.equal(writeLineup(h, { characterIds: ["A", "B"] }, { ...options, confirm: true }).ok, false);
+        assert.equal(writeLineup(h, { characterIds: ["A", "B"], intentionalUndersize: true }, { ...options, confirm: true }).ok, true);
+        assert.equal(readLineup(h, "FRONT_TOP", mode).confirmed, true);
+        assert.equal(writeLineup(h, { characterIds: [], intentionalUndersize: true }, { ...options, confirm: true }).ok, false);
+        const full = mode === "5v5" ? fullSquad : { characterIds: ["A", "B", "C"] };
+        assert.equal(writeLineup(h, full, { ...options, confirm: true }).ok, true);
+        for (const ids of [["A", "A"], ["UNKNOWN"], ["S1"], ["CAP"], ["A", "B", "C", "D", "E", "F"]]) {
+            assert.equal(writeLineup(h, { characterIds: ids }, options).ok, false, ids.join(","));
+        }
+        assert.equal(writeLineup(h, { characterIds: ["A"], intentionalUndersize: "yes" }, options).ok, false);
+    }
+});
+
+test("duplicate assignments are rejected across territories and detected in persisted corrupt data", () => {
+    const h = lineupSetup();
+    writeLineup(h, fullSquad, { confirm: true });
+    const duplicate = writeLineup(h, { characterIds: ["A"] }, { territory: "BACK_BOTTOM", name: "Wall 3" });
+    assert.equal(duplicate.ok, false);
+    assert.match(duplicate.errors.join(), /duplicate-assignment:A/);
+    assert.equal(readLineup(h).confirmed, true);
+    const template = JSON.parse(h.values.get("defenceTemplate:5v5"));
+    template.teams[3].lineup = { ...fullSquad, confirmed: true };
+    h.values.set("defenceTemplate:5v5", JSON.stringify(template));
+    assert.equal(readLineup(h).confirmed, false);
+    assert.equal(readLineup(h, "BACK_BOTTOM").confirmed, false);
+    assert.equal(writeLineup(h, null, { territory: "BACK_BOTTOM", name: "Wall 3" }).ok, true);
+    assert.equal(readLineup(h).confirmed, true);
+});
+
+test("Fleet validates capital, starters and reinforcements separately without a reinforcement minimum", () => {
+    const h = lineupSetup();
+    const options = { territory: "BACK_TOP", name: "Fleet", confirm: true };
+    for (const reinforcementIds of [[], ["S4"], ["S4", "S5", "S6", "S7"]]) {
+        assert.equal(writeLineup(h, { ...fullFleet, reinforcementIds }, options).ok, true);
+        assert.equal(readLineup(h, "BACK_TOP").confirmed, true);
+    }
+    for (const lineup of [
+        { ...fullFleet, capitalShipId: "S4" }, { ...fullFleet, capitalShipId: "A" },
+        { ...fullFleet, startingShipIds: ["S1", "S2", "CAP2"] },
+        { ...fullFleet, startingShipIds: ["S1", "S2", "A"] },
+        { ...fullFleet, reinforcementIds: ["CAP2"] },
+        { ...fullFleet, reinforcementIds: ["S1"] },
+        { ...fullFleet, reinforcementIds: ["S4", "S5", "S6", "S7", "S8"] },
+        { ...fullFleet, startingShipIds: ["S1", "S2", "S3", "S4"] }
+    ]) assert.equal(writeLineup(h, lineup, options).ok, false);
+    assert.equal(writeLineup(h, { capitalShipId: "CAP", startingShipIds: ["S1"] }, { ...options, confirm: false }).ok, true);
+    assert.equal(readLineup(h, "BACK_TOP").complete, false);
+});
+
+test("catalogue proposals are unconfirmed, exact, unique, mode-specific and size-aware", () => {
+    const h = lineupSetup();
+    h.run(`
+        defenceCompositions = { "5v5": { Full: ["A", "B", "C", "D", "E"], Partial: ["A", "B"], Empty: [] }, ANY: { Full: ["F"] } };
+        counterDefinitions = { CORE: {name: "Core", required: ["A", "B"]}, AMBIG1: {name: "Ambiguous", required: ["A"]}, AMBIG2: {name: "Ambiguous", required: ["B"]}, EMPTY: {name: "Empty", required: ["A", "B", "C", "D", "E"]} };
+    `);
+    const full = h.run('suggestDefenceLineup("Full", "5v5", "SQUAD")');
+    assert.equal(full.confirmed, false);
+    assert.equal(full.complete, true);
+    assert.deepEqual(Array.from(full.lineup.characterIds), fullSquad.characterIds);
+    assert.equal(h.run('suggestDefenceLineup("Partial", "5v5", "SQUAD").complete'), false);
+    assert.equal(h.run('suggestDefenceLineup("Empty", "5v5", "SQUAD").complete'), false);
+    assert.equal(h.run('suggestDefenceLineup("Core", "5v5", "SQUAD").source'), "required-core");
+    assert.equal(h.run('suggestDefenceLineup("Core", "5v5", "SQUAD").complete'), false);
+    assert.equal(h.run('suggestDefenceLineup("core", "5v5", "SQUAD")'), null);
+    assert.equal(h.run('suggestDefenceLineup("Ambiguous", "5v5", "SQUAD")'), null);
+    h.run('counterDefinitions.AMBIG2.required = []');
+    assert.equal(h.run('suggestDefenceLineup("Ambiguous", "5v5", "SQUAD")'), null, "a second same-name definition remains ambiguous even without a usable core");
+    h.run('defenceCompositions.FLEET = { Fleet: ["CAP", "S1", "S2", "S3", "S4"] }');
+    const fleet = h.run('suggestDefenceLineup("Fleet", "5v5", "FLEET")');
+    assert.equal(fleet.complete, false);
+    assert.equal(fleet.confirmed, false);
+    assert.deepEqual(Array.from(fleet.lineup.startingShipIds), [], "flat membership never asserts ship roles");
+    assert.deepEqual(Array.from(fleet.suggestedCharacterIds), ["CAP", "S1", "S2", "S3", "S4"]);
+});
+
+test("authored underfilled Palpatine and SLKR rows stay incomplete while full rows remain suggestion-only", () => {
+    const h = harness();
+    const units = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogue/source/units.json"))).units;
+    const rows = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "catalogue/source/defence-compositions.json"))).defenceCompositions;
+    const compositions = {};
+    rows.forEach(row => (compositions[row.mode] ||= {})[row.defence] = row.units);
+    h.run(`characterDefinitions = ${JSON.stringify(Object.fromEntries(units.map(unit => [unit.id, unit])))}; defenceCompositions = ${JSON.stringify(compositions)}`);
+    for (const name of ["Emperor Palpatine (Duel's End Vader)", "SLKR (Dark Side Vision Rey)"]) {
+        const proposal = h.run(`suggestDefenceLineup(${JSON.stringify(name)}, "5v5", "SQUAD")`);
+        assert.equal(proposal.complete, false, name);
+        assert.equal(proposal.confirmed, false);
+        assert.equal(proposal.lineup.intentionalUndersize, false);
+    }
+    const full = h.run('suggestDefenceLineup("Chief Chirpa", "5v5", "SQUAD")');
+    assert.equal(full.complete, true);
+    assert.equal(full.confirmed, false);
+});
+
+test("template lineup writes stay isolated by format and leave live snapshots and attack filtering unchanged", () => {
+    const h = lineupSetup();
+    writeLineup(h, fullSquad, { confirm: true });
+    h.run(`
+        const template3 = { ...loadDefenceTemplate("5v5"), mode: "3v3", teams: [{territory: "FRONT_TOP", index: 0, name: "Wall 0", customName: ""}] };
+        persistDefenceTemplate(template3);
+        board = createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
+        board.defenceSnapshot = {schema: 1, mode: "5v5", characterIds: ["F"], unresolvedTeams: [], missingSavedDefence: false};
+        counterDefinitions = { ATTACK: {name: "Attack", required: ["A"]} };
+        ownedCharacters = ["A"];
+        saveBoard("opponent");
+    `);
+    const live = h.values.get("boardData");
+    assert.equal(writeLineup(h, { characterIds: ["F", "B", "C"] }, { mode: "3v3", confirm: true }).ok, true);
+    assert.deepEqual(Array.from(readLineup(h).lineup.characterIds), fullSquad.characterIds);
+    assert.deepEqual(Array.from(readLineup(h, "FRONT_TOP", "3v3").lineup.characterIds), ["F", "B", "C"]);
+    assert.equal(h.values.get("boardData"), live);
+    assert.equal(h.run('getCounterStatus("ATTACK")'), "available");
+    h.run('resetRound()');
+    assert.equal(readLineup(h).confirmed, true);
+    assert.equal(readLineup(h, "FRONT_TOP", "3v3").confirmed, true);
+    h.run('clearDefenceTemplate("5v5")');
+    assert.equal(h.values.has("defenceTemplate:5v5"), false);
+    assert.equal(readLineup(h, "FRONT_TOP", "3v3").confirmed, true);
+});
+
+
+test("Fleet units cannot be assigned to two slots, including capital ships", () => {
+    const h = lineupSetup();
+    writeLineup(h, fullFleet, { territory: "BACK_TOP", name: "Fleet", confirm: true });
+    h.run('myBoard.teams.push({territory: "BACK_TOP", index: 1, name: "Fleet two", customName: ""}); saveDefenceTemplateFromMyBoard()');
+    const options = {territory: "BACK_TOP", index: 1, name: "Fleet two"};
+    assert.match(writeLineup(h, {capitalShipId: "CAP"}, options).errors.join(), /duplicate-assignment:CAP/);
+    assert.match(writeLineup(h, {capitalShipId: "CAP2", startingShipIds: ["S4", "S5", "S6"], reinforcementIds: ["S1"]}, options).errors.join(), /duplicate-assignment:S1/);
+    assert.equal(writeLineup(h, {capitalShipId: "CAP2", startingShipIds: ["S4", "S5", "S6"]}, {...options, confirm: true}).ok, true);
+    assert.equal(readLineup(h, "BACK_TOP").confirmed, true);
 });
