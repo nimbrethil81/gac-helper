@@ -709,7 +709,7 @@ test("ambiguous legacy defence identity is not guessed and is surfaced as unreso
     assert.equal(snapshot.unresolvedTeams[0], "Legacy Wall");
 });
 
-test("explicit mode-specific defence composition supplies every defensive member", () => {
+test("explicit mode-specific defence composition blocks known members but still needs player confirmation", () => {
     const h = harness();
     h.run(`
         counterDefinitions = {};
@@ -720,10 +720,10 @@ test("explicit mode-specific defence composition supplies every defensive member
     `);
     const snapshot = h.run(`captureDefenceSnapshot("3v3", ${JSON.stringify(defenceTemplate("3v3", "Custom Queen Wall"))})`);
     assert.equal(JSON.stringify(snapshot.characterIds), JSON.stringify(["QA", "MQG", "POW"]));
-    assert.equal(snapshot.unresolvedTeams.length, 0);
+    assert.deepEqual(Array.from(snapshot.unresolvedTeams), ["Custom Queen Wall"]);
 });
 
-test("board picker includes mode-specific defences without matchups and commits their full lineups", () => {
+test("board picker includes mode-specific defences without matchups and conservatively blocks proposed members", () => {
     const h = harness();
     h.run(`
         gacData = { "5v5": { "Countered Team": [] }, "3v3": { "Existing Three": [] } };
@@ -748,7 +748,7 @@ test("board picker includes mode-specific defences without matchups and commits 
 
     const five = h.run(`captureDefenceSnapshot("5v5", ${JSON.stringify(defenceTemplate("5v5", "Chief Chirpa"))})`);
     assert.equal(JSON.stringify(five.characterIds), JSON.stringify(["CHIEF_CHIRPA", "LOGRAY", "PAPLOO", "EWOK_ELDER", "PRINCESS_KNEESAA"]));
-    assert.equal(five.unresolvedTeams.length, 0);
+    assert.deepEqual(Array.from(five.unresolvedTeams), ["Chief Chirpa"]);
     const three = h.run(`captureDefenceSnapshot("3v3", ${JSON.stringify(defenceTemplate("3v3", "Chief Chirpa"))})`);
     assert.equal(JSON.stringify(three.characterIds), JSON.stringify(["CHIEF_CHIRPA", "PRINCESS_KNEESAA", "LOGRAY"]));
 });
@@ -1010,4 +1010,321 @@ test("Fleet units cannot be assigned to two slots, including capital ships", () 
     assert.match(writeLineup(h, {capitalShipId: "CAP2", startingShipIds: ["S4", "S5", "S6"], reinforcementIds: ["S1"]}, options).errors.join(), /duplicate-assignment:S1/);
     assert.equal(writeLineup(h, {capitalShipId: "CAP2", startingShipIds: ["S4", "S5", "S6"]}, {...options, confirm: true}).ok, true);
     assert.equal(readLineup(h, "BACK_TOP").confirmed, true);
+});
+
+// ─── ATTRIBUTED ROUND SNAPSHOTS AND EXPLICIT CORRECTIONS ──────────────────
+
+function attributedRound(mode = "5v5", teams = []) {
+    const h = lineupSetup(mode);
+    const template = { schema: 2, mode, league: "KYBER", territories: basicConfig(), teams: basicConfig().map(t => ({
+        territory: t.territory, index: 0, name: "", customName: "", ...teams.find(team => team.territory === t.territory)
+    })) };
+    h.values.set(`defenceTemplate:${mode}`, JSON.stringify(template));
+    roundSetup(h, mode, null, {
+        ATTACK_A: { name: "Attack A", required: ["A"] },
+        ATTACK_F: { name: "Attack F", required: ["F"] },
+        SHARED: { name: "Shared core", required: ["D", "A"] },
+        FLEET: { name: "Fleet attack", required: ["CAP", "S4"] }
+    });
+    h.run('ownedCharacters = Object.keys(characterDefinitions)');
+    return h;
+}
+
+function unrelatedRoundState(h) {
+    return h.run(`JSON.stringify({
+        opponent: { ...board, defenceSnapshot: undefined }, myBoard, usedTeams, bannerData,
+        activeBoardSide, focusedTeamKey
+    })`);
+}
+
+test("new rounds freeze derived confirmed squads and Fleet roles in either format, including reinforcements", () => {
+    for (const mode of ["5v5", "3v3"]) {
+        const h = attributedRound(mode, [
+            { territory: "FRONT_TOP", name: "Wall", lineup: { characterIds: ["A"], intentionalUndersize: true, confirmed: true } },
+            { territory: "FRONT_BOTTOM", name: "Partial", lineup: { characterIds: ["F"], confirmed: false } },
+            { territory: "BACK_TOP", name: "Fleet", lineup: { ...fullFleet, reinforcementIds: ["S4"], confirmed: true } }
+        ]);
+        assert.equal(h.run('board.defenceSnapshot.schema'), 2);
+        assert.equal(h.run('board.defenceSnapshot.slots[0].confirmed'), true);
+        assert.equal(h.run('getCounterStatus("SHARED")'), "on-defence");
+        assert.equal(h.run('getCounterStatus("ATTACK_F")'), "on-defence");
+        assert.equal(h.run('getCounterStatus("FLEET")'), "on-defence");
+        assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.characterIds)')), ["A", "F", "CAP", "S1", "S2", "S3", "S4"]);
+        assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.unresolvedTeams)')), ["Partial"]);
+        const frozen = h.run('JSON.stringify(board.defenceSnapshot)');
+        h.run(`
+            writeDefenceTemplateLineup("${mode}", "FRONT_TOP", 0, { name: "Wall", customName: "" }, { characterIds: ["B"], intentionalUndersize: true }, { confirm: true });
+            defenceCompositions = { "${mode}": { "Wall": ["C"] }, FLEET: { "Fleet": ["CAP2", "S7"] } };
+            currentMode = "FLEET"; ensureDefenceSnapshotForActiveRound(); loadBoard();
+        `);
+        assert.equal(h.run('JSON.stringify(board.defenceSnapshot)'), frozen);
+        const reopened = harness(Object.fromEntries(h.values));
+        reopened.run('currentMode = "3v3"; loadBoard(); ensureDefenceSnapshotForActiveRound()');
+        assert.equal(reopened.run('JSON.stringify(board.defenceSnapshot)'), frozen);
+        h.run(`resetRound(); currentMode = "${mode}"; createBoard()`);
+        assert.equal(h.run('board.defenceSnapshot.characterIds.includes("B")'), true);
+        assert.equal(h.run('board.defenceSnapshot.characterIds.includes("A")'), false);
+    }
+});
+
+test("catalogue and corrupt saved confirmations stay unresolved; Fleet fallback always uses FLEET", () => {
+    const h = attributedRound("3v3", [
+        { territory: "FRONT_TOP", name: "Wall", lineup: { characterIds: ["A"], confirmed: true } },
+        { territory: "FRONT_BOTTOM", name: "Wall" },
+        { territory: "BACK_TOP", name: "Fleet" }
+    ]);
+    h.run(`
+        defenceCompositions = { "3v3": { Wall: ["B", "C", "D"], Fleet: ["E"] }, FLEET: { Fleet: ["CAP", "S1", "S2", "S3"] } };
+        board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard, loadDefenceTemplate(board.mode));
+    `);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.unresolvedTeams)')), ["Wall", "Wall", "Fleet"]);
+    assert.equal(h.run('board.defenceSnapshot.slots[0].confirmed'), false);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.slots[0].characterIds)')), ["A"]);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.slots[2].characterIds)')), ["CAP", "S1", "S2", "S3"]);
+    assert.equal(h.run('board.defenceSnapshot.characterIds.includes("E")'), false);
+    assert.match(h.run('renderDefenceSnapshotStatus()'), /3 defence teams need lineup details/);
+});
+
+test("per-slot correction requires confirmation and preserves identities, battles, used attackers, scores and overrides", () => {
+    const h = attributedRound("5v5", [{ territory: "FRONT_TOP", name: "Wall", lineup: { characterIds: ["A"], intentionalUndersize: true, confirmed: true } }]);
+    assert.equal(writeLineup(h, { characterIds: ["F"], intentionalUndersize: true }, { name: "Wall", confirm: true }).ok, true);
+    h.run(`
+        myBoard.teams[0].attempts = 3; myBoard.teams[0].cleared = true;
+        board.teams[0].name = "Enemy"; board.teams[0].attempts = 2; board.teams[0].cleared = true;
+        usedTeams = ["ATTACK_F"]; bannerData = { myScore: 777, oppScore: 888, remaining: 123, oppFinal: true };
+        activeBoardSide = "my"; focusedTeamKey = "FRONT_TOP:0";
+        saveBoard("my"); saveBoard("opponent"); persistBannerData();
+    `);
+    const unrelated = unrelatedRoundState(h);
+    const snapshot = h.run('JSON.stringify(board.defenceSnapshot)');
+    const stored = h.values.get('boardData');
+    assert.match(h.run('renderRoundDefenceCorrection("5v5", "FRONT_TOP", 0)'), /Newly blocked: F\. Released from defence: A/);
+    h.run('confirm = () => false');
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), false);
+    assert.equal(h.run('JSON.stringify(board.defenceSnapshot)'), snapshot);
+    assert.equal(h.values.get('boardData'), stored);
+    h.run('let correctionPrompt = ""; confirm = message => { correctionPrompt = message; return true; }');
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), true);
+    assert.match(h.run('correctionPrompt'), /Attack availability will change/);
+    assert.equal(unrelatedRoundState(h), unrelated);
+    assert.deepEqual(JSON.parse(h.values.get('boardData')).defenceSnapshot.characterIds, ["F"]);
+    assert.equal(h.run('getCounterStatus("ATTACK_A")'), "available");
+    assert.equal(h.run('getCounterStatus("ATTACK_F")'), "used");
+    assert.match(h.run('renderRoundDefenceCorrection("5v5", "FRONT_TOP", 0)'), /matches this round/);
+});
+
+test("correction rejects drafts, changed identities, custom-name mismatches and another squad format", () => {
+    const h = attributedRound("5v5", [{ territory: "FRONT_TOP", name: "Wall" }]);
+    const before = h.run('JSON.stringify(board.defenceSnapshot)');
+    assert.equal(writeLineup(h, fullSquad, { name: "Wall" }).ok, true);
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), false);
+    assert.match(h.run('defenceLineupsMessage.text'), /Confirm a valid saved lineup/);
+    h.run('defenceLineupsMode = "5v5"; setDefenceLineupsIdentity("FRONT_TOP", 0, "New future identity")');
+    assert.equal(writeLineup(h, fullSquad, { name: "New future identity", confirm: true }).ok, true);
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), false);
+    assert.match(h.run('defenceLineupsMessage.text'), /frozen team/);
+    assert.equal(h.run('applySavedLineupToRound("3v3", "FRONT_TOP", 0)'), false);
+    assert.equal(h.run('JSON.stringify(board.defenceSnapshot)'), before);
+    assert.equal(h.run('myBoard.teams[0].name'), "Wall");
+
+    const custom = attributedRound("5v5", [{ territory: "FRONT_TOP", name: "__NOT_IN_CATALOGUE__", customName: "Original" }]);
+    custom.run('setDefenceLineupsIdentity("FRONT_TOP", 0, NOT_IN_CATALOGUE, "Different")');
+    assert.equal(writeLineup(custom, fullSquad, { name: "__NOT_IN_CATALOGUE__", customName: "Different", confirm: true }).ok, true);
+    assert.equal(custom.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), false);
+    assert.equal(custom.run('board.defenceSnapshot.slots[0].customName'), "Original");
+});
+
+test("overlapping inferred slots retain shared blockers on removal and reject corrections claiming another slot's units", () => {
+    const h = attributedRound("5v5", [{ territory: "FRONT_TOP", name: "First" }, { territory: "FRONT_BOTTOM", name: "Second" }]);
+    h.run(`
+        defenceCompositions = { "5v5": { First: ["A", "B"], Second: ["B", "C"] } };
+        board.defenceSnapshot = captureDefenceSnapshot(board.mode, myBoard, loadDefenceTemplate(board.mode));
+    `);
+    assert.equal(writeLineup(h, { characterIds: ["D"], intentionalUndersize: true }, { name: "First", confirm: true }).ok, true);
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), true);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.characterIds)')), ["D", "B", "C"]);
+    assert.equal(h.run('board.defenceSnapshot.slots[1].confirmed'), false);
+    assert.equal(writeLineup(h, { characterIds: ["C"], intentionalUndersize: true }, { name: "First", confirm: true }).ok, true);
+    const before = h.values.get('boardData');
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), false);
+    assert.match(h.run('defenceLineupsMessage.text'), /another current-round defence slot/);
+    assert.equal(h.values.get('boardData'), before);
+});
+
+function legacyAttributedRound() {
+    const h = attributedRound("5v5", [{ territory: "FRONT_TOP", name: "First" }, { territory: "FRONT_BOTTOM", name: "Second" }]);
+    h.run(`
+        myBoard.teams[0].attempts = 2; myBoard.teams[0].cleared = true;
+        board.teams[0].attempts = 3; board.teams[0].cleared = true;
+        usedTeams = ["ATTACK_F"]; bannerData = { myScore: 400, oppScore: 500, remaining: 321, oppFinal: false };
+        board.defenceSnapshot = { schema: 1, mode: "5v5", capturedAt: "old", sourceTeamCount: 7,
+            characterIds: ["A", "REMOVED_FROM_CATALOGUE"], unresolvedTeams: ["Earlier identity"], missingSavedDefence: false };
+        saveBoard("opponent"); saveBoard("my"); persistBannerData(); loadBoard();
+    `);
+    return h;
+}
+
+test("aggregate legacy migration retains every old ID and uncertainty while corrections only add blockers", () => {
+    const h = legacyAttributedRound();
+    const unrelated = unrelatedRoundState(h);
+    assert.equal(h.run('board.defenceSnapshot.legacySourceTeamCount'), 7);
+    assert.match(h.run('renderRoundDefenceReview()'), /Earlier identity/);
+    assert.match(h.run('renderDefenceSnapshotStatus()'), /2 legacy defence units have no slot attribution/);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.legacyCharacterIds)')), ["A", "REMOVED_FROM_CATALOGUE"]);
+    assert.equal(writeLineup(h, { characterIds: ["B"], intentionalUndersize: true }, { name: "First", confirm: true }).ok, true);
+    assert.equal(h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)'), true);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.characterIds)')), ["A", "REMOVED_FROM_CATALOGUE", "B"]);
+    assert.equal(unrelatedRoundState(h), unrelated);
+    const reopened = harness(Object.fromEntries(h.values));
+    reopened.run('loadBoard(); ensureDefenceSnapshotForActiveRound()');
+    assert.equal(reopened.run('JSON.stringify(board.defenceSnapshot)'), h.run('JSON.stringify(board.defenceSnapshot)'));
+    assert.equal(h.run('rebaselineRoundDefence()'), false);
+});
+
+test("legacy rebaseline requires every deployed and empty slot reviewed, fresh empty-state checks and separate confirmation", () => {
+    const h = legacyAttributedRound();
+    writeLineup(h, { characterIds: ["A"], intentionalUndersize: true }, { name: "First", confirm: true });
+    h.run('applySavedLineupToRound("5v5", "FRONT_TOP", 0)');
+    writeLineup(h, { characterIds: ["B"], intentionalUndersize: true }, { territory: "FRONT_BOTTOM", name: "Second", confirm: true });
+    h.run('applySavedLineupToRound("5v5", "FRONT_BOTTOM", 0)');
+    assert.equal(h.run('canRebaselineRoundDefence(board.defenceSnapshot)'), false);
+    h.run('reviewEmptyRoundDefenceSlot("BACK_TOP", 0); reviewEmptyRoundDefenceSlot("BACK_BOTTOM", 0)');
+    assert.equal(h.run('canRebaselineRoundDefence(board.defenceSnapshot)'), true);
+    for (const change of ['name = "New live identity"', 'attempts = 1', 'cleared = true']) {
+        h.run(`myBoard.teams[2].${change}`);
+        assert.equal(h.run('canRebaselineRoundDefence(board.defenceSnapshot)'), false);
+        const before = h.values.get('boardData');
+        assert.equal(h.run('rebaselineRoundDefence()'), false);
+        h.run('reviewEmptyRoundDefenceSlot("BACK_TOP", 0)');
+        assert.equal(h.values.get('boardData'), before);
+        h.run('myBoard.teams[2].name = ""; myBoard.teams[2].attempts = 0; myBoard.teams[2].cleared = false');
+    }
+    const unrelated = unrelatedRoundState(h);
+    const before = h.values.get('boardData');
+    h.run('confirm = () => false');
+    assert.equal(h.run('rebaselineRoundDefence()'), false);
+    assert.equal(h.values.get('boardData'), before);
+    h.run('let rebaselinePrompt = ""; confirm = message => { rebaselinePrompt = message; return true; }');
+    assert.equal(h.run('rebaselineRoundDefence()'), true);
+    assert.match(h.run('rebaselinePrompt'), /Replace ALL unattributed legacy defence blocks/);
+    assert.match(h.run('rebaselinePrompt'), /Released from defence: REMOVED_FROM_CATALOGUE/);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.characterIds)')), ["A", "B"]);
+    assert.equal(unrelatedRoundState(h), unrelated);
+    assert.doesNotMatch(h.run('renderDefenceSnapshotStatus()'), /need.*lineup|legacy defence units/);
+});
+
+test("a missing companion with an old aggregate still warns about unattributed legacy blocks", () => {
+    const original = legacyAttributedRound();
+    const stored = JSON.parse(original.values.get('boardData'));
+    stored.defenceSnapshot = { schema: 1, mode: "5v5", characterIds: ["REMOVED_FROM_CATALOGUE"], unresolvedTeams: ["No longer on My Board"], sourceTeamCount: 13, missingSavedDefence: false };
+    const h = harness({ boardData: JSON.stringify(stored) });
+    h.run('loadBoard()');
+    assert.equal(h.run('board.defenceSnapshot.characterIds.includes("REMOVED_FROM_CATALOGUE")'), true);
+    assert.match(h.run('renderDefenceSnapshotStatus()'), /legacy defence units have no slot attribution/);
+    assert.match(h.run('renderRoundDefenceReview()'), /No longer on My Board/);
+    assert.equal(h.run('rebaselineRoundDefence()'), false);
+});
+
+test("legacy unresolved deployments with zero known IDs stay visibly unverified until explicit full review", () => {
+    for (const history of [{ unresolvedTeams: ["Unknown original wall"] }, { sourceTeamCount: 13 }]) {
+        const old = { schema: 4, league: "KYBER", mode: "5v5", createdAt: "old", territories: basicConfig(), teams: [],
+            defenceSnapshot: { schema: 1, mode: "5v5", characterIds: [], unresolvedTeams: [], missingSavedDefence: false, ...history } };
+        const h = harness({ boardData: JSON.stringify(old) });
+        h.run('loadBoard()');
+        assert.equal(h.run('board.defenceSnapshot.unresolvedTeams.length'), 0);
+        assert.match(h.run('renderDefenceSnapshotStatus()'), /Legacy defence deployments remain unverified/);
+        assert.match(h.run('renderRoundDefenceReview()'), /Legacy defence review/);
+        assert.equal(h.run('rebaselineRoundDefence()'), false);
+        h.run('myBoard.teams.forEach(slot => reviewEmptyRoundDefenceSlot(slot.territory, slot.index))');
+        assert.match(h.run('renderDefenceSnapshotStatus()'), /remain unverified/);
+        h.run('confirm = () => false');
+        assert.equal(h.run('rebaselineRoundDefence()'), false);
+        h.run('confirm = () => true');
+        assert.equal(h.run('rebaselineRoundDefence()'), true);
+        assert.doesNotMatch(h.run('renderDefenceSnapshotStatus()'), /unverified/);
+    }
+});
+
+test("late saved-defence adoption is explicit and fills only empty untouched slots while preserving live data", () => {
+    const h = attributedRound("5v5");
+    h.run(`
+        myBoard.teams[0].name = "Existing live identity"; myBoard.teams[0].attempts = 2; myBoard.teams[0].cleared = true;
+        myBoard.teams[3].attempts = 1;
+        board.teams[1].name = "Enemy"; board.teams[1].attempts = 4;
+        usedTeams = ["ATTACK_A"]; bannerData = { myScore: 900, oppScore: 800, remaining: 234, oppFinal: true };
+        saveBoard("my"); saveBoard("opponent"); persistBannerData();
+        const later = loadDefenceTemplate("5v5");
+        later.teams.forEach((team, index) => { team.name = index === 2 ? "Fleet" : "Future " + index; });
+        later.teams[1].lineup = { characterIds: ["F"], intentionalUndersize: true, confirmed: true };
+        later.teams[2].lineup = ${JSON.stringify({ ...fullFleet, confirmed: true })};
+        persistDefenceTemplate(later);
+    `);
+    assert.match(h.run('renderDefenceSnapshotStatus()'), /adoptSavedTemplateAsRoundDefence/);
+    assert.match(h.run('renderRoundDefenceReview()'), /Use saved defence for this round/);
+    const before = unrelatedRoundState(h);
+    const stored = h.values.get('boardData');
+    h.run('confirm = () => false; adoptSavedTemplateAsRoundDefence()');
+    assert.equal(unrelatedRoundState(h), before);
+    assert.equal(h.values.get('boardData'), stored);
+    h.run('confirm = () => true; adoptSavedTemplateAsRoundDefence()');
+    const changed = JSON.parse(unrelatedRoundState(h));
+    const expected = JSON.parse(before);
+    expected.myBoard.teams[1].name = "Future 1";
+    expected.myBoard.teams[2].name = "Fleet";
+    assert.deepEqual(changed, expected);
+    assert.equal(h.run('board.defenceSnapshot.missingSavedDefence'), false);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(board.defenceSnapshot.characterIds)')), ["F", "CAP", "S1", "S2", "S3"]);
+    assert.equal(h.run('board.defenceSnapshot.slots[0].name'), "Existing live identity");
+    assert.equal(h.run('board.defenceSnapshot.slots[3].name'), "");
+    const frozen = h.run('JSON.stringify(board.defenceSnapshot)');
+    h.run('adoptSavedTemplateAsRoundDefence(); adoptMyBoardAsRoundDefence()');
+    assert.equal(h.run('JSON.stringify(board.defenceSnapshot)'), frozen);
+});
+
+test("thirteen legacy unresolved slots count individually and can be progressively confirmed without losing battle state", () => {
+    const h = harness();
+    h.run(`
+        const thirteenCfg = [
+            { territory: "FRONT_TOP", type: "SQUAD", teamCount: 4 },
+            { territory: "FRONT_BOTTOM", type: "SQUAD", teamCount: 4 },
+            { territory: "BACK_TOP", type: "FLEET", teamCount: 2 },
+            { territory: "BACK_BOTTOM", type: "SQUAD", teamCount: 3 }
+        ];
+        boardConfig = { KYBER: { "3v3": thirteenCfg } }; leagueDraft = "KYBER"; currentMode = "3v3";
+        scoringRules = [{ ruleId: "SETTING_DEFENCE", battleType: "ANY", mode: "ANY", value: 90 }];
+        myBoard = createRoundBoard("KYBER", "3v3", thirteenCfg, "my", "round", "now");
+        myBoard.teams.forEach(team => team.name = "Repeated unresolved identity"); saveDefenceTemplateFromMyBoard();
+        createBoard();
+        myBoard.teams.forEach((team, index) => { team.attempts = index; team.cleared = index % 2 === 0; });
+        usedTeams = ["already-used"]; bannerData = { myScore: 1000, oppScore: 1100, remaining: 222, oppFinal: false };
+        board.defenceSnapshot = { schema: 1, mode: "3v3", characterIds: ["LEGACY"], unresolvedTeams: ["Repeated unresolved identity"], sourceTeamCount: 13, missingSavedDefence: false };
+        saveBoard("my"); saveBoard("opponent"); loadBoard();
+        characterDefinitions = Object.fromEntries(Array.from({ length: 30 }, (_, index) => ["U" + index, { unitType: "CHARACTER" }]));
+        for (const id of ["CAP0", "CAP1"]) characterDefinitions[id] = { unitType: "CAPITAL_SHIP" };
+        for (let index = 0; index < 6; index++) characterDefinitions["S" + index] = { unitType: "SHIP" };
+    `);
+    assert.equal(h.run('board.defenceSnapshot.unresolvedTeams.length'), 13);
+    assert.match(h.run('renderDefenceSnapshotStatus()'), /13 defence teams need lineup details/);
+    const unrelated = unrelatedRoundState(h);
+    for (let index = 0; index < 13; index++) {
+        const result = h.run(`
+            (() => {
+                const slot = board.defenceSnapshot.slots[${index}];
+                const fleet = slot.type === "FLEET";
+                const lineup = fleet ? { capitalShipId: "CAP" + slot.index,
+                    startingShipIds: [0, 1, 2].map(i => "S" + (slot.index * 3 + i)), reinforcementIds: [] }
+                    : { characterIds: ["U${index}"], intentionalUndersize: true };
+                const saved = writeDefenceTemplateLineup("3v3", slot.territory, slot.index, slot, lineup, { confirm: true });
+                return saved.ok && applySavedLineupToRound("3v3", slot.territory, slot.index);
+            })()
+        `);
+        assert.equal(result, true);
+        assert.equal(h.run('board.defenceSnapshot.unresolvedTeams.length'), 12 - index);
+        assert.equal(h.run('board.defenceSnapshot.characterIds.includes("LEGACY")'), true);
+        assert.equal(unrelatedRoundState(h), unrelated);
+    }
+    assert.equal(h.run('rebaselineRoundDefence()'), true);
+    assert.equal(h.run('board.defenceSnapshot.characterIds.includes("LEGACY")'), false);
+    assert.equal(unrelatedRoundState(h), unrelated);
+    assert.doesNotMatch(h.run('renderDefenceSnapshotStatus()'), /lineup details|legacy defence units/);
 });
