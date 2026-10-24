@@ -9,6 +9,7 @@ Read the documentation relevant to the task:
 - `docs/SPEC.md` — authoritative **current system**: architecture, data model, API, persistence, behaviour and current design decisions.
 - `ROADMAP.md` — **future work only**: planned, candidate, deferred, research and conditional items.
 - `docs/CATALOGUE_SOURCE.md` — catalogue authoring procedure, including **scoring-data authoring guidance** (`bannerScore`, `undersize`, scoring rows).
+- `ops/product-operations.yml` — Product Operations adapter. Its `security_boundaries` anchor the manual, read-only, on-demand **Security & Access Control** review defined centrally in `nimbrethil81/pwa-product-ops` (`operations/SECURITY_ACCESS_CONTROL.md`); use that method rather than a local checklist.
 - `README.md` — project entry point and headline capabilities only.
 
 For any change to existing behaviour, read `docs/SPEC.md` first.  

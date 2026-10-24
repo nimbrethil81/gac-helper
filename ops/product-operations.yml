@@ -12,6 +12,13 @@ capabilities:
     enabled: true
   testing_effectiveness:
     enabled: true
+  security_access_control:
+    enabled: true
+
+security_boundaries:
+  - GitHub Pages delivery - the public site is the allow-listed artifact built by scripts/catalogue-release.js and the manual .github/workflows/deploy-pages-live.yml (workflow permissions, credentials, actions); CI is .github/workflows/ci.yml.
+  - Roster import - ally code and owned-unit IDs cross PWA -> Google Apps Script (apps-script/Code.gs, doGet/fetchRoster) -> Render-hosted Comlink; see docs/SPEC.md section 3.2 and the roster proxy contract in section 5. Treat each service separately; the proxy and Comlink request authorisation, hosted deployment settings and abuse/cost exposure are not visible from the repository alone.
+  - Browser-local data - all player state is client-side localStorage (docs/SPEC.md section 3.4); there is no application database or user accounts. supabase/ holds parked, inactive assets (docs/TARGET_ARCHITECTURE.md).
 
 canonical_sources:
   - concern: agent_contract
