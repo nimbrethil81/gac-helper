@@ -66,6 +66,11 @@ const THREAT_LABEL = { EXTREME: "extreme", HIGH: "high", NORMAL: "normal", LOW: 
 // scoring rows retunes this automatically.
 const OPENER_MESSY_UNITS = 3;
 
+const USAGE_HISTORY_KEY = "gacUsageHistory:v1";
+let usageHistoryWritable = true;
+let usageHistoryMessage = "";
+let usageHistory = loadUsageHistory();
+
 let gacData = {};
 let counterDefinitions = {};
 let characterDefinitions = {};
@@ -115,7 +120,7 @@ let expandedCounterCards = new Set();   // keys of recommendation cards showing 
 // action of either kind replaces whatever offer is pending rather than
 // stacking a history, matching the "no general undo stack" decision.
 const PENDING_UNDO_WINDOW_MS = 6000;    // ~6s: midpoint of the requested 5-8s temporary-undo window
-let pendingUndo = null;                 // { kind, side, territoryKey, index, counterId, prevCleared, wasUsed, message, timeoutId }
+let pendingUndo = null;                 // { kind, side, territoryKey, index, counterId, prevCleared, wasUsed, usageChange, message, timeoutId }
 
 // bannerData.remaining is now a MANUAL OVERRIDE, not a stored figure: null means
 // "no override — show the value calculated from the board" (the v2.6 default).
@@ -635,6 +640,7 @@ function adoptMyBoardAsRoundDefence() {
     captured.legacyCharacterIds = [...board.defenceSnapshot.characterIds];
     board.defenceSnapshot = aggregateDefenceSnapshot(captured);
     saveBoard("opponent");
+    syncConfirmedDefenceUsage();
     render();
 }
 
@@ -696,6 +702,7 @@ function adoptSavedTemplateAsRoundDefence() {
     board.defenceSnapshot = aggregateDefenceSnapshot(next);
     saveBoard("my");
     saveBoard("opponent");
+    syncConfirmedDefenceUsage();
     render();
 }
 
@@ -734,6 +741,7 @@ function applySavedLineupToRound(mode, territory, index) {
     if (!correction.changed || !confirm(`Apply the saved corrected lineup to ${TERRITORY_LABELS[territory] || territory} ${index + 1}: ${correction.slot.customName || correction.slot.name}?\n\n${defenceAvailabilityChange(correction)}\n\nOnly this slot's membership changes. Recorded battles and scores stay.`)) return false;
     board.defenceSnapshot = correction.next;
     saveBoard("opponent");
+    syncConfirmedDefenceUsage();
     defenceLineupsMessage = { kind: "ok", text: "Saved lineup applied to this round. Attack availability updated." };
     render();
     return true;
@@ -771,6 +779,7 @@ function rebaselineRoundDefence() {
     if (!confirm(`Replace ALL unattributed legacy defence blocks with the reviewed current-round assignments?\n\nYou reviewed every slot, including empty slots. Attack availability will change. Released from defence: ${released.map(getCharacterName).join(", ") || "none"}.\n\nConfirm this full defence rebaseline. Battles, used attackers and scores stay.`)) return false;
     board.defenceSnapshot = next;
     saveBoard("opponent");
+    syncConfirmedDefenceUsage();
     render();
     return true;
 }
@@ -1039,13 +1048,14 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     const target = boardForSide(side);
     if (!target) return;
     const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
-    if (!team) return;
+    if (!team || (team.cleared && usedTeams.includes(counterId))) return;
     if (side !== "my" && !confirmReserveUse(counterId, territoryKey + ":" + index)) return;
 
     dismissPendingUndoFor(side, territoryKey, index);
 
     const prevCleared = team.cleared;
     const wasUsed = usedTeams.includes(counterId);
+    const usageChange = side !== "my" ? recordAttackUsage(counterId, "won", "board", territoryKey + ":" + index, wasUsed) : null;
 
     if (!wasUsed) {
         usedTeams.push(counterId);
@@ -1059,7 +1069,7 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     setPendingUndo({
         kind: "usedCleared",
         side, territoryKey, index, counterId,
-        prevCleared, wasUsed,
+        prevCleared, wasUsed, usageChange,
         message: "Used + Cleared recorded."
     });
     if (side !== "my" && !prevCleared) {
@@ -1085,6 +1095,7 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
 
     const prevAttempts = team.attempts || 0;
     const wasUsed = usedTeams.includes(counterId);
+    const usageChange = side !== "my" ? recordAttackUsage(counterId, "lost", "board", territoryKey + ":" + index, wasUsed) : null;
 
     if (!wasUsed) {
         usedTeams.push(counterId);
@@ -1097,7 +1108,7 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
     setPendingUndo({
         kind: "usedLost",
         side, territoryKey, index, counterId,
-        prevCleared: team.cleared, prevAttempts, wasUsed,
+        prevCleared: team.cleared, prevAttempts, wasUsed, usageChange,
         message: "Used + Lost recorded."
     });
     render();
@@ -1169,6 +1180,7 @@ function undoPendingAction() {
         }
     }
 
+    undoUsageChange(pendingUndo.usageChange);
     clearPendingUndo();
     render();
 }
@@ -1243,10 +1255,240 @@ function confirmReserveUse(counterId, targetKey) {
 function markCounterUsedFromBoard(counterId, targetKey) {
     if (!confirmReserveUse(counterId, targetKey)) return;
     if (!usedTeams.includes(counterId)) {
+        recordAttackUsage(counterId, "used", "board", targetKey);
         usedTeams.push(counterId);
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
     }
     render();
+}
+
+// Local usage facts are independent of the live round and catalogue cache.
+// IDs are round-scoped actions; corrections retain identity and increment revision.
+function emptyUsageHistory() {
+    return { schema: 1, selectedSeasonId: null, roundSeasons: {}, defenceRounds: [], events: [] };
+}
+
+function validUsageParticipants(participants) {
+    return Array.isArray(participants) && participants.every(p => p && typeof p.unitId === "string" && p.unitId.trim().length > 0 &&
+        ["CHARACTER", "SHIP", "CAPITAL_SHIP"].includes(p.unitType) && typeof p.role === "string" && p.role.length > 0) &&
+        new Set(participants.map(p => p.unitId)).size === participants.length;
+}
+
+function validUsageEvent(e) {
+    return e && typeof e.id === "string" && e.id.length > 0 && typeof e.roundId === "string" && e.roundId.length > 0 &&
+        (e.seasonId === null || (typeof e.seasonId === "string" && e.seasonId.trim().length > 0)) &&
+        ["5v5", "3v3", "FLEET"].includes(e.mode) && ["attack", "defence"].includes(e.side) &&
+        typeof e.source === "string" && typeof e.identity === "string" &&
+        (e.counterId === null || typeof e.counterId === "string") && (e.slotKey === null || typeof e.slotKey === "string") &&
+        validUsageParticipants(e.participants) && e.participants.every(p => e.mode === "FLEET"
+            ? p.unitType !== "CHARACTER" || p.role === "pilot" : p.unitType === "CHARACTER") &&
+        (e.side === "defence" ? e.outcome === "deployed" : e.outcome !== "deployed") && e.attribution && typeof e.attribution.complete === "boolean" &&
+        typeof e.attribution.provenance === "string" && ["used", "won", "lost", "deployed"].includes(e.outcome) &&
+        typeof e.voided === "boolean" && Number.isInteger(e.revision) && e.revision > 0 &&
+        typeof e.createdAt === "string" && typeof e.updatedAt === "string";
+}
+
+function loadUsageHistory() {
+    const empty = emptyUsageHistory();
+    try {
+        const raw = localStorage.getItem(USAGE_HISTORY_KEY);
+        if (!raw) return empty;
+        const data = JSON.parse(raw);
+        if (data && Number.isInteger(data.schema) && data.schema > 1) {
+            usageHistoryWritable = false;
+            usageHistoryMessage = "Usage history was saved by a newer app; recording is paused.";
+            return empty;
+        }
+        if (!data || data.schema !== 1 || !Array.isArray(data.events) || !isPlainObject(data.roundSeasons) ||
+            !Array.isArray(data.defenceRounds) || !data.defenceRounds.every(id => typeof id === "string") ||
+            !(data.selectedSeasonId === null || typeof data.selectedSeasonId === "string") ||
+            !Object.values(data.roundSeasons).every(id => id === null || typeof id === "string")) throw new Error("Invalid usage store");
+        const seen = new Set();
+        const rejected = [];
+        const events = data.events.filter(e => {
+            if (!validUsageEvent(e) || seen.has(e.id)) { rejected.push(e); return false; }
+            seen.add(e.id); return true;
+        });
+        // Keep unknown fields and quarantined rows for recovery, never reinterpret them.
+        return { ...data, events, rejectedEvents: [...(Array.isArray(data.rejectedEvents) ? data.rejectedEvents : []), ...rejected] };
+    } catch (e) {
+        try {
+            const raw = localStorage.getItem(USAGE_HISTORY_KEY);
+            localStorage.setItem(`${USAGE_HISTORY_KEY}:recovery:${Date.now()}`, raw);
+            usageHistoryMessage = "Unreadable usage history kept in a local recovery copy. New recording starts here.";
+        } catch (backupError) {
+            usageHistoryWritable = false;
+            usageHistoryMessage = "Usage history could not be recovered; recording is paused to protect it.";
+        }
+        return empty;
+    }
+}
+
+function saveUsageHistory() {
+    if (!usageHistoryWritable) return false;
+    try {
+        localStorage.setItem(USAGE_HISTORY_KEY, JSON.stringify(usageHistory));
+        return true;
+    } catch (e) {
+        usageHistoryMessage = "Usage history could not be saved on this device. Keep this page open and free some storage.";
+        return false;
+    }
+}
+
+function chooseUsageSeason() {
+    if (!usageHistoryWritable || typeof prompt !== "function") return false;
+    const answer = prompt("GAC season identifier (use the official season number or your own consistent label; dates are not inferred):", usageHistory.selectedSeasonId || "");
+    if (answer === null || !answer.trim()) return false;
+    usageHistory.selectedSeasonId = answer.trim().slice(0, 100);
+    // Explicitly assigning a season may resolve this round's unknown season.
+    if (board && (!Object.hasOwn(usageHistory.roundSeasons, board.roundId) || usageHistory.roundSeasons[board.roundId] === null)) {
+        usageHistory.roundSeasons[board.roundId] = usageHistory.selectedSeasonId;
+        usageHistory.events.filter(e => e.roundId === board.roundId && e.seasonId === null).forEach(e => {
+            e.seasonId = usageHistory.selectedSeasonId; e.revision++; e.updatedAt = new Date().toISOString();
+        });
+    }
+    saveUsageHistory();
+    render();
+    return true;
+}
+
+function usageSeasonForRound() {
+    if (!Object.hasOwn(usageHistory.roundSeasons, board.roundId)) {
+        if (!usageHistory.selectedSeasonId) chooseUsageSeason();
+        usageHistory.roundSeasons[board.roundId] = usageHistory.selectedSeasonId;
+    }
+    return usageHistory.roundSeasons[board.roundId];
+}
+
+function writeUsageEvent(fact, persist = true) {
+    if (!usageHistoryWritable) return null;
+    const previous = usageHistory.events.find(e => e.id === fact.id);
+    const comparable = e => JSON.stringify([e.participants, e.attribution, e.outcome, e.voided, e.identity, e.slotKey, e.snapshotFingerprint]);
+    if (previous && comparable(previous) === comparable(fact)) return { eventId: previous.id, previous: JSON.parse(JSON.stringify(previous)) };
+    const now = new Date().toISOString();
+    const next = { ...fact, revision: previous ? previous.revision + 1 : 1,
+        createdAt: previous ? previous.createdAt : now, updatedAt: now };
+    if (!validUsageEvent(next)) return null;
+    if (previous) usageHistory.events[usageHistory.events.indexOf(previous)] = next;
+    else usageHistory.events.push(next);
+    if (persist) saveUsageHistory();
+    return { eventId: next.id, previous: previous ? JSON.parse(JSON.stringify(previous)) : null };
+}
+
+function recordAttackUsage(counterId, outcome = "used", source = "counters", targetKey = null, wasUsed = false) {
+    if (!board || !usageHistoryWritable) return null;
+    const id = JSON.stringify([board.roundId, "attack", counterId]);
+    const previous = usageHistory.events.find(e => e.id === id);
+    // Pre-existing used state is not evidence of a newly recorded battle.
+    if (wasUsed && !previous) return null;
+    if (previous && !previous.voided) {
+        if (outcome === "used") return null;
+        return writeUsageEvent({ ...previous, outcome, slotKey: previous.slotKey || targetKey || null });
+    }
+    const def = counterDefinitions[counterId];
+    const territory = targetKey && board.territories.find(t => t.territory === targetKey.split(":")[0]);
+    const mode = territory && territory.type === "FLEET" || (!targetKey && currentMode === "FLEET") ? "FLEET" : source === "counters" ? currentMode : board.mode;
+    return writeUsageEvent({ id, roundId: board.roundId, roundMode: board.mode, seasonId: usageSeasonForRound(), mode, side: "attack", source,
+        counterId, slotKey: targetKey || null, identity: counterId,
+        participants: [], attribution: { complete: false, provenance: "actual-lineup-unknown" },
+        // A strategic core is context only and never contributes unit uses.
+        strategicCore: def && Array.isArray(def.required) ? [...def.required] : [], outcome, voided: false });
+}
+
+function undoUsageChange(change) {
+    if (!change) return;
+    const event = usageHistory.events.find(e => e.id === change.eventId);
+    if (!event) return;
+    writeUsageEvent(change.previous
+        ? { ...event, outcome: change.previous.outcome, slotKey: change.previous.slotKey, voided: change.previous.voided }
+        : { ...event, voided: true });
+}
+
+// Narrow correction API for later actual-lineup editors. No catalogue inference.
+function correctUsageParticipants(eventId, participants, attribution) {
+    const event = usageHistory.events.find(e => e.id === eventId);
+    if (!event || !validUsageParticipants(participants) || !attribution || typeof attribution.complete !== "boolean" ||
+        typeof attribution.provenance !== "string" || !attribution.provenance.trim()) return false;
+    if (participants.some(p => !characterDefinitions[p.unitId] || characterDefinitions[p.unitId].unitType !== p.unitType)) return false;
+    if (participants.some(p => event.mode === "FLEET" ? p.unitType === "CHARACTER" && p.role !== "pilot" : p.unitType !== "CHARACTER")) return false;
+    return !!writeUsageEvent({ ...event, participants: JSON.parse(JSON.stringify(participants)), attribution: { ...attribution } });
+}
+
+function confirmRoundDefenceUsage() {
+    if (!board || !usageHistoryWritable || !board.defenceSnapshot || board.defenceSnapshot.schema !== 2 || board.defenceSnapshot.missingSavedDefence) return false;
+    if (usageHistory.defenceRounds.includes(board.roundId)) return false;
+    if (!confirm("Record this round's frozen defence as actually deployed? Only explicitly saved slot members count; catalogue proposals, unknown slots and legacy blocks remain unattributed. Saving a template alone never records deployment.")) return false;
+    usageSeasonForRound();
+    usageHistory.defenceRounds.push(board.roundId);
+    syncConfirmedDefenceUsage();
+    return true;
+}
+
+function syncConfirmedDefenceUsage() {
+    if (!board || !usageHistoryWritable || !usageHistory.defenceRounds.includes(board.roundId)) return;
+    const snapshot = board.defenceSnapshot;
+    if (!snapshot || snapshot.schema !== 2) return;
+    snapshot.slots.forEach(slot => {
+        // An explicitly reviewed empty slot is not a deployed team.
+        const slotKey = `${slot.territory}:${slot.index}`;
+        const id = JSON.stringify([board.roundId, "defence", slotKey]);
+        const previous = usageHistory.events.find(e => e.id === id);
+        if (!slot.name && slot.reviewed) {
+            if (previous) writeUsageEvent({ ...previous, voided: true }, false);
+            return;
+        }
+        const snapshotFingerprint = JSON.stringify([slot.name, slot.customName, slot.source, slot.lineup, slot.confirmed, slot.characterIds]);
+        if (previous && previous.snapshotFingerprint === snapshotFingerprint && !previous.voided) return;
+        const explicit = slot.source === "saved" && slot.lineup;
+        const ids = explicit ? [...new Set(slot.characterIds)] : [];
+        const participants = ids.map(unitId => {
+            const lineup = slot.lineup;
+            const role = slot.type !== "FLEET" ? "member" : lineup.capitalShipId === unitId ? "capital" :
+                (lineup.startingShipIds || []).includes(unitId) ? "starter" : (lineup.reinforcementIds || []).includes(unitId) ? "reinforcement" : "unknown";
+            const unitType = slot.type === "FLEET" ? role === "capital" ? "CAPITAL_SHIP" : "SHIP" : "CHARACTER";
+            return { unitId, unitType, role };
+        });
+        writeUsageEvent({ id, roundId: board.roundId, seasonId: usageHistory.roundSeasons[board.roundId] ?? null,
+            mode: slot.type === "FLEET" ? "FLEET" : board.mode, side: "defence", source: "round-defence-confirmation",
+            counterId: null, slotKey, snapshotFingerprint, identity: slot.name ? slot.customName || slot.name : "",
+            participants, attribution: { complete: !!explicit && slot.confirmed === true,
+                provenance: explicit ? "explicit-saved-lineup" : "unattributed" }, outcome: "deployed", voided: false }, false);
+    });
+    saveUsageHistory();
+}
+
+// Both sides contribute one per event, never outcome-based weights. Missing
+// participation is returned separately: absence from units does not mean zero.
+function aggregateUsageHistory(events = usageHistory.events) {
+    const units = new Map(), teams = new Map(), unattributed = [];
+    events.filter(e => validUsageEvent(e) && !e.voided).forEach(e => {
+        const key = JSON.stringify([e.mode, e.identity]);
+        if (e.identity) teams.set(key, { identity: e.identity, mode: e.mode, uses: (teams.get(key)?.uses || 0) + 1 });
+        e.participants.forEach(p => {
+            const key = `${p.unitType}:${p.unitId}`;
+            units.set(key, { unitId: p.unitId, unitType: p.unitType, uses: (units.get(key)?.uses || 0) + 1 });
+        });
+        if (!e.attribution.complete || (e.mode === "FLEET" && !e.attribution.pilotsComplete)) {
+            unattributed.push({ eventId: e.id, mode: e.mode, side: e.side,
+                units: !e.attribution.complete, pilots: e.mode === "FLEET" && !e.attribution.pilotsComplete });
+        }
+    });
+    return { units: [...units.values()], teams: [...teams.values()], unattributed };
+}
+
+function renderUsageRecordingStatus() {
+    const assigned = board && Object.hasOwn(usageHistory.roundSeasons, board.roundId);
+    const season = assigned ? usageHistory.roundSeasons[board.roundId] : usageHistory.selectedSeasonId;
+    const confirmed = board && usageHistory.defenceRounds.includes(board.roundId);
+    const events = board ? usageHistory.events.filter(e => e.roundId === board.roundId && !e.voided) : [];
+    const incomplete = events.filter(e => !e.attribution.complete).length;
+    const nextSeason = assigned && season && usageHistory.selectedSeasonId !== season
+        ? `<div class="round-stat">Next rounds: ${escapeHtml(usageHistory.selectedSeasonId || "Not selected")}</div>` : "";
+    return `<div class="round-stat">Usage season: ${season ? escapeHtml(season) : "Unknown — choose to assign this round"}
+        <button class="defence-adopt-btn" onclick="chooseUsageSeason()">${assigned && season ? "Season for next rounds" : "Choose season"}</button></div>${nextSeason}
+        ${board && board.defenceSnapshot && board.defenceSnapshot.schema === 2 ? `<div class="round-stat">Defence usage: ${confirmed ? "deployment recorded" : "not confirmed"}${incomplete ? ` · ${incomplete} usage lineups incomplete` : ""}
+        ${confirmed ? "" : board.defenceSnapshot.missingSavedDefence ? " — set this round’s defence first" : '<button class="defence-adopt-btn" onclick="confirmRoundDefenceUsage(); render()">Confirm actual defence deployment</button>'}</div>` : ""}
+        ${usageHistoryMessage ? `<div class="roster-msg roster-msg-warn" role="status">${escapeHtml(usageHistoryMessage)}</div>` : ""}`;
 }
 
 // ─── BANNER SCORING ENGINE (v2.6) ─────────────────────────────────────────────
@@ -4000,6 +4242,7 @@ function updateSearch(value) {
 
 function markUsed(counterId) {
     if (!usedTeams.includes(counterId)) {
+        recordAttackUsage(counterId);
         usedTeams.push(counterId);
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
     }
@@ -4201,6 +4444,7 @@ function renderRound() {
             <div class="round-title">🏆 CURRENT ROUND</div>
             <div class="round-stat">Used Teams: ${getUsedTeamCount()}</div>
             ${defenceStatus}
+            ${renderUsageRecordingStatus()}
         </div>
         <button class="reset-button-inline" onclick="resetRound()">Reset Round</button>
     </div>
