@@ -1607,6 +1607,7 @@ function validateUsageHistoryExtensions(history, validateKnownTypes = false) {
     if (history.completedSeasonIds !== undefined && (!Array.isArray(history.completedSeasonIds) ||
         history.completedSeasonIds.some(id => typeof id !== "string" || !id.trim() || id.length > 100) ||
         new Set(history.completedSeasonIds).size !== history.completedSeasonIds.length)) return false;
+    if (history.selectedSeasonId && (history.completedSeasonIds || []).includes(history.selectedSeasonId)) return false;
     if (history.attackFleetLineups !== undefined) {
         if (!isPlainObject(history.attackFleetLineups)) return false;
         for (const [counterId, lineup] of Object.entries(history.attackFleetLineups)) {
@@ -1722,6 +1723,7 @@ function prepareUsageHistoryImport(raw) {
     });
     const completedSeasonIds = mergeCompletedUsageSeasons(usageCompletedSeasons(), incoming.completedSeasonIds || []);
     const selectedSeasonId = usageHistory.selectedSeasonId || incoming.selectedSeasonId;
+    if (selectedSeasonId && completedSeasonIds.includes(selectedSeasonId)) throw new Error("Imported season completions conflict with this device’s current season. Existing history is unchanged.");
     const history = { ...usageHistory, events: mergedEvents, roundSeasons,
         defenceRounds: [...new Set([...usageHistory.defenceRounds, ...incoming.defenceRounds])],
         completedSeasonIds, selectedSeasonId, attackFleetLineups: lineups };

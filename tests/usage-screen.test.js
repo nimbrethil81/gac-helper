@@ -216,3 +216,13 @@ test("saved attacking fleet extensions load before catalogue initialisation and 
     assert.equal(h.run("usageHistory.attackFleetLineups.F1.capitalShipId"), "OLD_CAP");
     assert.equal(h.run("usageHistoryMessage"), "");
 });
+
+test("import rejects current/completed season contradictions instead of choosing a chronology", () => {
+    const h = harness(); seed(h, [], { selectedSeasonId: "S4", completedSeasonIds: ["S1", "S2", "S3"] });
+    const before = h.run("JSON.stringify(usageHistory)");
+    const inconsistent = h.read("usageHistory"); inconsistent.completedSeasonIds.push("S4");
+    assert.equal(h.run(`importUsageHistory(${JSON.stringify(backup(inconsistent))}).ok`), false);
+    const newerDevice = { ...inconsistent, selectedSeasonId: "S5" };
+    assert.equal(h.run(`importUsageHistory(${JSON.stringify(backup(newerDevice))}).ok`), false);
+    assert.equal(h.run("JSON.stringify(usageHistory)"), before);
+});
