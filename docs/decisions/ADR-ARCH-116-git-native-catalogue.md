@@ -41,11 +41,12 @@ Until cutover ships, `SPEC.md` continues to describe the Sheet runtime and must 
 
 ## 4. Canonical authoring schema (`catalogue/source/`, schema 1)
 
-Each file is UTF-8 JSON, 2-space indented, with a top-level `"schema": 1` and one array. Arrays are the authoring unit so a change is a small, local diff. Files mirror the existing Sheet concepts one-to-one; no new concept or identifier is introduced. #41 may split a file only if the split is mechanical and documented (e.g. matchups per mode, already below).
+Each file is UTF-8 JSON, 2-space indented, with a top-level `"schema": 1` and one array. Arrays are the authoring unit so a change is a small, local diff. Core files mirror the Sheet concepts; additive ship crew metadata uses the same canonical unit namespace and does not alter legacy source or payload identities.
 
 | File | Array | Row fields (required **bold**) | Notes |
 |---|---|---|---|
 | `units.json` | `units` | **`id`** (`Character_ID`), **`name`**, **`unitType`** (`CHARACTER`/`SHIP`/`CAPITAL_SHIP`), `externalId` | Sorted by `id`. `externalId` omitted or `""` = unmapped. |
+| `ship-pilots.json` | `shipPilots` | **`shipId`**, **`pilotIds`** [`Character_ID`] | Sorted by `shipId`; exactly one row per `SHIP`/`CAPITAL_SHIP`, unique `CHARACTER` crew; `[]` explicitly pilotless. Whole file optional only for legacy sources; evidence and maintenance: [CATALOGUE_SOURCE](../CATALOGUE_SOURCE.md#ship-crew-metadata). |
 | `counters.json` | `counters` | **`id`** (`Counter_ID`), **`name`**, `strategicReserve` (`true` only), **`required`** [`Character_ID`], **`recommended`** [`Character_ID`] | Sorted by `id`. Array order is preserved into the payload. Empty arrays are legal (partial/flexible compositions). |
 | `matchups/5v5.json`, `matchups/3v3.json`, `matchups/FLEET.json` | `defences` | **`defence`** (exact display name), **`counters`**: [{ **`counterId`**, **`tier`**, **`bannerScore`**, **`undersize`**, `notes` }], or for a tactical step (#112/#115) { **`counterId`**, **`role`**, **`notes`** } with no `tier`, `bannerScore` or `undersize` | One file per mode; the mode is the filename, never a field. Defences sorted by name; counter order within a defence is authored order and is preserved. |
 | `defence-teams.json` | `defenceTeams` | **`defence`**, **`mode`**, **`threat`**, `notes` | Sparse by design. |
@@ -76,7 +77,7 @@ The compiler emits exactly these seven keys, with the semantics SPEC §5 documen
 |---|---|---|
 | `counters` | `matchups/*.json` + `counters.json` names | `{mode: {defence: [{counterId, counter, tier, bannerScore, undersize, notes}]}}`; a tactical step is `{counterId, counter, role, notes}` (#112/#115). `5v5` and `3v3` always present (possibly `{}`); `FLEET` present iff it has ≥ 1 matchup. `counter` = `counters.json` `name`. `notes` = `""` when absent. |
 | `counterDefinitions` | `counters.json` | `{Counter_ID: {name, required[], recommended[]}}`; `strategicReserve: true` present only when set, otherwise omitted. |
-| `characterDefinitions` | `units.json` | `{Character_ID: {name, unitType, externalId}}`; `externalId` is `""` when unmapped. |
+| `characterDefinitions` | `units.json` + optional `ship-pilots.json` | `{Character_ID: {name, unitType, externalId}}`; `externalId` is `""` when unmapped. Ship entries add optional `pilotIds[]` when metadata exists; `[]` means pilotless, omission means unknown. Older releases retain their exact payload/checksum. |
 | `boardConfig` | `board-config.json` | `{LEAGUE: {mode: [{territory, type, teamCount}]}}`, source row order. |
 | `scoring` | `scoring.json` | `[{ruleId, battleType, mode, value, notes}]`, source row order; `notes` `""` when absent. |
 | `defenceTeams` | `defence-teams.json` | `{mode: {defence: {threat, notes}}}`; `notes` `""` when absent. |

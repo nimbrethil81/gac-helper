@@ -176,6 +176,7 @@ const RULES = Object.freeze({
   SENSITIVE_CONTENT: ["blocking", "Credential-, email- or ally-code-shaped content in public catalogue data."],
   PARITY_MISMATCH: ["blocking", "The emulated Code.gs payload differs from the captured action=data response."],
   PAYLOAD_SHAPE: ["blocking", "The payload does not have the seven-key action=data shape."],
+  SHIP_PILOTS_INVALID: ["blocking", "Ship crew metadata must use unique canonical character IDs and cover every ship when present."],
   SOURCE_SCHEMA: ["blocking", "A Git-native source file or row does not follow the catalogue/source schema."],
   SOURCE_DUPLICATE: ["blocking", "A Git-native source key repeats; the compiled payload would silently keep only one row."],
   SOURCE_ORDER: ["blocking", "A Git-native source array is not in its required sort order."],
@@ -782,7 +783,7 @@ function modelFromPayload(payload, add) {
   const objectEntries = (value) => (value && typeof value === "object" && !Array.isArray(value) ? Object.entries(value) : []);
 
   for (const [id, unit] of objectEntries(payload.characterDefinitions)) {
-    model.units.push({ id, name: unit?.name, unitType: unit?.unitType, externalId: unit?.externalId, at: `characterDefinitions[${JSON.stringify(id)}]` });
+    model.units.push({ id, name: unit?.name, unitType: unit?.unitType, externalId: unit?.externalId, pilotIds: unit?.pilotIds, at: `characterDefinitions[${JSON.stringify(id)}]` });
   }
   for (const [id, definition] of objectEntries(payload.counterDefinitions)) {
     const at = `counterDefinitions[${JSON.stringify(id)}]`;
@@ -867,8 +868,15 @@ function checkUnits(model, add) {
   for (const [externalId, units] of byExternal) {
     if (units.length > 1) add("DUPLICATE_EXTERNAL_ID", { location: units.map((unit) => unit.at).join("; "), subject: externalId, observed: units.map((unit) => trimmed(unit.id)).join(", "), expected: "one Character_ID per External_ID", effect: "Roster import marks several units owned from one game unit" });
   }
+  const hasCrew = model.units.some(unit => unit.pilotIds !== undefined);
   for (const unit of model.units) {
     const context = { location: unit.at, subject: trimmed(unit.id) };
+    const ship = ["SHIP", "CAPITAL_SHIP"].includes(unit.unitType);
+    if ((hasCrew && ship && unit.pilotIds === undefined) || (unit.pilotIds !== undefined &&
+        (!ship || !Array.isArray(unit.pilotIds) || new Set(unit.pilotIds).size !== unit.pilotIds.length ||
+         unit.pilotIds.some(id => typeof id !== "string" || !byId.has(id) || byId.get(id).length !== 1 || byId.get(id)[0].unitType !== "CHARACTER")))) {
+      add("SHIP_PILOTS_INVALID", { ...context, observed: jsonValue(unit.pilotIds), expected: "unique canonical CHARACTER IDs on every ship; [] explicitly means pilotless" });
+    }
     if (str(unit.id) !== trimmed(unit.id)) add("NONCANONICAL_SPELLING", { ...context, observed: jsonValue(unit.id), expected: JSON.stringify(trimmed(unit.id)), effect: "None today (trimmed by Apps Script)" });
     if (!ID_PATTERN.test(trimmed(unit.id))) add("ID_FORMAT", { ...context, observed: jsonValue(trimmed(unit.id)), expected: "UPPER_SNAKE_CASE", effect: "None; stable IDs are never renamed automatically" });
     if (isBlank(unit.name)) add("UNIT_NAME_BLANK", { ...context, observed: jsonValue(unit.name), expected: "a display name", effect: "Roster and composition screens show a blank unit" });

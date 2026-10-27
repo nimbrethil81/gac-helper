@@ -244,7 +244,7 @@ function renderImportReport(snapshotDir, snapshot, source, sourceReport) {
     "",
     "## Source files",
     "",
-    table(["File", "Rows"], Object.entries(FILES).map(([file, spec]) => {
+    table(["File", "Rows"], Object.entries(FILES).filter(([file, spec]) => !spec.optionalFile || source[file] !== undefined).map(([file, spec]) => {
       const rows = source[file];
       const extra = spec.array === "defences" ? ` defences / ${rows.reduce((sum, row) => sum + row.counters.length, 0)} matchups` : "";
       return [`\`${file}\``, `${rows.length}${extra}`];
