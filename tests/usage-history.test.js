@@ -80,7 +80,7 @@ function freezeDefence(h) {
     `);
 }
 
-test("all offensive entry points record once and never promote a strategic core to actual participants", () => {
+test("all offensive entry points record once and keep required core attribution incomplete", () => {
     const h = setup();
     h.run("markUsed('C1'); markUsed('C1'); render(); markCounterUsedFromBoard('C1', 'FRONT_TOP:0')");
     assert.equal(events(h).length, 1);
@@ -88,7 +88,7 @@ test("all offensive entry points record once and never promote a strategic core 
     assert.equal(initial.side, "attack");
     assert.equal(initial.roundId, "round-1");
     assert.equal(initial.seasonId, "GAC 100");
-    assert.deepEqual(initial.participants, []);
+    assert.deepEqual(initial.participants.map(p => p.unitId), ["A", "B"]);
     assert.equal(initial.attribution.complete, false);
     h.run("markUsedAndCleared('opponent', 'FRONT_TOP', 0, 'C1')");
     assert.equal(events(h).length, 1);

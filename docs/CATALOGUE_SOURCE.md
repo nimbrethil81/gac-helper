@@ -15,6 +15,12 @@
 
 Generated delivery files (`catalogue/current.json`, `catalogue/manifest.json`, `catalogue/releases/*.json`) exist only in the Pages artifact. They are never committed and never read as input.
 
+## Ship crew metadata
+
+`catalogue/source/ship-pilots.json` is authored alongside ship unit definitions; [ADR-ARCH-116 §4–§5](decisions/ADR-ARCH-116-git-native-catalogue.md#4-canonical-authoring-schema-cataloguesource-schema-1) owns its row schema, validation and optional compiled `pilotIds` contract. New ships require an evidenced crew row. Older sources with no crew file remain readable with unknown crew; explicit empty crew means a pilotless hull. The ordinary import, compile, release and restore commands preserve this distinction.
+
+The mapping is extracted from the game's `crew[].unitId` metadata, not ship names. Its source is the community mirror of raw game definitions [`swgoh-utils/gamedata`, commit `82cd9ca01b9ef296ba386155237d25bf0f5aa2d3`](https://github.com/swgoh-utils/gamedata/tree/82cd9ca01b9ef296ba386155237d25bf0f5aa2d3), game version `0.40.6:tAj6zvcnT7GKXm7VxX_QIQ` (observed 27 October 2026). The compressed [`units.json.br`](https://github.com/swgoh-utils/gamedata/blob/82cd9ca01b9ef296ba386155237d25bf0f5aa2d3/units.json.br) has SHA-256 `c26aeb663afae0194e7f9f145a5217c1189de2611b2074da6e89eb4afd318ed9`. For each of the 70 catalogue hulls, join its `externalId` to game `baseId`, require matching crew across all seven rarity definitions, then join each crew `unitId` to a canonical character's `externalId`. Keep every crew member, including multi-crew hulls; preserve empty `crew` arrays. Never infer a missing match. Repeating this extraction against a new pinned game-data version is the maintenance procedure; review the mapping diff and run the ordinary compile/release gates before merging. Game metadata establishes crew identity, not whether a reinforcement participated in a battle.
+
 ## Commands
 
 ```bash

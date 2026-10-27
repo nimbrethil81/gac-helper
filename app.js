@@ -1265,7 +1265,7 @@ function markCounterUsedFromBoard(counterId, targetKey) {
 // Local usage facts are independent of the live round and catalogue cache.
 // IDs are round-scoped actions; corrections retain identity and increment revision.
 function emptyUsageHistory() {
-    return { schema: 1, selectedSeasonId: null, roundSeasons: {}, defenceRounds: [], events: [] };
+    return { schema: 1, selectedSeasonId: null, roundSeasons: {}, defenceRounds: [], completedSeasonIds: [], attackFleetLineups: {}, events: [] };
 }
 
 function validUsageParticipants(participants) {
@@ -1280,10 +1280,17 @@ function validUsageEvent(e) {
         ["5v5", "3v3", "FLEET"].includes(e.mode) && ["attack", "defence"].includes(e.side) &&
         typeof e.source === "string" && typeof e.identity === "string" &&
         (e.counterId === null || typeof e.counterId === "string") && (e.slotKey === null || typeof e.slotKey === "string") &&
-        validUsageParticipants(e.participants) && e.participants.every(p => e.mode === "FLEET"
+        validUsageParticipants(e.participants) &&
+        (e.capitalShipId === undefined || e.capitalShipId === null || (e.mode === "FLEET" && typeof e.capitalShipId === "string" &&
+            e.participants?.some(p => p.unitId === e.capitalShipId && p.unitType === "CAPITAL_SHIP"))) &&
+        (e.benchShips === undefined || (e.mode === "FLEET" && Array.isArray(e.benchShips) &&
+            e.benchShips.every(id => validUsageCanonicalId(id) && !e.participants?.some(p => p.unitId === id)) && new Set(e.benchShips).size === e.benchShips.length)) &&
+        e.participants.filter(p => p.unitType === "CAPITAL_SHIP").length <= 1 && e.participants.every(p => e.mode === "FLEET"
             ? p.unitType !== "CHARACTER" || p.role === "pilot" : p.unitType === "CHARACTER") &&
         (e.side === "defence" ? e.outcome === "deployed" : e.outcome !== "deployed") && e.attribution && typeof e.attribution.complete === "boolean" &&
-        typeof e.attribution.provenance === "string" && ["used", "won", "lost", "deployed"].includes(e.outcome) &&
+        typeof e.attribution.provenance === "string" &&
+        (e.attribution.pilotsComplete === undefined || typeof e.attribution.pilotsComplete === "boolean") &&
+        (e.attribution.reinforcementParticipationKnown === undefined || typeof e.attribution.reinforcementParticipationKnown === "boolean") && ["used", "won", "lost", "deployed"].includes(e.outcome) &&
         typeof e.voided === "boolean" && Number.isInteger(e.revision) && e.revision > 0 &&
         typeof e.createdAt === "string" && typeof e.updatedAt === "string";
 }
@@ -1302,7 +1309,8 @@ function loadUsageHistory() {
         if (!data || data.schema !== 1 || !Array.isArray(data.events) || !isPlainObject(data.roundSeasons) ||
             !Array.isArray(data.defenceRounds) || !data.defenceRounds.every(id => typeof id === "string") ||
             !(data.selectedSeasonId === null || typeof data.selectedSeasonId === "string") ||
-            !Object.values(data.roundSeasons).every(id => id === null || typeof id === "string")) throw new Error("Invalid usage store");
+            !Object.values(data.roundSeasons).every(id => id === null || typeof id === "string") ||
+            !validateUsageHistoryExtensions(data)) throw new Error("Invalid usage store");
         const seen = new Set();
         const rejected = [];
         const events = data.events.filter(e => {
@@ -1310,7 +1318,7 @@ function loadUsageHistory() {
             seen.add(e.id); return true;
         });
         // Keep unknown fields and quarantined rows for recovery, never reinterpret them.
-        return { ...data, events, rejectedEvents: [...(Array.isArray(data.rejectedEvents) ? data.rejectedEvents : []), ...rejected] };
+        return { ...data, completedSeasonIds: data.completedSeasonIds || [], attackFleetLineups: data.attackFleetLineups || {}, events, rejectedEvents: [...(Array.isArray(data.rejectedEvents) ? data.rejectedEvents : []), ...rejected] };
     } catch (e) {
         try {
             const raw = localStorage.getItem(USAGE_HISTORY_KEY);
@@ -1339,7 +1347,12 @@ function chooseUsageSeason() {
     if (!usageHistoryWritable || typeof prompt !== "function") return false;
     const answer = prompt("GAC season identifier (use the official season number or your own consistent label; dates are not inferred):", usageHistory.selectedSeasonId || "");
     if (answer === null || !answer.trim()) return false;
-    usageHistory.selectedSeasonId = answer.trim().slice(0, 100);
+    const label = answer.trim().slice(0, 100);
+    if ((usageHistory.completedSeasonIds || []).includes(label)) {
+        usageScreenMessage = { kind: "error", text: "That season is already completed. Choose a new current season." };
+        render(); return false;
+    }
+    usageHistory.selectedSeasonId = label;
     // Explicitly assigning a season may resolve this round's unknown season.
     if (board && (!Object.hasOwn(usageHistory.roundSeasons, board.roundId) || usageHistory.roundSeasons[board.roundId] === null)) {
         usageHistory.roundSeasons[board.roundId] = usageHistory.selectedSeasonId;
@@ -1363,7 +1376,7 @@ function usageSeasonForRound() {
 function writeUsageEvent(fact, persist = true) {
     if (!usageHistoryWritable) return null;
     const previous = usageHistory.events.find(e => e.id === fact.id);
-    const comparable = e => JSON.stringify([e.participants, e.attribution, e.outcome, e.voided, e.identity, e.slotKey, e.snapshotFingerprint]);
+    const comparable = e => JSON.stringify([e.participants, e.attribution, e.outcome, e.voided, e.identity, e.slotKey, e.snapshotFingerprint, e.benchShips, e.capitalShipId]);
     if (previous && comparable(previous) === comparable(fact)) return { eventId: previous.id, previous: JSON.parse(JSON.stringify(previous)) };
     const now = new Date().toISOString();
     const next = { ...fact, revision: previous ? previous.revision + 1 : 1,
@@ -1390,8 +1403,8 @@ function recordAttackUsage(counterId, outcome = "used", source = "counters", tar
     const mode = territory && territory.type === "FLEET" || (!targetKey && currentMode === "FLEET") ? "FLEET" : source === "counters" ? currentMode : board.mode;
     return writeUsageEvent({ id, roundId: board.roundId, roundMode: board.mode, seasonId: usageSeasonForRound(), mode, side: "attack", source,
         counterId, slotKey: targetKey || null, identity: counterId,
-        participants: [], attribution: { complete: false, provenance: "actual-lineup-unknown" },
-        // A strategic core is context only and never contributes unit uses.
+        ...automaticAttackUsageFacts(counterId, mode),
+        // The required core is known participation, never a full-lineup claim.
         strategicCore: def && Array.isArray(def.required) ? [...def.required] : [], outcome, voided: false });
 }
 
@@ -1441,18 +1454,15 @@ function syncConfirmedDefenceUsage() {
         if (previous && previous.snapshotFingerprint === snapshotFingerprint && !previous.voided) return;
         const explicit = slot.source === "saved" && slot.lineup;
         const ids = explicit ? [...new Set(slot.characterIds)] : [];
-        const participants = ids.map(unitId => {
-            const lineup = slot.lineup;
-            const role = slot.type !== "FLEET" ? "member" : lineup.capitalShipId === unitId ? "capital" :
-                (lineup.startingShipIds || []).includes(unitId) ? "starter" : (lineup.reinforcementIds || []).includes(unitId) ? "reinforcement" : "unknown";
-            const unitType = slot.type === "FLEET" ? role === "capital" ? "CAPITAL_SHIP" : "SHIP" : "CHARACTER";
-            return { unitId, unitType, role };
-        });
+        const facts = slot.type === "FLEET" ? fleetUsageFacts(explicit ? slot.lineup : {},
+            explicit ? "explicit-saved-lineup" : "unattributed", !!explicit && slot.confirmed === true) : {
+            participants: ids.map(unitId => ({ unitId, unitType: "CHARACTER", role: "member" })),
+            attribution: { complete: !!explicit && slot.confirmed === true, provenance: explicit ? "explicit-saved-lineup" : "unattributed" }
+        };
         writeUsageEvent({ id, roundId: board.roundId, seasonId: usageHistory.roundSeasons[board.roundId] ?? null,
             mode: slot.type === "FLEET" ? "FLEET" : board.mode, side: "defence", source: "round-defence-confirmation",
             counterId: null, slotKey, snapshotFingerprint, identity: slot.name ? slot.customName || slot.name : "",
-            participants, attribution: { complete: !!explicit && slot.confirmed === true,
-                provenance: explicit ? "explicit-saved-lineup" : "unattributed" }, outcome: "deployed", voided: false }, false);
+            ...facts, outcome: "deployed", voided: false }, false);
     });
     saveUsageHistory();
 }
@@ -1489,6 +1499,527 @@ function renderUsageRecordingStatus() {
         ${board && board.defenceSnapshot && board.defenceSnapshot.schema === 2 ? `<div class="round-stat">Defence usage: ${confirmed ? "deployment recorded" : "not confirmed"}${incomplete ? ` · ${incomplete} usage lineups incomplete` : ""}
         ${confirmed ? "" : board.defenceSnapshot.missingSavedDefence ? " — set this round’s defence first" : '<button class="defence-adopt-btn" onclick="confirmRoundDefenceUsage(); render()">Confirm actual defence deployment</button>'}</div>` : ""}
         ${usageHistoryMessage ? `<div class="roster-msg roster-msg-warn" role="status">${escapeHtml(usageHistoryMessage)}</div>` : ""}`;
+}
+
+// Usage rankings are derived from event facts; no league totals are persisted.
+let usageTab = "characters";
+let usagePeriod = "current";
+let usageScreenMessage = null;
+
+function usageCompletedSeasons(history = usageHistory) {
+    return Array.isArray(history.completedSeasonIds) ? history.completedSeasonIds : [];
+}
+
+function usagePeriodEvents(period = usagePeriod, history = usageHistory) {
+    const events = history.events.filter(event => validUsageEvent(event) && !event.voided);
+    if (period === "all") return events;
+    const seasons = period === "completed"
+        ? usageCompletedSeasons(history).filter(id => id !== history.selectedSeasonId).slice(-3)
+        : history.selectedSeasonId ? [history.selectedSeasonId] : [];
+    return events.filter(event => event.seasonId !== null && seasons.includes(event.seasonId));
+}
+
+function usageRankings(tab = usageTab, events = usagePeriodEvents()) {
+    const rows = new Map();
+    const add = (id, event) => {
+        let row = rows.get(id);
+        if (!row) {
+            row = { id, label: getCharacterName(id), total: 0, attack: 0, defence: 0, wins: 0, losses: 0 };
+            rows.set(id, row);
+        }
+        row.total++;
+        row[event.side]++;
+        if (event.side === "attack" && event.outcome === "won") row.wins++;
+        if (event.side === "attack" && event.outcome === "lost") row.losses++;
+    };
+    events.forEach(event => {
+        if (tab === "fleets") {
+            if (event.mode !== "FLEET") return;
+            const capital = event.capitalShipId || event.participants.find(p => p.unitType === "CAPITAL_SHIP")?.unitId;
+            if (capital) add(capital, event);
+            return;
+        }
+        const unitType = tab === "ships" ? "SHIP" : "CHARACTER";
+        // Defensive duplicate protection also covers a pilot occupying several roles.
+        new Set(event.participants.filter(p => p.unitType === unitType).map(p => p.unitId)).forEach(id => add(id, event));
+    });
+    const ordered = [...rows.values()].sort((a, b) => b.total - a.total || a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+    let rank = 0, lastTotal = null;
+    return ordered.map((row, index) => {
+        if (row.total !== lastTotal) rank = index + 1;
+        lastTotal = row.total;
+        return { ...row, rank };
+    });
+}
+
+function setUsageTab(tab) {
+    if (!["characters", "ships", "fleets"].includes(tab)) return;
+    usageTab = tab;
+    render();
+}
+
+function setUsagePeriod(period) {
+    if (!["current", "completed", "all"].includes(period)) return;
+    usagePeriod = period;
+    render();
+}
+
+function completeUsageSeason(nextSeasonId) {
+    if (!usageHistoryWritable || !usageHistory.selectedSeasonId) return false;
+    const previous = usageHistory.selectedSeasonId;
+    let next = nextSeasonId;
+    if (next === undefined) {
+        if (typeof prompt !== "function") return false;
+        next = prompt(`Complete ${previous} and start which GAC season? Enter the next official number or your consistent label.`, "");
+    }
+    if (typeof next !== "string" || !next.trim() || next.trim() === previous || next.trim().length > 100) return false;
+    next = next.trim();
+    if (usageCompletedSeasons().includes(next)) {
+        usageScreenMessage = { kind: "error", text: "That season is already marked completed. Choose a new current season." };
+        render();
+        return false;
+    }
+    const candidate = { ...usageHistory, selectedSeasonId: next,
+        completedSeasonIds: [...usageCompletedSeasons().filter(id => id !== previous), previous] };
+    try {
+        localStorage.setItem(USAGE_HISTORY_KEY, JSON.stringify(candidate));
+    } catch (error) {
+        usageScreenMessage = { kind: "error", text: "Could not save the season change. Existing history is unchanged." };
+        render();
+        return false;
+    }
+    usageHistory = candidate;
+    usageScreenMessage = { kind: "ok", text: `${previous} marked completed. Current season: ${next}. Existing rounds keep their season.` };
+    render();
+    return true;
+}
+
+function validUsageCanonicalId(id) {
+    return typeof id === "string" && /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,119}$/.test(id);
+}
+
+function validUsageKnownType(id, unitType) {
+    return validUsageCanonicalId(id) && (!characterDefinitions[id] || characterDefinitions[id].unitType === unitType);
+}
+
+function validateUsageHistoryExtensions(history, validateKnownTypes = false) {
+    const validUnit = (id, type) => validateKnownTypes ? validUsageKnownType(id, type) : validUsageCanonicalId(id);
+    if (history.completedSeasonIds !== undefined && (!Array.isArray(history.completedSeasonIds) ||
+        history.completedSeasonIds.some(id => typeof id !== "string" || !id.trim() || id.length > 100) ||
+        new Set(history.completedSeasonIds).size !== history.completedSeasonIds.length)) return false;
+    if (history.selectedSeasonId && (history.completedSeasonIds || []).includes(history.selectedSeasonId)) return false;
+    if (history.attackFleetLineups !== undefined) {
+        if (!isPlainObject(history.attackFleetLineups)) return false;
+        for (const [counterId, lineup] of Object.entries(history.attackFleetLineups)) {
+            if (!validUsageCanonicalId(counterId) || !lineup || lineup.schema !== 1 ||
+                !validUnit(lineup.capitalShipId, "CAPITAL_SHIP") ||
+                !Array.isArray(lineup.startingShipIds) || lineup.startingShipIds.length !== 3 ||
+                !Array.isArray(lineup.reinforcementIds) || lineup.reinforcementIds.length > 4 ||
+                [...lineup.startingShipIds, ...lineup.reinforcementIds].some(id => !validUnit(id, "SHIP")) ||
+                new Set([...lineup.startingShipIds, ...lineup.reinforcementIds]).size !== lineup.startingShipIds.length + lineup.reinforcementIds.length) return false;
+        }
+    }
+    return true;
+}
+
+function validateUsageBackupEvent(event) {
+    if (!validUsageEvent(event) || !event.roundId.trim() || event.roundId.length > 256 ||
+        /[\u0000-\u001f]/.test(event.roundId) || !Number.isFinite(Date.parse(event.createdAt)) ||
+        !Number.isFinite(Date.parse(event.updatedAt)) ||
+        event.participants.some(p => !validUsageKnownType(p.unitId, p.unitType))) return false;
+    let identity;
+    try { identity = JSON.parse(event.id); } catch (error) { return false; }
+    if (!Array.isArray(identity) || identity.length !== 3 || identity[0] !== event.roundId || identity[1] !== event.side) return false;
+    if (event.side === "attack") {
+        if (!validUsageCanonicalId(event.counterId) || identity[2] !== event.counterId || event.identity !== event.counterId) return false;
+    } else if (identity[2] !== event.slotKey || event.slotKey === null || event.counterId !== null) return false;
+    if (!event.source.trim() || /[\u0000-\u001f]/.test(event.source) || !event.attribution.provenance.trim()) return false;
+    const capitals = event.participants.filter(p => p.unitType === "CAPITAL_SHIP");
+    if (capitals.length > 1 || (event.capitalShipId && (event.mode !== "FLEET" || capitals.length && capitals[0].unitId !== event.capitalShipId))) return false;
+    if (event.slotKey !== null && !/^(FRONT_TOP|FRONT_BOTTOM|BACK_TOP|BACK_BOTTOM):\d+$/.test(event.slotKey)) return false;
+    if (event.capitalShipId !== undefined && event.capitalShipId !== null && !validUsageKnownType(event.capitalShipId, "CAPITAL_SHIP")) return false;
+    if (event.benchShips !== undefined && (!Array.isArray(event.benchShips) ||
+        event.mode !== "FLEET" || event.benchShips.some(id => !validUsageKnownType(id, "SHIP") || event.participants.some(p => p.unitId === id)) || new Set(event.benchShips).size !== event.benchShips.length)) return false;
+    return true;
+}
+
+function canonicalUsageJson(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalUsageJson).join(",")}]`;
+    if (value && typeof value === "object") return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalUsageJson(value[key])}`).join(",")}}`;
+    return JSON.stringify(value);
+}
+
+// A complete backup carries every event (including voided facts), never roster
+// ownership or account metadata. Unknown event extensions survive round trips.
+function usageBackupPayload() {
+    if (!usageHistoryWritable) throw new Error("Export is paused to protect unreadable or newer history. The original device store is unchanged.");
+    const history = {
+        schema: 1, selectedSeasonId: usageHistory.selectedSeasonId,
+        roundSeasons: usageHistory.roundSeasons, defenceRounds: usageHistory.defenceRounds,
+        events: usageHistory.events, completedSeasonIds: usageCompletedSeasons(),
+        attackFleetLineups: usageHistory.attackFleetLineups || {}
+    };
+    const text = JSON.stringify({ format: "gac-usage-history", schema: 1, exportedAt: new Date().toISOString(), history },
+        (key, value) => /^(allyCode|ally_code|owned|ownedCharacters|rosterData|rosterMeta|accessToken|refreshToken)$/i.test(key) ? undefined : value, 2);
+    return text;
+}
+
+function mergeCompletedUsageSeasons(existing, incoming) {
+    if (!existing.length) return [...incoming];
+    if (!incoming.length) return [...existing];
+    const all = [...new Set([...existing, ...incoming])];
+    const edges = new Map(all.map(id => [id, new Set()]));
+    const degree = new Map(all.map(id => [id, 0]));
+    [existing, incoming].forEach(sequence => sequence.slice(1).forEach((id, index) => {
+        const before = sequence[index];
+        if (!edges.get(before).has(id)) { edges.get(before).add(id); degree.set(id, degree.get(id) + 1); }
+    }));
+    const result = [];
+    while (result.length < all.length) {
+        const options = all.filter(id => degree.get(id) === 0 && !result.includes(id));
+        if (options.length !== 1) throw new Error("Completed-season order conflicts or is ambiguous. Keep the original backup and review season labels before importing.");
+        const next = options[0]; result.push(next);
+        edges.get(next).forEach(id => degree.set(id, degree.get(id) - 1));
+    }
+    return result;
+}
+
+function prepareUsageHistoryImport(raw) {
+    let backup;
+    try { backup = typeof raw === "string" ? JSON.parse(raw) : raw; } catch (error) { throw new Error("This is not valid usage-history JSON."); }
+    if (!backup || backup.format !== "gac-usage-history" || backup.schema !== 1) throw new Error("Unsupported usage-history backup version.");
+    const incoming = backup.history;
+    if (!incoming || incoming.schema !== 1 || !Array.isArray(incoming.events) || !isPlainObject(incoming.roundSeasons) ||
+        !Array.isArray(incoming.defenceRounds) || incoming.defenceRounds.some(id => typeof id !== "string" || !id.trim()) ||
+        new Set(incoming.defenceRounds).size !== incoming.defenceRounds.length ||
+        !(incoming.selectedSeasonId === null || typeof incoming.selectedSeasonId === "string" && incoming.selectedSeasonId.trim() && incoming.selectedSeasonId.length <= 100) ||
+        Object.entries(incoming.roundSeasons).some(([id, season]) => !id.trim() || /[\u0000-\u001f]/.test(id) || !(season === null || typeof season === "string" && season.trim() && season.length <= 100)) ||
+        !validateUsageHistoryExtensions(incoming, true)) throw new Error("Invalid usage-history backup shape.");
+    const seen = new Set();
+    incoming.events.forEach(event => {
+        if (!validateUsageBackupEvent(event)) throw new Error("A usage event has invalid identity, participants or fields.");
+        if (seen.has(event.id)) throw new Error("The backup contains duplicate event IDs.");
+        seen.add(event.id);
+        if (!Object.hasOwn(incoming.roundSeasons, event.roundId) || incoming.roundSeasons[event.roundId] !== event.seasonId) throw new Error("An event conflicts with its round's season assignment.");
+        if (event.side === "defence" && !incoming.defenceRounds.includes(event.roundId)) throw new Error("A defensive event has no confirmed round deployment.");
+    });
+    const currentEvents = new Map(usageHistory.events.map(event => [event.id, event]));
+    const mergedEvents = [...usageHistory.events];
+    let added = 0;
+    incoming.events.forEach(event => {
+        const existing = currentEvents.get(event.id);
+        if (existing && canonicalUsageJson(existing) !== canonicalUsageJson(event)) throw new Error("An imported event conflicts with an existing event. Existing history has not changed.");
+        if (!existing) { mergedEvents.push(event); added++; }
+    });
+    const roundSeasons = { ...usageHistory.roundSeasons };
+    Object.entries(incoming.roundSeasons).forEach(([id, season]) => {
+        if (Object.hasOwn(roundSeasons, id) && roundSeasons[id] !== season) throw new Error("A round has conflicting season assignments.");
+        Object.defineProperty(roundSeasons, id, { value: season, enumerable: true, configurable: true, writable: true });
+    });
+    const lineups = { ...(usageHistory.attackFleetLineups || {}) };
+    Object.entries(incoming.attackFleetLineups || {}).forEach(([id, lineup]) => {
+        if (Object.hasOwn(lineups, id) && canonicalUsageJson(lineups[id]) !== canonicalUsageJson(lineup)) throw new Error("A saved attacking fleet conflicts with this device's lineup.");
+        Object.defineProperty(lineups, id, { value: lineup, enumerable: true, configurable: true, writable: true });
+    });
+    const completedSeasonIds = mergeCompletedUsageSeasons(usageCompletedSeasons(), incoming.completedSeasonIds || []);
+    const selectedSeasonId = usageHistory.selectedSeasonId || incoming.selectedSeasonId;
+    if (selectedSeasonId && completedSeasonIds.includes(selectedSeasonId)) throw new Error("Imported season completions conflict with this device’s current season. Existing history is unchanged.");
+    const history = { ...usageHistory, events: mergedEvents, roundSeasons,
+        defenceRounds: [...new Set([...usageHistory.defenceRounds, ...incoming.defenceRounds])],
+        completedSeasonIds, selectedSeasonId, attackFleetLineups: lineups };
+    return { history, added };
+}
+
+function importUsageHistory(raw) {
+    if (!usageHistoryWritable) return { ok: false, error: "Recording is paused to protect a newer or unreadable store." };
+    try {
+        const { history, added } = prepareUsageHistoryImport(raw);
+        // Commit a validated merge in one write; quota errors preserve memory and disk.
+        localStorage.setItem(USAGE_HISTORY_KEY, JSON.stringify(history));
+        usageHistory = history;
+        clearPendingUndo();
+        usageScreenMessage = { kind: "ok", text: `Imported ${added} new usage event${added === 1 ? "" : "s"}. Existing identical events were kept once.` };
+        render();
+        return { ok: true, added };
+    } catch (error) {
+        usageScreenMessage = { kind: "error", text: error.message || "Could not save imported history. Existing history is unchanged." };
+        render();
+        return { ok: false, error: usageScreenMessage.text };
+    }
+}
+
+async function importUsageHistoryFile(input) {
+    const file = input && input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 16 * 1024 * 1024) {
+        usageScreenMessage = { kind: "error", text: "Usage backup is too large (maximum 16 MB). Existing history is unchanged." };
+        render(); return;
+    }
+    try { importUsageHistory(await file.text()); }
+    catch (error) { usageScreenMessage = { kind: "error", text: "Could not read that file. Existing history is unchanged." }; render(); }
+}
+
+function exportUsageHistory() {
+    try {
+        const blob = new Blob([usageBackupPayload()], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `gac-usage-history-${new Date().toISOString().slice(0, 10)}.json`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        usageScreenMessage = { kind: "ok", text: "Usage-history JSON downloaded. Keep the file somewhere safe; browser storage can be lost." };
+    } catch (error) {
+        usageScreenMessage = { kind: "error", text: "Could not download the backup in this browser." };
+    }
+    render();
+}
+
+function renderUsage() {
+    const events = usagePeriodEvents();
+    const rows = usageRankings(usageTab, events);
+    const unknownSeasons = usageHistory.events.filter(event => validUsageEvent(event) && !event.voided && event.seasonId === null).length;
+    const partial = events.filter(event => !event.attribution.complete).length;
+    const unknownPilots = events.filter(event => event.mode === "FLEET" && event.attribution.pilotsComplete !== true).length;
+    const unconfirmedReinforcements = events.filter(event => event.mode === "FLEET" && ((event.benchShips || []).length || event.attribution.reinforcementParticipationKnown === false)).length;
+    const unknownFleets = events.filter(event => event.mode === "FLEET" && !event.capitalShipId && !event.participants.some(p => p.unitType === "CAPITAL_SHIP")).length;
+    const periodLabel = usagePeriod === "current" ? usageHistory.selectedSeasonId ? `Current season: ${usageHistory.selectedSeasonId}` : "Choose a current season to view this period."
+        : usagePeriod === "completed" ? `Completed seasons: ${usageCompletedSeasons().filter(id => id !== usageHistory.selectedSeasonId).slice(-3).join(", ") || "none marked complete"}` : "All recorded time, including unknown seasons";
+    return `<section class="round-card usage-screen">
+        <h1 class="round-title">USAGE</h1>
+        <p class="usage-help">Each attack and confirmed defensive deployment counts once. Wins and losses describe attacks only.</p>
+        <div class="mode-toggle usage-tabs" aria-label="Usage category">${[["characters", "Characters"], ["ships", "Ships"], ["fleets", "Fleets"]].map(([id, label]) => `<button class="mode-button ${usageTab === id ? "active" : ""}" aria-pressed="${usageTab === id}" onclick="setUsageTab('${id}')">${label}</button>`).join("")}</div>
+        <label class="usage-period">Period<select class="board-team-select" onchange="setUsagePeriod(this.value)">
+            <option value="current" ${usagePeriod === "current" ? "selected" : ""}>Current season</option>
+            <option value="completed" ${usagePeriod === "completed" ? "selected" : ""}>Last three completed seasons</option>
+            <option value="all" ${usagePeriod === "all" ? "selected" : ""}>All recorded time</option>
+        </select></label><p class="usage-help">${escapeHtml(periodLabel)}</p>
+        ${unknownSeasons ? `<p class="usage-warning">${unknownSeasons} event${unknownSeasons === 1 ? " has" : "s have"} an unknown season; included only in All recorded time.</p>` : ""}
+        ${partial || unknownPilots || unknownFleets ? `<p class="usage-warning">Attribution is incomplete: ${partial} partial lineup${partial === 1 ? "" : "s"}${unknownPilots ? `; ${unknownPilots} fleet${unknownPilots === 1 ? " has" : "s have"} unknown pilot coverage` : ""}${unknownFleets ? `; ${unknownFleets} fleet identit${unknownFleets === 1 ? "y is" : "ies are"} unknown` : ""}. Missing units are unknown, not zero. Optional corrections are below.</p>` : ""}
+        ${unconfirmedReinforcements ? `<p class="usage-warning">${unconfirmedReinforcements} fleet${unconfirmedReinforcements === 1 ? " has" : "s have"} reinforcements awaiting participation confirmation. Benched ships and their pilots are excluded until you confirm they actually participated.</p>` : ""}
+        ${rows.length ? `<p class="usage-help">Most uses first; equal totals share a rank. Ties display alphabetically. ${usageTab === "ships" ? "Ships count participating non-capital hulls; Fleets groups deployments by capital ship." : usageTab === "fleets" ? "Fleets are grouped by the recorded capital ship, independently of ship appearances." : "Includes pilots only where participation is recorded."}</p>
+        <ol class="usage-ranking">${rows.map(row => `<li class="usage-row"><div class="usage-rank">${row.rank}</div><div class="usage-unit"><strong>${escapeHtml(row.label)}</strong>${characterDefinitions[row.id] ? "" : '<span class="usage-help">Saved unit; not in current catalogue</span>'}<span class="usage-help">Attack ${row.attack} · Defence ${row.defence} · Wins ${row.wins} · Losses ${row.losses}</span></div><div class="usage-total">${row.total}<span>uses</span></div></li>`).join("")}</ol>`
+            : `<p class="usage-empty">${events.length ? "No attributed uses in this category for this period. Record or correct actual participants to populate the table." : usageHistory.events.length ? "No usage recorded for this period. Try All recorded time or check the season selection." : "No usage recorded yet. Mark attackers used during a round and separately confirm actual defensive deployment to start your history."}</p>`}
+        ${usageScreenMessage ? `<div class="roster-msg roster-msg-${usageScreenMessage.kind}" role="status">${escapeHtml(usageScreenMessage.text)}</div>` : ""}
+        ${usageHistoryMessage ? `<div class="roster-msg roster-msg-warn" role="status">${escapeHtml(usageHistoryMessage)}</div>` : ""}
+    </section>
+    <details class="round-card usage-details"><summary>Season periods</summary><p class="usage-help">Seasons are explicit labels. Completion is recorded by you, never inferred from calendar months. Existing rounds retain their assigned season.</p>
+        <button class="roster-data-btn" onclick="chooseUsageSeason()">Choose current season</button>
+        <button class="roster-data-btn" onclick="completeUsageSeason()" ${usageHistory.selectedSeasonId ? "" : "disabled"}>Complete season / start next</button>
+    </details>
+    ${typeof renderUsageCorrections === "function" ? renderUsageCorrections() : ""}
+    <details class="round-card usage-details"><summary>History backup</summary><p class="usage-help">Export local usage as JSON before changing device or clearing browser data. Import merges identical events once; conflicting history is rejected. No account or roster data is included.</p>
+        <button class="roster-data-btn" onclick="exportUsageHistory()">Export usage JSON</button>
+        <label class="usage-file-label">Import usage JSON<input type="file" accept="application/json,.json" onchange="importUsageHistoryFile(this)"></label>
+    </details>`;
+}
+
+// Capture attribution at recording/correction time only. Catalogue or template
+// changes never reinterpret historical facts during aggregation or rendering.
+function fleetUsageFacts(lineup, provenance, complete = true) {
+    const participants = [], seen = new Set();
+    const add = (unitId, unitType, role) => {
+        if (unitId && !seen.has(unitId)) { seen.add(unitId); participants.push({ unitId, unitType, role }); }
+    };
+    const participating = new Set(lineup.participatingReinforcementIds || []);
+    let pilotsComplete = true;
+    const ship = (id, type, role) => {
+        if (!id) return;
+        add(id, type, role);
+        const crew = characterDefinitions[id] && characterDefinitions[id].pilotIds;
+        if (!Array.isArray(crew)) { pilotsComplete = false; return; }
+        crew.forEach(pilot => add(pilot, "CHARACTER", "pilot"));
+    };
+    ship(lineup.capitalShipId, "CAPITAL_SHIP", "capital");
+    (lineup.startingShipIds || []).forEach(id => ship(id, "SHIP", "starter"));
+    (lineup.reinforcementIds || []).filter(id => participating.has(id)).forEach(id => ship(id, "SHIP", "reinforcement"));
+    return { participants, capitalShipId: lineup.capitalShipId || null,
+        benchShips: (lineup.reinforcementIds || []).filter(id => !participating.has(id)),
+        attribution: { complete, provenance, pilotsComplete,
+            reinforcementParticipationKnown: (lineup.reinforcementIds || []).every(id => participating.has(id)) } };
+}
+
+function validateActualUsageLineup(lineup, mode, event = null) {
+    if (!isPlainObject(lineup)) return { valid: false, complete: false, characterIds: [] };
+    const typeOf = id => characterDefinitions[id]?.unitType || event?.participants.find(p => p.unitId === id)?.unitType ||
+        (event?.benchShips?.includes(id) ? "SHIP" : null);
+    const validIds = (ids, type) => Array.isArray(ids) && ids.every(id => typeof id === "string" && id.length > 0 && typeOf(id) === type);
+    if (mode !== "FLEET") {
+        const ids = lineup.characterIds || [];
+        const size = mode === "3v3" ? 3 : 5;
+        return { valid: validIds(ids, "CHARACTER") && ids.length <= size && new Set(ids).size === ids.length &&
+            (lineup.intentionalUndersize === undefined || typeof lineup.intentionalUndersize === "boolean") &&
+            lineup.capitalShipId === undefined && lineup.startingShipIds === undefined && lineup.reinforcementIds === undefined,
+            complete: ids.length === size || ids.length > 0 && lineup.intentionalUndersize === true, characterIds: ids };
+    }
+    const starters = lineup.startingShipIds || [], reinforcements = lineup.reinforcementIds || [],
+        participating = lineup.participatingReinforcementIds || [], capital = lineup.capitalShipId || "";
+    if (!Array.isArray(starters) || !Array.isArray(reinforcements) || !Array.isArray(participating) ||
+        (lineup.capitalShipId !== undefined && typeof lineup.capitalShipId !== "string")) return { valid: false, complete: false, characterIds: [] };
+    const ids = [capital, ...starters, ...reinforcements].filter(Boolean);
+    return { valid: (!capital || typeOf(capital) === "CAPITAL_SHIP") && validIds(starters, "SHIP") && starters.length <= 3 &&
+        validIds(reinforcements, "SHIP") && reinforcements.length <= 4 && new Set(ids).size === ids.length &&
+        Array.isArray(participating) && new Set(participating).size === participating.length && participating.every(id => reinforcements.includes(id)) &&
+        lineup.characterIds === undefined && lineup.intentionalUndersize === undefined,
+        complete: !!capital && starters.length === 3, characterIds: ids };
+}
+
+function validAttackFleetLineup(lineup, requireComplete = true, event = null) {
+    const validation = validateActualUsageLineup(lineup, "FLEET", event);
+    return validation.valid && (!requireComplete || validation.complete);
+}
+
+function saveAttackFleetLineup(counterId, lineup) {
+    const fleetCounter = (counterDefinitions[counterId]?.required || []).some(id => characterDefinitions[id]?.unitType === "CAPITAL_SHIP") ||
+        Object.values(gacData.FLEET || {}).some(counters => Array.isArray(counters) && counters.some(c => c.counterId === counterId));
+    if (!usageHistoryWritable || !counterDefinitions[counterId] || !fleetCounter || !validAttackFleetLineup(lineup)) return false;
+    const next = { schema: 1, capitalShipId: lineup.capitalShipId,
+        startingShipIds: [...lineup.startingShipIds], reinforcementIds: [...(lineup.reinforcementIds || [])] };
+    const previous = usageHistory.attackFleetLineups || {};
+    usageHistory.attackFleetLineups = { ...previous, [counterId]: next };
+    if (saveUsageHistory()) return true;
+    usageHistory.attackFleetLineups = previous;
+    return false;
+}
+
+function automaticAttackUsageFacts(counterId, mode) {
+    const def = counterDefinitions[counterId];
+    const required = [...new Set(def && Array.isArray(def.required) ? def.required : [])];
+    if (mode === "FLEET") {
+        const saved = (usageHistory.attackFleetLineups || {})[counterId];
+        if (saved && validAttackFleetLineup(saved)) return fleetUsageFacts(saved, "saved-attack-fleet", true);
+        const capitals = required.filter(id => characterDefinitions[id]?.unitType === "CAPITAL_SHIP");
+        return fleetUsageFacts({ capitalShipId: capitals.length === 1 ? capitals[0] : "", startingShipIds: [], reinforcementIds: [] }, "catalogue-required-capital", false);
+    }
+    const known = required.filter(id => characterDefinitions[id]?.unitType === "CHARACTER");
+    const ids = required.length <= (mode === "3v3" ? 3 : 5) ? known : [];
+    return { participants: ids.map(unitId => ({ unitId, unitType: "CHARACTER", role: "member" })),
+        attribution: { complete: false, provenance: ids.length ? "catalogue-required-core" : "actual-lineup-unknown" } };
+}
+
+function correctUsageLineup(eventId, lineup, options = { complete: true }) {
+    const event = usageHistory.events.find(e => e.id === eventId);
+    if (!usageHistoryWritable || !event || event.voided || !lineup || typeof options.complete !== "boolean") return false;
+    let facts;
+    if (event.mode === "FLEET") {
+        if (!validAttackFleetLineup(lineup, options.complete, event)) return false;
+        facts = fleetUsageFacts(lineup, "player-correction", options.complete);
+    } else {
+        const validation = validateActualUsageLineup(lineup, event.mode, event);
+        if (!validation.valid || (options.complete && !validation.complete)) return false;
+        facts = { participants: validation.characterIds.map(unitId => ({ unitId, unitType: "CHARACTER", role: "member" })),
+            attribution: { complete: options.complete, provenance: "player-correction" } };
+    }
+    const previousEvents = [...usageHistory.events];
+    const change = writeUsageEvent({ ...event, ...facts }, false);
+    if (!change) return false;
+    if (saveUsageHistory()) return true;
+    usageHistory.events = previousEvents;
+    return false;
+}
+
+let usageLineupEditor = null;
+let usageCorrectionMessage = "";
+
+function openUsageEventEditor(index) {
+    const event = usageHistory.events[index];
+    if (!event || event.voided) return;
+    const participants = event.participants;
+    const lineup = event.mode === "FLEET" ? {
+        capitalShipId: participants.find(p => p.unitType === "CAPITAL_SHIP")?.unitId || "",
+        startingShipIds: participants.filter(p => p.role === "starter").map(p => p.unitId),
+        reinforcementIds: [...new Set([...participants.filter(p => p.role === "reinforcement").map(p => p.unitId), ...(event.benchShips || [])])],
+        participatingReinforcementIds: participants.filter(p => p.role === "reinforcement").map(p => p.unitId)
+    } : { characterIds: participants.filter(p => p.unitType === "CHARACTER").map(p => p.unitId), intentionalUndersize: event.attribution.complete && participants.length < (event.mode === "3v3" ? 3 : 5) };
+    usageLineupEditor = { eventId: event.id, mode: event.mode, lineup };
+    usageCorrectionMessage = "";
+    render();
+}
+
+function openAttackFleetEditor(counterId) {
+    if (!counterId) { usageLineupEditor = null; render(); return; }
+    const saved = (usageHistory.attackFleetLineups || {})[counterId];
+    const requiredCapital = (counterDefinitions[counterId]?.required || []).find(id => characterDefinitions[id]?.unitType === "CAPITAL_SHIP");
+    usageLineupEditor = { counterId, mode: "FLEET", lineup: saved ? JSON.parse(JSON.stringify(saved)) :
+        { capitalShipId: requiredCapital || "", startingShipIds: [], reinforcementIds: [] } };
+    usageCorrectionMessage = "";
+    render();
+}
+
+function editUsageLineup(field, index, value) {
+    if (!usageLineupEditor) return;
+    const lineup = usageLineupEditor.lineup;
+    if (field === "capitalShipId") lineup[field] = value;
+    else if (field === "intentionalUndersize") lineup[field] = !!value;
+    else {
+        const ids = [...(lineup[field] || [])];
+        ids[index] = value;
+        lineup[field] = ids.filter(Boolean);
+        if (field === "reinforcementIds") lineup.participatingReinforcementIds = (lineup.participatingReinforcementIds || []).filter(id => lineup.reinforcementIds.includes(id));
+    }
+    render();
+}
+
+function toggleUsageReinforcement(id, checked) {
+    if (!usageLineupEditor || !(usageLineupEditor.lineup.reinforcementIds || []).includes(id)) return;
+    const ids = new Set(usageLineupEditor.lineup.participatingReinforcementIds || []);
+    if (checked) ids.add(id); else ids.delete(id);
+    usageLineupEditor.lineup.participatingReinforcementIds = [...ids];
+    render();
+}
+
+function saveUsageLineupEditor(complete = true) {
+    const editor = usageLineupEditor;
+    if (!editor) return false;
+    const ok = editor.counterId ? saveAttackFleetLineup(editor.counterId, editor.lineup) : correctUsageLineup(editor.eventId, editor.lineup, { complete });
+    usageCorrectionMessage = ok ? "Usage lineup saved. Existing battle results and round planning stay as recorded." : "Check unit types, duplicate selections and lineup size. To record a partial lineup, use Save known members.";
+    if (ok) usageLineupEditor = null;
+    render();
+    return ok;
+}
+
+function renderUsageUnitSelect(field, index, unitType, selected, label) {
+    const units = Object.entries(characterDefinitions).filter(([, unit]) => unit?.unitType === unitType)
+        .sort(([a], [b]) => getCharacterName(a).localeCompare(getCharacterName(b)));
+    return `<label class="lineup-field">${label}<select class="board-team-select" onchange="editUsageLineup('${field}', ${index}, this.value)">
+        <option value="">Unknown / empty</option>${selected && !characterDefinitions[selected] ? `<option selected value="${escapeHtml(selected)}">${escapeHtml(selected)} (saved; not in catalogue)</option>` : ""}
+        ${units.map(([id]) => `<option value="${escapeHtml(id)}" ${id === selected ? "selected" : ""}>${escapeHtml(getCharacterName(id))}</option>`).join("")}</select></label>`;
+}
+
+function renderUsageLineupEditor() {
+    if (!usageLineupEditor) return "";
+    const { mode, lineup, counterId } = usageLineupEditor;
+    let fields = "";
+    if (mode === "FLEET") {
+        fields = renderUsageUnitSelect("capitalShipId", 0, "CAPITAL_SHIP", lineup.capitalShipId, "Capital ship") +
+            Array.from({ length: 3 }, (_, i) => renderUsageUnitSelect("startingShipIds", i, "SHIP", (lineup.startingShipIds || [])[i], `Starter ${i + 1}`)).join("") +
+            Array.from({ length: 4 }, (_, i) => renderUsageUnitSelect("reinforcementIds", i, "SHIP", (lineup.reinforcementIds || [])[i], `Reinforcement ${i + 1} (optional)`)).join("");
+        if (!counterId) fields += (lineup.reinforcementIds || []).map((id, i) => `<label class="roster-import-helper"><input type="checkbox" ${(lineup.participatingReinforcementIds || []).includes(id) ? "checked" : ""} onchange="toggleUsageReinforcement(usageLineupEditor.lineup.reinforcementIds[${i}], this.checked)"> ${escapeHtml(getCharacterName(id))} actually participated</label>`).join("");
+        fields += '<p class="roster-import-helper">Capital and starter crews count automatically. Reinforcements and their crews count only when actual participation is ticked for a recorded event.</p>';
+    } else {
+        fields = Array.from({ length: mode === "3v3" ? 3 : 5 }, (_, i) => renderUsageUnitSelect("characterIds", i, "CHARACTER", (lineup.characterIds || [])[i], `Member ${i + 1}`)).join("") +
+            `<label class="roster-import-helper"><input type="checkbox" ${lineup.intentionalUndersize ? "checked" : ""} onchange="editUsageLineup('intentionalUndersize', 0, this.checked)"> Intentionally undersized actual squad</label>`;
+    }
+    return `<div class="round-card"><div class="round-title">${counterId ? "Reusable attacking fleet" : "Correct actual usage lineup"}</div>
+        <p class="roster-import-helper">${counterId ? "Used for future battles with this counter. Saving does not change past events or defence templates." : "Changes this history event only. It does not change used status, availability, saved templates or scores."}</p>
+        ${fields}<div class="roster-data-actions"><button class="roster-data-btn" onclick="saveUsageLineupEditor(true)">${counterId ? "Save attacking fleet" : "Confirm actual lineup"}</button>
+        ${counterId ? "" : '<button class="roster-data-btn" onclick="saveUsageLineupEditor(false)">Save known members</button>'}
+        <button class="roster-data-btn" onclick="usageLineupEditor=null; render()">Cancel</button></div></div>`;
+}
+
+function renderUsageCorrections() {
+    const fleetCounters = [...new Set([
+        ...Object.keys(counterDefinitions).filter(id => (counterDefinitions[id]?.required || []).some(unitId => characterDefinitions[unitId]?.unitType === "CAPITAL_SHIP")),
+        ...Object.keys(usageHistory.attackFleetLineups || {})
+    ])].sort((a, b) => getCounterName(a).localeCompare(getCounterName(b)));
+    return `${usageCorrectionMessage ? `<div class="roster-msg" role="status">${escapeHtml(usageCorrectionMessage)}</div>` : ""}${renderUsageLineupEditor()}
+        <details class="round-card"><summary>Reusable attacking fleets</summary><p class="roster-import-helper">Associate a capital ship, three starters and optional bench with a fleet counter. No changes to historical events.</p>
+        <label class="lineup-field">Fleet counter<select class="board-team-select" onchange="openAttackFleetEditor(this.value)"><option value="">Select counter…</option>${fleetCounters.map(id => `<option value="${escapeHtml(id)}">${escapeHtml(getCounterName(id))}</option>`).join("")}</select></label>
+        ${fleetCounters.length ? "" : '<p class="roster-import-helper">Fleet counter data is not available yet.</p>'}</details>
+        <details class="round-card"><summary>Correct recorded lineups</summary><p class="roster-import-helper">Optional corrections for known members, flex choices and actual fleet reinforcements. One event remains one use. Attack results stay as recorded.</p>
+        ${usageHistory.events.map((event, index) => ({ event, index })).filter(({ event }) => !event.voided).reverse().map(({ event, index }) => `<div class="lineup-team"><div>${escapeHtml(event.counterId ? getCounterName(event.counterId) : event.identity || "Unattributed slot")} · ${escapeHtml(event.mode)} · ${event.side === "attack" ? "Attack" : "Defence"}</div>
+        <div class="roster-saved-line">${escapeHtml(event.seasonId || "Unknown season")} · ${escapeHtml(event.roundId)} · ${event.attribution.complete ? "Lineup confirmed" : "Partial / unknown lineup"}</div>
+        <button class="roster-data-btn" onclick="openUsageEventEditor(${index})">Correct actual lineup</button></div>`).join("") || '<p class="roster-import-helper">No recorded events to correct.</p>'}</details>`;
 }
 
 // ─── BANNER SCORING ENGINE (v2.6) ─────────────────────────────────────────────
@@ -3816,6 +4347,8 @@ function render() {
         viewHtml = renderMoreSubview(renderRoster());
     } else if (currentView === "defence-lineups") {
         viewHtml = renderMoreSubview(renderDefenceLineups());
+    } else if (currentView === "usage") {
+        viewHtml = renderMoreSubview(renderUsage());
     } else if (currentView === "more") {
         viewHtml = renderMore();
     } else {
@@ -3837,7 +4370,7 @@ ${viewHtml}
         <span class="nav-icon">🗺️</span>
         ROUND
     </button>
-    <button class="nav-button ${["more", "roster", "defence-lineups"].includes(currentView) ? "active" : ""}" onclick="setView('more')">
+    <button class="nav-button ${["more", "roster", "defence-lineups", "usage"].includes(currentView) ? "active" : ""}" onclick="setView('more')">
         <span class="nav-icon">☰</span>
         MORE
     </button>
@@ -3863,6 +4396,9 @@ function renderMore() {
     </button>
     <button class="more-menu-entry" onclick="setView('defence-lineups')">
         <span>🛡️ Defence Lineups</span><span aria-hidden="true">›</span>
+    </button>
+    <button class="more-menu-entry" onclick="setView('usage')">
+        <span>📊 Usage</span><span aria-hidden="true">›</span>
     </button>
 </div>
 `;

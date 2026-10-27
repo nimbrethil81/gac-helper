@@ -43,6 +43,7 @@ const MATCHUP_MODES = Object.freeze(["5v5", "3v3", "FLEET"]);
 
 // File → top-level array key, row fields (required / optional) and sort key.
 const FILES = Object.freeze({
+  "ship-pilots.json": { array: "shipPilots", required: { shipId: "string", pilotIds: "strings" }, sortBy: "shipId", optionalFile: true },
   "units.json": { array: "units", required: { id: "string", name: "string", unitType: "string" }, optional: { externalId: "string" }, sortBy: "id" },
   "counters.json": { array: "counters", required: { id: "string", name: "string", required: "strings", recommended: "strings" }, optional: { strategicReserve: "true" }, sortBy: "id" },
   "defence-teams.json": { array: "defenceTeams", required: { defence: "string", mode: "string", threat: "string" }, optional: { notes: "string" } },
@@ -65,7 +66,7 @@ const MATCHUP_TACTIC_ENTRY = { required: { counterId: "string", role: "string", 
 
 // Field order used when writing rows, so imports and corrections diff cleanly.
 const FIELD_ORDER = ["id", "defence", "mode", "league", "territory", "type", "teamCount", "ruleId", "battleType", "value",
-  "name", "unitType", "externalId", "strategicReserve", "required", "recommended", "threat", "units", "counterId", "role", "tier",
+  "name", "unitType", "externalId", "shipId", "pilotIds", "strategicReserve", "required", "recommended", "threat", "units", "counterId", "role", "tier",
   "bannerScore", "undersize", "meaning", "notes", "counters",
   // Correction lists (catalogue/corrections/*.json).
   "baseline", "baselineChecksum", "issue", "approval", "status", "title", "resolves", "references",
@@ -117,6 +118,7 @@ function readSource(directory) {
   for (const [file, spec] of Object.entries(FILES)) {
     const absolute = path.join(root, file);
     if (!fs.existsSync(absolute)) {
+      if (spec.optionalFile) continue; // Releases predating crew metadata retain their exact payload/checksum.
       add("SOURCE_SCHEMA", { location: file, observed: "missing file", expected: `{ "schema": 1, "${spec.array}": [...] }` });
       source[file] = [];
       continue;
@@ -151,6 +153,10 @@ function readSource(directory) {
 function writeSource(directory, source) {
   const root = path.resolve(directory);
   for (const [file, spec] of Object.entries(FILES)) {
+    if (spec.optionalFile && source[file] === undefined) {
+      fs.rmSync(path.join(root, file), { force: true });
+      continue;
+    }
     const absolute = path.join(root, file);
     fs.mkdirSync(path.dirname(absolute), { recursive: true });
     fs.writeFileSync(absolute, `${formatSourceJson({ schema: SOURCE_SCHEMA, [spec.array]: source[file] ?? [] })}\n`);
@@ -237,6 +243,9 @@ function importFromPayload(payload, scoreMeanings = []) {
         : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
     })));
   }
+  const crew = Object.entries(payload.characterDefinitions).filter(([, unit]) => unit.pilotIds !== undefined)
+    .map(([shipId, unit]) => ({ shipId, pilotIds: [...unit.pilotIds] }));
+  if (crew.length) source["ship-pilots.json"] = sortRows("ship-pilots.json", crew);
   return source;
 }
 
@@ -305,6 +314,10 @@ function compileSource(source) {
   }
   for (const unit of source["units.json"]) {
     payload.characterDefinitions[unit.id] = { name: unit.name, unitType: unit.unitType, externalId: unit.externalId ?? "" };
+  }
+  for (const row of source["ship-pilots.json"] ?? []) {
+    const ship = payload.characterDefinitions[row.shipId];
+    if (ship) ship.pilotIds = Array.isArray(row.pilotIds) ? [...row.pilotIds] : row.pilotIds;
   }
   for (const mode of MATCHUP_MODES) {
     const defences = source[`matchups/${mode}.json`] ?? [];
@@ -398,6 +411,20 @@ function validateSource(source, add) {
       });
     }
   }
+  if (source["ship-pilots.json"] !== undefined) {
+    const units = new Map((source["units.json"] ?? []).map(unit => [unit.id, unit]));
+    const mapped = new Set(source["ship-pilots.json"].map(row => row.shipId));
+    for (const row of source["ship-pilots.json"]) {
+      if (!["SHIP", "CAPITAL_SHIP"].includes(units.get(row.shipId)?.unitType)) {
+        add("SOURCE_SCHEMA", { location: "ship-pilots.json", subject: String(row.shipId), observed: "crew mapping target is not a known ship", expected: "canonical SHIP or CAPITAL_SHIP ID" });
+      }
+    }
+    for (const unit of units.values()) {
+      if (["SHIP", "CAPITAL_SHIP"].includes(unit.unitType) && !mapped.has(unit.id)) {
+        add("SOURCE_SCHEMA", { location: "ship-pilots.json", subject: unit.id, observed: "missing crew mapping", expected: "one explicit mapping per ship, [] for pilotless ships" });
+      }
+    }
+  }
   scanSensitive(source["score-meanings.json"], "score-meanings.json", add);
 }
 
@@ -424,6 +451,7 @@ function auditSource(source, { label = "catalogue/source", readFindings = [] } =
 function stableKeyForRow(file, row) {
   if (!row || typeof row !== "object" || Array.isArray(row)) return null;
   if (file === "units.json" || file === "counters.json") return { id: row.id };
+  if (file === "ship-pilots.json") return { shipId: row.shipId };
   const matchup = /^matchups\/(5v5|3v3|FLEET)\.json$/.exec(file);
   if (matchup) return { mode: matchup[1], defence: row.defence };
   if (file === "defence-teams.json" || file === "defence-compositions.json") return { defence: row.defence, mode: row.mode };

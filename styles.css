@@ -1557,3 +1557,26 @@ body {
     color: var(--jedi-blue);
     cursor: pointer;
 }
+
+/* Usage is a More subview; rankings remain readable without horizontal tables. */
+.usage-help, .usage-warning, .usage-empty {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--muted);
+    margin: 10px 0;
+}
+.usage-warning { color: var(--b-tier); }
+.usage-empty { padding: 12px 0; }
+.usage-tabs { margin: 14px 0; }
+.usage-period { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.usage-ranking { list-style: none; margin: 12px 0 0; padding: 0; }
+.usage-row { display: flex; align-items: center; gap: 10px; padding: 13px 0; border-top: 1px solid #22324a; }
+.usage-rank { flex: 0 0 22px; text-align: center; color: var(--jedi-blue); font-weight: bold; }
+.usage-unit { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.usage-unit strong { font-size: 14px; }
+.usage-unit .usage-help { display: block; margin: 5px 0 0; font-size: 12px; }
+.usage-total { min-width: 30px; font-size: 22px; font-weight: bold; text-align: right; }
+.usage-total span { display: block; font-size: 11px; font-weight: normal; color: var(--muted); }
+.usage-details > summary { min-height: 28px; display: flex; align-items: center; cursor: pointer; color: var(--jedi-blue); font-weight: bold; }
+.usage-file-label { display: block; color: var(--muted); font-size: 13px; margin-top: 12px; }
+.usage-file-label input { display: block; width: 100%; margin-top: 8px; font-size: 12px; }

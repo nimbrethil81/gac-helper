@@ -434,6 +434,7 @@ function restoreSource({ repo, catalogueVersion }) {
   for (const file of Object.keys(FILES)) {
     const bytes = gitFileAt(repo, entry.sourceCommit, `${SOURCE_DIR}/${file}`);
     const target = path.join(repo, SOURCE_DIR, file);
+    if (bytes === null && FILES[file].optionalFile) { fs.rmSync(target, { force: true }); continue; }
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.writeFileSync(target, bytes);
   }
