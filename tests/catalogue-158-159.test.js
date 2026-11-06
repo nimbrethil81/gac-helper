@@ -41,6 +41,13 @@ test('#158 removes exactly its mistaken matchup/composition; #159 changes only i
     assert.equal(payload.counters['3v3'][dr].length, 5);
     assert.equal(new Set(payload.counters['3v3'][dr].map(c => c.counterId)).size, 5);
     assert.deepEqual(payload.counterDefinitions.SLKR_SOLO.required, ['SUPREME_LEADER_KYLO_REN']);
+    const solo = payload.counters['3v3'][dr][4];
+    assert.deepEqual(solo.required, ['SUPREME_LEADER_KYLO_REN']);
+    assert.equal(solo.confidence, 'PROVISIONAL');
+    assert.equal(solo.evidenceKind, 'RELATED');
+    assert.match(solo.notes, /solo-specific.*Malgus \(leader\)/);
+    assert.match(solo.evidenceUrl, /^https:\/\//);
+    for (const field of ['tier','bannerScore','undersize','role']) assert.equal(solo[field], undefined);
     assert.deepEqual(payload.counterDefinitions.SLKR, before.counterDefinitions.SLKR);
 });
 
