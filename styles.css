@@ -1580,3 +1580,8 @@ body {
 .usage-details > summary { min-height: 28px; display: flex; align-items: center; cursor: pointer; color: var(--jedi-blue); font-weight: bold; }
 .usage-file-label { display: block; color: var(--muted); font-size: 13px; margin-top: 12px; }
 .usage-file-label input { display: block; width: 100%; margin-top: 8px; font-size: 12px; }
+
+/* Unscored research options share the existing card/theme styling. */
+.provisional-card { overflow-wrap: anywhere; }
+.provisional-card p { line-height: 1.5; }
+.provisional-card a { color: inherit; text-decoration: underline; }

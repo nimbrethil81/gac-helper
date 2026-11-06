@@ -1,0 +1,244 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/156",
+  "baseline": {
+    "commit": "e7ba65aaaa959364dacdfe93ff2a979c046c258b",
+    "catalogueVersion": 25,
+    "checksum": "sha256:2d22a43338a63b3c2b3e015be7f3c050a37cd8fc5c66580916c0e886f3558601"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-06-156-P03",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Add unscored provisional options for two exact 3v3 defences",
+      "rationale": "Ranked research options from the revised #156 report. Explicit confidence and exact membership; never allocated or scored. Separate content decision required for these complete rows.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/pull/157#issue-6237159979",
+        "decidedAt": "2026-11-06T05:45:45Z",
+        "contentChecksum": "sha256:6f4170e1a8d910a42aba0b3ad28ff35bdbfdb30e95c4c03ff51ca401d847c7f7"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan",
+            "publisher": "SWGOH Counters community reports",
+            "publishedOrObservedAt": "2026-01-16",
+            "accessedAt": "2026-11-06",
+            "supports": "Historical related reports; Darth Revan page includes one exact GAS/Fives/Rex win with both clones lost. See CR-2026-11-06-01 for limits and kit sources."
+          },
+          {
+            "url": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_revan",
+            "publisher": "SWGOH Counters community reports",
+            "publishedOrObservedAt": "2026-01-16",
+            "accessedAt": "2026-11-06",
+            "supports": "Historical related reports; Darth Revan page includes one exact GAS/Fives/Rex win with both clones lost. See CR-2026-11-06-01 for limits and kit sources."
+          },
+          {
+            "url": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+            "publisher": "SWGOH Counters community reports",
+            "publishedOrObservedAt": "2026-01-16",
+            "accessedAt": "2026-11-06",
+            "supports": "Historical related reports; Darth Revan page includes one exact GAS/Fives/Rex win with both clones lost. See CR-2026-11-06-01 for limits and kit sources."
+          }
+        ],
+        "conditions": "3v3; exact first-slot defenders and attacking members specified in rows. Omicron prerequisites and unknown investment/datacrons recorded in notes.",
+        "confidence": "Low: anecdotal or related evidence plus mechanics. No verified rate, tier or banners.",
+        "limitations": "Report update date is not battle date. Selection bias, sample independence, attempts and current season relevance unknown. No automatic recommendation."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "effect": "Add exact identity/composition and provisional-only research options; no assessed counter coverage."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "effect": "Add exact identity/composition and provisional-only research options; no assessed counter coverage."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "effect": "Add exact identity/composition and provisional-only research options; no assessed counter coverage."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "effect": "Add exact identity/composition and provisional-only research options; no assessed counter coverage."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "Separate exact defence keys; provisional research only",
+        "FLEET": "none",
+        "counters": "Visible provisional section with exact membership and evidence; no score",
+        "roundAvailability": "No coverage or allocation; exact roster status on Counters only",
+        "scoring": "none",
+        "strategicReserve": "none; excluded from competition and plans"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"Darth Revan / Darth Malgus / Bastila Shan (Fallen)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Depa Billaba / Jedi Knight Revan / Bastila Shan\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Darth Revan / Darth Malgus / Bastila Shan (Fallen)\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Depa Billaba / Jedi Knight Revan / Bastila Shan\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan",
+            "counters": [
+              {
+                "counterId": "DARTH_REVAN",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "required": [
+                  "DARTH_REVAN",
+                  "BASTILA_SHAN_FALLEN",
+                  "DARTH_MALAK"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional, low confidence: related JKR-led 3v3 report, not this Depa-first defence. Test Fear on Depa and removing JKR; he can save other Jedi but not himself here. Depa heals on debuffs. Opening speed, mods, relics and datacrons unknown. Uses Malak and a Sith Empire core."
+              },
+              {
+                "counterId": "TRAYA",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "required": [
+                  "DARTH_TRAYA",
+                  "DARTH_NIHILUS",
+                  "SAVAGE_OPRESS"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional, low confidence: related JKR/Bastila/JKL report. This proposed test requires Traya and Savage GAC omicrons. Keep Nihilus alive; Savage cannot guarantee protection from JKR mark. Depa healing, timeout and early Nihilus death are risks. Datacrons, mods and relics unknown. Uses Traya/Savage."
+              }
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan",
+            "mode": "3v3",
+            "units": [
+              "DEPA_BILLABA",
+              "JEDI_KNIGHT_REVAN",
+              "BASTILA_SHAN"
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)",
+            "counters": [
+              {
+                "counterId": "GAS",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "SINGLE_REPORT",
+                "required": [
+                  "GENERAL_SKYWALKER",
+                  "CT_5555_FIVES",
+                  "CT_7567_REX"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_revan",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional, low confidence: one exact-lineup report, both clones lost. Not a dependable win or high-banner promise. Test GAS protection and survival through opening burst and the post-clone transition. Battle date, attempt state, omicrons, datacrons, mods and relics unknown. Uses 501st; conserves a GL."
+              },
+              {
+                "counterId": "SEE",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "required": [
+                  "SITH_ETERNAL_EMPEROR",
+                  "WATT_TAMBOR"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional, low confidence: same defending members under Malgus lead only. SEE leader with Wat; third slot intentionally empty. Test shield tech, Link and survival to ultimate under DR Ferocity/speed. Do not inherit Malgus-lead rates or omit his nonleader abilities. Ultimate and Wat bonus-turn upgrade required for this test. Datacrons, defensive omicrons, mods and relics unknown. Uses SEE/Wat; preserves Bane."
+              },
+              {
+                "counterId": "SLKR",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "required": [
+                  "SUPREME_LEADER_KYLO_REN",
+                  "OLD_DAKA",
+                  "NIGHTSISTER_ZOMBIE"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional, low confidence: same members under Malgus lead only. Test Daka/Zombie survival and revive cycle while SLKR scales to ultimate. DR lead, nonleader Malgus abilities and datacrons may disrupt the route. Required support upgrades, mods and relics must be checked before trying. Uses a GL and splits Nightsisters. No inherited win rate."
+              },
+              {
+                "counterId": "JML",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "required": [
+                  "JEDI_MASTER_LUKE",
+                  "HERMIT_YODA",
+                  "JEDI_KNIGHT_LUKE_SKYWALKER"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional reserve alternative, low confidence: mixed related Malgus-led reports, not exact DR-led proof. Check DR speed/control and JKL route before trying. Omicrons, datacrons, mods and relics unknown. Consumes a GL and premium Jedi; lower research priority than the preceding options."
+              }
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)",
+            "mode": "3v3",
+            "units": [
+              "DARTH_REVAN",
+              "DARTH_MALGUS",
+              "BASTILA_SHAN_FALLEN"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -35,6 +35,11 @@ const {
 
 const SOURCE_SCHEMA = 1;
 const RELEASE_CONTRACT = "gac-catalogue-release:v1";
+const PROVISIONAL_RELEASE_CONTRACT = "gac-catalogue-release:v2";
+function releaseContract(payload) {
+  return Object.values(payload.counters ?? {}).some(teams => Object.values(teams).some(rows => rows.some(row => row.confidence !== undefined)))
+    ? PROVISIONAL_RELEASE_CONTRACT : RELEASE_CONTRACT;
+}
 const CHANGE_SET_SCHEMA = 2;
 const CHANGE_SET_CONTRACT = "gac-catalogue-change-set:v1";
 const ABSENT = "ABSENT";
@@ -62,6 +67,7 @@ const MATCHUP_ENTRY = { required: { counterId: "string", tier: "string", bannerS
 // multi-battle plan rather than a one-shot win: SETUP weakens a defence for a
 // later attack, CLEANUP is a conditional win against an already weakened one.
 // It carries no tier, banner score or undersize, so nothing ranks or projects it.
+const MATCHUP_PROVISIONAL_ENTRY = { required: { counterId: "string", confidence: "string", evidenceKind: "string", required: "strings", evidenceUrl: "string", observedAt: "string", notes: "string" } };
 const MATCHUP_TACTIC_ENTRY = { required: { counterId: "string", role: "string", notes: "string" } };
 
 // Field order used when writing rows, so imports and corrections diff cleanly.
@@ -238,7 +244,7 @@ function importFromPayload(payload, scoreMeanings = []) {
   for (const mode of MATCHUP_MODES) {
     source[`matchups/${mode}.json`] = sortRows(`matchups/${mode}.json`, Object.entries(payload.counters[mode] ?? {}).map(([defence, entries]) => ({
       defence,
-      counters: entries.map((entry) => (entry.role !== undefined
+      counters: entries.map((entry) => (entry.confidence !== undefined ? { counterId: entry.counterId, confidence: entry.confidence, evidenceKind: entry.evidenceKind, required: entry.required, evidenceUrl: entry.evidenceUrl, observedAt: entry.observedAt, notes: entry.notes } : entry.role !== undefined
         ? { counterId: entry.counterId, role: entry.role, notes: entry.notes }
         : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
     })));
@@ -326,6 +332,10 @@ function compileSource(source) {
     for (const { defence, counters } of defences) {
       const list = payload.counters[mode][defence] ?? (payload.counters[mode][defence] = []);
       for (const entry of counters ?? []) {
+        if (entry.confidence !== undefined) {
+          list.push({ ...entry, required: Array.isArray(entry.required) ? [...entry.required] : entry.required, counter: counterNames.get(entry.counterId) ?? "" });
+          continue;
+        }
         if (entry.role !== undefined) {
           list.push({ counterId: entry.counterId, counter: counterNames.get(entry.counterId) ?? "", role: entry.role, notes: entry.notes ?? "" });
           continue;
@@ -388,7 +398,7 @@ function validateSource(source, add) {
     rows.forEach((row, index) => {
       const location = `${file} ${spec.array}[${index}]`;
       if (checkRow(row, spec, location, add) && spec.array === "defences") {
-        row.counters.forEach((entry, entryIndex) => checkRow(entry, entry && typeof entry === "object" && "role" in entry ? MATCHUP_TACTIC_ENTRY : MATCHUP_ENTRY, `${location}.counters[${entryIndex}]`, add));
+        row.counters.forEach((entry, entryIndex) => checkRow(entry, entry && typeof entry === "object" && "confidence" in entry ? MATCHUP_PROVISIONAL_ENTRY : entry && typeof entry === "object" && "role" in entry ? MATCHUP_TACTIC_ENTRY : MATCHUP_ENTRY, `${location}.counters[${entryIndex}]`, add));
       }
     });
     if (spec.sortBy) {
@@ -650,6 +660,8 @@ module.exports = {
   CHANGE_SET_SCHEMA,
   FILES,
   IMPORT_BLOCKERS,
+  PROVISIONAL_RELEASE_CONTRACT,
+  releaseContract,
   MATCHUP_MODES,
   MATCHUP_ROLES,
   RELEASE_CONTRACT,

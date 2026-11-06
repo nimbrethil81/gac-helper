@@ -144,6 +144,7 @@ const RULES = Object.freeze({
   BANNER_SCORE_NO_MEANING: ["warning", "No Score_Meanings row exists for this mode and Banner Score."],
   UNDERSIZE_NONNUMERIC: ["warning", "Undersize is blank or non-numeric and is read as 0."],
   UNDERSIZE_INVALID: ["blocking", "Undersize is fractional, negative or larger than the format allows."],
+  MATCHUP_PROVISIONAL_INVALID: ["blocking", "A provisional option needs valid evidence, exact attacking membership and no scoring or tactical role."],
   MATCHUP_ROLE_INVALID: ["blocking", "A tactical matchup's role is not exactly SETUP or CLEANUP."],
   MATCHUP_ROLE_SCORED: ["blocking", "A SETUP/CLEANUP matchup carries a tier, banner score or undersize; tactical steps are never ranked or projected as wins."],
   MATCHUP_ROLE_NOTES_BLANK: ["blocking", "A SETUP/CLEANUP matchup has no notes stating its purpose and conditions."],
@@ -802,6 +803,11 @@ function modelFromPayload(payload, add) {
           defence,
           counterId: entry?.counterId,
           counterName: entry?.counter,
+          confidence: entry?.confidence,
+          evidenceKind: entry?.evidenceKind,
+          required: entry?.required,
+          evidenceUrl: entry?.evidenceUrl,
+          observedAt: entry?.observedAt,
           role: entry?.role,
           tier: entry?.tier,
           bannerScore: entry?.bannerScore,
@@ -1013,6 +1019,20 @@ function checkMatchups(model, add, units, scoreMeanings) {
       add("DERIVED_VALUE_MISMATCH", { ...context, observed: jsonValue(matchup.counterName), expected: JSON.stringify(trimmed(definition.name)), effect: "Counter card shows a name that disagrees with Counter_Definitions" });
     } else if (definition && model.sourceKind === "payload" && str(matchup.counterName) !== str(definition.name)) {
       add("DERIVED_VALUE_MISMATCH", { ...context, observed: jsonValue(matchup.counterName), expected: JSON.stringify(definition.name), effect: "Counter card name disagrees with counterDefinitions" });
+    }
+
+    if (matchup.confidence !== undefined) {
+      const members = matchup.required;
+      let url;
+      try { url = new URL(matchup.evidenceUrl); } catch {}
+      const validMembers = Array.isArray(members) && members.length > 0 && members.length <= UNIT_COUNT[mode] && new Set(members).size === members.length && members.every(id => units.has(id) && (mode === "FLEET" ? SHIP_TYPES.includes(units.get(id).unitType) : units.get(id).unitType === "CHARACTER"));
+      const core = model.members.filter(m => m.counterId === counterId && m.role === "REQUIRED").map(m => m.unitId);
+      const validDate = /^\d{4}-\d{2}-\d{2}$/.test(matchup.observedAt ?? "") && Number.isFinite(Date.parse(matchup.observedAt)) && new Date(matchup.observedAt).toISOString().slice(0, 10) === matchup.observedAt;
+      if (!["3v3", "5v5"].includes(mode) || matchup.confidence !== "PROVISIONAL" || !["RELATED", "SINGLE_REPORT"].includes(matchup.evidenceKind) || !validMembers || !core.every(id => members?.includes(id)) || members?.[0] !== core[0] || !url || url.protocol !== "https:" || url.username || url.password || !validDate || isBlank(matchup.notes) || ["tier", "bannerScore", "undersize", "role"].some(field => matchup[field] !== undefined)) {
+        add("MATCHUP_PROVISIONAL_INVALID", { ...context, observed: "invalid provisional option", expected: "PROVISIONAL, RELATED or SINGLE_REPORT, exact core-inclusive members, HTTPS evidence, observation date, conditions, no score/role", effect: "Cannot safely show an unscored research option" });
+      }
+      checkMatchupUnitTypes(matchup, mode, counterId, types, add, context);
+      continue;
     }
 
     if (matchup.role !== undefined) {

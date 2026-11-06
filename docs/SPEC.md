@@ -173,6 +173,10 @@ Tier is the only reliability field. Manual-play effort is not part of Tier (see 
 
 A counter's display name is never authored on a matchup: the compiler resolves it from `counters.json`. Every referenced counter must exist in `counters.json`. A squad matchup may reference only character counters, and a `FLEET` matchup only ship counters. The release gate rejects anything else.
 
+**Provisional options.** A squad matchup can carry an unscored `PROVISIONAL` research option with evidence kind (related evidence or one reported battle), an HTTPS source, observation date, conditions in notes and an ordered exact attacking membership (leader first). These options appear only in a separate Counters section labelled “Provisional options — not included in plans”, with no tier, expected banners or undersize claim. Ownership, used-unit and defence commitment display checks every required member rather than only the counter's global core. The cards are research disclosures, with no Mark Used action. They never enter Round coverage/allocation, resource competition, Next Up, My Board suggestions or Last Battle inputs. Existing note-qualified, scored provisional rows retain their approved behaviour; they are not automatically converted.
+
+A catalogue containing these entries uses `gac-catalogue-release:v2` in the pointer, manifest, release metadata and current cache envelope's `sourceContract`. Its seven payload keys and checksum algorithm are unchanged. The client accepts both release contracts, verifies the contract against the payload and checks provisional shape before accepting a download/cache. Pre-v2 clients reject the v2 pointer and cache and retain a valid older catalogue if available. Catalogues without these entries remain v1, including historical releases and rollback artifacts.
+
 **Counters** (`counters.json`) — the identity and membership registry for counter teams. Each row holds:
 - the stable `Counter_ID`;
 - the display name;

@@ -24,7 +24,7 @@ const { execFileSync } = require("node:child_process");
 
 const { REQUIRED_PAYLOAD_KEYS, sha256, sortJson } = require("./baseline-lib.js");
 const { auditPayload, payloadChecksum } = require("./catalogue-audit-lib.js");
-const { FILES, RELEASE_CONTRACT, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
+const { FILES, RELEASE_CONTRACT, PROVISIONAL_RELEASE_CONTRACT, releaseContract, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
 
 // The live Pages allow-list for the app shell (moved here from the workflow).
 const PAGES_APP_FILES = Object.freeze([
@@ -121,7 +121,7 @@ function releasePath(catalogueVersion, checksum) {
 function renderRelease(payload, catalogueVersion) {
   const checksum = payloadChecksum(payload);
   const document = {
-    release: { contract: RELEASE_CONTRACT, sourceSchema: SOURCE_SCHEMA, catalogueVersion, checksum },
+    release: { contract: releaseContract(payload), sourceSchema: SOURCE_SCHEMA, catalogueVersion, checksum },
     ...Object.fromEntries(REQUIRED_PAYLOAD_KEYS.map((key) => [key, payload[key]]))
   };
   const text = `${JSON.stringify(sortJson(document))}\n`;
@@ -143,7 +143,7 @@ function verifyReleaseText(text, expected = {}) {
   const wanted = [...REQUIRED_PAYLOAD_KEYS, "release"].sort();
   if (keys.join() !== wanted.join()) throw new Error(`release keys differ: ${keys.join(", ")}`);
   const meta = document.release;
-  if (meta?.contract !== RELEASE_CONTRACT) throw new Error(`release contract ${JSON.stringify(meta?.contract)} is not ${RELEASE_CONTRACT}`);
+  if (meta?.contract !== releaseContract(document)) throw new Error(`release contract ${JSON.stringify(meta?.contract)} is not ${RELEASE_CONTRACT}`);
   if (meta.sourceSchema !== SOURCE_SCHEMA) throw new Error(`release sourceSchema ${JSON.stringify(meta.sourceSchema)} is not ${SOURCE_SCHEMA}`);
   if (Object.keys(meta).sort().join() !== "catalogueVersion,checksum,contract,sourceSchema") throw new Error("release metadata has unexpected keys");
   const checksum = payloadChecksum(document);
@@ -254,7 +254,7 @@ function buildSite({ repo, out, budget = BUDGET, retain = RETAINED_RELEASES }) {
 
   const pointer = {
     pointerSchema: POINTER_SCHEMA,
-    contract: RELEASE_CONTRACT,
+    contract: releaseContract(report.payload),
     catalogueVersion: current.catalogueVersion,
     checksum: current.checksum,
     path: current.path,
@@ -262,7 +262,7 @@ function buildSite({ repo, out, budget = BUDGET, retain = RETAINED_RELEASES }) {
   };
   const manifest = {
     manifestSchema: MANIFEST_SCHEMA,
-    contract: RELEASE_CONTRACT,
+    contract: releaseContract(report.payload),
     deployedCommit: head,
     current: { catalogueVersion: current.catalogueVersion, checksum: current.checksum, path: current.path },
     releases: retained.map(({ catalogueVersion, checksum, path: file, bytes, sha256: digest, sourceCommit }) => ({ catalogueVersion, checksum, path: file, bytes, sha256: digest, sourceCommit }))
@@ -288,8 +288,8 @@ function verifySite(out, { budget = BUDGET } = {}) {
   const read = (relative) => fs.readFileSync(path.join(out, relative));
   const manifest = JSON.parse(read(MANIFEST_PATH).toString("utf8"));
   const pointer = JSON.parse(read(POINTER_PATH).toString("utf8"));
-  if (manifest.manifestSchema !== MANIFEST_SCHEMA || manifest.contract !== RELEASE_CONTRACT || !COMMIT.test(manifest.deployedCommit ?? "")) throw new Error("manifest.json has an unexpected shape");
-  if (pointer.pointerSchema !== POINTER_SCHEMA || pointer.contract !== RELEASE_CONTRACT) throw new Error("current.json has an unexpected shape");
+  if (manifest.manifestSchema !== MANIFEST_SCHEMA || ![RELEASE_CONTRACT, PROVISIONAL_RELEASE_CONTRACT].includes(manifest.contract) || !COMMIT.test(manifest.deployedCommit ?? "")) throw new Error("manifest.json has an unexpected shape");
+  if (pointer.pointerSchema !== POINTER_SCHEMA || pointer.contract !== manifest.contract) throw new Error("current.json has an unexpected shape");
   if (Object.keys(pointer).sort().join() !== "bytes,catalogueVersion,checksum,contract,path,pointerSchema") throw new Error("current.json has unexpected keys");
 
   const expected = [...PAGES_APP_FILES, POINTER_PATH, MANIFEST_PATH, ...manifest.releases.map((release) => `catalogue/${release.path}`)].sort();
@@ -311,6 +311,7 @@ function verifySite(out, { budget = BUDGET } = {}) {
     if (bytes.length > budget.releaseBytes) throw new Error(`catalogue/${entry.path} is ${bytes.length} bytes, over the ${budget.releaseBytes}-byte budget`);
   }
   const top = manifest.releases[0];
+  if (top && verifyReleaseText(read(`catalogue/${top.path}`).toString("utf8")).release.contract !== pointer.contract) throw new Error("current.json contract does not match its release");
   if (!top || Math.max(...versions) !== top.catalogueVersion || manifest.current.path !== top.path) throw new Error("manifest current release is not the highest version");
   if (pointer.catalogueVersion !== top.catalogueVersion || pointer.checksum !== top.checksum || pointer.path !== top.path || pointer.bytes !== top.bytes) {
     throw new Error("current.json does not name the current release exactly");

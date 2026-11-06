@@ -9,6 +9,12 @@ const CATALOGUE_POINTER_URL = "catalogue/current.json";
 const CATALOGUE_BASE_URL = "catalogue/";
 const CATALOGUE_POINTER_SCHEMA = 1;
 const CATALOGUE_RELEASE_CONTRACT = "gac-catalogue-release:v1";
+const PROVISIONAL_RELEASE_CONTRACT = "gac-catalogue-release:v2";
+const SUPPORTED_CATALOGUE_CONTRACTS = [CATALOGUE_RELEASE_CONTRACT, PROVISIONAL_RELEASE_CONTRACT];
+function catalogueContract(data) {
+    return Object.values(data.counters || {}).some(teams => Object.values(teams).some(rows => rows.some(row => row.confidence !== undefined)))
+        ? PROVISIONAL_RELEASE_CONTRACT : CATALOGUE_RELEASE_CONTRACT;
+}
 const CATALOGUE_POINTER_TIMEOUT_MS = 10000;
 const CATALOGUE_RELEASE_TIMEOUT_MS = 30000;
 const CATALOGUE_PAYLOAD_KEYS = ["counters", "counterDefinitions", "characterDefinitions", "boardConfig", "scoring", "defenceTeams", "defenceCompositions"];
@@ -2604,7 +2610,7 @@ function isTacticalEntry(c) {
 }
 
 function oneShotCounters(list) {
-    return (list || []).filter(c => !isTacticalEntry(c));
+    return (list || []).filter(c => !isTacticalEntry(c) && c.confidence === undefined);
 }
 
 function tacticalEntries(list) {
@@ -3120,7 +3126,9 @@ function buildReasons(eligible, assign, reserveActive) {
             if (all.length === 0) {
                 reason = tacticalEntries(listed).length
                     ? "No one-shot counters in the catalogue for this team; see Counters for multi-battle options."
-                    : "No counters in the catalogue for this team yet.";
+                    : listed.some(c => c.confidence === "PROVISIONAL")
+                        ? "No assessed one-shot counters for this team. Provisional options are listed in Counters and excluded from plans."
+                        : "No counters in the catalogue for this team yet.";
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
                 // v3.2: distinguish "you sent them all" from "a unit they need went
                 // out with something else" — the second is not obvious from the board.
@@ -3739,7 +3747,21 @@ function isValidCataloguePayload(data) {
         isPlainObject(data.boardConfig) &&
         Array.isArray(data.scoring) &&
         isPlainObject(data.defenceTeams) &&
-        isPlainObject(data.defenceCompositions);
+        isPlainObject(data.defenceCompositions) &&
+        Object.entries(data.counters).every(([mode, teams]) => isPlainObject(teams) && Object.values(teams).every(rows => Array.isArray(rows) && rows.every(row => {
+            if (!isPlainObject(row)) return false;
+            if (row.confidence === undefined) return true;
+            let url;
+            try { url = new URL(row.evidenceUrl); } catch { return false; }
+            return ["3v3", "5v5"].includes(mode) && row.confidence === "PROVISIONAL" && ["RELATED", "SINGLE_REPORT"].includes(row.evidenceKind) &&
+                ["tier", "bannerScore", "undersize", "role"].every(key => row[key] === undefined) &&
+                Array.isArray(row.required) && row.required.length > 0 && row.required.length <= (mode === "3v3" ? 3 : 5) &&
+                new Set(row.required).size === row.required.length && row.required.every(id => data.characterDefinitions[id]?.unitType === "CHARACTER") &&
+                data.counterDefinitions[row.counterId] && Array.isArray(data.counterDefinitions[row.counterId].required) && row.required[0] === data.counterDefinitions[row.counterId].required[0] && data.counterDefinitions[row.counterId].required.every(id => row.required.includes(id)) &&
+                typeof row.notes === "string" && row.notes.trim() && /^\d{4}-\d{2}-\d{2}$/.test(row.observedAt || "") &&
+                Number.isFinite(Date.parse(row.observedAt)) && new Date(row.observedAt).toISOString().slice(0, 10) === row.observedAt &&
+                url.protocol === "https:" && !url.username && !url.password;
+        })));
 }
 
 function readCatalogueEntry(key, schema, sourceContract) {
@@ -3753,7 +3775,8 @@ function readCatalogueEntry(key, schema, sourceContract) {
     if (!cached || cached.schema !== schema ||
         cached.sourceContract !== sourceContract ||
         !Number.isFinite(Date.parse(cached.acceptedAt)) ||
-        !isValidCataloguePayload(cached.payload)) {
+        !isValidCataloguePayload(cached.payload) ||
+        (key === CATALOGUE_CACHE_KEY && catalogueContract(cached.payload) !== sourceContract)) {
         return null;
     }
     return cached;
@@ -3762,7 +3785,7 @@ function readCatalogueEntry(key, schema, sourceContract) {
 // The validated v2 cache first, then a pre-cutover v1 cache (same seven-key
 // payload) so an upgrading user keeps their offline catalogue.
 function readCatalogueCache() {
-    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, CATALOGUE_RELEASE_CONTRACT);
+    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, PROVISIONAL_RELEASE_CONTRACT) || readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, CATALOGUE_RELEASE_CONTRACT);
     if (current && CATALOGUE_CHECKSUM_PATTERN.test(current.checksum) &&
         Number.isSafeInteger(current.catalogueVersion) && current.catalogueVersion > 0) {
         return current;
@@ -3773,7 +3796,7 @@ function readCatalogueCache() {
 function writeCatalogueCache(release) {
     const text = JSON.stringify({
         schema: CATALOGUE_CACHE_SCHEMA,
-        sourceContract: CATALOGUE_RELEASE_CONTRACT,
+        sourceContract: catalogueContract(release.payload),
         acceptedAt: new Date().toISOString(),
         catalogueVersion: release.catalogueVersion,
         checksum: release.checksum,
@@ -3823,7 +3846,7 @@ async function catalogueChecksum(payload) {
 function parseCataloguePointer(pointer) {
     if (!isPlainObject(pointer) ||
         pointer.pointerSchema !== CATALOGUE_POINTER_SCHEMA ||
-        pointer.contract !== CATALOGUE_RELEASE_CONTRACT ||
+        !SUPPORTED_CATALOGUE_CONTRACTS.includes(pointer.contract) ||
         !Number.isSafeInteger(pointer.catalogueVersion) || pointer.catalogueVersion < 1 ||
         typeof pointer.checksum !== "string" || !CATALOGUE_CHECKSUM_PATTERN.test(pointer.checksum) ||
         !Number.isSafeInteger(pointer.bytes) || pointer.bytes < 1) {
@@ -3855,12 +3878,12 @@ async function fetchCatalogueRelease(pointer) {
     if (new TextEncoder().encode(text).length !== pointer.bytes) throw new Error("Catalogue release is incomplete");
     const releaseFile = JSON.parse(text);
     const meta = isPlainObject(releaseFile) ? releaseFile.release : null;
-    if (!isPlainObject(meta) || meta.contract !== CATALOGUE_RELEASE_CONTRACT || meta.checksum !== pointer.checksum) {
+    if (!isPlainObject(meta) || meta.contract !== pointer.contract || meta.checksum !== pointer.checksum) {
         throw new Error("Catalogue release does not match its pointer");
     }
     const payload = {};
     CATALOGUE_PAYLOAD_KEYS.forEach(key => { payload[key] = releaseFile[key]; });
-    if (!isValidCataloguePayload(payload)) throw new Error("Catalogue release is malformed");
+    if (!isValidCataloguePayload(payload) || catalogueContract(payload) !== pointer.contract) throw new Error("Catalogue release is malformed");
     if (await catalogueChecksum(payload) !== pointer.checksum) throw new Error("Catalogue release checksum mismatch");
     return { catalogueVersion: pointer.catalogueVersion, checksum: pointer.checksum, payload };
 }
@@ -4803,6 +4826,29 @@ function resetRound() {
 
 // ─── COUNTER CARD ─────────────────────────────────────────────────────────────
 
+// Provisional rows are unscored research options. Their exact membership is
+// local to this matchup and must never change a global core definition.
+function provisionalStatus(option) {
+    if (!option.required.every(id => ownedCharacters.includes(id))) return "not-owned";
+    if (usedTeams.includes(option.counterId)) return "used";
+    if (option.required.some(isCharacterOnDefence)) return "on-defence";
+    if (option.required.some(id => spentCharacters().has(id))) return "spent";
+    return "available";
+}
+
+function buildProvisionalCardHtml(option) {
+    const status = provisionalStatus(option);
+    const label = option.evidenceKind === "SINGLE_REPORT" ? "one reported battle" : "related evidence";
+    const statusLabel = { "not-owned": "Not owned", used: "Used", "on-defence": "On defence", spent: "Unavailable", available: "Available" }[status];
+    return `<div class="counter-card provisional-card ${status === "available" ? "" : "used"}">
+        <div class="card-header"><div class="team-name">${escapeHtml(option.counter)}</div><span>${statusLabel}</span></div>
+        <p><strong>Provisional — ${label}</strong></p>
+        <p>${option.required.map((id, i) => escapeHtml(getCharacterName(id)) + (i === 0 ? " (leader)" : "") + (characterAvailabilityNote(id) ? ` — ${escapeHtml(characterAvailabilityNote(id))}` : "")).join(" / ")}</p>
+        <p>${escapeHtml(option.notes)}</p>
+        <p><a href="${escapeHtml(option.evidenceUrl)}" target="_blank" rel="noopener noreferrer">Evidence</a> · Observed ${escapeHtml(option.observedAt)}</p>
+    </div>`;
+}
+
 function buildCounterCardHtml(counter) {
     const status = getCounterStatus(counter.counterId);
     const ownership = getOwnership(counter.counterId);
@@ -4936,6 +4982,8 @@ function showCounters() {
                                    : getCounterStatus(c.counterId) === "available");
     const filtered = allCounters.filter(keep);
     const tactics = tacticalEntries(listed).filter(keep);
+    const provisional = listed.filter(c => c.confidence === "PROVISIONAL").filter(c =>
+        counterFilter === "all" || (counterFilter === "owned" ? provisionalStatus(c) !== "not-owned" : provisionalStatus(c) === "available"));
 
     let html;
     if (filtered.length) {
@@ -4957,6 +5005,11 @@ function showCounters() {
                 : "<p class='empty-state'>You've used all your counters for this team.</p>";
     }
 
+    if (provisional.length) {
+        html += `<section class="tactics-section"><h3 class="tactics-heading">Provisional options — not included in plans</h3>
+            <p class="tactics-intro">Uncertain research options, not dependable recommendations. No tier or banner estimate. Check the exact lineup and conditions before trying.</p>
+            ${provisional.map(buildProvisionalCardHtml).join("")}</section>`;
+    }
     if (tactics.length) {
         html += `
 <div class="tactics-section">
