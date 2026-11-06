@@ -1,0 +1,334 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/159",
+  "baseline": {
+    "commit": "251ccb342c1f4329708b145afb8ebcaf9cae73e6",
+    "catalogueVersion": 26,
+    "checksum": "sha256:036f4f986b949dff01715ec3ac0764ad37487021b1e8274a2b10214c0e92fa99"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-06-158-P01",
+      "status": "APPROVED",
+      "disposition": "RETIRE",
+      "title": "Remove mistaken Depa-first 3v3 placeholder only",
+      "rationale": "Owner correction in #158 identifies the encountered team as Satele, not Depa. Remove exactly the #156 matchup and composition; preserve Satele, all units and the separate Revan defence.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/158#issue-6238444799",
+        "decidedAt": "2026-11-06T07:11:45Z",
+        "contentChecksum": "sha256:9ba9720dff4498852b929c726b643d724d37460c5d08371963ec5ab3bbfc6aff"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/158#issue-6238444799",
+            "publisher": "Owner issue #158",
+            "publishedOrObservedAt": "2026-11-06",
+            "accessedAt": "2026-11-06",
+            "supports": "Explicit mistaken identity correction and scoped removal request."
+          }
+        ],
+        "conditions": "3v3 exact mistaken first-slot Depa/JKR/Bastila only. Satele remains unchanged.",
+        "confidence": "High: explicit owner identification correction and exact #156 provenance.",
+        "limitations": "Saved boards retain historical identities as saved/not in catalogue; no persisted-state rewriting."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "effect": "Remove exact mistaken entry only"
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "effect": "Remove exact mistaken entry only"
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "Remove mistaken Depa-first 3v3 placeholder only",
+        "FLEET": "none",
+        "counters": "Exact-key picker/research entries only",
+        "roundAvailability": "No provisional allocation; exact required-character status only",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"Depa Billaba / Jedi Knight Revan / Bastila Shan\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Depa Billaba / Jedi Knight Revan / Bastila Shan\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "before": {
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan",
+            "counters": [
+              {
+                "required": [
+                  "DARTH_REVAN",
+                  "BASTILA_SHAN_FALLEN",
+                  "DARTH_MALAK"
+                ],
+                "counterId": "DARTH_REVAN",
+                "notes": "Provisional, low confidence: related JKR-led 3v3 report, not this Depa-first defence. Test Fear on Depa and removing JKR; he can save other Jedi but not himself here. Depa heals on debuffs. Opening speed, mods, relics and datacrons unknown. Uses Malak and a Sith Empire core.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "DARTH_TRAYA",
+                  "DARTH_NIHILUS",
+                  "SAVAGE_OPRESS"
+                ],
+                "counterId": "TRAYA",
+                "notes": "Provisional, low confidence: related JKR/Bastila/JKL report. This proposed test requires Traya and Savage GAC omicrons. Keep Nihilus alive; Savage cannot guarantee protection from JKR mark. Depa healing, timeout and early Nihilus death are risks. Datacrons, mods and relics unknown. Uses Traya/Savage.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan",
+                "observedAt": "2026-11-06"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan"
+          },
+          "before": {
+            "defence": "Depa Billaba / Jedi Knight Revan / Bastila Shan",
+            "mode": "3v3",
+            "units": [
+              "DEPA_BILLABA",
+              "JEDI_KNIGHT_REVAN",
+              "BASTILA_SHAN"
+            ]
+          },
+          "after": "REMOVE"
+        }
+      ]
+    },
+    {
+      "id": "CR-2026-11-06-159-P01",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Add distinct unscored SLKR solo while retaining the existing four Revan options",
+      "rationale": "Solo-specific related 3v3 reports pass the approved evidence gate; add distinct SLKR_SOLO without altering the four existing entries or their order.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/159#issue-6238577294",
+        "decidedAt": "2026-11-06T07:22:32Z",
+        "contentChecksum": "sha256:e4d3a2e742be4a153b02c29a3250ca0c372250d7086177d674ccf4f463604bad"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+            "publisher": "SWGOH Counters community reports",
+            "publishedOrObservedAt": "2026-01-16",
+            "accessedAt": "2026-11-06",
+            "supports": "Solo SLKR row versus Malgus (leader), Fallen Bastila and Darth Revan (lines 249-252), with four positive reports. Historical related evidence, not a current representative rate or DR-led proof."
+          }
+        ],
+        "conditions": "3v3 exact target Revan-led Malgus/Fallen Bastila; solo-related evidence uses Malgus lead. No support-unit evidence reused.",
+        "confidence": "Low: historical self-selected solo reports; no exact DR-led or current-season corroboration.",
+        "limitations": "Unknown battle dates, independence, attempts, omicrons/datacrons and investment; no rates, tiers, scores or guaranteed wins. Live Pages pointer/manifest inaccessible (403), deployment parity unverified."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "effect": "Add solo variant; existing entries unchanged"
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "SLKR_SOLO"
+          },
+          "effect": "Add solo variant; existing entries unchanged"
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "Add distinct unscored SLKR solo while retaining the existing four Revan options",
+        "FLEET": "none",
+        "counters": "Exact-key picker/research entries only",
+        "roundAvailability": "No provisional allocation; exact required-character status only",
+        "scoring": "none",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"SLKR_SOLO\"]",
+        "payload[\"counters\"][\"3v3\"][\"Darth Revan / Darth Malgus / Bastila Shan (Fallen)\"][4]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "before": {
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)",
+            "counters": [
+              {
+                "required": [
+                  "GENERAL_SKYWALKER",
+                  "CT_5555_FIVES",
+                  "CT_7567_REX"
+                ],
+                "counterId": "GAS",
+                "notes": "Provisional, low confidence: one exact-lineup report, both clones lost. Not a dependable win or high-banner promise. Test GAS protection and survival through opening burst and the post-clone transition. Battle date, attempt state, omicrons, datacrons, mods and relics unknown. Uses 501st; conserves a GL.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "SINGLE_REPORT",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_revan",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SITH_ETERNAL_EMPEROR",
+                  "WATT_TAMBOR"
+                ],
+                "counterId": "SEE",
+                "notes": "Provisional, low confidence: same defending members under Malgus lead only. SEE leader with Wat; third slot intentionally empty. Test shield tech, Link and survival to ultimate under DR Ferocity/speed. Do not inherit Malgus-lead rates or omit his nonleader abilities. Ultimate and Wat bonus-turn upgrade required for this test. Datacrons, defensive omicrons, mods and relics unknown. Uses SEE/Wat; preserves Bane.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SUPREME_LEADER_KYLO_REN",
+                  "OLD_DAKA",
+                  "NIGHTSISTER_ZOMBIE"
+                ],
+                "counterId": "SLKR",
+                "notes": "Provisional, low confidence: same members under Malgus lead only. Test Daka/Zombie survival and revive cycle while SLKR scales to ultimate. DR lead, nonleader Malgus abilities and datacrons may disrupt the route. Required support upgrades, mods and relics must be checked before trying. Uses a GL and splits Nightsisters. No inherited win rate.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "JEDI_MASTER_LUKE",
+                  "HERMIT_YODA",
+                  "JEDI_KNIGHT_LUKE_SKYWALKER"
+                ],
+                "counterId": "JML",
+                "notes": "Provisional reserve alternative, low confidence: mixed related Malgus-led reports, not exact DR-led proof. Check DR speed/control and JKL route before trying. Omicrons, datacrons, mods and relics unknown. Consumes a GL and premium Jedi; lower research priority than the preceding options.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)",
+            "counters": [
+              {
+                "required": [
+                  "GENERAL_SKYWALKER",
+                  "CT_5555_FIVES",
+                  "CT_7567_REX"
+                ],
+                "counterId": "GAS",
+                "notes": "Provisional, low confidence: one exact-lineup report, both clones lost. Not a dependable win or high-banner promise. Test GAS protection and survival through opening burst and the post-clone transition. Battle date, attempt state, omicrons, datacrons, mods and relics unknown. Uses 501st; conserves a GL.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "SINGLE_REPORT",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_revan",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SITH_ETERNAL_EMPEROR",
+                  "WATT_TAMBOR"
+                ],
+                "counterId": "SEE",
+                "notes": "Provisional, low confidence: same defending members under Malgus lead only. SEE leader with Wat; third slot intentionally empty. Test shield tech, Link and survival to ultimate under DR Ferocity/speed. Do not inherit Malgus-lead rates or omit his nonleader abilities. Ultimate and Wat bonus-turn upgrade required for this test. Datacrons, defensive omicrons, mods and relics unknown. Uses SEE/Wat; preserves Bane.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SUPREME_LEADER_KYLO_REN",
+                  "OLD_DAKA",
+                  "NIGHTSISTER_ZOMBIE"
+                ],
+                "counterId": "SLKR",
+                "notes": "Provisional, low confidence: same members under Malgus lead only. Test Daka/Zombie survival and revive cycle while SLKR scales to ultimate. DR lead, nonleader Malgus abilities and datacrons may disrupt the route. Required support upgrades, mods and relics must be checked before trying. Uses a GL and splits Nightsisters. No inherited win rate.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "JEDI_MASTER_LUKE",
+                  "HERMIT_YODA",
+                  "JEDI_KNIGHT_LUKE_SKYWALKER"
+                ],
+                "counterId": "JML",
+                "notes": "Provisional reserve alternative, low confidence: mixed related Malgus-led reports, not exact DR-led proof. Check DR speed/control and JKL route before trying. Omicrons, datacrons, mods and relics unknown. Consumes a GL and premium Jedi; lower research priority than the preceding options.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "counterId": "SLKR_SOLO",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "required": [
+                  "SUPREME_LEADER_KYLO_REN"
+                ],
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06",
+                "notes": "Provisional, low confidence: solo-specific related 3v3 reports against Malgus (leader) / Bastila Shan (Fallen) / Darth Revan; not exact DR-led proof. Source updated 2026-01-16; battle dates and attempt state unknown. DR Ferocity/speed replaces Malgus leadership; Malgus nonleader taunt/unique and applicable omicrons still matter. Test SLKR survival and scaling to ultimate without support. Datacrons, GAC omicrons, relics and mods unknown. Consumes a GL but preserves Daka/Zombie and Wat. No dependable win, rate or banner claim."
+              }
+            ]
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "SLKR_SOLO"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "SLKR_SOLO",
+            "name": "SLKR solo",
+            "required": [
+              "SUPREME_LEADER_KYLO_REN"
+            ],
+            "recommended": []
+          }
+        }
+      ]
+    }
+  ]
+}
