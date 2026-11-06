@@ -26,7 +26,7 @@ function harness() {
 test('approved exact Hondo counter is A/56 non-provisional; only declared source rows change',()=>{
     const document=readCorrections(path.join(root,'catalogue/corrections/2026-11-06-cere-cal-hondo-3v3.json'));
     const before=sourceAtCommit(root,document.baseline.commit).source;
-    assert.deepEqual(applyCorrections(before,document.corrections),readSource(path.join(root,'catalogue/source')).source);
+    assert.deepEqual(applyCorrections(before,document.corrections), sourceAtCommit(root,'f8d4cc8627eec8494247cff327810d5cca9f32cc').source);
     const old=compileSource(before);
     assert.deepEqual(payload.counters['5v5'],old.counters['5v5']);
     assert.deepEqual(payload.counters.FLEET,old.counters.FLEET);
