@@ -167,3 +167,67 @@ test('malformed provisional downloads/caches fail closed without throwing', () =
         assert.equal(h.run('isValidCataloguePayload(bad)'), false);
     }
 });
+
+
+test('Round disclosure appends all provisional options beneath assessed and no-assessed content, without actions or persistence', () => {
+    const h = harness();
+    h.run(`board = createRoundBoard('KYBER', '3v3', [{territory:'FRONT_TOP',type:'SQUAD',teamCount:1}], 'opponent','round','now'); board.teams[0].name = ${JSON.stringify(defence)}; roundPlan = computeRoundPlan();`);
+    const render = () => h.run(`renderTeamRecommendation('opponent', 'FRONT_TOP', board.teams[0], '3v3')`);
+    const before = JSON.stringify([...h.values]);
+    const html = render();
+    assert.match(html, /No assessed one-shot/);
+    assert.match(html, /Provisional counters \(1\)/);
+    assert.match(html, /Manual consideration only — excluded from battle plans/);
+    assert.match(html, /aria-expanded="false"/);
+    assert.doesNotMatch(html, /<details[^>]* open|Mark used|Used \+|tier-badge|banners/);
+    assert.equal(render(), html, 're-render is collapsed and does not duplicate content');
+    assert.equal(JSON.stringify([...h.values]), before);
+    h.run(`roundPlan.reasons['FRONT_TOP:0'].counter = { counterId:'DARTH_REVAN', counter:'Assessed option', tier:'A', bannerScore:53 };`);
+    const mixed = render();
+    assert.ok(mixed.indexOf('Used + Cleared') < mixed.indexOf('Provisional counters'));
+    assert.equal((mixed.match(/round-provisional/g) || []).length, 1);
+    for (const side of ['my']) assert.equal(h.run(`renderTeamRecommendation('${side}', 'FRONT_TOP', board.teams[0], '3v3')`), '');
+    for (const team of [{name:defence,cleared:true},{name:''},{name:'Not in catalogue'}]) {
+        assert.equal(h.run(`renderRoundProvisional(${JSON.stringify(team)}, '3v3')`), '');
+    }
+    h.run(`gacData['5v5'][${JSON.stringify(defence)}] = gacData['3v3'][${JSON.stringify(defence)}];`);
+    assert.match(h.run(`renderRoundProvisional(board.teams[0], '5v5')`), /Provisional counters/);
+});
+
+test('Round provisional availability distinguishes unknown, missing, used, defence and shared spent units', () => {
+    const h = harness();
+    const render = () => h.run(`renderRoundProvisional({name:${JSON.stringify(defence)}}, '3v3')`);
+    h.run('ownedCharacters = [];');
+    assert.match(render(), /Roster not loaded — availability unknown/);
+    assert.doesNotMatch(render(), /Not owned/);
+    h.run(`rosterMeta.savedAt = 'now';`);
+    assert.match(render(), /Not owned/);
+    h.run(`ownedCharacters = ${JSON.stringify(entry.required)};`);
+    assert.match(render(), /Available/);
+    h.run(`usedTeams = ['DARTH_REVAN'];`);
+    assert.match(render(), />Used</);
+    h.run(`usedTeams = ['VARIANT']; counterDefinitions.VARIANT = {required:['DARTH_MALAK'],recommended:[]};`);
+    assert.match(render(), /Unavailable/);
+    assert.doesNotMatch(render(), />Available</);
+    h.run(`usedTeams = []; isCharacterOnDefence = id => id === 'DARTH_MALAK';`);
+    assert.match(render(), /On defence/);
+});
+
+test('Round reflects current published Darth Revan entries in catalogue order', () => {
+    const payload = compileSource(readSource(path.join(root, 'catalogue/source')).source);
+    const h = harness(payload);
+    const name = Object.keys(payload.counters['3v3']).find(n => n.startsWith('Darth Revan /'));
+    const options = payload.counters['3v3'][name].filter(c => c.confidence === 'PROVISIONAL');
+    h.run(`ownedCharacters = ${JSON.stringify([...new Set(options.flatMap(c => c.required))])};`);
+    const html = h.run(`renderRoundProvisional({name:${JSON.stringify(name)}}, '3v3')`);
+    assert.ok(html.includes(`Provisional counters (${options.length})`));
+    let previous = -1;
+    for (const option of options) {
+        const at = html.indexOf(`>${option.counter}</div>`, previous + 1);
+        assert.ok(at > previous);
+        previous = at;
+        assert.ok(html.includes(option.evidenceUrl.replaceAll('&', '&amp;')));
+        assert.ok(html.includes(option.observedAt));
+    }
+    assert.equal((html.match(/>Available</g) || []).length, options.length);
+});
