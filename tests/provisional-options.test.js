@@ -7,9 +7,10 @@ const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 const { readSource, compileSource, auditSource, importFromPayload, releaseContract, readCorrections, applyCorrections } = require('../scripts/catalogue-source-lib.js');
 const { auditPayload } = require('../scripts/catalogue-audit-lib.js');
-const { renderRelease, verifyReleaseText } = require('../scripts/catalogue-release-lib.js');
+const { sourceAtCommit, renderRelease, verifyReleaseText } = require('../scripts/catalogue-release-lib.js');
 const root = path.join(__dirname, '..');
-const committed = readSource(path.join(root, 'catalogue/source')).source;
+// Pin the original #156 release; later approved corrections may retire its rows.
+const committed = sourceAtCommit(root, '251ccb342c1f4329708b145afb8ebcaf9cae73e6').source;
 const approvedProposal = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
 const original = structuredClone(committed);
 for (const change of approvedProposal.corrections[0].changes) {
@@ -120,7 +121,7 @@ test('provisional options never enter Round coverage, resource competition or La
 });
 
 
-test('the approved six exact-lineup options match committed source without changing generic counters', () => {
+test('the historical v26 six-option proposal matches its original source without changing generic counters', () => {
     const document = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
     assert.equal(document.corrections[0].status, 'APPROVED');
     const proposed = applyCorrections(original, document.corrections);

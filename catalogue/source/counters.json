@@ -55,6 +55,7 @@
     { "id": "SEE", "name": "Sith Eternal Emperor", "required": ["SITH_ETERNAL_EMPEROR"], "recommended": [] },
     { "id": "SEE_BANE", "name": "SEE and Bane", "strategicReserve": true, "required": ["SITH_ETERNAL_EMPEROR", "DARTH_BANE"], "recommended": [] },
     { "id": "SLKR", "name": "SLKR", "required": ["SUPREME_LEADER_KYLO_REN"], "recommended": [] },
+    { "id": "SLKR_SOLO", "name": "SLKR solo", "required": ["SUPREME_LEADER_KYLO_REN"], "recommended": [] },
     { "id": "STARKILLER", "name": "Starkiller", "required": ["STARKILLER", "EMPEROR_PALPATINE", "MARA_JADE"], "recommended": [] },
     { "id": "THE_STRANGER", "name": "The Stranger", "required": ["THE_STRANGER"], "recommended": [] },
     { "id": "TRAYA", "name": "Darth Traya", "required": ["DARTH_TRAYA", "DARTH_NIHILUS"], "recommended": [] },
