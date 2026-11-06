@@ -12,7 +12,7 @@ const path = require("node:path");
 const test = require("node:test");
 const { execFileSync } = require("node:child_process");
 
-const { compileSource, readSource, writeSource } = require("../scripts/catalogue-source-lib.js");
+const { compileSource, readSource, writeSource, releaseContract } = require("../scripts/catalogue-source-lib.js");
 const { run: runBuild } = require("../scripts/catalogue-build.js");
 const {
   BUDGET,
@@ -120,7 +120,7 @@ test("the release file is a deterministic function of version and payload", () =
   assert.equal(a.text, b.text);
   assert.equal(a.path, `releases/7-${a.checksum.slice(7, 19)}.json`);
   const { release } = verifyReleaseText(a.text, { catalogueVersion: 7, checksum: a.checksum });
-  assert.deepEqual(release, { contract: "gac-catalogue-release:v1", sourceSchema: 1, catalogueVersion: 7, checksum: a.checksum });
+  assert.deepEqual(release, { contract: releaseContract(payload), sourceSchema: 1, catalogueVersion: 7, checksum: a.checksum });
   assert.notEqual(renderRelease(payload, 8).text, a.text, "the version is part of the immutable file");
   assert.equal(renderRelease(payload, 8).checksum, a.checksum, "the checksum covers the seven legacy keys only");
 });
@@ -132,7 +132,7 @@ test("corrupted or invalid release content is rejected", () => {
 
   assert.throws(() => verifyReleaseText(good.text.slice(0, -200)), /not valid JSON/);
   assert.throws(() => verifyReleaseText(variant((d) => { d.scoring[0].value += 1; })), /does not match its payload/);
-  assert.throws(() => verifyReleaseText(variant((d) => { d.release.contract = "gac-catalogue-release:v2"; })), /contract/);
+  assert.throws(() => verifyReleaseText(variant((d) => { d.release.contract = "gac-catalogue-release:v99"; })), /contract/);
   assert.throws(() => verifyReleaseText(variant((d) => { d.extra = 1; })), /keys differ/);
   assert.throws(() => verifyReleaseText(variant((d) => { d.release.builtAt = "now"; })), /unexpected keys/);
   assert.throws(() => verifyReleaseText(good.text, { checksum: `sha256:${"0".repeat(64)}` }), /not the expected/);
@@ -161,7 +161,7 @@ test("the artifact is exactly the allow-list, complete, verified and reproducibl
   assert.deepEqual(readTree(first.out), readTree(second.out), "same commit, byte-identical artifact");
   for (const file of PAGES_APP_FILES) assert.equal(fs.readFileSync(path.join(first.out, file), "utf8"), `${file} v1\n`);
 
-  assert.deepEqual(first.pointer, { pointerSchema: 1, contract: "gac-catalogue-release:v1", catalogueVersion: 1, checksum: record.checksum, path: releaseFile.slice("catalogue/".length), bytes: fs.statSync(path.join(first.out, releaseFile)).size });
+  assert.deepEqual(first.pointer, { pointerSchema: 1, contract: releaseContract(compileSource(readSource(repo.sourceDir).source)), catalogueVersion: 1, checksum: record.checksum, path: releaseFile.slice("catalogue/".length), bytes: fs.statSync(path.join(first.out, releaseFile)).size });
   assert.equal(first.manifest.deployedCommit, head);
   assert.deepEqual(first.manifest.releases.map((entry) => [entry.catalogueVersion, entry.sourceCommit]), [[1, head]]);
   verifyReleaseText(fs.readFileSync(path.join(first.out, releaseFile), "utf8"), record);

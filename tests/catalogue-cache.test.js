@@ -11,7 +11,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const { payloadChecksum } = require("../scripts/catalogue-audit-lib.js");
-const { compileSource, readSource } = require("../scripts/catalogue-source-lib.js");
+const { compileSource, readSource, releaseContract } = require("../scripts/catalogue-source-lib.js");
 const { renderRelease } = require("../scripts/catalogue-release-lib.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -35,7 +35,7 @@ function published(payload, catalogueVersion = 7) {
     const release = renderRelease(payload, catalogueVersion);
     const pointer = {
         pointerSchema: 1,
-        contract: "gac-catalogue-release:v1",
+        contract: releaseContract(payload),
         catalogueVersion,
         checksum: release.checksum,
         path: release.path,
@@ -93,7 +93,7 @@ function harness({ storage = {}, fetchImpl, setItem } = {}) {
         setItem: (key, value) => setItem ? setItem(values, key, String(value)) : values.set(key, String(value)),
         removeItem: key => values.delete(key)
     };
-    const context = {
+    const context = { URL,
         __GAC_HELPER_TEST__: true,
         console: { log() {}, warn() {}, error() {} },
         setTimeout,
@@ -440,7 +440,7 @@ test("catalogue loading is same-origin; roster import still uses the Apps Script
 
 function worker(scriptUrl) {
     const listeners = {};
-    const context = {
+    const context = { URL,
         URL,
         self: { location: new URL(scriptUrl), addEventListener: (type, fn) => { listeners[type] = fn; } },
         caches: { match: async () => undefined },
@@ -480,7 +480,7 @@ test("the service worker installs a versioned shell cache without precaching the
     let install;
     let cacheName;
     let precached;
-    const context = {
+    const context = { URL,
         URL,
         self: {
             location: new URL("https://example.test/gac-helper/service-worker.js"),

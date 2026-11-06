@@ -10,11 +10,15 @@
   "corrections": [
     {
       "id": "CR-2026-11-06-156-P03",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "ADD",
       "title": "Add unscored provisional options for two exact 3v3 defences",
       "rationale": "Ranked research options from the revised #156 report. Explicit confidence and exact membership; never allocated or scored. Separate content decision required for these complete rows.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/pull/157#issue-6237159979",
+        "decidedAt": "2026-11-06T05:45:45Z",
+        "contentChecksum": "sha256:6f4170e1a8d910a42aba0b3ad28ff35bdbfdb30e95c4c03ff51ca401d847c7f7"
+      },
       "provenance": {
         "evidence": [
           {

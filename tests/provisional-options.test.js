@@ -9,7 +9,12 @@ const { readSource, compileSource, auditSource, importFromPayload, releaseContra
 const { auditPayload } = require('../scripts/catalogue-audit-lib.js');
 const { renderRelease, verifyReleaseText } = require('../scripts/catalogue-release-lib.js');
 const root = path.join(__dirname, '..');
-const original = readSource(path.join(root, 'catalogue/source')).source;
+const committed = readSource(path.join(root, 'catalogue/source')).source;
+const approvedProposal = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
+const original = structuredClone(committed);
+for (const change of approvedProposal.corrections[0].changes) {
+    original[change.file] = original[change.file].filter(row => !(row.defence === change.stableKey.defence && (change.file.startsWith('matchups/') || row.mode === change.stableKey.mode)));
+}
 const defence = 'Depa Billaba / Jedi Knight Revan / Bastila Shan';
 const entry = { counterId: 'DARTH_REVAN', confidence: 'PROVISIONAL', evidenceKind: 'RELATED', required: ['DARTH_REVAN', 'BASTILA_SHAN_FALLEN', 'DARTH_MALAK'], evidenceUrl: 'https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan', observedAt: '2026-11-06', notes: 'Related evidence only; exact defence untested. Datacrons, relics and mods unknown.' };
 function fixture(mutate = () => {}) {
@@ -115,13 +120,14 @@ test('provisional options never enter Round coverage, resource competition or La
 });
 
 
-test('the pending exact-lineup proposal validates without changing any generic counters', () => {
+test('the approved six exact-lineup options match committed source without changing generic counters', () => {
     const document = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
-    assert.equal(document.corrections[0].status, 'PENDING_OWNER_APPROVAL');
+    assert.equal(document.corrections[0].status, 'APPROVED');
     const proposed = applyCorrections(original, document.corrections);
     assert.equal(auditSource(proposed).summary.releaseGate, 'PASS');
     const before = compileSource(original);
     const after = compileSource(proposed);
+    assert.deepEqual(after, compileSource(committed));
     const names = document.corrections[0].changes.filter(c => c.file === 'matchups/3v3.json').map(c => c.after.defence);
     assert.equal(names.length, 2);
     assert.equal(after.counters['3v3'][names[0]].length, 2);
