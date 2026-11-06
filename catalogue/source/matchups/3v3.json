@@ -357,7 +357,8 @@
     {
       "defence": "Pirate King Hondo Ohnaka",
       "counters": [
-        { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong" }
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong" },
+        { "counterId": "CERE_CAL", "tier": "A", "bannerScore": 56, "undersize": 0, "notes": "Exact 3v3 defence: Pirate King Hondo Ohnaka (leader), Hondo Ohnaka, Vane. Attack: Cere Junda (leader), Taron Malicos, Cal Kestis (not Jedi Knight Cal Kestis). Owner-reported full clear, 56 banners on 2026-11-06: one observed battle, not an established success rate or independently verified repeatability. Tier A is the owner's qualitative classification; 56 is the separately owner-approved planning estimate, not a measured average. Datacron, omicron, relic and mod conditions unknown." }
       ]
     },
     {

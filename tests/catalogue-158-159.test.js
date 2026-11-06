@@ -27,9 +27,12 @@ function harness() {
 }
 
 test('#158 removes exactly its mistaken matchup/composition; #159 changes only its declared paths', () => {
-    assert.deepEqual(compileSource(applyCorrections(baseline, proposals.corrections)), payload);
+    // Pin the release delivered by #158/#159; later approved catalogue changes
+    // are covered by their own correction previews and regression tests.
+    const delivered = compileSource(sourceAtCommit(root, '44c305f05f99959a154c5086326dec743b7e25c0').source);
+    assert.deepEqual(compileSource(applyCorrections(baseline, proposals.corrections)), delivered);
     assert.equal(auditSource(current).summary.releaseGate, 'PASS');
-    assert.deepEqual(diffPayloads(before, payload).map(d => d.path).sort(), proposals.corrections.flatMap(c => c.expectedPayloadPaths).sort());
+    assert.deepEqual(diffPayloads(before, delivered).map(d => d.path).sort(), proposals.corrections.flatMap(c => c.expectedPayloadPaths).sort());
     assert.equal(payload.counters['3v3'][depa], undefined);
     assert.equal(payload.defenceCompositions['3v3'][depa], undefined);
     assert.deepEqual(payload.characterDefinitions, before.characterDefinitions);

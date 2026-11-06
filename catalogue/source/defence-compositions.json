@@ -17,6 +17,7 @@
     { "defence": "Major Partagaz", "mode": "5v5", "units": ["MAJOR_PARTAGAZ", "DIRECTOR_KRENNIC", "DEDRA_MEERO", "KX_SECURITY_DROID", "IMPERIAL_PROBE_DROID"] },
     { "defence": "Mon Mothma", "mode": "3v3", "units": ["MON_MOTHMA", "KYLE_KATARN", "CARA_DUNE"] },
     { "defence": "Padme Amidala", "mode": "3v3", "units": ["PADME_AMIDALA", "AHSOKA_TANO_SNIPS", "GRANDMASTER_YODA"] },
+    { "defence": "Pirate King Hondo Ohnaka", "mode": "3v3", "units": ["PIRATE_KING_HONDO_OHNAKA", "HONDO_OHNAKA", "VANE"] },
     { "defence": "Queen Amidala", "mode": "3v3", "units": ["QUEEN_AMIDALA", "MASTER_QUI_GON", "PADAWAN_OBI_WAN"] },
     { "defence": "Qui-Gon Jinn", "mode": "3v3", "units": ["QUI_GON_JINN", "JEDI_KNIGHT_ANAKIN", "PLO_KOON"] },
     { "defence": "Reva", "mode": "3v3", "units": ["THIRD_SISTER", "GRAND_INQUISITOR", "SEVENTH_SISTER"] },

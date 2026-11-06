@@ -1,0 +1,161 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/163",
+  "baseline": {
+    "commit": "96a77df21fdd7f1ac519b78a546a1327c228b418",
+    "catalogueVersion": 27,
+    "checksum": "sha256:6e59136d204555f84918c201ade3dc8577f7dd95095b335efc4869565f47d4cd"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-06-163-P01",
+      "status": "APPROVED",
+      "disposition": "ADD",
+      "title": "Exact Cere/Malicos/Cal A-tier 3v3 Hondo counter",
+      "rationale": "Issue #163 approves the exact lineups and non-provisional A tier. In the implementation conversation, after the mandatory-score blocker was explained, the owner explicitly instructed \u201cUse 56\u201d, approving 56 as the planning estimate. The linked issue body records the original battle/lineup approval; the supplemental score decision is from that conversation, not a claim that the issue body originally approved an estimate. A separate CERE_CAL definition is necessary for exact Cal ownership and shared-unit spending without changing the global CERE core. Reuse the existing Pirate King Hondo identity; add its missing exact 3v3 composition.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/163#issue-6239435783",
+        "decidedAt": "2026-11-06T08:38:39Z",
+        "contentChecksum": "sha256:faa41aeab5df7916002cdf3dd986ab56188de07535126dcf7bbc8fa128b9fb2d"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/163#issue-6239435783",
+            "publisher": "Owner issue #163",
+            "publishedOrObservedAt": "2026-11-06",
+            "accessedAt": "2026-11-06",
+            "supports": "Exact three-person defending/attacking lineups, one observed full-clear 56-banner win, non-provisional A tier."
+          }
+        ],
+        "conditions": "Exact 3v3 lineups only; datacron, omicron, relic and mod conditions unknown.",
+        "confidence": "Low for repeatability: One directly reported owner win; A tier and 56 planning estimate are owner judgements, not independently measured reliability or average banners.",
+        "limitations": "No externally verified exact-match sample or win rate. Supplemental planning-score approval \u201cUse 56\u201d was supplied in the implementation conversation."
+      },
+      "affectedReferences": [
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CERE_CAL"
+          },
+          "effect": "ADD exact approved row"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "effect": "AMEND exact approved row"
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "mode": "3v3"
+          },
+          "effect": "ADD exact approved row"
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "CERE"
+          },
+          "effect": "none \u2014 checked; original core and every existing CERE matchup retained"
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "Add CERE_CAL A/56/full trio against existing Pirate King Hondo identity; retain SLKR.",
+        "FLEET": "none",
+        "counters": "Exact ordinary Cal required; no provisional flag.",
+        "roundAvailability": "Exact trio required; shared Cere/Malicos/Cal spending and defence blockers use existing definition logic.",
+        "scoring": "56 owner-approved planning estimate; no scoring rule changes.",
+        "strategicReserve": "No reserve flags changed; normal shared-unit allocation applies."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"CERE_CAL\"]",
+        "payload[\"counters\"][\"3v3\"][\"Pirate King Hondo Ohnaka\"][1]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Pirate King Hondo Ohnaka\"]"
+      ],
+      "changes": [
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "CERE_CAL"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "CERE_CAL",
+            "name": "Cere Junda (Malicos + Cal Kestis)",
+            "required": [
+              "CERE_JUNDA",
+              "TARON_MALICOS",
+              "CAL_KESTIS"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "before": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "CERE_CAL",
+                "tier": "A",
+                "bannerScore": 56,
+                "undersize": 0,
+                "notes": "Exact 3v3 defence: Pirate King Hondo Ohnaka (leader), Hondo Ohnaka, Vane. Attack: Cere Junda (leader), Taron Malicos, Cal Kestis (not Jedi Knight Cal Kestis). Owner-reported full clear, 56 banners on 2026-11-06: one observed battle, not an established success rate or independently verified repeatability. Tier A is the owner's qualitative classification; 56 is the separately owner-approved planning estimate, not a measured average. Datacron, omicron, relic and mod conditions unknown."
+              }
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "mode": "3v3",
+            "units": [
+              "PIRATE_KING_HONDO_OHNAKA",
+              "HONDO_OHNAKA",
+              "VANE"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
