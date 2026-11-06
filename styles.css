@@ -1585,3 +1585,8 @@ body {
 .provisional-card { overflow-wrap: anywhere; }
 .provisional-card p { line-height: 1.5; }
 .provisional-card a { color: inherit; text-decoration: underline; }
+
+.round-provisional[open] > summary .board-rec-chevron { transform: rotate(180deg); }
+.round-provisional > summary::-webkit-details-marker { display: none; }
+.round-provisional .card-header { flex-wrap: wrap; gap: 8px; }
+.round-provisional .card-header .team-name { flex: 1 0 100%; }

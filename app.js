@@ -3127,7 +3127,7 @@ function buildReasons(eligible, assign, reserveActive) {
                 reason = tacticalEntries(listed).length
                     ? "No one-shot counters in the catalogue for this team; see Counters for multi-battle options."
                     : listed.some(c => c.confidence === "PROVISIONAL")
-                        ? "No assessed one-shot counters for this team. Provisional options are listed in Counters and excluded from plans."
+                        ? "No assessed one-shot counters for this team. Provisional options are shown below and in Counters, and excluded from plans."
                         : "No counters in the catalogue for this team yet.";
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
                 // v3.2: distinguish "you sent them all" from "a unit they need went
@@ -4836,14 +4836,14 @@ function provisionalStatus(option) {
     return "available";
 }
 
-function buildProvisionalCardHtml(option) {
-    const status = provisionalStatus(option);
+function buildProvisionalCardHtml(option, availabilityUnknown = false) {
+    const status = availabilityUnknown ? "unknown" : provisionalStatus(option);
     const label = option.evidenceKind === "SINGLE_REPORT" ? "one reported battle" : "related evidence";
-    const statusLabel = { "not-owned": "Not owned", used: "Used", "on-defence": "On defence", spent: "Unavailable", available: "Available" }[status];
+    const statusLabel = { unknown: "Roster not loaded — availability unknown", "not-owned": "Not owned", used: "Used", "on-defence": "On defence", spent: "Unavailable", available: "Available" }[status];
     return `<div class="counter-card provisional-card ${status === "available" ? "" : "used"}">
         <div class="card-header"><div class="team-name">${escapeHtml(option.counter)}</div><span>${statusLabel}</span></div>
         <p><strong>Provisional — ${label}</strong></p>
-        <p>${option.required.map((id, i) => escapeHtml(getCharacterName(id)) + (i === 0 ? " (leader)" : "") + (characterAvailabilityNote(id) ? ` — ${escapeHtml(characterAvailabilityNote(id))}` : "")).join(" / ")}</p>
+        <p>${option.required.map((id, i) => escapeHtml(getCharacterName(id)) + (i === 0 ? " (leader)" : "") + (!availabilityUnknown && characterAvailabilityNote(id) ? ` — ${escapeHtml(characterAvailabilityNote(id))}` : "")).join(" / ")}</p>
         <p>${escapeHtml(option.notes)}</p>
         <p><a href="${escapeHtml(option.evidenceUrl)}" target="_blank" rel="noopener noreferrer">Evidence</a> · Observed ${escapeHtml(option.observedAt)}</p>
     </div>`;
@@ -5008,7 +5008,7 @@ function showCounters() {
     if (provisional.length) {
         html += `<section class="tactics-section"><h3 class="tactics-heading">Provisional options — not included in plans</h3>
             <p class="tactics-intro">Uncertain research options, not dependable recommendations. No tier or banner estimate. Check the exact lineup and conditions before trying.</p>
-            ${provisional.map(buildProvisionalCardHtml).join("")}</section>`;
+            ${provisional.map(option => buildProvisionalCardHtml(option)).join("")}</section>`;
     }
     if (tactics.length) {
         html += `
@@ -5766,12 +5766,28 @@ function renderReserveAlternatives(alts, targetKey, reserveActive = true) {
     </div>`).join("");
 }
 
+// Native disclosure state belongs only to the rendered card: no IDs, shared
+// expansion keys or storage, and every Round render starts collapsed.
+function renderRoundProvisional(team, modeKey) {
+    if (team.cleared || !team.name || !["3v3", "5v5"].includes(modeKey)) return "";
+    const options = ((gacData[modeKey] || {})[team.name] || [])
+        .filter(c => c.confidence === "PROVISIONAL");
+    if (!options.length) return "";
+    const unknown = !rosterMeta.savedAt && !rosterMeta.syncedAt && !ownedCharacters.length;
+    return `<details class="round-provisional" ontoggle="this.querySelector('summary').setAttribute('aria-expanded', String(this.open))">
+        <summary class="board-rec-disclosure" aria-expanded="false"><span>Provisional counters (${options.length})</span><span class="board-rec-chevron" aria-hidden="true">▾</span></summary>
+        <p class="board-rec-reason">Manual consideration only — excluded from battle plans.</p>
+        ${options.map(option => buildProvisionalCardHtml(option, unknown)).join("")}
+    </details>`;
+}
+
 function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     if (side === "my" || !roundPlan || team.cleared || !team.name) return "";
 
+    const provisional = renderRoundProvisional(team, modeKey);
     const targetKey = territoryKey + ":" + team.index;
     const info = roundPlan.reasons[targetKey];
-    if (!info) return "";
+    if (!info) return provisional;
     const blocked = (info.defenceBlocked || []).map(c => `
     <div class="board-rec-blocked"><span>On defence</span> ${escapeHtml(c.counter)}</div>`).join("");
     const conservation = conservationReason(roundPlan, targetKey);
@@ -5818,6 +5834,7 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         <button class="board-rec-btn board-rec-btn-tertiary" onclick="markCounterUsedFromBoard('${c.counterId}', '${targetKey}')">Mark used</button>
     </div>${blocked}${reserveAltsHtml}
 </div>
+${provisional}
 `;
     }
 
@@ -5825,6 +5842,7 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
 <div class="board-rec board-rec-none">
     <div class="board-rec-reason">${escapeHtml(reason)}</div>${riskHtml}${blocked}${reserveAltsHtml}
 </div>
+${provisional}
 `;
 }
 
