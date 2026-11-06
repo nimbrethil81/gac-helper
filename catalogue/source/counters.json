@@ -10,6 +10,7 @@
     { "id": "BOSSK", "name": "Bossk", "required": ["BOSSK"], "recommended": [] },
     { "id": "BO_KATAN_MANDALORE", "name": "Bo-Katan (Mand'alor)", "required": ["BO_KATAN_MANDALOR", "IG_12_AND_GROGU", "PAZ_VIZSLA"], "recommended": [] },
     { "id": "CERE", "name": "Cere (Malicos)", "required": ["CERE_JUNDA", "TARON_MALICOS"], "recommended": [] },
+    { "id": "CERE_CAL", "name": "Cere Junda (Malicos + Cal Kestis)", "required": ["CERE_JUNDA", "TARON_MALICOS", "CAL_KESTIS"], "recommended": [] },
     { "id": "CERE_SK", "name": "Cere (Malicos + Starkiller)", "required": ["CERE_JUNDA", "TARON_MALICOS", "STARKILLER"], "recommended": [] },
     { "id": "CHIMAERA", "name": "Chimaera", "required": ["CHIMAERA"], "recommended": [] },
     { "id": "CLS", "name": "CLS", "required": ["COMMANDER_LUKE_SKYWALKER"], "recommended": [] },
