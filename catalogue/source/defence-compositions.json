@@ -7,7 +7,7 @@
     { "defence": "Chief Chirpa", "mode": "5v5", "units": ["CHIEF_CHIRPA", "LOGRAY", "PAPLOO", "EWOK_ELDER", "PRINCESS_KNEESAA"] },
     { "defence": "Cobb Vanth", "mode": "5v5", "units": ["COBB_VANTH", "CHIEF_NEBIT", "LOBOT", "CORUSCANT_UNDERWORLD_POLICE", "TUSKEN_WARRIOR"] },
     { "defence": "Darth Malgus", "mode": "3v3", "units": ["DARTH_MALGUS", "SITH_MARAUDER", "SITH_EMPIRE_TROOPER"] },
-    { "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)", "mode": "3v3", "units": ["DARTH_REVAN", "DARTH_MALGUS", "BASTILA_SHAN_FALLEN"] },
+    { "defence": "Darth Revan / Darth Malak / Bastila Shan (Fallen)", "mode": "3v3", "units": ["DARTH_REVAN", "DARTH_MALAK", "BASTILA_SHAN_FALLEN"] },
     { "defence": "Dr Aphra", "mode": "3v3", "units": ["DOCTOR_APHRA", "BT_1", "0_0_0"] },
     { "defence": "Emperor Palpatine (Duel's End Vader)", "mode": "5v5", "units": ["EMPEROR_PALPATINE", "DARTH_VADER_DUALS_END", "MARA_JADE", "GRAND_MOFF_TARKIN"] },
     { "defence": "Enoch", "mode": "3v3", "units": ["CAPTAIN_ENOCH", "NIGHT_TROOPER", "DEATH_TROOPER_PERIDEA"] },

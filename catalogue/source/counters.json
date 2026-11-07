@@ -6,6 +6,7 @@
     { "id": "BAD_BATCH", "name": "Bad Batch (Hunter)", "required": ["HUNTER"], "recommended": [] },
     { "id": "BANE", "name": "Bane", "strategicReserve": true, "required": ["DARTH_BANE"], "recommended": [] },
     { "id": "BAYLAN", "name": "Baylan Skoll", "required": ["BAYLAN_SKOLL"], "recommended": [] },
+    { "id": "BAYLAN_MARROK_SHIN", "name": "Baylan Skoll (Marrok + Shin Hati)", "required": ["BAYLAN_SKOLL", "MARROK", "SHIN_HATI"], "recommended": [] },
     { "id": "BOBA_FETT_SCION_OF_JANGO", "name": "Boba and Fennec", "required": ["BOBA_FETT_SCION_OF_JANGO", "FENNEC_SHAND"], "recommended": [] },
     { "id": "BOSSK", "name": "Bossk", "required": ["BOSSK"], "recommended": [] },
     { "id": "BO_KATAN_MANDALORE", "name": "Bo-Katan (Mand'alor)", "required": ["BO_KATAN_MANDALOR", "IG_12_AND_GROGU", "PAZ_VIZSLA"], "recommended": [] },

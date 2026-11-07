@@ -213,21 +213,23 @@ test('Round provisional availability distinguishes unknown, missing, used, defen
     assert.match(render(), /On defence/);
 });
 
-test('Round reflects current published Darth Revan entries in catalogue order', () => {
+test('the approved Malak Revan correction retires its provisional rows and exposes the normal exact counter', () => {
     const payload = compileSource(readSource(path.join(root, 'catalogue/source')).source);
     const h = harness(payload);
-    const name = Object.keys(payload.counters['3v3']).find(n => n.startsWith('Darth Revan /'));
-    const options = payload.counters['3v3'][name].filter(c => c.confidence === 'PROVISIONAL');
-    h.run(`ownedCharacters = ${JSON.stringify([...new Set(options.flatMap(c => c.required))])};`);
+    const name = 'Darth Revan / Darth Malak / Bastila Shan (Fallen)';
+    const oldName = 'Darth Revan / Darth Malgus / Bastila Shan (Fallen)';
+    const options = payload.counters['3v3'][name];
+    assert.equal(payload.counters['3v3'][oldName], undefined);
+    assert.equal(payload.defenceCompositions['3v3'][oldName], undefined);
+    assert.equal(options.length, 1);
+    assert.equal(options[0].counterId, 'BAYLAN_MARROK_SHIN');
+    assert.equal(options[0].tier, 'S');
+    assert.equal(options[0].bannerScore, 57);
+    assert.equal(options[0].undersize, 0);
+    assert.equal(options[0].confidence, undefined);
+    h.run(`ownedCharacters = ${JSON.stringify(payload.counterDefinitions.BAYLAN_MARROK_SHIN.required)};`);
     const html = h.run(`renderRoundProvisional({name:${JSON.stringify(name)}}, '3v3')`);
-    assert.ok(html.includes(`Provisional counters (${options.length})`));
-    let previous = -1;
-    for (const option of options) {
-        const at = html.indexOf(`>${option.counter}</div>`, previous + 1);
-        assert.ok(at > previous);
-        previous = at;
-        assert.ok(html.includes(option.evidenceUrl.replaceAll('&', '&amp;')));
-        assert.ok(html.includes(option.observedAt));
-    }
-    assert.equal((html.match(/>Available</g) || []).length, options.length);
+    assert.equal(html, '');
+    assert.equal(h.run(`oneShotCounters(gacData['3v3'][${JSON.stringify(name)}]).length`), 1);
+    assert.equal(payload.counterDefinitions.BAYLAN.required.length, 1);
 });
