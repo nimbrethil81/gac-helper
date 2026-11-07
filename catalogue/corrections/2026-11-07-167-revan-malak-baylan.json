@@ -1,0 +1,240 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/167",
+  "baseline": {
+    "commit": "e7535ac80a85b2a60a07d6cc7f452739e20843d8",
+    "catalogueVersion": 29,
+    "checksum": "sha256:27a75dc7209a8401f82d8fc0a84950c296c95e52f4c0d66d95f92d09e4414e8e"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-07-167-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Correct 3v3 Revan defence and add owner-approved Baylan/Marrok/Shin counter",
+      "rationale": "Owner correction in issue #167 establishes the exact Malak defence and approves the exact Baylan/Marrok/Shin S-tier flawless-score counter. Retire only the superseded Malgus composition and its provisional matchup rows.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/167#issue-6241669939",
+        "decidedAt": "2026-11-06T11:16:11Z",
+        "contentChecksum": "sha256:d5c18dc9b9e09a90882ebcab71913447335786fa113388f4498ce8c25ecf4009"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/167#issue-6241669939",
+            "publisher": "Owner issue #167",
+            "publishedOrObservedAt": "2026-11-06",
+            "accessedAt": "2026-11-07",
+            "supports": "Explicit owner-approved correction of the exact 3v3 defence and assessment of the exact attacking trio at S tier / 57 banners."
+          }
+        ],
+        "conditions": "3v3. Owner-reported Baylan Skoll (leader) / Marrok / Shin Hati against Darth Revan (leader) / Darth Malak / Bastila Shan (Fallen). Datacron, omicron, mods and relic conditions unspecified.",
+        "confidence": "Low: owner-approved matchup assessment only; no independent battle sample or statistical win rate is claimed.",
+        "limitations": "The S-tier and flawless banner outcome are owner supplied, not independently established statistics. No datacron, omicron, mod or relic conditions supplied."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "effect": "Retire exact obsolete Malgus defence and its five provisional rows; do not carry them over."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malak / Bastila Shan (Fallen)"
+          },
+          "effect": "Add only the approved Baylan/Marrok/Shin counter."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "effect": "Replace exact erroneous composition with the ordered Malak composition."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BAYLAN_MARROK_SHIN"
+          },
+          "effect": "Add distinct exact trio identity; generic BAYLAN definition unchanged."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "Replace mistaken defence key with exact Malak lineup and show only the approved trio counter.",
+        "FLEET": "none",
+        "counters": "Corrected defence selectable; attacker eligibility uses all three exact required characters.",
+        "roundAvailability": "Exact trio definition drives availability and used-team overlap tracking for Baylan Skoll, Marrok and Shin Hati.",
+        "scoring": "Use approved 3v3 score 57 and undersize 0; no scoring constants change.",
+        "strategicReserve": "No strategic-reserve flag; all three shared characters participate in normal overlap tracking."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"BAYLAN_MARROK_SHIN\"]",
+        "payload[\"counters\"][\"3v3\"][\"Darth Revan / Darth Malak / Bastila Shan (Fallen)\"]",
+        "payload[\"counters\"][\"3v3\"][\"Darth Revan / Darth Malgus / Bastila Shan (Fallen)\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Darth Revan / Darth Malak / Bastila Shan (Fallen)\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Darth Revan / Darth Malgus / Bastila Shan (Fallen)\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "before": {
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)",
+            "counters": [
+              {
+                "required": [
+                  "GENERAL_SKYWALKER",
+                  "CT_5555_FIVES",
+                  "CT_7567_REX"
+                ],
+                "counterId": "GAS",
+                "notes": "Provisional, low confidence: one exact-lineup report, both clones lost. Not a dependable win or high-banner promise. Test GAS protection and survival through opening burst and the post-clone transition. Battle date, attempt state, omicrons, datacrons, mods and relics unknown. Uses 501st; conserves a GL.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "SINGLE_REPORT",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_revan",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SITH_ETERNAL_EMPEROR",
+                  "WATT_TAMBOR"
+                ],
+                "counterId": "SEE",
+                "notes": "Provisional, low confidence: same defending members under Malgus lead only. SEE leader with Wat; third slot intentionally empty. Test shield tech, Link and survival to ultimate under DR Ferocity/speed. Do not inherit Malgus-lead rates or omit his nonleader abilities. Ultimate and Wat bonus-turn upgrade required for this test. Datacrons, defensive omicrons, mods and relics unknown. Uses SEE/Wat; preserves Bane.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SUPREME_LEADER_KYLO_REN",
+                  "OLD_DAKA",
+                  "NIGHTSISTER_ZOMBIE"
+                ],
+                "counterId": "SLKR",
+                "notes": "Provisional, low confidence: same members under Malgus lead only. Test Daka/Zombie survival and revive cycle while SLKR scales to ultimate. DR lead, nonleader Malgus abilities and datacrons may disrupt the route. Required support upgrades, mods and relics must be checked before trying. Uses a GL and splits Nightsisters. No inherited win rate.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "JEDI_MASTER_LUKE",
+                  "HERMIT_YODA",
+                  "JEDI_KNIGHT_LUKE_SKYWALKER"
+                ],
+                "counterId": "JML",
+                "notes": "Provisional reserve alternative, low confidence: mixed related Malgus-led reports, not exact DR-led proof. Check DR speed/control and JKL route before trying. Omicrons, datacrons, mods and relics unknown. Consumes a GL and premium Jedi; lower research priority than the preceding options.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              },
+              {
+                "required": [
+                  "SUPREME_LEADER_KYLO_REN"
+                ],
+                "counterId": "SLKR_SOLO",
+                "notes": "Provisional, low confidence: solo-specific related 3v3 reports against Malgus (leader) / Bastila Shan (Fallen) / Darth Revan; not exact DR-led proof. Source updated 2026-01-16; battle dates and attempt state unknown. DR Ferocity/speed replaces Malgus leadership; Malgus nonleader taunt/unique and applicable omicrons still matter. Test SLKR survival and scaling to ultimate without support. Datacrons, GAC omicrons, relics and mods unknown. Consumes a GL but preserves Daka/Zombie and Wat. No dependable win, rate or banner claim.",
+                "confidence": "PROVISIONAL",
+                "evidenceKind": "RELATED",
+                "evidenceUrl": "https://www.swgoh-ga3.online-server.info/index.php?id=darth_malgus",
+                "observedAt": "2026-11-06"
+              }
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "RETIRE",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)"
+          },
+          "before": {
+            "defence": "Darth Revan / Darth Malgus / Bastila Shan (Fallen)",
+            "mode": "3v3",
+            "units": [
+              "DARTH_REVAN",
+              "DARTH_MALGUS",
+              "BASTILA_SHAN_FALLEN"
+            ]
+          },
+          "after": "REMOVE"
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malak / Bastila Shan (Fallen)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Darth Revan / Darth Malak / Bastila Shan (Fallen)",
+            "mode": "3v3",
+            "units": [
+              "DARTH_REVAN",
+              "DARTH_MALAK",
+              "BASTILA_SHAN_FALLEN"
+            ]
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "BAYLAN_MARROK_SHIN"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "BAYLAN_MARROK_SHIN",
+            "name": "Baylan Skoll (Marrok + Shin Hati)",
+            "required": [
+              "BAYLAN_SKOLL",
+              "MARROK",
+              "SHIN_HATI"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Darth Revan / Darth Malak / Bastila Shan (Fallen)"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Darth Revan / Darth Malak / Bastila Shan (Fallen)",
+            "counters": [
+              {
+                "counterId": "BAYLAN_MARROK_SHIN",
+                "tier": "S",
+                "bannerScore": 57,
+                "undersize": 0,
+                "notes": "Owner-approved flawless high-banner counter vs this exact Malak lineup; conditions not specified."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
