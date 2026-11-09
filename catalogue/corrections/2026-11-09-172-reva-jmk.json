@@ -1,0 +1,121 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/172",
+  "baseline": {
+    "commit": "f90d25501240b210915af31e23817283430abbfe",
+    "catalogueVersion": 30,
+    "checksum": "sha256:f7001c408fd975679c8b815f24d5b7dee8817df188db36a800fdf45d5b283516"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-09-172-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "AMEND",
+      "title": "Downgrade 3v3 JMK vs Reva to A/53 after observed loss",
+      "rationale": "Owner-approved GAC-REVA-JMK1: downgrade the exact 3v3 Jedi Master Kenobi defence versus REVA from S/55 to A/53 after a recent loss, preserve non-provisional status and all other counter/mode identities.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/172",
+            "publisher": "Owner-approved issue #172",
+            "publishedOrObservedAt": "2026-11-08",
+            "accessedAt": "2026-11-09",
+            "supports": "Owner reports a recent outright loss against Jedi Master Kenobi in 3v3 and approves non-provisional A tier / 53 planning banners."
+          }
+        ],
+        "conditions": "3v3: Jedi Master Kenobi defence; REVA attacking counter. Full enemy composition, relics, mods, omicrons and datacrons not recorded.",
+        "confidence": "Medium for owner-observed failure and explicitly approved reassessment; no statistical win rate is claimed.",
+        "limitations": "Single reported loss with unspecified battle conditions. A/53 is a planning estimate for successful wins; it is not a measured mean or a loss result. Distinct 5v5 Reva records are unaffected."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Kenobi"
+          },
+          "effect": "Only REVA tier S to A, banners 55 to 53, reliability note; BAYLAN row unchanged."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Master Kenobi"
+          },
+          "effect": "none - checked: 5v5 JMK→Reva S/63 preserved."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Reva"
+          },
+          "effect": "none - checked: 5v5 Reva defence→JMK A/60 preserved."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "JMK versus REVA counter changes from S/55 to A/53, remains scored and non-provisional; note discloses loss/reliability.",
+        "FLEET": "none",
+        "counters": "Only 3v3 JMK versus REVA entry changes.",
+        "roundAvailability": "none: counter identity and members unchanged.",
+        "scoring": "Existing A-tier and bannerScore 53 taxonomy; no constants or calculations changed.",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"Jedi Master Kenobi\"][0][\"bannerScore\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jedi Master Kenobi\"][0][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jedi Master Kenobi\"][0][\"tier\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Kenobi"
+          },
+          "before": {
+            "defence": "Jedi Master Kenobi",
+            "counters": [
+              {
+                "counterId": "REVA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              }
+            ]
+          },
+          "after": {
+            "defence": "Jedi Master Kenobi",
+            "counters": [
+              {
+                "counterId": "REVA",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Owner reports a recent 3v3 loss against Jedi Master Kenobi. Reva remains viable, but the observed failure does not support S-tier reliability. A / 53 is an owner-approved estimate for a successful attack, not banners earned in the loss."
+              },
+              {
+                "counterId": "BAYLAN",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
