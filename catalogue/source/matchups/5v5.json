@@ -158,7 +158,9 @@
       "counters": [
         { "counterId": "JAWAS", "tier": "B", "bannerScore": 60, "undersize": 0 },
         { "counterId": "VEERS", "tier": "B", "bannerScore": 61, "undersize": 0 },
-        { "counterId": "BOSSK", "tier": "B", "bannerScore": 61, "undersize": 0 }
+        { "counterId": "BOSSK", "tier": "B", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Traya-led Sith; use Traya and Nihilus, with Sion as an optional support. Owner confirms historical 5v5 success. 62 is an approved planning estimate, not a measured banner average. Confirm gear, abilities and datacrons; current-season repeatability unverified." },
+        { "counterId": "VADER", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Original Darth Vader with Merciless Massacre; adequate opening speed and gear are important. Owner confirms historical 5v5 success. 61 is an approved planning estimate, not a measured banner average. Full attacking five is not prescribed; current-season repeatability unverified." }
       ]
     },
     {
