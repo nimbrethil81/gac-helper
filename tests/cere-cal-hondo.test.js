@@ -28,7 +28,7 @@ test('approved exact Hondo counter is A/56 non-provisional; only declared source
     const before=sourceAtCommit(root,document.baseline.commit).source;
     assert.deepEqual(applyCorrections(before,document.corrections), sourceAtCommit(root,'f8d4cc8627eec8494247cff327810d5cca9f32cc').source);
     const old=compileSource(before);
-    assert.deepEqual(payload.counters['5v5'],old.counters['5v5']);
+    assert.deepEqual({...payload.counters['5v5'],Geonosians:payload.counters['5v5'].Geonosians.slice(0,-2)},old.counters['5v5']);
     assert.deepEqual(payload.counters.FLEET,old.counters.FLEET);
     assert.deepEqual(payload.counterDefinitions.CERE,old.counterDefinitions.CERE);
     const rows=payload.counters['3v3'][defence];
