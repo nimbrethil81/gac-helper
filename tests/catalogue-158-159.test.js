@@ -19,6 +19,7 @@ const historical = readCorrections(path.join(root, 'catalogue/corrections/2026-1
 const correction167 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-07-167-revan-malak-baylan.json'));
 const correction171 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-10-171-bane-stranger.json'));
 const correction180 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-10-180-bane-stranger-note.json'));
+const correction169 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-10-169-geonosians-traya-vader.json'));
 function harness() {
     const elements = { teamSelect: { options: [dr], value: dr }, results: { innerHTML: '' } };
     const values = new Map();
@@ -33,14 +34,14 @@ function harness() {
 test('#158/#159 remain reproducible historical decisions; #167 and #171 apply their exact approved current corrections', () => {
     const delivered = compileSource(sourceAtCommit(root, '44c305f05f99959a154c5086326dec743b7e25c0').source);
     assert.deepEqual(compileSource(applyCorrections(baseline, historical.corrections)), delivered);
-    assert.deepEqual(applyCorrections(applyCorrections(applyCorrections(sourceAtCommit(root, correction167.baseline.commit).source, correction167.corrections), correction171.corrections), correction180.corrections), current);
+    assert.deepEqual(applyCorrections(applyCorrections(applyCorrections(applyCorrections(sourceAtCommit(root, correction167.baseline.commit).source, correction167.corrections), correction171.corrections), correction180.corrections), correction169.corrections), current);
     assert.equal(auditSource(current).summary.releaseGate, 'PASS');
     const preview = compileSource(sourceAtCommit(root, correction167.baseline.commit).source);
-    assert.deepEqual(diffPayloads(preview, payload).map(d => d.path).sort(), [...new Set([...correction167.corrections.flatMap(c => c.expectedPayloadPaths), ...correction171.corrections.flatMap(c => c.expectedPayloadPaths), ...correction180.corrections.flatMap(c => c.expectedPayloadPaths)])].sort());
+    assert.deepEqual(diffPayloads(preview, payload).map(d => d.path).sort(), [...new Set([...correction167.corrections.flatMap(c => c.expectedPayloadPaths), ...correction171.corrections.flatMap(c => c.expectedPayloadPaths), ...correction180.corrections.flatMap(c => c.expectedPayloadPaths), ...correction169.corrections.flatMap(c => c.expectedPayloadPaths)])].sort());
     assert.equal(payload.counters['3v3'][depa], undefined);
     assert.equal(payload.defenceCompositions['3v3'][depa], undefined);
     assert.deepEqual(payload.counters['3v3']['Satele Shan'], before.counters['3v3']['Satele Shan']);
-    assert.deepEqual(payload.counters['5v5'], before.counters['5v5']);
+    assert.deepEqual({...payload.counters['5v5'], Geonosians: payload.counters['5v5'].Geonosians.slice(0, -2)}, before.counters['5v5']);
     assert.deepEqual(payload.counters.FLEET, before.counters.FLEET);
     assert.deepEqual(payload.defenceTeams, before.defenceTeams);
     assert.equal(payload.counters['3v3'][oldDefence], undefined);

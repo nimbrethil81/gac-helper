@@ -67,6 +67,7 @@
     { "id": "STARKILLER", "name": "Starkiller", "required": ["STARKILLER", "EMPEROR_PALPATINE", "MARA_JADE"], "recommended": [] },
     { "id": "THE_STRANGER", "name": "The Stranger", "required": ["THE_STRANGER"], "recommended": [] },
     { "id": "TRAYA", "name": "Darth Traya", "required": ["DARTH_TRAYA", "DARTH_NIHILUS"], "recommended": [] },
+    { "id": "VADER", "name": "Darth Vader", "required": ["DARTH_VADER"], "recommended": [] },
     { "id": "VEERS", "name": "Imperial Troopers (Veers)", "required": ["GENERAL_VEERS"], "recommended": [] },
     { "id": "WAMPA", "name": "Wampa", "required": ["WAMPA"], "recommended": [] }
   ]
