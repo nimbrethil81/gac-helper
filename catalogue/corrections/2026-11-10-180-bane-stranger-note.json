@@ -1,0 +1,140 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/180",
+  "baseline": {
+    "commit": "c96733060bb299adb69b31d96d5d18ef22a93235",
+    "catalogueVersion": 31,
+    "checksum": "sha256:9bc3eafa4b668dfb4edda61c6127121e1dfcb5572216d0dbbd7d39f8c80a45ba"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-10-180-P01",
+      "status": "APPROVED",
+      "disposition": "AMEND",
+      "title": "Replace 3v3 The Stranger BANE note with concise copy after the #171 append became unwieldy",
+      "rationale": "Owner dictates exact replacement copy in issue #180: the C2 reliability warning appended by CR-2026-11-10-171-P01 made the mobile in-app note unwieldy. This correction replaces the entire BANE notes field for the exact 3v3 The Stranger defence with the owner's single approved paragraph; tier C, bannerScore 48, undersize 1 and non-provisional status are unchanged. This is a replacement, not an append.",
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/180#issue-6310492874",
+        "decidedAt": "2026-11-10T15:54:09Z",
+        "contentChecksum": "sha256:c5c74a92140317265a7146a8932e0069ec2c8e5e279f51ce9cf574dfc76efee5"
+      },
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/180",
+            "publisher": "nimbrethil81 (catalogue owner), GitHub issue #180",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-10",
+            "supports": "Owner approval of the exact replacement note text for the 3v3 The Stranger BANE counter, explicitly distinguished from an append, with C/48, undersize 1, non-provisional status and all sibling counters to remain unchanged."
+          }
+        ],
+        "conditions": "3v3: The Stranger defence; BANE attacking counter (Darth Bane plus one other non-summoned Sith ally, excluding SEE and SEE_BANE). Full defence composition, relics, mods, omicrons and datacrons not recorded.",
+        "confidence": "High for the copy change itself: the owner supplied the exact final text and confirmed the live C/48 values are correct; no matchup result is claimed.",
+        "limitations": "No new matchup evidence; this is in-app counselling copy only. Distinct SEE (B/52) and SEE_BANE (S/53) rows and all other Bane and 5v5 entries are unchanged."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "effect": "Only the BANE counter's notes change to the owner's exact replacement copy; tier C, bannerScore 48, undersize 1, non-provisional status, counter order and the SEE and SEE_BANE rows are unchanged."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "The Stranger"
+          },
+          "effect": "none - checked: the 5v5 The Stranger row has no scored BANE counter; SEE_BANE S/62 and every other row are unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BANE"
+          },
+          "effect": "none - checked: BANE identity, display name, required DARTH_BANE core and strategicReserve are unchanged; the change is a single 3v3 matchup note."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "SEE_BANE"
+          },
+          "effect": "none - checked: SEE_BANE identity unchanged; the distinct SEE_BANE S/53 3v3 The Stranger row is preserved."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none - checked",
+        "3v3": "The Stranger BANE counter keeps tier C / 48, undersize 1 and non-provisional status; only the note text is replaced with the owner's concise copy.",
+        "FLEET": "none - checked",
+        "counters": "none - checked: BANE and SEE_BANE definitions are unchanged.",
+        "roundAvailability": "none - checked: counter identity and members are unchanged, so availability, defence blocking and Round allocation logic are unchanged; tier and score still drive ranking identically.",
+        "scoring": "none - checked: no constants, score meanings or calculations changed.",
+        "strategicReserve": "none - checked: BANE keeps its strategicReserve flag."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"The Stranger\"][1][\"notes\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "before": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "B",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 1,
+                "notes": "For Bane's Rule of Two, use exactly two attackers: Darth Bane plus one other non-summoned Sith ally; leave the third slot empty (undersize 1). SEE + Bane is the separate SEE_BANE counter. Check defence and datacron conditions. Repeated recent defeats with Darth Bane + one Sith ally (excluding SEE). Recent attempts defeated zero or one enemy. Unreliable as a primary counter; use only as a speculative or emergency option."
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "B",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 1,
+                "notes": "Use Darth Bane with one other non-summoned Sith; leave the third slot empty. SEE + Bane is a separate counter. High risk: recent attempts failed outright. Emergency option only."
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
