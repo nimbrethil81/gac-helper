@@ -19,8 +19,18 @@
 # - OpenCode log output is deliberately not printed (no --print-logs and no
 #   OPENCODE_LOG_LEVEL override), so authentication details stay out of the
 #   run log; GitHub also masks the secret value automatically.
+# - Ancillary model requests are constrained to the free model: the built-in
+#   `title` and `summary` agents (used for session-title generation and similar
+#   housekeeping requests) are pinned to opencode/glm-5.3-flash-free, warming
+#   is explicitly disabled, and the provider-use policy allows only the
+#   `opencode` provider. No documented setting fully disables title generation,
+#   so the run passes an explicit --title; whether OpenCode still issues a
+#   title request is not documented. Confirmation of zero charges in the
+#   OpenCode console after the first run is therefore part of the pilot.
 #
-# The expected model response is a single exact line: OPENCODE_SMOKE_OK
+# Success criterion: the model's complete response, reconstructed from the
+# --format json event stream, must be exactly the single line
+# OPENCODE_SMOKE_OK (an optional single final newline is accepted).
 
 name: OpenCode cloud smoke test
 
@@ -73,7 +83,7 @@ jobs:
           npm install --prefix "$SMOKE_DIR" --no-save --no-fund --no-audit --loglevel=error "@opencode/cli@$OPENCODE_CLI_VERSION"
           "$SMOKE_DIR/node_modules/.bin/opencode" --version | grep -Fx "opencode v$OPENCODE_CLI_VERSION"
 
-      - name: Write deny-all smoke configuration
+      - name: Write deny-all smoke configuration and response checker
         run: |
           cat > "$SMOKE_DIR/opencode.json" <<'EOF'
           {
@@ -81,6 +91,7 @@ jobs:
             "model": "opencode/glm-5.3-flash-free",
             "update": "disable",
             "snapshots": false,
+            "warming": false,
             "policies": [
               { "action": "provider.use", "resource": "*", "effect": "deny" },
               { "action": "provider.use", "resource": "opencode", "effect": "allow" },
@@ -95,9 +106,73 @@ jobs:
                 "permissions": [
                   { "action": "*", "resource": "*", "effect": "deny" }
                 ]
+              },
+              "title": {
+                "model": "opencode/glm-5.3-flash-free",
+                "permissions": [
+                  { "action": "*", "resource": "*", "effect": "deny" }
+                ]
+              },
+              "summary": {
+                "model": "opencode/glm-5.3-flash-free",
+                "permissions": [
+                  { "action": "*", "resource": "*", "effect": "deny" }
+                ]
               }
             }
           }
+          EOF
+          cat > "$SMOKE_DIR/check.js" <<'EOF'
+          const fs = require('fs');
+
+          const marker = process.env.OPENCODE_SMOKE_MARKER;
+          const file = process.argv[2];
+          if (!marker || !file) {
+            console.error('Internal error: missing marker or events file.');
+            process.exit(1);
+          }
+
+          const chunks = [];
+          const errors = [];
+          for (const line of String(fs.readFileSync(file, 'utf8')).split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            let ev;
+            try {
+              ev = JSON.parse(trimmed);
+            } catch {
+              continue;
+            }
+            if (
+              ev &&
+              ev.type === 'text' &&
+              ev.part &&
+              ev.part.type === 'text' &&
+              typeof ev.part.text === 'string'
+            ) {
+              chunks.push(ev.part.text);
+            }
+            if (ev && ev.type === 'error') {
+              errors.push((ev.error && ev.error.message) || JSON.stringify(ev.error));
+            }
+          }
+
+          const response = chunks.join('');
+          console.log('--- reconstructed model response ---');
+          console.log(response);
+          console.log('--- end response ---');
+
+          if (response === marker || response === marker + '\n') {
+            process.exit(0);
+          }
+
+          if (errors.length > 0) {
+            console.error('OpenCode reported an error: ' + errors[errors.length - 1]);
+          } else if (chunks.length === 0) {
+            console.error('No assistant text was emitted; the run likely failed before producing a response.');
+          }
+          console.error('Whole-response equality check failed: the complete response must be exactly "' + marker + '" (an optional single final newline is accepted).');
+          process.exit(1);
           EOF
 
       - name: Run isolated smoke test
@@ -109,14 +184,11 @@ jobs:
           PROMPT="This is an automated connectivity smoke test. Reply with exactly the following single line and nothing else: $OPENCODE_SMOKE_MARKER"
           "$SMOKE_DIR/node_modules/.bin/opencode" run \
             --standalone \
+            --format json \
+            --title opencode-smoke \
             --agent smoke \
             --model "$OPENCODE_MODEL" \
-            "$PROMPT" > response.txt
-          cat response.txt
-          if grep -Fxq "$OPENCODE_SMOKE_MARKER" response.txt; then
-            echo "Smoke test passed: model returned the expected marker."
-            echo "✅ OpenCode free-model smoke test passed (opencode/glm-5.3-flash-free)." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "::error::Model response did not contain the required marker line '$OPENCODE_SMOKE_MARKER' on its own line."
-            exit 1
-          fi
+            "$PROMPT" > events.ndjson || true
+          node "$SMOKE_DIR/check.js" "$SMOKE_DIR/events.ndjson"
+          echo "Smoke test passed: the model's complete response was exactly the expected marker."
+          echo "✅ OpenCode free-model smoke test passed (opencode/glm-5.3-flash-free)." >> "$GITHUB_STEP_SUMMARY"
