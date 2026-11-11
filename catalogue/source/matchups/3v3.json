@@ -255,7 +255,7 @@
     {
       "defence": "Jedi Master Kenobi",
       "counters": [
-        { "counterId": "REVA", "tier": "S", "bannerScore": 55, "undersize": 0 },
+        { "counterId": "REVA", "tier": "A", "bannerScore": 53, "undersize": 0, "notes": "Recent recorded loss against Jedi Master Kenobi in 3v3. Counter remains viable but is not sufficiently reliable for S tier." },
         { "counterId": "BAYLAN", "tier": "C", "bannerScore": 48, "undersize": 0, "notes": "Cleanup only" }
       ]
     },

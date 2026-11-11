@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/172",
   "baseline": {
-    "commit": "f90d25501240b210915af31e23817283430abbfe",
-    "catalogueVersion": 30,
-    "checksum": "sha256:f7001c408fd975679c8b815f24d5b7dee8817df188db36a800fdf45d5b283516"
+    "commit": "4ed2b2a8c80e88566233d5510fc17a5725d11030",
+    "catalogueVersion": 33,
+    "checksum": "sha256:4472446f02755be4372a9abb5664fa315553f33fb2f7fd4db0eb7099097206f1"
   },
   "corrections": [
     {
       "id": "CR-2026-11-09-172-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "AMEND",
       "title": "Downgrade 3v3 JMK vs Reva to A/53 after observed loss",
       "rationale": "Owner-approved GAC-REVA-JMK1: downgrade the exact 3v3 Jedi Master Kenobi defence versus REVA from S/55 to A/53 after a recent loss, preserve non-provisional status and all other counter/mode identities.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/172#issuecomment-6796940828",
+        "decidedAt": "2026-11-11T13:20:51Z",
+        "contentChecksum": "sha256:f429c3983b32323da9abe9baade894aa60815fee989678721012419df0392312"
+      },
       "provenance": {
         "evidence": [
           {
@@ -103,7 +107,7 @@
                 "tier": "A",
                 "bannerScore": 53,
                 "undersize": 0,
-                "notes": "Owner reports a recent 3v3 loss against Jedi Master Kenobi. Reva remains viable, but the observed failure does not support S-tier reliability. A / 53 is an owner-approved estimate for a successful attack, not banners earned in the loss."
+                "notes": "Recent recorded loss against Jedi Master Kenobi in 3v3. Counter remains viable but is not sufficiently reliable for S tier."
               },
               {
                 "counterId": "BAYLAN",
