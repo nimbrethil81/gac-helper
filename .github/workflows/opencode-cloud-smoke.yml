@@ -28,9 +28,16 @@
 #   title request is not documented. Confirmation of zero charges in the
 #   OpenCode console after the first run is therefore part of the pilot.
 #
-# Success criterion: the model's complete response, reconstructed from the
-# --format json event stream, must be exactly the single line
-# OPENCODE_SMOKE_OK (an optional single final newline is accepted).
+# Success criterion (all must hold):
+# - the OpenCode CLI exits with status 0;
+# - the event stream contains no explicit error event (rejected regardless of
+#   the reconstructed response);
+# - the model's complete response, reconstructed from the --format json event
+#   stream, is exactly the single line OPENCODE_SMOKE_OK (an optional single
+#   final newline is accepted).
+# On failure the log contains only safe, generic diagnostic categories (CLI
+# execution failed, error event, no model response, response mismatch) — never
+# raw provider error messages, event data, or credential material.
 
 name: OpenCode cloud smoke test
 
@@ -127,13 +134,14 @@ jobs:
 
           const marker = process.env.OPENCODE_SMOKE_MARKER;
           const file = process.argv[2];
-          if (!marker || !file) {
-            console.error('Internal error: missing marker or events file.');
+          const exitCode = Number(process.argv[3]);
+          if (!marker || !file || !Number.isInteger(exitCode)) {
+            console.error('Internal checker error: missing marker, events file, or CLI exit status.');
             process.exit(1);
           }
 
           const chunks = [];
-          const errors = [];
+          let sawErrorEvent = false;
           for (const line of String(fs.readFileSync(file, 'utf8')).split('\n')) {
             const trimmed = line.trim();
             if (!trimmed) continue;
@@ -153,26 +161,32 @@ jobs:
               chunks.push(ev.part.text);
             }
             if (ev && ev.type === 'error') {
-              errors.push((ev.error && ev.error.message) || JSON.stringify(ev.error));
+              sawErrorEvent = true;
             }
           }
 
           const response = chunks.join('');
-          console.log('--- reconstructed model response ---');
-          console.log(response);
-          console.log('--- end response ---');
+          const responseMatches = response === marker || response === marker + '\n';
 
-          if (response === marker || response === marker + '\n') {
-            process.exit(0);
+          function fail(category) {
+            console.error('Smoke test failed: ' + category);
+            process.exit(1);
           }
 
-          if (errors.length > 0) {
-            console.error('OpenCode reported an error: ' + errors[errors.length - 1]);
-          } else if (chunks.length === 0) {
-            console.error('No assistant text was emitted; the run likely failed before producing a response.');
+          if (exitCode !== 0) {
+            fail('CLI execution failed (exit code ' + exitCode + ').');
           }
-          console.error('Whole-response equality check failed: the complete response must be exactly "' + marker + '" (an optional single final newline is accepted).');
-          process.exit(1);
+          if (sawErrorEvent) {
+            fail('OpenCode reported an error event; details are withheld from the log.');
+          }
+          if (chunks.length === 0) {
+            fail('No model response was emitted.');
+          }
+          if (!responseMatches) {
+            fail('Response mismatch: the complete response (' + response.length + ' characters) did not exactly match the required marker.');
+          }
+          console.log('Smoke test passed: the model\'s complete response was exactly the required marker.');
+          process.exit(0);
           EOF
 
       - name: Run isolated smoke test
@@ -182,13 +196,15 @@ jobs:
         run: |
           cd "$SMOKE_DIR"
           PROMPT="This is an automated connectivity smoke test. Reply with exactly the following single line and nothing else: $OPENCODE_SMOKE_MARKER"
+          set +e
           "$SMOKE_DIR/node_modules/.bin/opencode" run \
             --standalone \
             --format json \
             --title opencode-smoke \
             --agent smoke \
             --model "$OPENCODE_MODEL" \
-            "$PROMPT" > events.ndjson || true
-          node "$SMOKE_DIR/check.js" "$SMOKE_DIR/events.ndjson"
-          echo "Smoke test passed: the model's complete response was exactly the expected marker."
+            "$PROMPT" > events.ndjson
+          CLI_STATUS=$?
+          set -e
+          node "$SMOKE_DIR/check.js" "$SMOKE_DIR/events.ndjson" "$CLI_STATUS"
           echo "✅ OpenCode free-model smoke test passed (opencode/glm-5.3-flash-free)." >> "$GITHUB_STEP_SUMMARY"
