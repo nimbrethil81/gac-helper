@@ -1,0 +1,122 @@
+# OpenCode cloud smoke test (pilot stage 2)
+#
+# Minimal, manually triggered, read-only connectivity test for unattended
+# inference with OpenCode's free `opencode/glm-5.3-flash-free` model.
+#
+# Security posture:
+# - workflow_dispatch only; nothing scheduled, nothing automatic.
+# - Hard-guarded to this repository on refs/heads/main.
+# - `contents: read` is the only granted permission; no checkout, no GitHub
+#   App, no repository writes, and no workflow inputs of any kind.
+# - Every agent tool action is denied in three independent layers (project
+#   permissions, agent permissions, and a hard policy), so the run performs
+#   one inference round-trip and nothing else.
+# - `OPENCODE_API_KEY` is passed to the inference step only, as a step-scoped
+#   environment variable from a GitHub Actions secret. It is never echoed,
+#   never logged, and never written to disk or configuration.
+# - The CLI is installed from npm at a pinned version, not via the unpinned
+#   remote installer script.
+# - OpenCode log output is deliberately not printed (no --print-logs and no
+#   OPENCODE_LOG_LEVEL override), so authentication details stay out of the
+#   run log; GitHub also masks the secret value automatically.
+#
+# The expected model response is a single exact line: OPENCODE_SMOKE_OK
+
+name: OpenCode cloud smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  OPENCODE_CLI_VERSION: "2.2.7"
+  OPENCODE_MODEL: opencode/glm-5.3-flash-free
+  OPENCODE_SMOKE_MARKER: OPENCODE_SMOKE_OK
+
+jobs:
+  smoke:
+    name: Free-model smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Guard repository and branch
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "nimbrethil81/gac-helper" ] || [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::This workflow may only run for repository nimbrethil81/gac-helper on refs/heads/main."
+            echo "Received repository='$GITHUB_REPOSITORY' ref='$GITHUB_REF'."
+            exit 1
+          fi
+
+      - name: Prepare isolated temporary directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/opencode-smoke"
+          echo "SMOKE_DIR=$RUNNER_TEMP/opencode-smoke" >> "$GITHUB_ENV"
+
+      - name: Check for OpenCode API key secret
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          if [ -z "$OPENCODE_API_KEY" ]; then
+            echo "::error::Secret OPENCODE_API_KEY is not configured. Add it under Settings > Secrets and variables > Actions > Repository secrets before running this workflow."
+            exit 1
+          fi
+
+      - name: Install pinned OpenCode CLI
+        run: |
+          echo '{"name":"opencode-smoke","private":true}' > "$SMOKE_DIR/package.json"
+          npm install --prefix "$SMOKE_DIR" --no-save --no-fund --no-audit --loglevel=error "@opencode/cli@$OPENCODE_CLI_VERSION"
+          "$SMOKE_DIR/node_modules/.bin/opencode" --version | grep -Fx "opencode v$OPENCODE_CLI_VERSION"
+
+      - name: Write deny-all smoke configuration
+        run: |
+          cat > "$SMOKE_DIR/opencode.json" <<'EOF'
+          {
+            "$schema": "https://opencode.ai/config.json",
+            "model": "opencode/glm-5.3-flash-free",
+            "update": "disable",
+            "snapshots": false,
+            "policies": [
+              { "action": "provider.use", "resource": "*", "effect": "deny" },
+              { "action": "provider.use", "resource": "opencode", "effect": "allow" },
+              { "action": "tool.use", "resource": "*", "effect": "deny" }
+            ],
+            "permissions": [
+              { "action": "*", "resource": "*", "effect": "deny" }
+            ],
+            "agents": {
+              "smoke": {
+                "description": "Pilot smoke-test agent: every tool action is denied; inference only.",
+                "permissions": [
+                  { "action": "*", "resource": "*", "effect": "deny" }
+                ]
+              }
+            }
+          }
+          EOF
+
+      - name: Run isolated smoke test
+        timeout-minutes: 5
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        run: |
+          cd "$SMOKE_DIR"
+          PROMPT="This is an automated connectivity smoke test. Reply with exactly the following single line and nothing else: $OPENCODE_SMOKE_MARKER"
+          "$SMOKE_DIR/node_modules/.bin/opencode" run \
+            --standalone \
+            --agent smoke \
+            --model "$OPENCODE_MODEL" \
+            "$PROMPT" > response.txt
+          cat response.txt
+          if grep -Fxq "$OPENCODE_SMOKE_MARKER" response.txt; then
+            echo "Smoke test passed: model returned the expected marker."
+            echo "✅ OpenCode free-model smoke test passed (opencode/glm-5.3-flash-free)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::Model response did not contain the required marker line '$OPENCODE_SMOKE_MARKER' on its own line."
+            exit 1
+          fi
