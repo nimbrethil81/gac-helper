@@ -1,0 +1,94 @@
+name: Catalogue Direct
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions: {}
+concurrency:
+  group: catalogue-direct
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    if: github.repository == 'nimbrethil81/gac-helper' && github.event.sender.id == 291301639 && !github.event.issue.pull_request && startsWith(github.event.comment.body, '/catalogue ')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      action: ${{ steps.command.outputs.action }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - id: command
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/catalogue-direct.js classify
+
+  preview:
+    needs: classify
+    if: needs.classify.outputs.action == 'preview'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/catalogue-direct.js preview
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: catalogue-preview
+          path: ${{ runner.temp }}/catalogue-preview/
+          retention-days: 14
+          if-no-files-found: error
+
+  apply:
+    needs: classify
+    if: needs.classify.outputs.action == 'approve'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Authenticate exact approval and apply data only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/catalogue-direct.js approve
+      - run: npm ci
+      - name: Required local gates (no write credentials)
+        run: |
+          npm run check
+          npm test
+          npm run baseline:verify
+          npm run catalogue:compile -- --gate release
+          npm run catalogue:release -- --check
+          npm run catalogue:ledger
+          npm run catalogue:site -- --out "$RUNNER_TEMP/catalogue-site"
+      - name: Publish dedicated branch after gates
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/catalogue-direct.js publish
