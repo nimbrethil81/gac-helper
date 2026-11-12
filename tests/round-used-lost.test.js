@@ -125,9 +125,42 @@ test("first attack is spent after a loss", () => {
     assert.equal(h.run(`isFirstAttackAvailable()`), true);
 });
 
-test("recommendation card renders all three actions with Used + Lost secondary", () => {
-    assert.match(source, /board-rec-btn-primary" onclick="markUsedAndCleared[^]*board-rec-btn-secondary" onclick="markUsedAndLost[^]*board-rec-btn-tertiary" onclick="markCounterUsedFromBoard/);
+test("compact card groups neutral actions above coloured results and one defence stepper", () => {
+    const h = harness();
+    setUp(h, "3v3");
+    h.run(`board.teams[0].name = "Enemy";
+        gacData = { "3v3": { Enemy: [{counterId: "C1", counter: "Counter", tier: "A", bannerScore: 52}] } };
+        counterDefinitions = { C1: {required: ["A"]} }; ownedCharacters = ["A"];
+        roundPlan = computeRoundPlan();`);
+    const html = h.run(`renderBoardTeamRow(${JSON.stringify(CFG[0])}, board.teams[0], board, "opponent")`);
+    const actions = html.slice(html.indexOf('<div class="board-rec-actions">'));
+    assert.match(actions, /toggleTeamCleared[^]*markCounterUsedFromBoard[^]*board-rec-btn-primary" onclick="markUsedAndCleared[^]*board-rec-btn-secondary" onclick="markUsedAndLost[^]*board-attempts/);
+    assert.equal((html.match(/onclick="toggleTeamCleared/g) || []).length, 1);
+    assert.equal((html.match(/class="board-attempts"/g) || []).length, 1);
+    assert.match(html, /✓ Used \+ Cleared/);
+    assert.match(html, /✕ Used \+ Lost/);
+    const css = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+    assert.match(css, /\.board-rec-actions\s*{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+    assert.match(css, /\.board-rec-btn-secondary\s*{[^}]*background: var\(--c-tier\)/);
+    assert.match(css, /\.board-rec-btn-primary\s*{[^}]*background: var\(--s-tier\)/);
 });
+
+for (const side of ["opponent", "my"]) {
+    for (const name of ["", "__NOT_IN_CATALOGUE__", "Enemy with no counter"]) {
+        test(`${side}: ${name || "empty slot"} retains exactly one defence control pair without attacking actions`, () => {
+            const h = harness(); setUp(h, "3v3");
+            h.run(`board.teams[0].name = ${JSON.stringify(name)}; roundPlan = computeRoundPlan();`);
+            const html = h.run(`renderBoardTeamRow(${JSON.stringify(CFG[0])}, board.teams[0], board, "${side}")`);
+            assert.equal((html.match(/onclick="toggleTeamCleared/g) || []).length, 1);
+            assert.equal((html.match(/class="board-attempts"/g) || []).length, 1);
+            assert.doesNotMatch(html, /markUsedAndCleared|markUsedAndLost|markCounterUsedFromBoard/);
+            h.run(`board.teams[0].cleared = true;`);
+            const cleared = h.run(`renderBoardTeamRow(${JSON.stringify(CFG[0])}, board.teams[0], board, "${side}")`);
+            assert.equal((cleared.match(/onclick="toggleTeamCleared/g) || []).length, 1);
+            assert.doesNotMatch(cleared, /class="board-attempts"|markUsedAndCleared|markUsedAndLost/);
+        });
+    }
+}
 
 test("Used + Lost on a hidden-zone reserve: cancel is a no-op, confirm increments once, Undo restores", () => {
     const h = harness();

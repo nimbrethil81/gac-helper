@@ -118,7 +118,7 @@ let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
 let focusFlash = false;                 // one-shot: true only for the render immediately after a Next Up tap
-let expandedCounterCards = new Set();   // keys of recommendation cards showing their suggested squad; UI-only, never persisted
+let expandedCounterCards = new Set();   // keys of recommendation cards showing Details; UI-only, never persisted
 
 // Temporary Undo for Cleared and Used + Cleared (v3.4). One in-memory slot, not
 // persisted: a page reload naturally drops the offer while the underlying
@@ -4347,6 +4347,7 @@ function setView(view) {
         rosterMessage = null;
     }
     if (view === "round") {
+        expandedCounterCards.clear();
         loadBoard();           // defensive re-read on entry
         // Seed the setup card's GAC format from the Counters toggle for
         // convenience, once, on first entry into a fresh setup. From then on
@@ -4841,7 +4842,7 @@ function buildProvisionalCardHtml(option, availabilityUnknown = false) {
     const label = option.evidenceKind === "SINGLE_REPORT" ? "one reported battle" : "related evidence";
     const statusLabel = { unknown: "Roster not loaded — availability unknown", "not-owned": "Not owned", used: "Used", "on-defence": "On defence", spent: "Unavailable", available: "Available" }[status];
     return `<div class="counter-card provisional-card ${status === "available" ? "" : "used"}">
-        <div class="card-header"><div class="team-name">${escapeHtml(option.counter)}</div><span>${statusLabel}</span></div>
+        <div class="card-header"><div class="team-name">${escapeHtml(option.counter)}</div><span class="provisional-badge">Provisional</span><span>${statusLabel}</span></div>
         <p><strong>Provisional — ${label}</strong></p>
         <p>${option.required.map((id, i) => escapeHtml(getCharacterName(id)) + (i === 0 ? " (leader)" : "") + (!availabilityUnknown && characterAvailabilityNote(id) ? ` — ${escapeHtml(characterAvailabilityNote(id))}` : "")).join(" / ")}</p>
         <p>${escapeHtml(option.notes)}</p>
@@ -5265,20 +5266,22 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     const identity = frozenSlot || team;
     const identityControl = side === "my"
         ? `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : identity.name || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) ? " (saved; not in current catalogue)" : ""}</div>`
-        : `<select class="board-team-select" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select>`;
+        : `<div class="board-team-picker"><span class="board-team-select board-team-selected" aria-hidden="true">${escapeHtml(team.name === NOT_IN_CATALOGUE ? "Not in catalogue" : team.name || (tDef.type === "FLEET" ? "Select fleet…" : "Select team…"))}${savedOutsideCatalogue ? " (saved; not in current catalogue)" : ""}</span><select class="board-team-select" aria-label="Defence ${tDef.type === "FLEET" ? "fleet" : "team"}" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select></div>`;
+
+    const recommendation = side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey);
+    const groupedControls = side !== "my" && !team.cleared && team.name && roundPlan
+        && roundPlan.reasons[territoryKey + ":" + team.index]?.counter;
 
     return `
 ${pendingUndoHtml}
 <div class="board-team-block ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
 <div class="board-team ${team.cleared ? "cleared" : ""}">
     ${identityControl}
-    <button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${side}', '${territoryKey}', ${team.index})">
-        ${team.cleared ? "✓ Cleared" : "Cleared"}
-    </button>
+    ${groupedControls ? "" : renderClearedControl(side, territoryKey, team)}
 </div>
 ${side === "my" ? "" : customName}
-${team.cleared ? "" : renderAttemptControl(side, territoryKey, team)}
-${side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey)}
+${recommendation}
+${team.cleared || groupedControls ? "" : renderAttemptControl(side, territoryKey, team)}
 </div>
 `;
 }
@@ -5643,6 +5646,10 @@ function renderBannersNeeded() {
 `;
 }
 
+function renderClearedControl(side, territoryKey, team) {
+    return `<button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${side}', '${territoryKey}', ${team.index})">${team.cleared ? "✓ Cleared" : "Cleared"}</button>`;
+}
+
 // The per-team battles counter (v2.6). Mirrors the in-game "Battles" count beside
 // each defence team: how many battles have been fought against it so far, win or
 // lose. Shown only while the team is uncleared, since a cleared team's battles no
@@ -5656,9 +5663,9 @@ function renderAttemptControl(side, territoryKey, team) {
 <div class="board-attempts">
     <span class="board-attempts-label">Battles</span>
     <div class="board-attempts-stepper">
-        <button class="board-attempts-btn" onclick="setTeamAttempts('${side}', '${territoryKey}', ${team.index}, ${n - 1})" ${n === 0 ? "disabled" : ""}>&minus;</button>
+        <button class="board-attempts-btn" aria-label="Decrease Battles" onclick="setTeamAttempts('${side}', '${territoryKey}', ${team.index}, ${n - 1})" ${n === 0 ? "disabled" : ""}>&minus;</button>
         <span class="board-attempts-count">${n}</span>
-        <button class="board-attempts-btn" onclick="setTeamAttempts('${side}', '${territoryKey}', ${team.index}, ${n + 1})">+</button>
+        <button class="board-attempts-btn" aria-label="Increase Battles" onclick="setTeamAttempts('${side}', '${territoryKey}', ${team.index}, ${n + 1})">+</button>
     </div>
 </div>
 `;
@@ -5814,11 +5821,12 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         const reserveWarningLine = info.reserveWarning ? `
     <div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>` : "";
         const squadKey = territoryKey + ":" + team.index + ":" + c.counterId;
-        const squadDisclosure = renderSquadDisclosure(squadKey, c.counterId, modeKey);
-        // Used + Cleared is the normal successful-counter path, so it leads and is
-        // visually primary; Mark used alone stays for when the two states genuinely
-        // don't change together (e.g. recording a used counter before the defence
-        // actually falls).
+        const warnings = riskHtml + reserveWarningLine;
+        const notes = [reason, c.notes].filter(Boolean).map(text => `<div class="board-rec-reason">${escapeHtml(text)}</div>`).join("");
+        const warningLabel = risk ? "Risky counter" : info.reserveWarning ? "Consider holding" : "";
+        const squadDisclosure = renderSquadDisclosure(squadKey, c.counterId, modeKey, {
+            warnings, notes: undersizeLine + notes
+        }, warningLabel);
         return `
 <div class="board-rec">
     <div class="board-rec-line">
@@ -5826,13 +5834,14 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="board-rec-reason">${escapeHtml(reason)}</div>${riskHtml}${undersizeLine}${reserveWarningLine}
     ${squadDisclosure}
     <div class="board-rec-actions">
-        <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Cleared</button>
-        <button class="board-rec-btn board-rec-btn-secondary" onclick="markUsedAndLost('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">Used + Lost</button>
+        ${renderClearedControl(side, territoryKey, team)}
         <button class="board-rec-btn board-rec-btn-tertiary" onclick="markCounterUsedFromBoard('${c.counterId}', '${targetKey}')">Mark used</button>
-    </div>${blocked}${reserveAltsHtml}
+        <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✓ Used + Cleared</button>
+        <button class="board-rec-btn board-rec-btn-secondary" onclick="markUsedAndLost('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✕ Used + Lost</button>
+    </div>
+    ${renderAttemptControl(side, territoryKey, team)}${blocked}${reserveAltsHtml}
 </div>
 ${provisional}
 `;
@@ -5846,34 +5855,45 @@ ${provisional}
 `;
 }
 
-// ─── SUGGESTED SQUAD DISCLOSURE (Round card, informational only) ──────────────
-// Purely a way to inspect the catalogue's proposed attacking composition for a
-// recommendation card. It never selects the counter, marks anything used, or
-// changes the recommendation itself — toggleCounterCardExpanded() only flips a
-// local, unpersisted UI flag and re-renders. It is a native <button>, separate
-// from the card's action buttons below it, so it never intercepts their clicks
-// and is keyboard/touch accessible for free via aria-expanded.
-function toggleCounterCardExpanded(key) {
-    if (expandedCounterCards.has(key)) {
-        expandedCounterCards.delete(key);
-    } else {
-        expandedCounterCards.add(key);
-    }
-    render();
+// Details is UI-only. Update the existing panel in place to keep keyboard focus,
+// scroll position and other open cards intact without rerunning the Round engine.
+function counterDetailsId(key) {
+    return "counter-details-" + encodeURIComponent(key);
 }
 
-function renderSquadDisclosure(key, counterId, modeKey) {
-    const comp = counterCompositionForDisplay(counterId, modeKey);
-    if (!comp) return "";   // nothing usable yet — no affordance rather than an empty panel
+function toggleCounterCardExpanded(key) {
+    const expanded = !expandedCounterCards.has(key);
+    if (expanded) expandedCounterCards.add(key);
+    else expandedCounterCards.delete(key);
+    const id = counterDetailsId(key);
+    const panel = document.getElementById(id);
+    const toggle = document.getElementById(id + "-toggle");
+    if (panel) panel.hidden = !expanded;
+    if (toggle) {
+        toggle.setAttribute("aria-expanded", String(expanded));
+        toggle.innerHTML = `Details <span aria-hidden="true">${expanded ? "▴" : "▾"}</span>`;
+    }
+}
 
+function renderSquadDisclosure(key, counterId, modeKey, supporting = {}, warningLabel = "") {
+    const comp = counterCompositionForDisplay(counterId, modeKey);
+    const sections = [
+        ["Squad", comp ? renderSuggestedSquad(comp) : ""],
+        ["Warnings & requirements", supporting.warnings],
+        ["Counter notes", supporting.notes],
+        ["Evidence & status", supporting.evidence]
+    ].filter(([, content]) => content);
+    if (!sections.length) return "";
     const expanded = expandedCounterCards.has(key);
+    const id = counterDetailsId(key);
     return `
-<button type="button" class="board-rec-disclosure" aria-expanded="${expanded ? "true" : "false"}" onclick="toggleCounterCardExpanded('${key}')">
-    <span>Suggested squad</span>
-    <span class="board-rec-chevron ${expanded ? "open" : ""}">▾</span>
-</button>
-${expanded ? renderSuggestedSquad(comp) : ""}
-`;
+<div class="board-rec-detail-line">
+    ${warningLabel ? `<span class="board-rec-warning">⚠ ${escapeHtml(warningLabel)}</span>` : ""}
+    <button type="button" id="${id}-toggle" class="board-rec-disclosure" aria-expanded="${expanded}" aria-controls="${id}" onclick="toggleCounterCardExpanded('${key}')">Details <span aria-hidden="true">${expanded ? "▴" : "▾"}</span></button>
+</div>
+<div class="board-rec-details" id="${id}" ${expanded ? "" : "hidden"}>
+    ${sections.map(([title, content]) => `<section><h4>${escapeHtml(title)}</h4>${content}</section>`).join("")}
+</div>`;
 }
 
 function renderSquadMemberRow(member, isRecommended) {

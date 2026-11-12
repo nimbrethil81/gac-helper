@@ -233,3 +233,20 @@ test('the approved Malak Revan correction retires its provisional rows and expos
     assert.equal(h.run(`oneShotCounters(gacData['3v3'][${JSON.stringify(name)}]).length`), 1);
     assert.equal(payload.counterDefinitions.BAYLAN.required.length, 1);
 });
+
+
+test('research cards use a modest Provisional badge and never invent scored actions or evidence', () => {
+    const h = harness();
+    const html = h.run(`buildProvisionalCardHtml(gacData['3v3'][${JSON.stringify(defence)}][0])`);
+    assert.match(html, /class="provisional-badge">Provisional<\/span>/);
+    assert.match(html, /Provisional — related evidence/);
+    assert.match(html, /Observed 2026-11-06/);
+    assert.match(html, /href="https:\/\/www.swgoh-ga3.online-server.info/);
+    assert.doesNotMatch(html, /tier-badge|board-rec-banners|Expected Banners|Undersize|markUsed|markCounterUsed|Used \+|~[0-9]/);
+    h.run(`board = createRoundBoard('KYBER', '3v3', [{territory:'FRONT_TOP',type:'SQUAD',teamCount:1}], 'opponent','round','now'); board.teams[0].name = ${JSON.stringify(defence)}; roundPlan = computeRoundPlan();`);
+    const row = h.run(`renderBoardTeamRow(board.territories[0], board.teams[0], board, 'opponent')`);
+    assert.equal((row.match(/onclick="toggleTeamCleared/g) || []).length, 1);
+    assert.equal((row.match(/class="board-attempts"/g) || []).length, 1);
+    assert.match(row, /Provisional counters \(1\)/);
+    assert.doesNotMatch(row, /markUsedAndCleared|markUsedAndLost|markCounterUsedFromBoard/);
+});
