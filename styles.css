@@ -808,7 +808,7 @@ body {
     font-size: 16px;            /* 16px avoids iOS zoom-on-focus */
 }
 
-.board-team.cleared .board-team-select {
+.board-team.cleared .board-team-select:not(select) {
     opacity: 0.5;
 }
 
@@ -826,7 +826,8 @@ body {
 
 .board-cleared-btn {
     flex-shrink: 0;
-    min-width: 92px;
+    min-width: 0;
+    min-height: 44px;
     border: 1px solid #22324a;
     border-radius: 8px;
     padding: 10px 8px;
@@ -868,7 +869,7 @@ body {
 }
 
 .board-rec {
-    margin: 6px 0 12px 12px;
+    margin: 6px 0 10px;
     padding: 10px 12px;
 
     background: var(--bg);
@@ -942,10 +943,18 @@ body {
 }
 
 .board-rec-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.board-rec-actions > button {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 5px;
+    font-size: 13px;
+    overflow-wrap: anywhere;
 }
 
 .board-rec-btn {
@@ -961,58 +970,55 @@ body {
     cursor: pointer;
 }
 
-/* Used + Cleared is the normal successful-battle path, so it gets the most
-   prominent treatment of the three record-a-battle actions while staying
-   within the app's existing button language. */
+/* The primary success action uses the existing green tier token. */
 .board-rec-btn-primary {
     background: var(--s-tier);
     padding: 10px 16px;
     font-size: 14px;
 }
 
-/* Used + Lost is a readily visible secondary action; Mark used is tertiary. */
+/* Result colours supplement the complete action labels. Dark text contrasts
+   with both theme colours; the administrative actions stay outlined. */
 .board-rec-btn-secondary {
-    background: var(--panel-light);
-    color: var(--text);
-    border: 1px solid var(--jedi-blue);
-    padding: 9px 14px;
-    min-height: 40px;
+    background: var(--c-tier);
+    color: #000;
 }
 
 .board-rec-btn-tertiary {
-    background: none;
+    background: transparent;
     color: var(--muted);
-    border: 1px solid transparent;
-    font-weight: normal;
-    min-height: 40px;
+    border: 1px solid #22324a;
 }
 
-/* ─── ROUND: SUGGESTED SQUAD DISCLOSURE ───────────────────────────────
-   Informational-only expand/collapse for a recommendation card's proposed
-   attacking composition. Kept as its own full-width button, separate from
-   the card's action buttons, so tapping it can never be mistaken for Mark
-   used / Used + Cleared, and so it meets the app's touch-target sizing
-   without needing a tiny icon target. */
-
+.board-rec { overflow-wrap: anywhere; }
+.board-rec-line strong { flex: 1; min-width: 0; }
+.board-rec-banners { white-space: nowrap; }
+.board-rec-detail-line { display: flex; align-items: center; gap: 8px; }
+.board-rec-warning { color: var(--b-tier); font-size: 12px; font-weight: bold; }
+.board-rec-detail-line .board-rec-disclosure { width: auto; margin-left: auto; border: 0; }
 .board-rec-disclosure {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 6px;
     width: 100%;
-    min-height: 40px;
-    margin-top: 2px;
-    padding: 8px 4px;
-
-    background: none;
-    border: none;
-    border-top: 1px solid #22324a;
-
+    min-height: 44px;
+    padding: 6px 4px;
+    background: transparent;
+    border: 0;
     color: var(--muted);
     font-size: 13px;
     font-weight: bold;
     text-align: left;
     cursor: pointer;
 }
+.board-rec-details { border-top: 1px solid #22324a; padding-top: 4px; }
+.board-rec-details section + section { margin-top: 12px; }
+.board-rec-details h4 { margin: 4px 0 6px; font-size: 13px; color: var(--text); }
+.board-rec-details .board-rec-reason + .board-rec-reason { margin-top: 6px; }
+.board-rec-details a { color: var(--jedi-blue); }
+.board-rec button:focus-visible, .board-team button:focus-visible,
+.board-team-picker:focus-within { outline: 2px solid var(--jedi-blue); outline-offset: 2px; }
 
 .board-rec-chevron {
     display: inline-block;
@@ -1084,14 +1090,18 @@ body {
 }
 
 /* ─── ROUND: BATTLES STEPPER (v2.6) ──────────────────────────────── */
-/* The per-team "Battles" count, mirroring the in-game counter. Indented to sit
-   under its team row, above the recommendation block. */
+/* One defence-owned stepper, grouped below the attacking actions when present. */
 
 .board-attempts {
     display: flex;
     align-items: center;
     gap: 10px;
     margin: 6px 0 0 12px;
+}
+
+.board-rec .board-attempts {
+    margin-left: 0;
+    justify-content: center;
 }
 
 .template-clear-btn {
@@ -1119,8 +1129,8 @@ body {
 }
 
 .board-attempts-btn {
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
     flex-shrink: 0;
     border: 1px solid #22324a;
     border-radius: 8px;
@@ -1590,3 +1600,10 @@ body {
 .round-provisional > summary::-webkit-details-marker { display: none; }
 .round-provisional .card-header { flex-wrap: wrap; gap: 8px; }
 .round-provisional .card-header .team-name { flex: 1 0 100%; }
+
+.provisional-badge { padding: 3px 7px; border: 1px solid var(--muted); border-radius: 6px; font-size: 11px; color: var(--muted); }
+/* The native picker covers a wrapping value so even long saved names remain readable. */
+.board-team-picker { position: relative; flex: 1; min-width: 0; }
+.board-team-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.board-team-selected { display: block; padding-right: 28px; overflow-wrap: anywhere; }
+.board-team-picker::after { content: "▾"; position: absolute; right: 10px; top: 12px; pointer-events: none; }

@@ -74,14 +74,15 @@ function renderCardHtml(h, { mode, counterDef, ownedCharacters, characterDefinit
 
 // ── 1. Counter with no composition data ────────────────────────────────────
 
-test("a counter with no composition data shows no expand affordance and no empty panel", () => {
+test("a counter with no composition still offers its populated notes without an empty Squad section", () => {
     const h = harness();
     const html = renderCardHtml(h, {
         mode: "3v3",
         counterDef: { name: "My Counter", required: [], recommended: [] }
     });
-    assert.doesNotMatch(html, /board-rec-disclosure/);
-    assert.doesNotMatch(html, /Suggested squad/);
+    assert.match(html, /board-rec-disclosure/);
+    assert.match(html, /Counter notes/);
+    assert.doesNotMatch(html, /<h4>Squad<\/h4>/);
     assert.doesNotMatch(html, /board-rec-squad/);
 });
 
@@ -208,8 +209,8 @@ test("a suggested-squad card starts collapsed by default", () => {
     });
     assert.match(html, /board-rec-disclosure/);
     assert.match(html, /aria-expanded="false"/);
-    assert.doesNotMatch(html, /board-rec-squad/);
-    assert.doesNotMatch(html, /Alpha/);
+    assert.match(html, /class="board-rec-details"[^>]+ hidden>/);
+    assert.match(html, /aria-controls="counter-details-FRONT_BOTTOM%3A0%3AC1"/);
 });
 
 // ── 9. Expanding/collapsing never touches round state ───────────────────────
@@ -293,4 +294,70 @@ test("a recommended member already spent by another used counter is annotated us
     assert.match(html, /Alpha/);
     assert.match(html, /Bravo/);
     assert.match(html, /Used with Other Counter/);
+});
+
+
+test("Details keeps available sections in order, escapes catalogue notes and omits absent evidence", () => {
+    const h = harness();
+    renderCardHtml(h, { mode: "3v3", counterDef: { name: "My Counter", required: ["A"] }, ownedCharacters: ["A"] });
+    h.run(`roundPlan.reasons["FRONT_BOTTOM:0"].counter.notes = "Only after <condition>";
+        roundPlan.reasons["FRONT_BOTTOM:0"].reserveWarning = true;
+        roundPlan.reasons["FRONT_BOTTOM:0"].counter.undersize = 1;`);
+    const html = h.run(`renderTeamRecommendation("opponent", "FRONT_BOTTOM", board.teams.find(t => t.territory === "FRONT_BOTTOM"), "3v3")`);
+    assert.ok(html.indexOf("<h4>Squad") < html.indexOf("<h4>Warnings &amp; requirements"));
+    assert.ok(html.indexOf("<h4>Warnings &amp; requirements") < html.indexOf("<h4>Counter notes"));
+    assert.match(html, /Only after &lt;condition&gt;/);
+    assert.match(html, /drop up to 1/);
+    assert.match(html, /Consider holding/);
+    assert.doesNotMatch(html, /Evidence &amp; status|provisional-badge/);
+    assert.doesNotMatch(html, /<details/);
+});
+
+test("multiple Details cards stay independent, survive ordinary renders and reset on Round re-entry", () => {
+    const h = harness();
+    renderCardHtml(h, { mode: "3v3", counterDef: { name: "My Counter", required: ["A"] }, ownedCharacters: ["A"] });
+    h.run(`toggleCounterCardExpanded("FRONT_BOTTOM:0:C1"); toggleCounterCardExpanded("FRONT_TOP:0:C2");`);
+    assert.equal(h.run(`expandedCounterCards.size`), 2);
+    h.run(`render()`);
+    assert.equal(h.run(`expandedCounterCards.size`), 2);
+    assert.match(h.run(`renderSquadDisclosure("FRONT_BOTTOM:0:C1", "C1", "3v3")`), /aria-expanded="true"/);
+    assert.match(h.run(`renderSquadDisclosure("FRONT_BOTTOM:0:CHANGED", "C1", "3v3")`), /aria-expanded="false"/);
+    h.run(`toggleCounterCardExpanded("FRONT_TOP:0:C2")`);
+    assert.equal(h.run(`expandedCounterCards.has("FRONT_BOTTOM:0:C1")`), true);
+    h.run(`saveBoard(); setView("counters"); setView("round");`);
+    assert.equal(h.run(`expandedCounterCards.size`), 0);
+    assert.equal(h.run(`board.teams.find(t => t.territory === "FRONT_BOTTOM").name`), "Enemy Team");
+});
+
+test("Details updates only its existing panel and toggle, leaving Round state and DOM intact", () => {
+    const h = harness();
+    renderCardHtml(h, { mode: "3v3", counterDef: { name: "My Counter", required: ["A"] }, ownedCharacters: ["A"] });
+    const before = h.run(`JSON.stringify({board, myBoard, usedTeams, bannerData, usageHistory, pendingUndo, focusedTeamKey, roundPlan})`);
+    const stored = [...h.values];
+    h.run(`
+        const testPanel = { hidden: true };
+        const testToggle = { attrs: {}, innerHTML: "", setAttribute(k, v) { this.attrs[k] = v; } };
+        document.getElementById = id => id.endsWith("-toggle") ? testToggle : testPanel;
+        render = () => { throw new Error("Details must not rebuild the Round DOM"); };
+        toggleCounterCardExpanded("FRONT_BOTTOM:0:C1");
+    `);
+    assert.equal(h.run(`testPanel.hidden`), false);
+    assert.equal(h.run(`testToggle.attrs["aria-expanded"]`), "true");
+    assert.match(h.run(`testToggle.innerHTML`), /Details.*▴/);
+    assert.equal(h.run(`JSON.stringify({board, myBoard, usedTeams, bannerData, usageHistory, pendingUndo, focusedTeamKey, roundPlan})`), before);
+    assert.deepEqual([...h.values], stored);
+    h.run(`toggleCounterCardExpanded("FRONT_BOTTOM:0:C1")`);
+    assert.equal(h.run(`testPanel.hidden`), true);
+    assert.equal(h.run(`testToggle.attrs["aria-expanded"]`), "false");
+});
+
+test("warning label consumes an engine warning rather than inferring it from the badge", () => {
+    const h = harness();
+    renderCardHtml(h, { mode: "3v3", counterDef: { name: "My Counter", required: ["A"] }, ownedCharacters: ["A"] });
+    h.run(`roundPlan.reasons["FRONT_BOTTOM:0"].counter.tier = "C"; roundPlan.visibleBoardConservation.warnings = [];`);
+    const expression = `renderTeamRecommendation("opponent", "FRONT_BOTTOM", board.teams.find(t => t.territory === "FRONT_BOTTOM"), "3v3")`;
+    assert.doesNotMatch(h.run(expression), /board-rec-warning/);
+    h.run(`roundPlan.visibleBoardConservation.warnings = [{ defenceId: "FRONT_BOTTOM:0", status: "low-tier", tier: "C" }];`);
+    assert.match(h.run(expression), /⚠ Risky counter/);
+    assert.match(h.run(expression), /C-tier option — risky; a win is not assured/);
 });

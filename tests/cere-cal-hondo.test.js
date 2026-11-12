@@ -48,8 +48,14 @@ test('exact Cal roster filtering, Round recommendation, squad display and tier r
     assert.equal(run('roundPlan.assign["FRONT_TOP:0"].counterId'),'CERE_CAL');
     run('expandedCounterCards.add("FRONT_TOP:0:CERE_CAL");');
     const html=run('renderTeamRecommendation("opponent","FRONT_TOP",board.teams[0],"3v3")');
-    for(const text of ['Cere Junda','Taron Malicos','Cal Kestis','~56 banners','Used + Cleared','Suggested squad']) assert.ok(html.includes(text));
-    assert.doesNotMatch(html,/Provisional counters|Jedi Knight Cal/);
+    for(const text of ['Cere Junda','Taron Malicos','Cal Kestis','~56 banners','Used + Cleared','Details','<h4>Squad</h4>']) assert.ok(html.includes(text));
+    assert.match(html,/aria-expanded="true" aria-controls="counter-details-FRONT_TOP%3A0%3ACERE_CAL"/);
+    assert.match(html,/<div class="board-rec-details" id="counter-details-FRONT_TOP%3A0%3ACERE_CAL" >/);
+    assert.doesNotMatch(html,/Provisional counters/);
+    const squad=html.match(/<div class="board-rec-squad">([^]*?)<\/section>/)[1];
+    assert.doesNotMatch(squad,/Jedi Knight Cal/);
+    for(const name of ['Cere Junda','Taron Malicos','Cal Kestis']) assert.ok(squad.includes(name));
+    assert.match(html,/Cal Kestis \(not Jedi Knight Cal Kestis\)/);
     assert.equal(run('counterCompositionForDisplay("CERE_CAL","3v3").flex'),0);
     run('ownedCharacters=["CERE_JUNDA","TARON_MALICOS","JEDI_KNIGHT_CAL_KESTIS"]; roundPlan=computeRoundPlan();');
     assert.equal(run('roundPlan.assign["FRONT_TOP:0"]'),undefined);
