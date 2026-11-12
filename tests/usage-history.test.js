@@ -386,3 +386,178 @@ test("an entirely missing round defence cannot be confirmed as actual deployment
     assert.equal(h.run("confirmRoundDefenceUsage()"), false);
     assert.equal(events(h).length, 0);
 });
+
+test("battle evidence captures identities and attempts without live-board dependence", () => {
+    const h = setup();
+    h.run("gacData['5v5']['Known wall']=[]; board.teams[0].name='Known wall'; markUsedAndLost('opponent','FRONT_TOP',0,'C1'); markUsedAndCleared('opponent','FRONT_TOP',0,'C2')");
+    const recorded = events(h);
+    assert.equal(recorded[0].battleEvidence.defenceName, "Known wall");
+    assert.equal(recorded[0].battleEvidence.attempt, "first");
+    assert.equal(recorded[1].battleEvidence.attempt, "cleanup");
+    assert.equal(recorded[0].battleEvidence.datacron, "unknown");
+    assert.equal(recorded[0].battleEvidence.actualBanners, null);
+    assert.equal(h.run("(renderSlotBattleDetails('FRONT_TOP:0').match(/class=\"battle-details\"/g)||[]).length"), 2);
+    h.run("resetRound(); counterDefinitions={}");
+    assert.equal(h.read("battleFeedbackPayload().battles")[0].defenceName, "Known wall");
+    assert.match(h.run("renderUsage()"), /Recorded battle details/);
+    assert.equal(h.read("battleFeedbackPayload().battles")[0].counterName, "Attack");
+});
+
+test("battle field edits validate, clear, persist and only revise changed facts", () => {
+    const h = setup();
+    h.run("markUsedAndLost('opponent','FRONT_TOP',0,'C1')");
+    const id = events(h)[0].id;
+    const edit = (field, value) => h.run(`updateBattleEvidence(${JSON.stringify(id)},${JSON.stringify(field)},${JSON.stringify(value)})`);
+    assert.equal(edit("actualBanners", "0").ok, true);
+    assert.equal(events(h)[0].battleEvidence.actualBanners, 0);
+    const revision = events(h)[0].revision;
+    assert.equal(edit("actualBanners", "0").ok, true);
+    assert.equal(events(h)[0].revision, revision);
+    for (const bad of ["-1", "1.5", "1e2", "1000", "abc"]) assert.equal(edit("actualBanners", bad).ok, false);
+    assert.equal(events(h)[0].battleEvidence.actualBanners, 0);
+    assert.equal(edit("actualBanners", "").ok, true);
+    assert.equal(events(h)[0].battleEvidence.actualBanners, null);
+    assert.equal(edit("datacron", "no").ok, true);
+    assert.equal(edit("datacron", "unknown").ok, true);
+    assert.equal(edit("attempt", "cleanup").ok, true);
+    assert.equal(edit("notes", "<script>user note</script>").ok, true);
+    assert.match(h.run("renderSlotBattleDetails('FRONT_TOP:0')"), /&lt;script&gt;/);
+    const reload = harness(Object.fromEntries(h.values));
+    assert.deepEqual(events(reload), events(h));
+    const backup = h.run("usageBackupPayload()");
+    assert.equal(setup().run(`prepareUsageHistoryImport(${JSON.stringify(backup)}).added`), 1);
+});
+
+test("failed evidence writes roll back facts and report failure, with valid data retained", () => {
+    const h = setup();
+    h.run("markUsedAndLost('opponent','FRONT_TOP',0,'C1')");
+    const before = events(h);
+    const disk = h.values.get("gacUsageHistory:v1");
+    h.context.localStorage.setItem = () => { throw Error("quota"); };
+    assert.equal(h.run("updateBattleEvidence(usageHistory.events[0].id,'notes','new').ok"), false);
+    assert.deepEqual(events(h), before);
+    assert.equal(h.values.get("gacUsageHistory:v1"), disk);
+});
+
+test("Undo restores evidence of a prior result and voids new evidence without losing unrelated lineup corrections", () => {
+    const h = setup();
+    h.run("markUsed('C1'); markUsedAndLost('opponent','FRONT_TOP',0,'C1'); updateBattleEvidence(usageHistory.events[0].id,'notes','result note'); undoPendingAction()");
+    assert.equal(events(h)[0].outcome, "used");
+    assert.equal(events(h)[0].battleEvidence.notes, "");
+    assert.equal(h.read("battleFeedbackPayload().battles").length, 0);
+    assert.equal(h.read("battleFeedbackPayload().withdrawals").length, 1);
+    h.run("markUsedAndLost('opponent','FRONT_TOP',0,'C2'); updateBattleEvidence(usageHistory.events[1].id,'notes','void me'); undoPendingAction()");
+    assert.equal(events(h)[1].voided, true);
+    assert.equal(h.read("battleFeedbackPayload().withdrawals").length, 2);
+});
+
+test("invalid and newer evidence is quarantined on load and rejected by backup import", () => {
+    const h = setup();
+    h.run("markUsedAndLost('opponent','FRONT_TOP',0,'C1')");
+    for (const field of [{ schema: 999 }, { actualBanners: -1 }, { datacron: "maybe" }, { attempt: "assumed" }, { notes: "x".repeat(501) }]) {
+        const history = h.read("usageHistory");
+        Object.assign(history.events[0].battleEvidence, field);
+        const reloaded = harness({ "gacUsageHistory:v1": JSON.stringify(history) });
+        assert.equal(events(reloaded).length, 0);
+        assert.equal(reloaded.run("usageHistory.rejectedEvents.length"), 1);
+        assert.equal(reloaded.read("battleFeedbackPayload().battles").length, 0);
+        assert.throws(() => h.run(`prepareUsageHistoryImport(${JSON.stringify({format:"gac-usage-history",schema:1,history})})`), /invalid/i);
+    }
+});
+
+test("evidence report selects recent result rounds, keeps withdrawals and allow-lists privacy fields", () => {
+    const h = setup();
+    h.run("markUsedAndLost('opponent','FRONT_TOP',0,'C1'); clearPendingUndo()");
+    const template = events(h)[0];
+    const facts = [];
+    for (let i = 1; i <= 5; i++) facts.push({ ...template, id: JSON.stringify([`round-${i}`, "attack", "C1"]), roundId:`round-${i}`,
+        createdAt:`2026-11-0${i}T00:00:00.000Z`, updatedAt:`2026-11-0${i}T00:00:00.000Z`,
+        battleEvidence:{...template.battleEvidence, privateExtension:"private"}, allyCode:"private", opponentIdentity:"private", savedFleetLineup:{private:true}, diagnostic:"private", voided:i===1 });
+    facts.push({ ...facts[4], id:JSON.stringify(["used-round","attack","C1"]), roundId:"used-round", outcome:"used", revision:1 });
+    facts.push({ ...facts[4], id:JSON.stringify(["defence-round","defence","SLOT"]), side:"defence", roundId:"defence-round", outcome:"deployed" });
+    h.run(`usageHistory.events=${JSON.stringify(facts)}`);
+    const report = h.read("battleFeedbackPayload()");
+    assert.deepEqual(report.rounds, ["round-5","round-4","round-3"]);
+    assert.equal(report.battles.length, 3);
+    assert.equal(report.withdrawals.length, 1);
+    assert.equal(report.withdrawals[0].eventId, facts[0].id);
+    assert.equal(JSON.stringify(report).includes("private"), false);
+    assert.equal(report.battles[0].attackingComposition, null);
+    const again = h.read("battleFeedbackPayload()");
+    assert.deepEqual(again.battles, report.battles);
+    assert.deepEqual(again.withdrawals, report.withdrawals);
+});
+
+test("native sharing handles unsupported, cancelled, failed and completed share sheets honestly", async () => {
+    const h = setup();
+    h.run("markUsedAndLost('opponent','FRONT_TOP',0,'C1')");
+    h.context.File = class File { constructor(parts, name, options) { this.name=name; this.type=options.type; } };
+    await h.run("shareBattleFeedback()");
+    assert.match(h.run("battleFeedbackReportMessage"), /unavailable.*Download JSON/);
+    h.context.navigator.canShare = () => true;
+    h.context.navigator.share = async () => { const e = Error("cancel"); e.name="AbortError"; throw e; };
+    await h.run("shareBattleFeedback()");
+    assert.match(h.run("battleFeedbackReportMessage"), /cancelled.*Download JSON/);
+    h.context.navigator.share = async () => { throw Error("failed"); };
+    await h.run("shareBattleFeedback()");
+    assert.match(h.run("battleFeedbackReportMessage"), /Could not share.*Download JSON/);
+    h.context.navigator.share = async ({files}) => { assert.match(files[0].name, /^gac-battle-feedback-.*\.json$/); };
+    await h.run("shareBattleFeedback()");
+    assert.match(h.run("battleFeedbackReportMessage"), /Delivery is handled by the app/);
+    assert.doesNotMatch(h.run("battleFeedbackReportMessage"), /sent|delivered/);
+});
+
+test("report preview is explicit, empty sharing is disabled, and protected history cannot export", () => {
+    const h = setup();
+    assert.equal(h.run("renderBattleFeedbackReport()"), "");
+    h.run("openBattleFeedbackReport()");
+    assert.match(h.run("renderBattleFeedbackReport()"), /Nothing to share/);
+    assert.match(h.run("renderBattleFeedbackReport()"), /disabled>Share JSON/);
+    assert.match(h.run("renderRound()"), /round-overflow/);
+    h.run("usageHistoryWritable=false");
+    assert.throws(() => h.run("battleFeedbackPayload()"), /protected/);
+});
+
+test("result enriches previously unknown target context and never treats a custom name as canonical", () => {
+    const h = setup();
+    h.run("markUsed('C1'); gacData['5v5']['Known wall']=[]; board.teams[0].name='Known wall'; board.teams[0].attempts=1; markUsedAndLost('opponent','FRONT_TOP',0,'C1')");
+    assert.equal(events(h)[0].battleEvidence.defenceName, "Known wall");
+    assert.equal(events(h)[0].battleEvidence.attempt, "cleanup");
+    h.run("board.teams[1].name=NOT_IN_CATALOGUE; board.teams[1].customName='Private opponent label'; markUsedAndLost('opponent','FRONT_TOP',1,'C2')");
+    assert.equal(events(h)[1].battleEvidence.defenceName, null);
+    assert.doesNotMatch(JSON.stringify(h.read("battleFeedbackPayload()")), /Private opponent label/);
+});
+
+test("export retains explicitly corrected participants and fleet uncertainty with a strict context allow-list", () => {
+    const h = setup();
+    h.run("markUsedAndLost('opponent','BACK_TOP',0,'F1')");
+    h.run(`correctUsageParticipants(usageHistory.events[0].id,
+        [{unitId:'CAP',unitType:'CAPITAL_SHIP',role:'capital'},{unitId:'S1',unitType:'SHIP',role:'starter'}],
+        {complete:true,provenance:'player-correction',pilotsComplete:false,reinforcementParticipationKnown:false});
+        usageHistory.events[0].attribution.private='secret'; usageHistory.events[0].participants[0].private='secret'`);
+    const battle = h.read("battleFeedbackPayload().battles[0]");
+    assert.equal(battle.attackingComposition.length, 2);
+    assert.equal(battle.recordedAttackContext.complete, true);
+    assert.equal(battle.recordedAttackContext.provenance, "player-correction");
+    assert.equal(battle.recordedAttackContext.pilotsComplete, false);
+    assert.equal(battle.recordedAttackContext.reinforcementParticipationKnown, false);
+    assert.equal(battle.defendingComposition, null);
+    assert.doesNotMatch(JSON.stringify(battle), /secret/);
+});
+
+test("Undo expiry removes only its notice without rendering away an active feedback draft", () => {
+    const h = setup();
+    let expire;
+    let removed = 0;
+    h.context.setTimeout = callback => { expire = callback; return 1; };
+    h.context.document.querySelectorAll = selector => {
+        assert.equal(selector, ".board-undo-notice");
+        return [{ remove: () => removed++ }];
+    };
+    h.run("setPendingUndo({kind:'usedLost',side:'opponent'})");
+    h.appElement.innerHTML = "active draft DOM";
+    expire();
+    assert.equal(h.appElement.innerHTML, "active draft DOM");
+    assert.equal(removed, 1);
+    assert.equal(h.run("pendingUndo"), null);
+});

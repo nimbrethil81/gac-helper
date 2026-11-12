@@ -1607,3 +1607,22 @@ body {
 .board-team-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .board-team-selected { display: block; padding-right: 28px; overflow-wrap: anywhere; }
 .board-team-picker::after { content: "▾"; position: absolute; right: 10px; top: 12px; pointer-events: none; }
+
+/* Observed results stay independent of compact counter-information cards. */
+.battle-details { margin-top: 10px; border-top: 1px solid var(--border, #344155); padding-top: 4px; min-width: 0; }
+.battle-details > summary, .battle-more > summary { min-height: 44px; padding: 10px 4px; cursor: pointer; overflow-wrap: anywhere; }
+.battle-details label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; min-width: 0; margin: 8px 0; }
+.battle-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.battle-details input, .battle-details select, .battle-details textarea { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: 10px; font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--border, #344155); border-radius: 8px; }
+.battle-details textarea { resize: vertical; min-height: 82px; }
+.battle-save-status { font-size: 12px; color: var(--muted); margin: 4px 0; }
+.battle-error { color: #fca5a5; }
+.round-summary-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.round-overflow { position: relative; }
+.round-overflow > summary { min-width: 44px; min-height: 44px; text-align: center; font-size: 26px; cursor: pointer; list-style: none; border-radius: 8px; }
+.round-overflow > summary::-webkit-details-marker { display: none; }
+.round-overflow[open] > button { position: absolute; z-index: 5; right: 0; top: 44px; width: 190px; background: var(--panel); border: 1px solid var(--border, #344155); box-shadow: 0 6px 18px #0008; }
+.battle-report { overflow-wrap: anywhere; }
+.battle-report h2 { font-size: 18px; }
+.battle-report p { font-size: 14px; line-height: 1.5; }
+.battle-report button { min-height: 44px; }
