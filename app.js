@@ -1063,6 +1063,8 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     const wasUsed = usedTeams.includes(counterId);
     const usageChange = side !== "my" ? recordAttackUsage(counterId, "won", "board", territoryKey + ":" + index, wasUsed) : null;
 
+    if (usageChange) battleDetailsOpen.add(usageChange.eventId);
+
     if (!wasUsed) {
         usedTeams.push(counterId);
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
@@ -1103,6 +1105,8 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
     const wasUsed = usedTeams.includes(counterId);
     const usageChange = side !== "my" ? recordAttackUsage(counterId, "lost", "board", territoryKey + ":" + index, wasUsed) : null;
 
+    if (usageChange) battleDetailsOpen.add(usageChange.eventId);
+
     if (!wasUsed) {
         usedTeams.push(counterId);
         localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
@@ -1142,7 +1146,8 @@ function setPendingUndo(entry) {
     clearPendingUndo();
     entry.timeoutId = setTimeout(() => {
         pendingUndo = null;
-        render();
+        // Expiring an offer must not replace active feedback inputs or lose drafts.
+        document.querySelectorAll(".board-undo-notice").forEach(node => node.remove());
     }, PENDING_UNDO_WINDOW_MS);
     pendingUndo = entry;
 }
@@ -1280,13 +1285,173 @@ function validUsageParticipants(participants) {
         new Set(participants.map(p => p.unitId)).size === participants.length;
 }
 
+// Optional observed facts; absence means unknown for legacy events.
+const battleDetailsOpen = new Set();
+let battleFeedbackReportOpen = false;
+let battleFeedbackReportMessage = "";
+
+function validBattleEvidence(e) {
+    return e === undefined || (isPlainObject(e) && e.schema === 1 &&
+        (e.defenceName === null || typeof e.defenceName === "string" && e.defenceName.length <= 256) &&
+        (e.counterName === null || typeof e.counterName === "string" && e.counterName.length <= 256) &&
+        ["unknown", "first", "cleanup"].includes(e.attempt) && ["unknown", "yes", "no"].includes(e.datacron) &&
+        (e.actualBanners === null || Number.isInteger(e.actualBanners) && e.actualBanners >= 0 && e.actualBanners <= 999) &&
+        typeof e.notes === "string" && e.notes.length <= 500);
+}
+
+function captureBattleEvidence(counterId, targetKey) {
+    const team = board && targetKey && board.teams.find(t => t.territory + ":" + t.index === targetKey);
+    const territory = board && targetKey && board.territories.find(t => t.territory === targetKey.split(":")[0]);
+    const mode = territory?.type === "FLEET" ? "FLEET" : board?.mode;
+    return { schema: 1, defenceName: team && Object.hasOwn(gacData[mode] || {}, team.name) ? team.name : null,
+        counterName: counterDefinitions[counterId]?.name || null,
+        attempt: team ? (team.attempts > 0 ? "cleanup" : "first") : "unknown",
+        datacron: "unknown", actualBanners: null, notes: "" };
+}
+
+function battleEvidenceFor(event) {
+    return event.battleEvidence || { schema: 1, defenceName: null, counterName: null,
+        attempt: "unknown", datacron: "unknown", actualBanners: null, notes: "" };
+}
+
+function updateBattleEvidence(eventId, field, raw) {
+    const event = usageHistory.events.find(e => e.id === eventId && !e.voided && e.side === "attack" && ["won", "lost"].includes(e.outcome));
+    if (!event || !["actualBanners", "datacron", "attempt", "notes"].includes(field)) return { ok: false, text: "This battle is no longer available." };
+    let value = raw;
+    if (field === "actualBanners") {
+        if (raw === "") value = null;
+        else if (!/^\d{1,3}$/.test(String(raw))) return { ok: false, text: "Enter whole banners from 0 to 999, or clear the field." };
+        else value = Number(raw);
+    }
+    const evidence = { ...battleEvidenceFor(event), [field]: value };
+    if (!validBattleEvidence(evidence)) return { ok: false, text: "Check this value. Notes allow up to 500 characters." };
+    if (canonicalUsageJson(battleEvidenceFor(event)) === canonicalUsageJson(evidence)) return { ok: true, text: "No changes" };
+    const change = writeUsageEvent({ ...event, battleEvidence: evidence }, true, true);
+    return change ? { ok: true, text: "Saved locally" } : { ok: false, text: "Could not save locally. Free device storage and try again." };
+}
+
+function commitBattleEvidence(input, field) {
+    const details = input.closest(".battle-details");
+    const result = input.validity?.badInput
+        ? { ok: false, text: "Enter whole banners from 0 to 999, or clear the field." }
+        : updateBattleEvidence(details.dataset.eventId, field, input.value);
+    const status = details.querySelector(".battle-save-status");
+    status.textContent = result.text;
+    status.classList.toggle("battle-error", !result.ok);
+    input.setAttribute("aria-invalid", String(!result.ok));
+}
+
+function renderBattleDetails(event) {
+    const e = battleEvidenceFor(event);
+    const select = (field, label, choices) => `<label>${label}<select onchange="commitBattleEvidence(this, '${field}')">${choices.map(([value, text]) => `<option value="${value}" ${e[field] === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
+    return `<details class="battle-details" data-event-id="${escapeHtml(event.id)}" ${battleDetailsOpen.has(event.id) ? "open" : ""} ontoggle="this.open ? battleDetailsOpen.add(this.dataset.eventId) : battleDetailsOpen.delete(this.dataset.eventId)">
+        <summary>Battle details · ${escapeHtml(e.counterName || event.counterId || "Unknown counter")} · ${event.outcome === "won" ? "Cleared" : "Lost"}</summary>
+        <p class="usage-help">${escapeHtml(event.mode)} · ${escapeHtml(e.defenceName || "Unknown defence")} · ${escapeHtml(event.createdAt.slice(0, 10))}</p>
+        <div class="battle-fields"><label>Actual banners<input type="number" inputmode="numeric" min="0" max="999" step="1" value="${e.actualBanners ?? ""}" onchange="commitBattleEvidence(this, 'actualBanners')"></label>
+        ${select("datacron", "Datacron involved?", [["unknown", "Unknown"], ["yes", "Yes"], ["no", "No"]])}</div>
+        <details class="battle-more"><summary>More details</summary>${select("attempt", "Attempt", [["unknown", "Unknown"], ["first", "First attempt"], ["cleanup", "Cleanup"]])}
+        <label>Notes (optional)<textarea maxlength="500" onblur="commitBattleEvidence(this, 'notes')">${escapeHtml(e.notes)}</textarea></label></details>
+        <p class="battle-save-status" role="status" aria-live="polite"></p>
+    </details>`;
+}
+
+function renderSlotBattleDetails(slotKey) {
+    if (!board) return "";
+    return usageHistory.events.filter(e => e.roundId === board.roundId && e.slotKey === slotKey && e.side === "attack" && !e.voided && ["won", "lost"].includes(e.outcome)).map(renderBattleDetails).join("");
+}
+
+function battleFeedbackPayload() {
+    if (!usageHistoryWritable) throw new Error("History is protected or unreadable. Restore a supported usage backup before sharing.");
+    const attacks = usageHistory.events.filter(e => validUsageEvent(e) && e.side === "attack" && validUsageCanonicalId(e.counterId) && ["won", "lost"].includes(e.outcome));
+    const dates = new Map();
+    attacks.filter(e => !e.voided).forEach(e => dates.set(e.roundId, [dates.get(e.roundId) || "", e.createdAt].sort().pop()));
+    const rounds = [...dates].sort((a, b) => b[1].localeCompare(a[1]) || a[0].localeCompare(b[0])).slice(0, 3).map(([id]) => id);
+    return { format: "gac-battle-feedback", schema: 1, exportedAt: new Date().toISOString(), rounds,
+        battles: attacks.filter(e => !e.voided && rounds.includes(e.roundId)).map(event => ({
+            eventId: event.id, revision: event.revision, roundId: event.roundId, mode: event.mode,
+            counterId: event.counterId, slotKey: event.slotKey, outcome: event.outcome,
+            source: event.source, createdAt: event.createdAt, updatedAt: event.updatedAt,
+            counterName: battleEvidenceFor(event).counterName, defenceName: battleEvidenceFor(event).defenceName,
+            attempt: battleEvidenceFor(event).attempt, datacron: battleEvidenceFor(event).datacron,
+            actualBanners: battleEvidenceFor(event).actualBanners, notes: battleEvidenceFor(event).notes,
+            attackingComposition: event.attribution.complete ? event.participants.filter(p => p.role !== "pilot").map(p => ({ unitId: p.unitId, unitType: p.unitType, role: p.role })) : null,
+            defendingComposition: null,
+            recordedAttackContext: {
+                participants: event.participants.map(p => ({ unitId: p.unitId, unitType: p.unitType, role: p.role })),
+                complete: event.attribution.complete, provenance: event.attribution.provenance,
+                pilotsComplete: event.mode === "FLEET" ? event.attribution.pilotsComplete ?? null : null,
+                reinforcementParticipationKnown: event.mode === "FLEET" ? event.attribution.reinforcementParticipationKnown ?? null : null
+            },
+            fleetParticipation: event.mode === "FLEET" ? { capitalShipId: event.capitalShipId || null,
+                reinforcementsKnown: event.attribution.reinforcementParticipationKnown ?? null } : null })),
+        // All attack withdrawals remain representable even when a round falls out of the recent window.
+        withdrawals: usageHistory.events.filter(e => validUsageEvent(e) && e.side === "attack" && (e.voided || e.outcome === "used" && e.revision > 1))
+            .map(e => ({ eventId: e.id, revision: e.revision, updatedAt: e.updatedAt, withdrawn: true })) };
+}
+
+function openBattleFeedbackReport() {
+    battleFeedbackReportOpen = true;
+    battleFeedbackReportMessage = "";
+    render();
+    document.getElementById("battle-feedback-preview")?.focus();
+}
+
+function renderBattleFeedbackReport() {
+    if (!battleFeedbackReportOpen) return "";
+    let report, error;
+    try { report = battleFeedbackPayload(); } catch (e) { error = e.message; }
+    const empty = !report || !report.battles.length && !report.withdrawals.length;
+    return `<section class="round-card battle-report" id="battle-feedback-preview" tabindex="-1" aria-label="Battle feedback report">
+        <h2>Share battle feedback</h2><p>${report ? `${report.rounds.length} round${report.rounds.length === 1 ? "" : "s"} · ${report.battles.length} recorded battle${report.battles.length === 1 ? "" : "s"} · ${report.withdrawals.length} withdrawal${report.withdrawals.length === 1 ? "" : "s"}` : escapeHtml(error)}</p>
+        <p>Shares recorded outcomes, known counter and defence names, optional banners, conditions, dates and notes. Notes may contain text you entered. Account, roster and opponent personal details are excluded.</p>
+        ${empty && !error ? "<p>Nothing to share yet. Record a win or loss during a round first.</p>" : ""}
+        <button class="roster-data-btn" onclick="shareBattleFeedback()" ${empty ? "disabled" : ""}>Share JSON</button>
+        <button class="roster-data-btn" onclick="downloadBattleFeedback()" ${empty ? "disabled" : ""}>Download JSON</button>
+        <button class="roster-data-btn" onclick="battleFeedbackReportOpen=false; render()">Close</button>
+        <p role="status">${escapeHtml(battleFeedbackReportMessage)}</p></section>`;
+}
+
+function battleFeedbackFile() {
+    return new File([JSON.stringify(battleFeedbackPayload(), null, 2) + "\n"],
+        `gac-battle-feedback-${new Date().toISOString().slice(0, 10)}.json`, { type: "application/json" });
+}
+
+async function shareBattleFeedback() {
+    try {
+        const file = battleFeedbackFile();
+        if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
+            battleFeedbackReportMessage = "File sharing is unavailable. Use Download JSON below.";
+        } else {
+            await navigator.share({ files: [file], title: "GAC battle feedback" });
+            battleFeedbackReportMessage = "Share sheet closed. Delivery is handled by the app you chose.";
+        }
+    } catch (e) {
+        battleFeedbackReportMessage = e.name === "AbortError" ? "Sharing cancelled. You can try again or Download JSON." : "Could not share. Try Download JSON.";
+    }
+    render();
+}
+
+function downloadBattleFeedback() {
+    let url;
+    try {
+        const blob = new Blob([JSON.stringify(battleFeedbackPayload(), null, 2) + "\n"], { type: "application/json" });
+        url = URL.createObjectURL(blob);
+        const link = document.createElement("a"); link.href = url;
+        link.download = `gac-battle-feedback-${new Date().toISOString().slice(0, 10)}.json`;
+        document.body.appendChild(link); link.click(); link.remove();
+        battleFeedbackReportMessage = "JSON download requested. Attach the file manually for counter review.";
+    } catch (e) { battleFeedbackReportMessage = "Could not download. Check browser download permissions and try again."; }
+    if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+    render();
+}
+
 function validUsageEvent(e) {
     return e && typeof e.id === "string" && e.id.length > 0 && typeof e.roundId === "string" && e.roundId.length > 0 &&
         (e.seasonId === null || (typeof e.seasonId === "string" && e.seasonId.trim().length > 0)) &&
         ["5v5", "3v3", "FLEET"].includes(e.mode) && ["attack", "defence"].includes(e.side) &&
         typeof e.source === "string" && typeof e.identity === "string" &&
         (e.counterId === null || typeof e.counterId === "string") && (e.slotKey === null || typeof e.slotKey === "string") &&
-        validUsageParticipants(e.participants) &&
+        validUsageParticipants(e.participants) && validBattleEvidence(e.battleEvidence) &&
         (e.capitalShipId === undefined || e.capitalShipId === null || (e.mode === "FLEET" && typeof e.capitalShipId === "string" &&
             e.participants?.some(p => p.unitId === e.capitalShipId && p.unitType === "CAPITAL_SHIP"))) &&
         (e.benchShips === undefined || (e.mode === "FLEET" && Array.isArray(e.benchShips) &&
@@ -1379,10 +1544,10 @@ function usageSeasonForRound() {
     return usageHistory.roundSeasons[board.roundId];
 }
 
-function writeUsageEvent(fact, persist = true) {
+function writeUsageEvent(fact, persist = true, rollbackOnFailure = false) {
     if (!usageHistoryWritable) return null;
     const previous = usageHistory.events.find(e => e.id === fact.id);
-    const comparable = e => JSON.stringify([e.participants, e.attribution, e.outcome, e.voided, e.identity, e.slotKey, e.snapshotFingerprint, e.benchShips, e.capitalShipId]);
+    const comparable = e => JSON.stringify([e.participants, e.attribution, e.outcome, e.voided, e.identity, e.slotKey, e.snapshotFingerprint, e.benchShips, e.capitalShipId, e.battleEvidence]);
     if (previous && comparable(previous) === comparable(fact)) return { eventId: previous.id, previous: JSON.parse(JSON.stringify(previous)) };
     const now = new Date().toISOString();
     const next = { ...fact, revision: previous ? previous.revision + 1 : 1,
@@ -1390,7 +1555,12 @@ function writeUsageEvent(fact, persist = true) {
     if (!validUsageEvent(next)) return null;
     if (previous) usageHistory.events[usageHistory.events.indexOf(previous)] = next;
     else usageHistory.events.push(next);
-    if (persist) saveUsageHistory();
+    const persisted = !persist || saveUsageHistory();
+    if (!persisted && rollbackOnFailure) {
+        if (previous) usageHistory.events[usageHistory.events.indexOf(next)] = previous;
+        else usageHistory.events.splice(usageHistory.events.indexOf(next), 1);
+        return null;
+    }
     return { eventId: next.id, previous: previous ? JSON.parse(JSON.stringify(previous)) : null };
 }
 
@@ -1402,7 +1572,9 @@ function recordAttackUsage(counterId, outcome = "used", source = "counters", tar
     if (wasUsed && !previous) return null;
     if (previous && !previous.voided) {
         if (outcome === "used") return null;
-        return writeUsageEvent({ ...previous, outcome, slotKey: previous.slotKey || targetKey || null });
+        return writeUsageEvent({ ...previous, outcome, slotKey: previous.slotKey || targetKey || null,
+            battleEvidence: previous.outcome === "used" ? captureBattleEvidence(counterId, targetKey || previous.slotKey)
+                : previous.battleEvidence || captureBattleEvidence(counterId, targetKey) });
     }
     const def = counterDefinitions[counterId];
     const territory = targetKey && board.territories.find(t => t.territory === targetKey.split(":")[0]);
@@ -1411,7 +1583,8 @@ function recordAttackUsage(counterId, outcome = "used", source = "counters", tar
         counterId, slotKey: targetKey || null, identity: counterId,
         ...automaticAttackUsageFacts(counterId, mode),
         // The required core is known participation, never a full-lineup claim.
-        strategicCore: def && Array.isArray(def.required) ? [...def.required] : [], outcome, voided: false });
+        strategicCore: def && Array.isArray(def.required) ? [...def.required] : [], outcome, voided: false,
+        battleEvidence: captureBattleEvidence(counterId, targetKey) });
 }
 
 function undoUsageChange(change) {
@@ -1419,7 +1592,7 @@ function undoUsageChange(change) {
     const event = usageHistory.events.find(e => e.id === change.eventId);
     if (!event) return;
     writeUsageEvent(change.previous
-        ? { ...event, outcome: change.previous.outcome, slotKey: change.previous.slotKey, voided: change.previous.voided }
+        ? { ...event, outcome: change.previous.outcome, slotKey: change.previous.slotKey, voided: change.previous.voided, battleEvidence: change.previous.battleEvidence }
         : { ...event, voided: true });
 }
 
@@ -1812,6 +1985,9 @@ function renderUsage() {
     <details class="round-card usage-details"><summary>Season periods</summary><p class="usage-help">Seasons are explicit labels. Completion is recorded by you, never inferred from calendar months. Existing rounds retain their assigned season.</p>
         <button class="roster-data-btn" onclick="chooseUsageSeason()">Choose current season</button>
         <button class="roster-data-btn" onclick="completeUsageSeason()" ${usageHistory.selectedSeasonId ? "" : "disabled"}>Complete season / start next</button>
+    </details>
+    <details class="round-card usage-details"><summary>Recorded battle details</summary><p class="usage-help">Correct optional battle evidence, including past rounds. Unknown facts stay unknown.</p>
+        ${usageHistory.events.filter(e => e.side === "attack" && !e.voided && ["won", "lost"].includes(e.outcome)).slice().reverse().map(e => renderBattleDetails(e)).join("") || '<p>No recorded results yet.</p>'}
     </details>
     ${typeof renderUsageCorrections === "function" ? renderUsageCorrections() : ""}
     <details class="round-card usage-details"><summary>History backup</summary><p class="usage-help">Export local usage as JSON before changing device or clearing browser data. Import merges identical events once; conflicting history is rejected. No account or roster data is included.</p>
@@ -4341,6 +4517,7 @@ function setView(view) {
     if (currentView === "defence-lineups" && view !== currentView) {
         if (!closeDefenceLineupEditor()) return;
     }
+    if (view !== currentView) { battleDetailsOpen.clear(); battleFeedbackReportOpen = false; }
     currentView = view;
     if (view === "roster") {
         loadRoster();          // defensive re-read on entry
@@ -4820,6 +4997,8 @@ function resetRound() {
     localStorage.removeItem("bannerData");
 
     discardBoard();
+    battleDetailsOpen.clear();
+    battleFeedbackReportOpen = false;
     lastBattleFleetCapital = null;
 
     render();
@@ -5036,7 +5215,8 @@ function renderRound() {
             ${defenceStatus}
             ${renderUsageRecordingStatus()}
         </div>
-        <button class="reset-button-inline" onclick="resetRound()">Reset Round</button>
+        <div class="round-summary-actions"><button class="reset-button-inline" onclick="resetRound()">Reset Round</button>
+        <details class="round-overflow"><summary aria-label="Round actions">⋯</summary><button class="roster-data-btn" onclick="openBattleFeedbackReport()">Share battle feedback</button></details></div>
     </div>
 </div>
 `;
@@ -5045,7 +5225,7 @@ function renderRound() {
         ? renderBoardSwitch() + (activeBoardSide === "my" ? renderMyBoard() : renderBoard())
         : renderBoardSetup();
 
-    return summary + boardHtml + renderBannerSection();
+    return summary + renderBattleFeedbackReport() + boardHtml + renderBannerSection();
 }
 
 function renderDefenceSnapshotStatus() {
@@ -5282,6 +5462,7 @@ ${pendingUndoHtml}
 ${side === "my" ? "" : customName}
 ${recommendation}
 ${team.cleared || groupedControls ? "" : renderAttemptControl(side, territoryKey, team)}
+${side === "my" ? "" : renderSlotBattleDetails(territoryKey + ":" + team.index)}
 </div>
 `;
 }
