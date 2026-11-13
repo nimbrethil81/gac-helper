@@ -32,7 +32,11 @@ test('approved exact Hondo counter is A/56 non-provisional; only declared source
     assert.deepEqual(payload.counters.FLEET,old.counters.FLEET);
     assert.deepEqual(payload.counterDefinitions.CERE,old.counterDefinitions.CERE);
     const rows=payload.counters['3v3'][defence];
-    assert.deepEqual(rows.slice(0,-1),old.counters['3v3'][defence]);
+    const oldRows=old.counters['3v3'][defence];
+    assert.equal(rows.length,oldRows.length+1);
+    assert.deepEqual(rows.slice(0,-1).map(({counterId,tier,bannerScore,undersize})=>({counterId,tier,bannerScore,undersize})),
+        oldRows.map(({counterId,tier,bannerScore,undersize})=>({counterId,tier,bannerScore,undersize})));
+    assert.equal(rows.filter(c=>c.counterId==='SLKR').length,1);
     assert.equal(rows.filter(c=>c.counterId==='CERE_CAL').length,1);
     const row=rows.at(-1);
     assert.equal(row.tier,'A'); assert.equal(row.bannerScore,56); assert.equal(row.undersize,0);
