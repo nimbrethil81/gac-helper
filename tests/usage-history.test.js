@@ -513,7 +513,7 @@ test("report preview is explicit, empty sharing is disabled, and protected histo
     h.run("openBattleFeedbackReport()");
     assert.match(h.run("renderBattleFeedbackReport()"), /Nothing to share/);
     assert.match(h.run("renderBattleFeedbackReport()"), /disabled>Share JSON/);
-    assert.match(h.run("renderRound()"), /round-overflow/);
+    assert.match(h.run("renderRound()"), /round-manage/);
     h.run("usageHistoryWritable=false");
     assert.throws(() => h.run("battleFeedbackPayload()"), /protected/);
 });

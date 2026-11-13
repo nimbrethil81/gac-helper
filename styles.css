@@ -1617,12 +1617,28 @@ body {
 .battle-details textarea { resize: vertical; min-height: 82px; }
 .battle-save-status { font-size: 12px; color: var(--muted); margin: 4px 0; }
 .battle-error { color: #fca5a5; }
-.round-summary-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.round-overflow { position: relative; }
-.round-overflow > summary { min-width: 44px; min-height: 44px; text-align: center; font-size: 26px; cursor: pointer; list-style: none; border-radius: 8px; }
-.round-overflow > summary::-webkit-details-marker { display: none; }
-.round-overflow[open] > button { position: absolute; z-index: 5; right: 0; top: 44px; width: 190px; background: var(--panel); border: 1px solid var(--border, #344155); box-shadow: 0 6px 18px #0008; }
+
 .battle-report { overflow-wrap: anywhere; }
 .battle-report h2 { font-size: 18px; }
 .battle-report p { font-size: 14px; line-height: 1.5; }
 .battle-report button { min-height: 44px; }
+
+/* Round administration stays compact; warnings remain outside the disclosure. */
+.round-summary-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.round-summary-heading > span { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.round-summary .round-title { margin: 0; }
+.round-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 6px; }
+.round-metrics > div { display: flex; flex-direction: column; gap: 2px; }
+.round-metrics strong { font-size: 20px; }
+.round-metrics span, .round-recorded { font-size: 12px; color: var(--muted); }
+.round-manage > summary, .nextup-rationale > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; color: var(--jedi-blue); font-size: 13px; }
+.round-manage > summary::before, .nextup-rationale > summary::before { content: "▸"; margin-right: 8px; }
+.round-manage[open] > summary::before, .nextup-rationale[open] > summary::before { content: "▾"; }
+.round-manage > button { display: block; min-height: 44px; max-width: 100%; white-space: normal; text-align: left; }
+.round-manage .reset-button-inline { background: transparent; border: 1px solid var(--c-tier); color: var(--c-tier); margin-top: 8px; }
+.round-summary, .nextup-item { overflow-wrap: anywhere; min-width: 0; }
+.nextup-item + .nextup-item { margin-top: 8px; }
+.nextup-rationale > summary { min-height: 44px; }
+.nextup-banners { white-space: normal; }
+.nextup-row { min-height: 44px; }
+.round-manage > summary:focus-visible, .nextup-rationale > summary:focus-visible, .nextup-row:focus-visible, .board-rec-actions > button:focus-visible { outline: 2px solid var(--jedi-blue); outline-offset: 2px; }
