@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/188",
   "baseline": {
-    "commit": "3acc291b6049ac723ba2fa875d5dd2678354e05e",
+    "commit": "066efba4655f3da51be40e304d730c3ac0008d7f",
     "catalogueVersion": 34,
     "checksum": "sha256:504cf00d68abc97650c52559377c0c106b0b33025fa4ddd12387e457e2e1b1b9"
   },
   "corrections": [
     {
       "id": "CR-2026-11-13-188-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "AMEND",
       "title": "Downgrade generic SEE vs 3v3 The Stranger to C/50 after owner-observed loss",
       "rationale": "Owner-approved GAC-SEE-STR1 Option A from issue #178, independently scoped in #188. Downgrade only generic SEE attacker against The Stranger 3v3 defence from B/52 to C/50, preserving scored non-provisional status; add qualified observed-loss reliability note. Do not alter SEE+Bane or Bane.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/188#issuecomment-6848137437",
+        "decidedAt": "2026-11-13T08:37:11Z",
+        "contentChecksum": "sha256:620c986b75ee00c108c641a78538f6a48f002d5ad92117de815761157e8d0251"
+      },
       "provenance": {
         "evidence": [
           {
