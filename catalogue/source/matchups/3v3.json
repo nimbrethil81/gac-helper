@@ -205,7 +205,7 @@
     {
       "defence": "Grand Moff Tarkin",
       "counters": [
-        { "counterId": "BAYLAN", "tier": "S", "bannerScore": 56, "undersize": 0 },
+        { "counterId": "BAYLAN_MARROK_SHIN", "tier": "A", "bannerScore": 56, "undersize": 0, "notes": "Requires Baylan Skoll, Marrok and Shin Hati. Limited historical success against Tarkin clone teams; a failed first attempt with this exact trio was reported in November 2026. Confirm opposing clone lineup and datacron." },
         { "counterId": "CERE", "tier": "S", "bannerScore": 55, "undersize": 0 }
       ]
     },
@@ -239,7 +239,7 @@
     {
       "defence": "Jabba",
       "counters": [
-        { "counterId": "JML", "tier": "S", "bannerScore": 48, "undersize": 0 },
+        { "counterId": "JML", "tier": "C", "bannerScore": 48, "undersize": 0, "notes": "High-risk first-attempt counter against Jabba. Success depends on Jedi composition, investment and defensive datacron. Do not rely on this matchup as a dependable full clear." },
         { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong" },
         { "counterId": "CLS", "tier": "C", "bannerScore": 48, "undersize": 0, "notes": "Cleanup only" },
         { "counterId": "STARKILLER", "tier": "C", "bannerScore": 48, "undersize": 0, "notes": "Cleanup only" },
@@ -280,7 +280,7 @@
       "defence": "Jedi Master Mace Windu",
       "counters": [
         { "counterId": "JML", "tier": "S", "bannerScore": 55, "undersize": 0 },
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 55, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 55, "undersize": 0, "notes": "Recommended: Darth Traya, Darth Nihilus and Savage Opress with Savage's GAC omicron. Reliability without this complete composition is unverified. Check defensive Jedi and datacron." },
         { "counterId": "JABBA", "tier": "S", "bannerScore": 54, "undersize": 0 }
       ]
     },
@@ -296,7 +296,7 @@
         { "counterId": "DARTH_NIHILUS", "tier": "S", "bannerScore": 55, "undersize": 0 },
         { "counterId": "MAUL", "tier": "B", "bannerScore": 50, "undersize": 0 },
         { "counterId": "REVA", "tier": "S", "bannerScore": 55, "undersize": 0 },
-        { "counterId": "GAS", "tier": "S", "bannerScore": 55, "undersize": 0 },
+        { "counterId": "GAS_FIVES_REX", "tier": "S", "bannerScore": 55, "undersize": 0, "notes": "Requires General Skywalker, CT-5555 Fives and CT-7567 Rex. Do not substitute leftover 501st clones without separate matchup evidence. Limited historical evidence against Kelleran, Jocasta Nu and Plo Koon." },
         { "counterId": "LEIA", "tier": "S", "bannerScore": 55, "undersize": 0 },
         { "counterId": "BO_KATAN_MANDALORE", "tier": "S", "bannerScore": 55, "undersize": 0 }
       ]
@@ -312,7 +312,7 @@
     {
       "defence": "Lord Vader",
       "counters": [
-        { "counterId": "JMK", "tier": "A", "bannerScore": 52, "undersize": 0 },
+        { "counterId": "JMK", "tier": "A", "bannerScore": 52, "undersize": 0, "notes": "Preferred JMK/Commander Ahsoka Tano/General Kenobi. Historical support is stronger against Lord Vader/Maul/Royal Guard than clone variants. A first-attempt failure against Lord Vader/Appo/CX-2 was reported; this variant's reliability is unverified." },
         { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 50, "undersize": 0, "notes": "Cleanup risk vs dark side clones" },
         { "counterId": "SLKR", "tier": "A", "bannerScore": 50, "undersize": 0 },
         { "counterId": "MAUL", "tier": "C", "bannerScore": 48, "undersize": 0, "notes": "Cleanup only" },
@@ -371,7 +371,7 @@
     {
       "defence": "Pirate King Hondo Ohnaka",
       "counters": [
-        { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong" },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 53, "undersize": 0, "notes": "Strong with suitable full SLKR lineups. Historical variants include Hux/First Order SF TIE Pilot and Kylo Ren (Unmasked)/Rey (Dark Side Vision). Check Pirate King Hondo's datacron effects and turn order; failures are possible." },
         { "counterId": "CERE_CAL", "tier": "A", "bannerScore": 56, "undersize": 0, "notes": "Exact 3v3 defence: Pirate King Hondo Ohnaka (leader), Hondo Ohnaka, Vane. Attack: Cere Junda (leader), Taron Malicos, Cal Kestis (not Jedi Knight Cal Kestis). Owner-reported full clear, 56 banners on 2026-11-06: one observed battle, not an established success rate or independently verified repeatability. Tier A is the owner's qualitative classification; 56 is the separately owner-approved planning estimate, not a measured average. Datacron, omicron, relic and mod conditions unknown." }
       ]
     },
@@ -397,7 +397,7 @@
       "counters": [
         { "counterId": "LEIA", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Leia / Drogan / R2-D2" },
         { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 52, "undersize": 0, "notes": "Include Malak for reliability" },
-        { "counterId": "ADMIRAL_RADDUS", "tier": "A", "bannerScore": 52, "undersize": 0, "notes": "Raddus / Jyn Erso / Scarif Rebel Pathfinder" },
+        { "counterId": "ADMIRAL_RADDUS", "tier": "B", "bannerScore": 52, "undersize": 0, "notes": "Recommended trio: Admiral Raddus, Jyn Erso and Scarif Rebel Pathfinder. Matchup-sensitive against Reva-led Inquisitors; historical evidence for a Baze variant is mixed. Confirm third attacker and datacron; prefer a more reliable counter if available." },
         { "counterId": "LORD_VADER", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "Lord Vader / Maul / Royal Guard" },
         { "counterId": "SEE", "tier": "S", "bannerScore": 54, "undersize": 0, "notes": "This SEE entry does not require or reserve Darth Bane. Bane-assisted variants need a separately verified SEE+Bane counter; do not assume a third Sith preserves Rule of Two." },
         { "counterId": "JMK", "tier": "A", "bannerScore": 52, "undersize": 0, "notes": "JMK / CAT / General Kenobi" },
