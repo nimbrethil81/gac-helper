@@ -1,0 +1,125 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/188",
+  "baseline": {
+    "commit": "3acc291b6049ac723ba2fa875d5dd2678354e05e",
+    "catalogueVersion": 34,
+    "checksum": "sha256:504cf00d68abc97650c52559377c0c106b0b33025fa4ddd12387e457e2e1b1b9"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-13-188-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "AMEND",
+      "title": "Downgrade generic SEE vs 3v3 The Stranger to C/50 after owner-observed loss",
+      "rationale": "Owner-approved GAC-SEE-STR1 Option A from issue #178, independently scoped in #188. Downgrade only generic SEE attacker against The Stranger 3v3 defence from B/52 to C/50, preserving scored non-provisional status; add qualified observed-loss reliability note. Do not alter SEE+Bane or Bane.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/178",
+            "publisher": "Owner-approved GAC-SEE-STR1 decision and evidence handover",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-13",
+            "supports": "Owner reports a 3v3 loss with SEE, Wat Tambor and Savage Opress vs The Stranger, Maul (Hate-Fueled) and Starkiller; no enemy units defeated. Owner approves C tier and 50 planning banners for generic SEE."
+          }
+        ],
+        "conditions": "Observed defence: The Stranger / Maul (Hate-Fueled) / Starkiller, with Starkiller datacron of unknown effects; attack SEE (R10) / Wat Tambor / Savage Opress (GAC omicron). Other support compositions or datacrons may differ.",
+        "confidence": "Medium: Owner-observed single loss and owner-approved downgrade; no verified win rate or measured banner average.",
+        "limitations": "Single reported defeat, opponent datacron effects unknown. The generic leader-family matchup does not establish equal performance against every Stranger lineup. C/50 is a planning estimate conditional on a win."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "effect": "Only generic SEE tier B to C, bannerScore 52 to 50 and reliability notes; preserve BANE and SEE_BANE rows."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "The Stranger"
+          },
+          "effect": "none; 5v5 unchanged"
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none",
+        "3v3": "The Stranger versus generic SEE changes to C/50 non-provisional with observed-loss warning; BANE C/48 and SEE_BANE S/53 unchanged.",
+        "FLEET": "none",
+        "counters": "Only 3v3 The Stranger generic SEE matchup changes; counter definition and roster requirements unchanged.",
+        "roundAvailability": "none: counter identities, ownership and used/allocation rules unchanged.",
+        "scoring": "Existing C tier / bannerScore 50, no scoring algorithm modifications.",
+        "strategicReserve": "none"
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"The Stranger\"][0][\"bannerScore\"]",
+        "payload[\"counters\"][\"3v3\"][\"The Stranger\"][0][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"The Stranger\"][0][\"tier\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "The Stranger"
+          },
+          "before": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "B",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "BANE",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 1,
+                "notes": "Use Darth Bane with one other non-summoned Sith; leave the third slot empty. SEE + Bane is a separate counter. High risk: recent attempts failed outright. Emergency option only."
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 1
+              }
+            ]
+          },
+          "after": {
+            "defence": "The Stranger",
+            "counters": [
+              {
+                "counterId": "SEE",
+                "tier": "C",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Owner-observed 3v3 loss with SEE / Wat Tambor / Savage Opress against The Stranger / Maul (Hate-Fueled) / Starkiller; no enemy defeated. SEE was R10 and Savage had his GAC omicron. Enemy Starkiller had a datacron of unknown effects. Generic SEE is unreliable as a primary counter to this composition; different allies and datacrons may change the outcome. C/50 is a planning estimate for successful wins, not a measured average."
+              },
+              {
+                "counterId": "BANE",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 1,
+                "notes": "Use Darth Bane with one other non-summoned Sith; leave the third slot empty. SEE + Bane is a separate counter. High risk: recent attempts failed outright. Emergency option only."
+              },
+              {
+                "counterId": "SEE_BANE",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
