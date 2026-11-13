@@ -160,6 +160,18 @@ test("orchestration exercises preview → authentic approval → engine apply/re
   assert.equal(JSON.parse(fs.readFileSync("catalogue/release.json")).catalogueVersion, release.catalogueVersion + 1);
   const result = JSON.parse(fs.readFileSync(path.join(runtime, "catalogue-result.json")));
   assert.deepEqual(result.paths.sort(), [file, "catalogue/release.json", "catalogue/source/matchups/3v3.json"].sort());
+  // The previously failing release/site gates must see v(N+1) in *local*
+  // first-parent history, without publishing a branch to GitHub yet.
+  const { releaseLedger } = require("../scripts/catalogue-release-lib.js");
+  assert.equal(git(clone, "rev-parse", "HEAD"), result.applicationCommit);
+  assert.equal(git(clone, "rev-parse", "HEAD^"), result.baseCommit);
+  assert.equal(git(clone, "status", "--porcelain"), "");
+  assert.deepEqual(git(clone, "diff", "--name-only", result.baseCommit, result.applicationCommit).split("\n").sort(), result.paths);
+  const localLedger = releaseLedger(clone);
+  assert.deepEqual(localLedger.errors, []);
+  assert.equal(localLedger.entries.at(-1).catalogueVersion, release.catalogueVersion + 1);
+  assert.equal(git(seed, "branch", "--list", result.branch), "", "No implementation branch may be published before validation");
+  assert.equal(git(seed, "rev-parse", "main"), result.baseCommit, "Main remains unmodified");
   // Simulate the already-published deterministic branch; a new delivery cannot
   // reapply or advance the catalogue a second time.
   git(clone, "push", "origin", `HEAD:refs/heads/${result.branch}`);
