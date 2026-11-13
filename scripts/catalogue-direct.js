@@ -154,7 +154,18 @@ async function main(mode) {
   engine(["release", "--check"]);
   const paths = git("diff", "--name-only").split("\n");
   changedPaths(paths, file);
-  fs.writeFileSync(path.join(process.env.RUNNER_TEMP, "catalogue-result.json"), JSON.stringify({ branch, file, id, decision: live.html_url, checksum: contentChecksum(frozen.document.corrections[0]), preview: `https://github.com/${REPO}/actions/runs/${parsed.runId}`, identity: frozen.identity, paths }, null, 2));
+  // The release ledger and site-builder require v(N+1) to exist in Git history.
+  // Commit locally before the tests. No branch is published unless every gate
+  // succeeds in the later publish step.
+  const baseCommit = git("rev-parse", "HEAD");
+  git("config", "user.name", "github-actions[bot]");
+  git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com");
+  git("add", "--", ...paths);
+  git("commit", "-m", `Apply catalogue proposal ${id}`);
+  const applicationCommit = git("rev-parse", "HEAD");
+  if (git("rev-parse", "HEAD^") !== baseCommit || git("status", "--porcelain")) fail("Local application commit is not clean and based exactly on main.");
+  changedPaths(git("diff", "--name-only", baseCommit, applicationCommit).split("\n"), file);
+  fs.writeFileSync(path.join(process.env.RUNNER_TEMP, "catalogue-result.json"), JSON.stringify({ branch, file, id, decision: live.html_url, checksum: contentChecksum(frozen.document.corrections[0]), preview: `https://github.com/${REPO}/actions/runs/${parsed.runId}`, identity: frozen.identity, paths, baseCommit, applicationCommit }, null, 2));
 }
 async function publish() {
   // Called only after every required gate, without executing proposed code.
@@ -162,12 +173,14 @@ async function publish() {
   const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, "utf8"));
   await authenticate(event); // Refuse an edited/deleted approval during validation.
   git("fetch", "origin", "main");
-  if (git("rev-parse", "HEAD") !== git("rev-parse", "origin/main")) fail("Main moved during checks; stop and revalidate with a fresh preview.");
-  changedPaths(git("diff", "--name-only").split("\n"), result.file);
-  git("config", "user.name", "github-actions[bot]");
-  git("config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com");
-  git("add", "--", ...result.paths);
-  git("commit", "-m", `Apply catalogue proposal ${result.id}`);
+  if (git("rev-parse", "origin/main") !== result.baseCommit) fail("Main moved during checks; stop and revalidate with a fresh preview.");
+  if (git("branch", "--show-current") !== result.branch || git("rev-parse", "HEAD") !== result.applicationCommit ||
+      git("rev-parse", "HEAD^") !== result.baseCommit || git("status", "--porcelain")) {
+    fail("Validated application commit, branch or clean working tree changed before publication.");
+  }
+  const committedPaths = git("diff", "--name-only", result.baseCommit, result.applicationCommit).split("\n");
+  changedPaths(committedPaths, result.file);
+  if (!isDeepStrictEqual([...committedPaths].sort(), [...result.paths].sort())) fail("Committed paths differ from the validated approval scope.");
   // A non-force push is the atomic replay/race guard. Credentials exist only
   // for this one process; checkout never persists them in the worktree.
   const auth = Buffer.from(`x-access-token:${process.env.GH_TOKEN}`).toString("base64");
