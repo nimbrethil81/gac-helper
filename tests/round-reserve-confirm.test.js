@@ -442,7 +442,7 @@ test("low-tier fallback and conflicting allocation are distinct from absent cata
     h.run(`usedTeams = ["SEE"]; roundPlan = computeRoundPlan()`);
     const risky = recommendation(h, 1);
     assert.match(risky, /B-tier option — risky; a win is not assured/);
-    assert.match(risky, /Used \+ Cleared/);
+    assert.match(risky, /Used \+ Won/);
     assert.match(h.run(`renderNextUp()`), /B-tier option — risky; a win is not assured/);
     h.run(`
         usedTeams = [];

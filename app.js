@@ -1063,7 +1063,7 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
     const wasUsed = usedTeams.includes(counterId);
     const usageChange = side !== "my" ? recordAttackUsage(counterId, "won", "board", territoryKey + ":" + index, wasUsed) : null;
 
-    if (usageChange) battleDetailsOpen.add(usageChange.eventId);
+    if (usageChange) closeBattleDetails(usageChange.eventId);
 
     if (!wasUsed) {
         usedTeams.push(counterId);
@@ -1078,7 +1078,7 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
         kind: "usedCleared",
         side, territoryKey, index, counterId,
         prevCleared, wasUsed, usageChange,
-        message: "Used + Cleared recorded."
+        message: "Used + Won recorded."
     });
     if (side !== "my" && !prevCleared) {
         advanceToNextDefence(territoryKey);
@@ -1105,7 +1105,7 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
     const wasUsed = usedTeams.includes(counterId);
     const usageChange = side !== "my" ? recordAttackUsage(counterId, "lost", "board", territoryKey + ":" + index, wasUsed) : null;
 
-    if (usageChange) battleDetailsOpen.add(usageChange.eventId);
+    if (usageChange) closeBattleDetails(usageChange.eventId);
 
     if (!wasUsed) {
         usedTeams.push(counterId);
@@ -1191,6 +1191,7 @@ function undoPendingAction() {
         }
     }
 
+    if (pendingUndo.usageChange) closeBattleDetails(pendingUndo.usageChange.eventId);
     undoUsageChange(pendingUndo.usageChange);
     clearPendingUndo();
     render();
@@ -1290,6 +1291,14 @@ const battleDetailsOpen = new Set();
 let battleFeedbackReportOpen = false;
 let battleFeedbackReportMessage = "";
 
+// Drop a changed/withdrawn result's editor so Undo cannot retain stale evidence.
+function closeBattleDetails(eventId) {
+    battleDetailsOpen.delete(eventId);
+    document.querySelectorAll(".battle-details").forEach(node => {
+        if (node.dataset.eventId === eventId) node.remove();
+    });
+}
+
 function validBattleEvidence(e) {
     return e === undefined || (isPlainObject(e) && e.schema === 1 &&
         (e.defenceName === null || typeof e.defenceName === "string" && e.defenceName.length <= 256) &&
@@ -1344,8 +1353,8 @@ function commitBattleEvidence(input, field) {
 function renderBattleDetails(event) {
     const e = battleEvidenceFor(event);
     const select = (field, label, choices) => `<label>${label}<select onchange="commitBattleEvidence(this, '${field}')">${choices.map(([value, text]) => `<option value="${value}" ${e[field] === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
-    return `<details class="battle-details" data-event-id="${escapeHtml(event.id)}" ${battleDetailsOpen.has(event.id) ? "open" : ""} ontoggle="this.open ? battleDetailsOpen.add(this.dataset.eventId) : battleDetailsOpen.delete(this.dataset.eventId)">
-        <summary>Battle details · ${escapeHtml(e.counterName || event.counterId || "Unknown counter")} · ${event.outcome === "won" ? "Cleared" : "Lost"}</summary>
+    return `<details class="battle-details" data-event-id="${escapeHtml(event.id)}" ${battleDetailsOpen.has(event.id) ? "open" : ""} ontoggle="if (this.isConnected) { this.open ? battleDetailsOpen.add(this.dataset.eventId) : battleDetailsOpen.delete(this.dataset.eventId); }">
+        <summary>Battle details · ${escapeHtml(e.counterName || event.counterId || "Unknown counter")} · ${event.outcome === "won" ? "Won" : "Lost"} · ${escapeHtml(event.createdAt.replace("T", " ").slice(0, 19))}</summary>
         <p class="usage-help">${escapeHtml(event.mode)} · ${escapeHtml(e.defenceName || "Unknown defence")} · ${escapeHtml(event.createdAt.slice(0, 10))}</p>
         <div class="battle-fields"><label>Actual banners<input type="number" inputmode="numeric" min="0" max="999" step="1" value="${e.actualBanners ?? ""}" onchange="commitBattleEvidence(this, 'actualBanners')"></label>
         ${select("datacron", "Datacron involved?", [["unknown", "Unknown"], ["yes", "Yes"], ["no", "No"]])}</div>
@@ -1666,18 +1675,16 @@ function aggregateUsageHistory(events = usageHistory.events) {
 }
 
 function renderUsageRecordingStatus() {
-    const assigned = board && Object.hasOwn(usageHistory.roundSeasons, board.roundId);
-    const season = assigned ? usageHistory.roundSeasons[board.roundId] : usageHistory.selectedSeasonId;
     const confirmed = board && usageHistory.defenceRounds.includes(board.roundId);
     const events = board ? usageHistory.events.filter(e => e.roundId === board.roundId && !e.voided) : [];
-    const incomplete = events.filter(e => !e.attribution.complete).length;
-    const nextSeason = assigned && season && usageHistory.selectedSeasonId !== season
-        ? `<div class="round-stat">Next rounds: ${escapeHtml(usageHistory.selectedSeasonId || "Not selected")}</div>` : "";
-    return `<div class="round-stat">Usage season: ${season ? escapeHtml(season) : "Unknown — choose to assign this round"}
-        <button class="defence-adopt-btn" onclick="chooseUsageSeason()">${assigned && season ? "Season for next rounds" : "Choose season"}</button></div>${nextSeason}
-        ${board && board.defenceSnapshot && board.defenceSnapshot.schema === 2 ? `<div class="round-stat">Defence usage: ${confirmed ? "deployment recorded" : "not confirmed"}${incomplete ? ` · ${incomplete} usage lineups incomplete` : ""}
-        ${confirmed ? "" : board.defenceSnapshot.missingSavedDefence ? " — set this round’s defence first" : '<button class="defence-adopt-btn" onclick="confirmRoundDefenceUsage(); render()">Confirm actual defence deployment</button>'}</div>` : ""}
-        ${usageHistoryMessage ? `<div class="roster-msg roster-msg-warn" role="status">${escapeHtml(usageHistoryMessage)}</div>` : ""}`;
+    const incomplete = events.filter(e => !e.attribution.complete || e.mode === "FLEET" && !e.attribution.pilotsComplete).length;
+    const snapshot = board && board.defenceSnapshot;
+    const deployment = !confirmed && snapshot?.schema === 2
+        ? `<div class="roster-msg roster-msg-warn">Defence usage not confirmed${snapshot.missingSavedDefence
+            ? " — set this round’s defence first"
+            : '<button class="defence-adopt-btn" onclick="confirmRoundDefenceUsage(); render()">Confirm actual defence deployment</button>'}</div>` : "";
+    const unknown = incomplete ? `<div class="roster-msg roster-msg-warn">${incomplete} usage lineups incomplete. <button class="defence-adopt-btn" onclick="setView('usage')">Review recorded lineups in Usage</button></div>` : "";
+    return deployment + unknown + (usageHistoryMessage ? `<div class="roster-msg roster-msg-warn" role="status">${escapeHtml(usageHistoryMessage)}</div>` : "");
 }
 
 // Usage rankings are derived from event facts; no league totals are persisted.
@@ -4540,6 +4547,11 @@ function setView(view) {
 
 function render() {
     const app = document.getElementById("app");
+    const editors = currentView === "round" ? [...document.querySelectorAll(".battle-details[open]")].filter(node =>
+        battleDetailsOpen.has(node.dataset.eventId)) : [];
+    const activeInput = document.activeElement;
+    const editorFocused = editors.some(node => node.contains(activeInput));
+    const scrollY = windowScrollY();
 
     let viewHtml;
     if (currentView === "counters") {
@@ -4578,9 +4590,21 @@ ${viewHtml}
 </nav>
 `;
 
+    document.querySelectorAll(".battle-details").forEach(node => {
+        const previous = editors.find(editor => editor.dataset.eventId === node.dataset.eventId);
+        if (previous) node.replaceWith(previous);
+    });
+    if (editorFocused && activeInput.isConnected) {
+        activeInput.focus({ preventScroll: true });
+        if (typeof window !== "undefined") window.scrollTo(0, scrollY);
+    }
     if (currentView === "counters") {
         showCounters();
     }
+}
+
+function windowScrollY() {
+    return typeof window !== "undefined" ? window.scrollY : 0;
 }
 
 // More owns secondary screens; their shared back control returns to the menu.
@@ -5205,31 +5229,39 @@ function showCounters() {
 // ─── ROUND VIEW (v2.1) ────────────────────────────────────────────────────────
 
 function renderRound() {
-    const defenceStatus = renderDefenceSnapshotStatus();
+    // Setup has no current-round metrics or in-round administration.
+    if (!board) return renderUsageRecordingStatus() + renderBoardSetup() + renderBannerSection();
+    const season = usageHistory.roundSeasons[board.roundId];
+    const seasonLabel = season ? (/^\d+$/.test(season) ? `Season ${season}` : season) : "Season unknown";
+    const snapshot = board.defenceSnapshot;
+    const unavailable = validDefenceSnapshot(snapshot, board.mode) ? snapshot.characterIds.length : "?";
+    const confirmed = usageHistory.defenceRounds.includes(board.roundId) && !usageHistoryMessage &&
+        usageHistoryWritable && validDefenceSnapshot(snapshot, board.mode) && !snapshot.missingSavedDefence && !hasLegacyDefenceReview(snapshot);
     const summary = `
-<div class="round-card">
-    <div class="round-card-row">
-        <div>
-            <div class="round-title">🏆 CURRENT ROUND</div>
-            <div class="round-stat">Used Teams: ${getUsedTeamCount()}</div>
-            ${defenceStatus}
-            ${renderUsageRecordingStatus()}
-        </div>
-        <div class="round-summary-actions"><button class="reset-button-inline" onclick="resetRound()">Reset Round</button>
-        <details class="round-overflow"><summary aria-label="Round actions">⋯</summary><button class="roster-data-btn" onclick="openBattleFeedbackReport()">Share battle feedback</button></details></div>
+<div class="round-card round-summary">
+    <div class="round-summary-heading"><div class="round-title">🏆 CURRENT ROUND</div><span>${escapeHtml(board.mode)} · ${escapeHtml(seasonLabel)}</span></div>
+    <div class="round-metrics" aria-label="Current round metrics">
+        <div><strong>${board.teams.filter(t => t.cleared).length}</strong><span>Cleared</span></div>
+        <div><strong>${getUsedTeamCount()}</strong><span>Teams used</span></div>
+        <div><strong>${unavailable}</strong><span>On defence</span></div>
     </div>
-</div>
-`;
-
-    const boardHtml = board
-        ? renderBoardSwitch() + (activeBoardSide === "my" ? renderMyBoard() : renderBoard())
-        : renderBoardSetup();
-
-    return summary + renderBattleFeedbackReport() + boardHtml + renderBannerSection();
+    ${confirmed ? '<div class="round-recorded">Defence recorded</div>' : ""}
+    <details class="round-manage"><summary>Manage round</summary>
+        <button class="defence-adopt-btn" onclick="openRoundDefenceLineups()">Review / correct ${board.mode} Defence Lineups</button>
+        <button class="defence-adopt-btn" onclick="chooseUsageSeason()">${season ? "Season for next rounds" : "Choose season"}</button>
+        <div class="usage-help">Next rounds: ${escapeHtml(usageHistory.selectedSeasonId || "Season not selected")}</div>
+        <button class="defence-adopt-btn" onclick="openBattleFeedbackReport()">Share battle feedback</button>
+        <button class="reset-button-inline" onclick="resetRound()">Reset Round</button>
+    </details>
+    ${renderDefenceSnapshotStatus()}${renderUsageRecordingStatus()}
+</div>`;
+    return summary + renderBattleFeedbackReport() + renderBoardSwitch() +
+        (activeBoardSide === "my" ? renderMyBoard() : renderBoard()) + renderBannerSection();
 }
 
 function renderDefenceSnapshotStatus() {
-    if (!board || !validDefenceSnapshot(board.defenceSnapshot, board.mode)) return "";
+    if (!board) return "";
+    if (!validDefenceSnapshot(board.defenceSnapshot, board.mode)) return `<div class="roster-msg roster-msg-warn">Round defence snapshot is unavailable — defence filtering is unsafe.<button class="defence-adopt-btn" onclick="openRoundDefenceLineups()">Review / correct ${board.mode} Defence Lineups</button></div>`;
     const snapshot = board.defenceSnapshot;
     const lineupsLink = `<button class="defence-adopt-btn" onclick="openRoundDefenceLineups()">Review / correct ${board.mode} Defence Lineups</button>`;
     if (snapshot.missingSavedDefence) {
@@ -5240,18 +5272,16 @@ function renderDefenceSnapshotStatus() {
         const savedAction = savedDefenceAdoptionCandidate() ? `<button class="defence-adopt-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button>` : "";
         return `<div class="roster-msg roster-msg-warn round-defence-status">No saved ${board.mode} defence when this round started — defence availability is not being filtered.${action}${savedAction}${lineupsLink}</div>`;
     }
-    const count = snapshot.characterIds.length;
-    const summary = `<div class="round-stat">Defence: ${count} unit${count === 1 ? "" : "s"} unavailable</div>`;
     const legacy = hasLegacyDefenceReview(snapshot)
-        ? `<div class="roster-msg roster-msg-warn round-defence-status">${snapshot.legacyCharacterIds.length ? `${snapshot.legacyCharacterIds.length} legacy defence units have no slot attribution and remain blocked.` : "Legacy defence deployments remain unverified, with no known unit IDs."} Review all round slots in More → Defence Lineups before a full rebaseline.</div>` : "";
+        ? `<div class="roster-msg roster-msg-warn round-defence-status">${snapshot.legacyCharacterIds.length ? `${snapshot.legacyCharacterIds.length} legacy defence units have no slot attribution and remain blocked.` : "Legacy defence deployments remain unverified, with no known unit IDs."} Review all round slots in More → Defence Lineups before a full rebaseline.${lineupsLink}</div>` : "";
     const missingIdentities = snapshot.schema === 2 && myBoard ? snapshot.slots.filter(slot => {
         const live = defenceTemplateTeamAt(myBoard, slot.territory, slot.index);
         return !slot.name && live && (live.name || live.attempts > 0 || live.cleared);
     }).length : 0;
     const savedAction = savedDefenceAdoptionCandidate() ? `<button class="defence-adopt-btn" onclick="adoptSavedTemplateAsRoundDefence()">Use saved defence for this round</button>` : "";
     const n = snapshot.unresolvedTeams.length + missingIdentities;
-    if (!n) return summary + legacy + lineupsLink;
-    return summary + legacy + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. ${missingIdentities ? `${missingIdentities} round slot${missingIdentities === 1 ? " needs" : "s need"} an applied identity. ` : ""}Some characters may still appear available for attack.${lineupsLink}${savedAction}</div>`;
+    if (!n) return legacy;
+    return legacy + `<div class="roster-msg roster-msg-warn round-defence-status">${n} defence team${n === 1 ? "" : "s"} need${n === 1 ? "s" : ""} lineup details. ${missingIdentities ? `${missingIdentities} round slot${missingIdentities === 1 ? " needs" : "s need"} an applied identity. ` : ""}Some characters may still appear available for attack.${lineupsLink}${savedAction}</div>`;
 }
 
 function renderBoardSwitch() {
@@ -5530,11 +5560,13 @@ function renderNextUpRow(pick, isFleet) {
         : "";
 
     const risk = allocationRiskText(roundPlan, pick.territory + ":" + pick.index);
-    const warnings = [opener && pick.warning, risk].filter(Boolean);
+    const reserveWarning = roundPlan.reasons[pick.territory + ":" + pick.index]?.reserveWarning;
+    const warnings = [opener && pick.warning, risk, reserveWarning && RESERVE_WARNING_TEXT].filter(Boolean);
     const warningLine = warnings.length
         ? `<div class="nextup-warning" role="note">⚠ ${warnings.map(escapeHtml).join(" ")}</div>` : "";
 
     return `
+<div class="nextup-item">
 <button class="nextup-row ${opener ? "nextup-row-opener" : ""}" onclick="focusBoardTeam('${pick.territory}', ${pick.index})">
     <div class="nextup-target">${track}${escapeHtml(label)} · ${escapeHtml(pick.name)}</div>
     <div class="nextup-counter">
@@ -5542,8 +5574,10 @@ function renderNextUpRow(pick, isFleet) {
         <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
         <span class="nextup-banners">~${c.bannerScore || "?"} banners</span>
     </div>
-    <div class="nextup-reason">${escapeHtml(pick.reason)}</div>${undersizeLine}${openerNote}${warningLine}
 </button>
+    ${openerNote}${warningLine}${us?.fleet ? undersizeLine : ""}
+    <details class="nextup-rationale"><summary>Why this battle?</summary><div class="nextup-reason">${escapeHtml(pick.reason)}</div>${us?.fleet ? "" : undersizeLine}</details>
+</div>
 `;
 }
 
@@ -6017,10 +6051,10 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     </div>
     ${squadDisclosure}
     <div class="board-rec-actions">
+        <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✓ Used + Won</button>
+        <button class="board-rec-btn board-rec-btn-secondary" onclick="markUsedAndLost('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✕ Used + Lost</button>
         ${renderClearedControl(side, territoryKey, team)}
         <button class="board-rec-btn board-rec-btn-tertiary" onclick="markCounterUsedFromBoard('${c.counterId}', '${targetKey}')">Mark used</button>
-        <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✓ Used + Cleared</button>
-        <button class="board-rec-btn board-rec-btn-secondary" onclick="markUsedAndLost('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✕ Used + Lost</button>
     </div>
     ${renderAttemptControl(side, territoryKey, team)}${blocked}${reserveAltsHtml}
 </div>

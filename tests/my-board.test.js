@@ -246,7 +246,7 @@ test("Cleared advances to the next uncleared defence in the existing squad order
     assert.equal(h.run("focusedTeamKey"), "FRONT_BOTTOM:1");
 });
 
-test("Used + Cleared preserves used state and advances to the next uncleared defence", () => {
+test("Used + Won preserves used state and advances to the next uncleared defence", () => {
     const h = harness();
     configureTwoRecommendedFrontBottomTeams(h);
 
@@ -323,7 +323,7 @@ test("Cleared state remains once the Undo window expires", (t) => {
 
 // ─── USED + CLEARED ──────────────────────────────────────────────────────────
 
-test("Used + Cleared marks both states from unused/uncleared, and Undo restores both", (t) => {
+test("Used + Won marks both states from unused/uncleared, and Undo restores both", (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const h = harness();
     h.run(`
@@ -352,7 +352,7 @@ test("Used + Cleared marks both states from unused/uncleared, and Undo restores 
     assert.equal(h.run("JSON.parse(localStorage.getItem('boardData')).teams.find(t => t.territory === 'FRONT_BOTTOM' && t.index === 0).cleared"), false);
 });
 
-test("Used + Cleared leaves an already-used attacker used, and Undo restores only the defence", (t) => {
+test("Used + Won leaves an already-used attacker used, and Undo restores only the defence", (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const h = harness();
     h.run(`
@@ -375,7 +375,7 @@ test("Used + Cleared leaves an already-used attacker used, and Undo restores onl
     assert.equal(h.run("board.teams.find(t => t.territory === 'FRONT_BOTTOM' && t.index === 0).cleared"), false);
 });
 
-test("Used + Cleared and its Undo do not mutate an unrelated team in the same territory", (t) => {
+test("Used + Won and its Undo do not mutate an unrelated team in the same territory", (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
     const h = harness();
     h.run(`
@@ -455,7 +455,7 @@ test("Cleared Undo on My Board never touches Opponent Board state", (t) => {
 
 // ─── UI: PRESENCE OF ALL THREE ACTIONS AND THE UNDO TOAST ───────────────────
 
-test("Opponent Board renders Used + Cleared alongside Mark used, and My Board renders neither", () => {
+test("Opponent Board renders Used + Won alongside Mark used, and My Board renders neither", () => {
     const h = harness();
     const oppHtml = h.run(`
         board = createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "opponent", "round", "now");
@@ -465,7 +465,7 @@ test("Opponent Board renders Used + Cleared alongside Mark used, and My Board re
         usedTeams = [];
         renderBoard()
     `);
-    assert.match(oppHtml, /Used \+ Cleared/);
+    assert.match(oppHtml, /Used \+ Won/);
     assert.match(oppHtml, /Mark used/);
     assert.match(oppHtml, /Cleared/);
 
@@ -473,7 +473,7 @@ test("Opponent Board renders Used + Cleared alongside Mark used, and My Board re
         myBoard = createRoundBoard("KYBER", "5v5", ${JSON.stringify(basicConfig())}, "my", "round", "now");
         renderMyBoard()
     `);
-    assert.doesNotMatch(myHtml, /Used \+ Cleared/);
+    assert.doesNotMatch(myHtml, /Used \+ Won/);
     assert.doesNotMatch(myHtml, /Mark used/);
 });
 
@@ -647,7 +647,7 @@ test("a round started without a saved defence can adopt My Board once", () => {
     h.run("adoptMyBoardAsRoundDefence()");
     assert.equal(h.run("board.defenceSnapshot.missingSavedDefence"), false);
     assert.deepEqual(JSON.parse(h.values.get("boardData")).defenceSnapshot.characterIds, ["QA"]);
-    assert.match(h.run("renderDefenceSnapshotStatus()"), /Defence: 1 unit unavailable/);
+    assert.match(h.run("renderRound()"), /<strong>1<\/strong><span>On defence<\/span>/);
 
     // Once adopted, the snapshot is immutable again.
     h.run(`setBoardTeam("my", "FRONT_TOP", 0, "GAS"); adoptMyBoardAsRoundDefence();`);

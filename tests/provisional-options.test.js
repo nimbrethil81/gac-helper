@@ -184,7 +184,7 @@ test('Round disclosure appends all provisional options beneath assessed and no-a
     assert.equal(JSON.stringify([...h.values]), before);
     h.run(`roundPlan.reasons['FRONT_TOP:0'].counter = { counterId:'DARTH_REVAN', counter:'Assessed option', tier:'A', bannerScore:53 };`);
     const mixed = render();
-    assert.ok(mixed.indexOf('Used + Cleared') < mixed.indexOf('Provisional counters'));
+    assert.ok(mixed.indexOf('Used + Won') < mixed.indexOf('Provisional counters'));
     assert.equal((mixed.match(/round-provisional/g) || []).length, 1);
     for (const side of ['my']) assert.equal(h.run(`renderTeamRecommendation('${side}', 'FRONT_TOP', board.teams[0], '3v3')`), '');
     for (const team of [{name:defence,cleared:true},{name:''},{name:'Not in catalogue'}]) {
