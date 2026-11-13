@@ -1642,3 +1642,35 @@ body {
 .nextup-banners { white-space: normal; }
 .nextup-row { min-height: 44px; }
 .round-manage > summary:focus-visible, .nextup-rationale > summary:focus-visible, .nextup-row:focus-visible, .board-rec-actions > button:focus-visible { outline: 2px solid var(--jedi-blue); outline-offset: 2px; }
+
+/* Opponent board disclosures are presentation-only; native editors remain inside. */
+.defence-filters { margin: 12px 0; }
+.defence-filters .mode-button { min-height: 44px; padding: 8px 4px; font-size: 13px; }
+.board-filter-empty { padding: 10px 4px; color: var(--muted); font-size: 14px; }
+.compact-defence { padding: 0; border-color: #22324a; background: var(--bg); scroll-margin-block: 90px; }
+.defence-row-toggle {
+    position: relative; display: flex; flex-direction: column; gap: 4px;
+    width: 100%; min-height: 44px; padding: 10px 28px 10px 10px;
+    border: 0; border-radius: 9px; text-align: left;
+    background: transparent; color: var(--text); cursor: pointer;
+    font: inherit; overflow-wrap: anywhere;
+}
+.defence-row-name { font-size: 15px; font-weight: bold; line-height: 1.25; }
+.defence-row-counter, .defence-row-status { font-size: 12px; line-height: 1.3; color: var(--muted); }
+.defence-row-counter .tier-badge { display: inline-block; }
+.defence-row-status.status-available { color: var(--s-tier); }
+.cleanup-status { color: #ffca70; }
+.defence-row-chevron { position: absolute; right: 10px; top: 12px; color: var(--muted); }
+.defence-row-toggle[aria-expanded="true"] .defence-row-chevron { transform: rotate(180deg); }
+.defence-row-toggle:focus-visible, .defence-filters button:focus-visible,
+.recorded-battles summary:focus-visible { outline: 2px solid var(--jedi-blue); outline-offset: 2px; }
+.defence-row-panel { padding: 0 10px 10px; }
+.defence-row-panel[hidden] { display: none; }
+.compact-defence .board-rec { margin: 8px 0 0; padding: 0; border: 0; background: transparent; }
+.recorded-battles { margin-top: 10px; border-top: 1px solid #22324a; }
+.recorded-battles > summary { min-height: 44px; padding: 12px 0; box-sizing: border-box; cursor: pointer; font-size: 13px; color: var(--muted); }
+.board-territory-header { flex-wrap: wrap; }
+.clear-territory-btn { min-height: 44px; }
+.board-undo-notice { position: sticky; top: 8px; z-index: 5; }
+.round-board-switch .mode-button { min-height: 44px; }
+.defence-row-panel .board-team-select, .defence-row-panel .board-custom-name { min-height: 44px; }

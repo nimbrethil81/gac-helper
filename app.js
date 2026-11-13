@@ -118,6 +118,78 @@ let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
 let focusFlash = false;                 // one-shot: true only for the render immediately after a Next Up tap
+let opponentBoardFilter = "remaining";
+let defenceRows = new Map(); // side:territory:index -> identity-scoped manual disclosure state
+let automaticDefenceTarget = null;
+let roundDisclosures = new Set();
+
+function resetRoundPresentation() {
+    opponentBoardFilter = "remaining";
+    defenceRows.clear();
+    automaticDefenceTarget = null;
+    roundDisclosures.clear();
+}
+
+function defenceRowState(territory, team) {
+    const key = "opponent:" + territory + ":" + team.index;
+    // Custom-name typing does not change the selected identity or reset its editor.
+    const identity = JSON.stringify([board?.roundId, team.name]);
+    let state = defenceRows.get(key);
+    if (!state || state.identity !== identity) {
+        for (const detailKey of expandedCounterCards) {
+            if (state && detailKey.startsWith(territory + ":" + team.index + ":")) expandedCounterCards.delete(detailKey);
+        }
+        state = { identity, manual: null };
+        defenceRows.set(key, state);
+    }
+    return state;
+}
+
+function syncAutomaticDefenceTarget() {
+    const order = computeBattleOrder(roundPlan);
+    const target = order.squad || order.fleet;
+    const next = target ? target.territory + ":" + target.index : null;
+    if (next !== automaticDefenceTarget) {
+        if (automaticDefenceTarget) {
+            const old = defenceRows.get("opponent:" + automaticDefenceTarget);
+            if (old?.manual === false) old.manual = null;
+        }
+        automaticDefenceTarget = next;
+    }
+}
+
+function toggleDefenceRow(territory, index) {
+    const team = board?.teams.find(t => t.territory === territory && t.index === index);
+    if (!team) return;
+    const panel = document.getElementById("defence-panel-" + territory + "-" + index);
+    const toggle = document.getElementById("defence-toggle-" + territory + "-" + index);
+    if (!panel || !toggle) return;
+    const open = panel.hidden;
+    defenceRowState(territory, team).manual = open;
+    panel.hidden = !open;
+    toggle.setAttribute("aria-expanded", String(open));
+}
+
+function setOpponentBoardFilter(filter) {
+    if (!["remaining", "cleared", "all"].includes(filter)) return;
+    opponentBoardFilter = filter;
+    render();
+}
+
+function configuredOpponentTeams() {
+    return board.teams.filter(team => team.name && board.territories.some(t =>
+        t.territory === team.territory && isTerritoryUnlocked(t, board)));
+}
+
+function renderOpponentBoardFilter() {
+    const teams = configuredOpponentTeams();
+    const counts = { remaining: teams.filter(t => !t.cleared).length,
+        cleared: teams.filter(t => t.cleared).length, all: teams.length };
+    return `<div class="mode-toggle defence-filters" aria-label="Opponent defences">${["remaining", "cleared", "all"].map(filter =>
+        `<button type="button" class="mode-button ${opponentBoardFilter === filter ? "active" : ""}" aria-pressed="${opponentBoardFilter === filter}" onclick="setOpponentBoardFilter('${filter}')">${filter[0].toUpperCase() + filter.slice(1)} (${counts[filter]})</button>`).join("")}</div>` +
+        (!counts[opponentBoardFilter] ? `<div class="board-filter-empty">${opponentBoardFilter === "cleared" ? "No cleared defences." : "No matching configured defences."} <button type="button" class="defence-adopt-btn" onclick="setOpponentBoardFilter('all')">Show All / enter defences</button></div>` : "");
+}
+
 let expandedCounterCards = new Set();   // keys of recommendation cards showing Details; UI-only, never persisted
 
 // Temporary Undo for Cleared and Used + Cleared (v3.4). One in-memory slot, not
@@ -317,6 +389,7 @@ function discardBoard() {
     activeBoardSide = "opponent";
     boardModeDraft = null;
     focusedTeamKey = null;
+    resetRoundPresentation();
     expandedCounterCards = new Set();
     clearPendingUndo();
     localStorage.removeItem(BOARD_KEY);
@@ -916,6 +989,7 @@ function createBoard() {
     board.defenceSnapshot = captureDefenceSnapshot(mode, myBoard, savedDefence);
     activeBoardSide = "opponent";
     boardModeDraft = null;
+    resetRoundPresentation();
     expandedCounterCards = new Set();
     saveBoard("opponent");
     saveBoard("my");
@@ -1115,6 +1189,7 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
     saveBoard(side);
     if (side !== "my") clearRemainingOverrideOnBoardChange();
 
+    if (side !== "my") defenceRowState(territoryKey, team).manual = true;
     setPendingUndo({
         kind: "usedLost",
         side, territoryKey, index, counterId,
@@ -1134,7 +1209,7 @@ function advanceToNextDefence(clearedTerritoryKey) {
     const next = territory && territory.type === "FLEET" ? order.fleet : order.squad;
 
     if (next) {
-        focusBoardTeam(next.territory, next.index);
+        focusBoardTeam(next.territory, next.index, false);
     } else {
         render();
     }
@@ -1195,6 +1270,13 @@ function undoPendingAction() {
     undoUsageChange(pendingUndo.usageChange);
     clearPendingUndo();
     render();
+    // Undo can remove its own button. Restore keyboard focus only to visible UI,
+    // without changing the player's chosen filter or scrolling back from Next Up.
+    if (side !== "my" && activeBoardSide === "opponent") {
+        const toggle = document.getElementById("defence-toggle-" + territoryKey + "-" + index);
+        const fallback = document.querySelector(".defence-filters .active");
+        (toggle || fallback)?.focus?.({ preventScroll: true });
+    }
 }
 
 // Record how many battles have already been fought against a team, mirroring the
@@ -1348,13 +1430,19 @@ function commitBattleEvidence(input, field) {
     status.textContent = result.text;
     status.classList.toggle("battle-error", !result.ok);
     input.setAttribute("aria-invalid", String(!result.ok));
+    if (result.ok && field === "actualBanners") {
+        const event = usageHistory.events.find(e => e.id === details.dataset.eventId);
+        const summary = details.querySelector(".battle-actual-summary");
+        const banners = event && battleEvidenceFor(event).actualBanners;
+        if (summary) summary.textContent = banners === null ? "Banners not provided" : `${banners} actual banners`;
+    }
 }
 
 function renderBattleDetails(event) {
     const e = battleEvidenceFor(event);
     const select = (field, label, choices) => `<label>${label}<select onchange="commitBattleEvidence(this, '${field}')">${choices.map(([value, text]) => `<option value="${value}" ${e[field] === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
     return `<details class="battle-details" data-event-id="${escapeHtml(event.id)}" ${battleDetailsOpen.has(event.id) ? "open" : ""} ontoggle="if (this.isConnected) { this.open ? battleDetailsOpen.add(this.dataset.eventId) : battleDetailsOpen.delete(this.dataset.eventId); }">
-        <summary>Battle details · ${escapeHtml(e.counterName || event.counterId || "Unknown counter")} · ${event.outcome === "won" ? "Won" : "Lost"} · ${escapeHtml(event.createdAt.replace("T", " ").slice(0, 19))}</summary>
+        <summary>Battle details · ${escapeHtml(e.counterName || event.counterId || "Unknown counter")} · ${event.outcome === "won" ? "Won" : "Lost"} · <span class="battle-actual-summary">${e.actualBanners === null ? "Banners not provided" : `${e.actualBanners} actual banners`}</span> · ${escapeHtml(event.createdAt.replace("T", " ").slice(0, 19))}</summary>
         <p class="usage-help">${escapeHtml(event.mode)} · ${escapeHtml(e.defenceName || "Unknown defence")} · ${escapeHtml(event.createdAt.slice(0, 10))}</p>
         <div class="battle-fields"><label>Actual banners<input type="number" inputmode="numeric" min="0" max="999" step="1" value="${e.actualBanners ?? ""}" onchange="commitBattleEvidence(this, 'actualBanners')"></label>
         ${select("datacron", "Datacron involved?", [["unknown", "Unknown"], ["yes", "Yes"], ["no", "No"]])}</div>
@@ -1364,9 +1452,15 @@ function renderBattleDetails(event) {
     </details>`;
 }
 
+function slotBattleEvents(slotKey) {
+    return board ? usageHistory.events.filter(e => e.roundId === board.roundId && e.slotKey === slotKey && e.side === "attack" && !e.voided && ["won", "lost"].includes(e.outcome)) : [];
+}
+
 function renderSlotBattleDetails(slotKey) {
-    if (!board) return "";
-    return usageHistory.events.filter(e => e.roundId === board.roundId && e.slotKey === slotKey && e.side === "attack" && !e.voided && ["won", "lost"].includes(e.outcome)).map(renderBattleDetails).join("");
+    const events = slotBattleEvents(slotKey);
+    if (!events.length) return "";
+    const key = "battles:" + board.roundId + ":" + slotKey;
+    return `<details class="recorded-battles" data-disclosure-key="${escapeHtml(key)}" ${roundDisclosures.has(key) ? "open" : ""} ontoggle="if (this.isConnected) { this.open ? roundDisclosures.add(this.dataset.disclosureKey) : roundDisclosures.delete(this.dataset.disclosureKey); }"><summary>Recorded battles (${events.length})</summary>${events.map(renderBattleDetails).join("")}</details>`;
 }
 
 function battleFeedbackPayload() {
@@ -3884,7 +3978,14 @@ function pickOpeningBattle(pool) {
 // so it is still findable after the scroll. The flash is one-shot: focusFlash is
 // consumed by the render it triggers, so re-renders (marking a counter used,
 // editing a team) keep the highlight without replaying the animation.
-function focusBoardTeam(territoryKey, index) {
+function focusBoardTeam(territoryKey, index, explicit = true) {
+    const territory = board?.territories.find(t => t.territory === territoryKey);
+    const team = board?.teams.find(t => t.territory === territoryKey && t.index === index);
+    if (!territory || !team || !isTerritoryUnlocked(territory, board)) return;
+    activeBoardSide = "opponent";
+    if (explicit && ((opponentBoardFilter === "cleared" && !team.cleared) ||
+        (opponentBoardFilter === "remaining" && team.cleared))) opponentBoardFilter = team.cleared ? "all" : "remaining";
+    if (explicit) defenceRowState(territoryKey, team).manual = true;
     focusedTeamKey = territoryKey + ":" + index;
     focusFlash = true;
     render();
@@ -3892,6 +3993,8 @@ function focusBoardTeam(territoryKey, index) {
 
     const el = document.getElementById("teamblock-" + territoryKey + "-" + index);
     if (!el || !el.scrollIntoView) return;
+    const toggle = document.getElementById("defence-toggle-" + territoryKey + "-" + index);
+    if (toggle?.focus) toggle.focus({ preventScroll: true });
     try {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
     } catch (e) {
@@ -4531,6 +4634,7 @@ function setView(view) {
         rosterMessage = null;
     }
     if (view === "round") {
+        resetRoundPresentation();
         expandedCounterCards.clear();
         loadBoard();           // defensive re-read on entry
         // Seed the setup card's GAC format from the Counters toggle for
@@ -5342,26 +5446,19 @@ function renderBoardSetup() {
 
 function renderBoard() {
     roundPlan = computeRoundPlan();   // live re-solve: falls out of render-on-state-change
-    const pendingUndoHtml = focusedTeamKey && pendingUndo && pendingUndo.side === "opponent"
-        ? ""
-        : renderPendingUndo("opponent");
+    syncAutomaticDefenceTarget();
+    const pendingUndoHtml = renderPendingUndo("opponent");
 
     const overlapBanner = roundPlan && roundPlan.overlap
         ? `<div class="roster-msg roster-msg-ok board-overlap">🔀 Shared counters detected — recommendations below account for the overlap.</div>`
         : "";
 
-    const header = `
-<div class="round-card">
-    <div class="round-title">🗺️ OPPONENT BOARD</div>
-    <div class="round-stat">${leagueLabel(board.league)} · ${board.mode}</div>
-</div>
-`;
     const territories = board.territories.map(t => renderTerritory(t, board, "opponent")).join("");
     // Next Up sits at the very top of the board so it is the first thing seen
     // on entering the Round screen mid-match.
     // The Last Battle advisor, when it applies, leads the board: it is the one
     // decision left on it.
-    return renderLastBattle() + renderNextUp() + header + pendingUndoHtml + overlapBanner + territories;
+    return renderLastBattle() + renderNextUp() + pendingUndoHtml + renderOpponentBoardFilter() + overlapBanner + territories;
 }
 
 function renderMyBoard() {
@@ -5428,7 +5525,9 @@ function renderTerritory(tDef, bd, side) {
         <span class="board-territory-progress">${clearedCount}/${teams.length} cleared</span>
         ${clearBtn}
     </div>
-    ${teams.map(t => renderBoardTeamRow(tDef, t, bd, side)).join("")}
+    ${teams.filter(t => side === "my" || (t.name ? opponentBoardFilter === "all" ||
+        (opponentBoardFilter === "cleared" ? t.cleared : !t.cleared) : opponentBoardFilter !== "cleared"))
+        .map(t => renderBoardTeamRow(tDef, t, bd, side)).join("")}
 </div>
 `;
 }
@@ -5463,9 +5562,7 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     // block so the Next Up card can scroll to and highlight the whole group.
     const isFocused = side !== "my" && focusedTeamKey === territoryKey + ":" + team.index;
     const focusClass = isFocused ? (focusFlash ? "focused focus-flash" : "focused") : "";
-    const pendingUndoHtml = isFocused && pendingUndo && pendingUndo.side === side
-        ? renderPendingUndo(side)
-        : "";
+
     const customName = team.name === NOT_IN_CATALOGUE ? `
 <input class="board-custom-name" type="text" maxlength="80" placeholder="Optional team name"
     value="${escapeHtml(team.customName || "")}" oninput="setCustomTeamName('${side}', '${territoryKey}', ${team.index}, this.value)">
@@ -5478,13 +5575,31 @@ function renderBoardTeamRow(tDef, team, bd, side) {
         ? `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : identity.name || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) ? " (saved; not in current catalogue)" : ""}</div>`
         : `<div class="board-team-picker"><span class="board-team-select board-team-selected" aria-hidden="true">${escapeHtml(team.name === NOT_IN_CATALOGUE ? "Not in catalogue" : team.name || (tDef.type === "FLEET" ? "Select fleet…" : "Select team…"))}${savedOutsideCatalogue ? " (saved; not in current catalogue)" : ""}</span><select class="board-team-select" aria-label="Defence ${tDef.type === "FLEET" ? "fleet" : "team"}" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select></div>`;
 
+    const rowState = side === "my" ? null : defenceRowState(territoryKey, team);
     const recommendation = side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey);
     const groupedControls = side !== "my" && !team.cleared && team.name && roundPlan
         && roundPlan.reasons[territoryKey + ":" + team.index]?.counter;
 
+    const slotKey = territoryKey + ":" + team.index;
+    const open = rowState && (rowState.manual ?? (automaticDefenceTarget === slotKey));
+    const info = roundPlan?.reasons[slotKey];
+    const counter = info?.counter;
+    const events = slotBattleEvents(slotKey);
+    const losses = events.filter(e => e.outcome === "lost").length;
+    const status = team.cleared ? "Cleared" : losses ? `Needs cleanup · ${losses} loss${losses === 1 ? "" : "es"}${team.attempts > losses ? ` · ${team.attempts} battles` : ""}` :
+        team.attempts ? `Needs cleanup · ${team.attempts} battles` : counter ? "Not attacked" :
+        team.name === NOT_IN_CATALOGUE ? "No catalogue coverage" :
+        oneShotCounters((gacData[modeKey] || {})[team.name] || []).length ? "Counter unavailable" : "No scored counter";
+    const panelId = "defence-panel-" + territoryKey + "-" + team.index;
+    const summary = side === "my" ? "" : `<button type="button" class="defence-row-toggle" id="defence-toggle-${territoryKey}-${team.index}" aria-expanded="${!!open}" aria-controls="${panelId}" onclick="toggleDefenceRow('${territoryKey}', ${team.index})">
+        <span class="defence-row-name">${escapeHtml(team.name === NOT_IN_CATALOGUE ? team.customName || "Unknown defence" : team.name || "Add/select defence")}</span>
+        ${!team.cleared && counter ? `<span class="defence-row-counter">${escapeHtml(counter.counter)} <span class="tier-badge tier-badge-small" style="background:${getTierColour(counter.tier)}">${escapeHtml(counter.tier)}</span> · ~${counter.bannerScore ?? "?"} banners</span>` : ""}
+        ${team.name ? `<span class="defence-row-status ${team.cleared ? "status-available" : team.attempts || losses ? "cleanup-status" : ""}">${escapeHtml(status)}</span>` : ""}
+        <span class="defence-row-chevron" aria-hidden="true">▾</span></button>`;
     return `
-${pendingUndoHtml}
-<div class="board-team-block ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
+<div class="board-team-block ${side === "my" ? "" : "compact-defence"} ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
+${summary}
+<div ${side === "my" ? "" : `id="${panelId}" ${open ? "" : "hidden"} class="defence-row-panel"`}>
 <div class="board-team ${team.cleared ? "cleared" : ""}">
     ${identityControl}
     ${groupedControls ? "" : renderClearedControl(side, territoryKey, team)}
@@ -5493,6 +5608,7 @@ ${side === "my" ? "" : customName}
 ${recommendation}
 ${team.cleared || groupedControls ? "" : renderAttemptControl(side, territoryKey, team)}
 ${side === "my" ? "" : renderSlotBattleDetails(territoryKey + ":" + team.index)}
+</div>
 </div>
 `;
 }
@@ -5862,7 +5978,7 @@ function renderBannersNeeded() {
 }
 
 function renderClearedControl(side, territoryKey, team) {
-    return `<button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${side}', '${territoryKey}', ${team.index})">${team.cleared ? "✓ Cleared" : "Cleared"}</button>`;
+    return `<button class="board-cleared-btn ${team.cleared ? "on" : ""}" onclick="toggleTeamCleared('${side}', '${territoryKey}', ${team.index})">${team.cleared ? (side === "my" ? "✓ Cleared" : "✓ Cleared · un-clear") : "Cleared"}</button>`;
 }
 
 // The per-team battles counter (v2.6). Mirrors the in-game "Battles" count beside
