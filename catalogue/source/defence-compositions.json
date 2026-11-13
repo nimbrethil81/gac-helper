@@ -13,6 +13,7 @@
     { "defence": "Enoch", "mode": "3v3", "units": ["CAPTAIN_ENOCH", "NIGHT_TROOPER", "DEATH_TROOPER_PERIDEA"] },
     { "defence": "Finn (Zorii Resistance)", "mode": "3v3", "units": ["FINN", "RESISTANCE_HERO_FINN", "ZORII_BLISS"] },
     { "defence": "Iden Versio", "mode": "3v3", "units": ["IDEN_VERSIO", "RANGE_TROOPER", "SCOUT_TROOPER"] },
+    { "defence": "Jedi Knight Luke Skywalker", "mode": "3v3", "units": ["JEDI_KNIGHT_LUKE_SKYWALKER", "SHAAK_TI", "GRANDMASTER_YODA"] },
     { "defence": "Kelleran Beq", "mode": "3v3", "units": ["KELLERAN_BEQ", "JOCASTA_NU", "PLO_KOON"] },
     { "defence": "Lord Vader", "mode": "3v3", "units": ["LORD_VADER", "CC_1119_APPO", "RC_1262_SCORCH"] },
     { "defence": "Major Partagaz", "mode": "5v5", "units": ["MAJOR_PARTAGAZ", "DIRECTOR_KRENNIC", "DEDRA_MEERO", "KX_SECURITY_DROID", "IMPERIAL_PROBE_DROID"] },

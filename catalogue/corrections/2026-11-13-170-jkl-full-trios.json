@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/170",
   "baseline": {
-    "commit": "253422ce177eaa40bc159fe077c0df1f01bcb72e",
+    "commit": "a56ec7daebf603a4e0202bf2452c25b66c933f86",
     "catalogueVersion": 35,
     "checksum": "sha256:37ed3a2cee20970a0e40898190b795b0fd2fbb66120809523bc10e508c26f5f3"
   },
   "corrections": [
     {
       "id": "CR-2026-11-13-170-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "ADD",
       "title": "Add three approved 3v3 full-trio counters against Jedi Knight Luke Skywalker",
       "rationale": "GAC-170-SPLIT1 Option A authorises independent delivery of only the three full-trio JKL attacks from issue #170. Define distinct exact attacking identities to retain leader-first membership, including Palpatine/Mara/Starkiller instead of existing STARKILLER whose required order begins with Starkiller. Keep generic counter identities, SEE solo S/54, Rotta/Lord Vader/Appo duo A/54 and all other catalogue entries unchanged; the latter two remain pending separate fixed-undersized-scored capability.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/170#issuecomment-6851160656",
+        "decidedAt": "2026-11-13T11:12:53Z",
+        "contentChecksum": "sha256:0d27d06e7b6cb4b3215503b6741d585cf4015fe66c0e63acab57d6af15b509fb"
+      },
       "provenance": {
         "evidence": [
           {
