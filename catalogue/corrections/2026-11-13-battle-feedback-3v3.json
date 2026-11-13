@@ -1,0 +1,686 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/37",
+  "baseline": {
+    "commit": "7f7bc1b477f49b0f72ae9396e74aabf01c86391f",
+    "catalogueVersion": 36,
+    "checksum": "sha256:e95f0bed4880de91abb8e5de7a9cd1f1f9d760c6f0f70e1cf1950a4ca1dc9d59"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-13-BF3V3-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "AMEND",
+      "title": "Qualify seven existing 3v3 counters following owner-reported 13 November battle losses",
+      "rationale": "Owner approved seven complete gameplay definitions in ChatGPT on 13 November 2026 after reviewing an attached gac-battle-feedback schema-1 export. Observed first-attempt losses: JML vs Jabba, Admiral Raddus vs Reva, Baylan/Marrok/Shin vs Grand Moff Tarkin, GAS with substitute 501st clones vs Kelleran Beq, Traya vs Jedi Master Mace Windu, SLKR vs Pirate King Hondo, and JMK vs Lord Vader/Appo/CX-2. The owner cannot recall the Traya third attacker; Fives/Rex were committed to defence, so GAS did not use the recommended trio; Baylan/Marrok/Shin was confirmed. SLKR's opponent used a datacron; Traya's did not; other datacrons/lineups mostly unknown. The seven approved changes are exactly three tier downgrades (JML S to C, Raddus A to B, Baylan S to A), two substitutions to existing exact-trio counter identities (Baylan and GAS) and seven concise reliability notes. Scores and undersize remain unchanged. These are owner-approved planning judgments, not measured clear averages or current-season universal success rates.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/174",
+            "publisher": "GAC Helper GitHub issue #174 — battle-feedback v1 design",
+            "publishedOrObservedAt": "2026-11-13",
+            "accessedAt": "2026-11-13",
+            "supports": "Defines export of local battle outcomes, revisions, attempt/datacron/notes fields and privacy-minimised evidence; it does NOT contain the owner's private 13 November battle results."
+          },
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/blob/main/catalogue/source/matchups/3v3.json",
+            "publisher": "GAC Helper Git-native catalogue v36",
+            "publishedOrObservedAt": "2026-11-13",
+            "accessedAt": "2026-11-13",
+            "supports": "Source baseline for the seven existing defence counter rows, with existing tier/banner/undersize and optional notes. Source is an authoring baseline, not independent proof of effectiveness."
+          },
+          {
+            "url": "https://swgoh.gg/gac/counters/season/CHAMPIONSHIPS_GRAND_ARENA_GA2_EVENT_SEASON_83/",
+            "publisher": "SWGOH.GG — historical 3v3 GAC matchup portal",
+            "publishedOrObservedAt": "2026-09-09",
+            "accessedAt": "2026-11-13",
+            "supports": "Provides historical 3v3 counter context for the prior research review; specific November 2026 exact-lineup win rates have not been revalidated here and are not claimed."
+          }
+        ],
+        "conditions": "All changes are 3v3 only. Current generic 3v3 defence identities are retained, including Lord Vader whose canonical reference is Appo/Scorch, while the owner faced Appo/CX-2. The observed 13 November results are first-party owner testimony from a locally attached JSON export, not a public GitHub issue artifact. Exact defending and attacking supporting teams are partly unknown. A counter-ID substitution changes required-unit eligibility and resource allocation through existing application logic. No datacron absence should be inferred from unknown values.",
+        "confidence": "Medium: owner observed exact attacker/defence leaders and outcomes, with precise Baylan trio, GAS substitution and Lord Vader variant additionally confirmed; older public matchup context is variant-sensitive. Low for unrecorded supporting characters, missing banners and most datacrons. Judgement-based tiers are owner-approved, not independently estimated probabilities.",
+        "limitations": "No raw private feedback export uploaded to GitHub. External exact-match statistics from prior chat were not independently revalidated in the present proposal; the historical source is not proof of any particular November event. Traya's third attacker unremembered; GAS improvised lineup should not downgrade the GAS/Fives/Rex trio; Raddus third attacker unknown; SLKR's opposing datacron effect unknown. JML bannerScore 48 and all other bannerScores remain planning values, not losing-battle banners. Existing generic TRAYA, SLKR and JMK counter definitions do not enforce the exact teams recommended in notes. Other defence variants and all unrelated rows remain out of scope."
+      },
+      "affectedReferences": [
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jabba"
+          },
+          "effect": "Amend only the existing JML counter row within this defence; replace it with JML C/48/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Reva"
+          },
+          "effect": "Amend only the existing ADMIRAL_RADDUS counter row within this defence; replace it with ADMIRAL_RADDUS B/52/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Grand Moff Tarkin"
+          },
+          "effect": "Amend only the existing BAYLAN counter row within this defence; replace it with BAYLAN_MARROK_SHIN A/56/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Kelleran Beq"
+          },
+          "effect": "Amend only the existing GAS counter row within this defence; replace it with GAS_FIVES_REX S/55/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Mace Windu"
+          },
+          "effect": "Amend only the existing TRAYA counter row within this defence; replace it with TRAYA S/55/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "effect": "Amend only the existing SLKR counter row within this defence; replace it with SLKR S/53/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Lord Vader"
+          },
+          "effect": "Amend only the existing JMK counter row within this defence; replace it with JMK A/52/undersize 0 and exact approved reliability notes, retaining every sibling counter and ordering."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BAYLAN_MARROK_SHIN"
+          },
+          "effect": "Existing exact identity required: Baylan, Marrok and Shin Hati; definition unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "GAS_FIVES_REX"
+          },
+          "effect": "Existing exact identity required: General Skywalker, Fives and Rex; definition unchanged."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Lord Vader",
+            "mode": "3v3"
+          },
+          "effect": "No change: existing Appo/Scorch reference preserved; Appo/CX-2 is owner-observed variant mentioned in notes only."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none; no 5v5 matchups, counter definitions, references or scoring changed.",
+        "3v3": "Seven existing defence rows amended in place; three reliability tier downgrades, two exact-squad counter-ID substitutions and seven notes replacements; no new defences or extra counters.",
+        "FLEET": "none; no Fleet rows or scoring changed.",
+        "counters": "Counters continues to display seven scored non-provisional one-shot entries using existing card logic; Baylan and GAS show exact three-member counter names and enforce their required teammates; generic identities remain available for other matchups.",
+        "roundAvailability": "On Round, exact GAS/Fives/Rex and Baylan/Marrok/Shin are unavailable if any required character is missing, on owner defence or spent; allocation considers all required members. Tier changes alter reliability priority using the existing solver, without changing its algorithm. Old generic usage records are not rewritten or reinterpreted.",
+        "scoring": "No bannerScore, undersize, scoring constants, methods or tactical roles change. Tier is existing reliability sort signal; three downgrades may affect selection as approved.",
+        "strategicReserve": "No new strategicReserve flags or reserve heuristics; existing counter definitions and resource competition preserved."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counters\"][\"3v3\"][\"Grand Moff Tarkin\"][0][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Grand Moff Tarkin\"][0][\"counterId\"]",
+        "payload[\"counters\"][\"3v3\"][\"Grand Moff Tarkin\"][0][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Grand Moff Tarkin\"][0][\"tier\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jabba\"][0][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jabba\"][0][\"tier\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jedi Master Mace Windu\"][1][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Kelleran Beq\"][3][\"counter\"]",
+        "payload[\"counters\"][\"3v3\"][\"Kelleran Beq\"][3][\"counterId\"]",
+        "payload[\"counters\"][\"3v3\"][\"Kelleran Beq\"][3][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Lord Vader\"][0][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Pirate King Hondo Ohnaka\"][0][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Reva\"][2][\"notes\"]",
+        "payload[\"counters\"][\"3v3\"][\"Reva\"][2][\"tier\"]"
+      ],
+      "changes": [
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jabba"
+          },
+          "before": {
+            "defence": "Jabba",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 48,
+                "undersize": 0
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "CLS",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              },
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Jabba",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "High-risk first-attempt counter against Jabba. Success depends on Jedi composition, investment and defensive datacron. Do not rely on this matchup as a dependable full clear."
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "CLS",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              },
+              {
+                "counterId": "STARKILLER",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              },
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Reva"
+          },
+          "before": {
+            "defence": "Reva",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Leia / Drogan / R2-D2"
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Include Malak for reliability"
+              },
+              {
+                "counterId": "ADMIRAL_RADDUS",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Raddus / Jyn Erso / Scarif Rebel Pathfinder"
+              },
+              {
+                "counterId": "LORD_VADER",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Lord Vader / Maul / Royal Guard"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "This SEE entry does not require or reserve Darth Bane. Bane-assisted variants need a separately verified SEE+Bane counter; do not assume a third Sith preserves Rule of Two."
+              },
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "JMK / CAT / General Kenobi"
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Jabba / Boushh / Krrsantan"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Reva",
+            "counters": [
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Leia / Drogan / R2-D2"
+              },
+              {
+                "counterId": "DARTH_REVAN",
+                "tier": "S",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Include Malak for reliability"
+              },
+              {
+                "counterId": "ADMIRAL_RADDUS",
+                "tier": "B",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Recommended trio: Admiral Raddus, Jyn Erso and Scarif Rebel Pathfinder. Matchup-sensitive against Reva-led Inquisitors; historical evidence for a Baze variant is mixed. Confirm third attacker and datacron; prefer a more reliable counter if available."
+              },
+              {
+                "counterId": "LORD_VADER",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Lord Vader / Maul / Royal Guard"
+              },
+              {
+                "counterId": "SEE",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "This SEE entry does not require or reserve Darth Bane. Bane-assisted variants need a separately verified SEE+Bane counter; do not assume a third Sith preserves Rule of Two."
+              },
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "JMK / CAT / General Kenobi"
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Jabba / Boushh / Krrsantan"
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Grand Moff Tarkin"
+          },
+          "before": {
+            "defence": "Grand Moff Tarkin",
+            "counters": [
+              {
+                "counterId": "BAYLAN",
+                "tier": "S",
+                "bannerScore": 56,
+                "undersize": 0
+              },
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Grand Moff Tarkin",
+            "counters": [
+              {
+                "counterId": "BAYLAN_MARROK_SHIN",
+                "tier": "A",
+                "bannerScore": 56,
+                "undersize": 0,
+                "notes": "Requires Baylan Skoll, Marrok and Shin Hati. Limited historical success against Tarkin clone teams; a failed first attempt with this exact trio was reported in November 2026. Confirm opposing clone lineup and datacron."
+              },
+              {
+                "counterId": "CERE",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Kelleran Beq"
+          },
+          "before": {
+            "defence": "Kelleran Beq",
+            "counters": [
+              {
+                "counterId": "DARTH_NIHILUS",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "MAUL",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0
+              },
+              {
+                "counterId": "REVA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "GAS",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "BO_KATAN_MANDALORE",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Kelleran Beq",
+            "counters": [
+              {
+                "counterId": "DARTH_NIHILUS",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "MAUL",
+                "tier": "B",
+                "bannerScore": 50,
+                "undersize": 0
+              },
+              {
+                "counterId": "REVA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "GAS_FIVES_REX",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Requires General Skywalker, CT-5555 Fives and CT-7567 Rex. Do not substitute leftover 501st clones without separate matchup evidence. Limited historical evidence against Kelleran, Jocasta Nu and Plo Koon."
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "BO_KATAN_MANDALORE",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Mace Windu"
+          },
+          "before": {
+            "defence": "Jedi Master Mace Windu",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Jedi Master Mace Windu",
+            "counters": [
+              {
+                "counterId": "JML",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0
+              },
+              {
+                "counterId": "TRAYA",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Recommended: Darth Traya, Darth Nihilus and Savage Opress with Savage's GAC omicron. Reliability without this complete composition is unverified. Check defensive Jedi and datacron."
+              },
+              {
+                "counterId": "JABBA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Pirate King Hondo Ohnaka"
+          },
+          "before": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong"
+              },
+              {
+                "counterId": "CERE_CAL",
+                "tier": "A",
+                "bannerScore": 56,
+                "undersize": 0,
+                "notes": "Exact 3v3 defence: Pirate King Hondo Ohnaka (leader), Hondo Ohnaka, Vane. Attack: Cere Junda (leader), Taron Malicos, Cal Kestis (not Jedi Knight Cal Kestis). Owner-reported full clear, 56 banners on 2026-11-06: one observed battle, not an established success rate or independently verified repeatability. Tier A is the owner's qualitative classification; 56 is the separately owner-approved planning estimate, not a measured average. Datacron, omicron, relic and mod conditions unknown."
+              }
+            ]
+          },
+          "after": {
+            "defence": "Pirate King Hondo Ohnaka",
+            "counters": [
+              {
+                "counterId": "SLKR",
+                "tier": "S",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Strong with suitable full SLKR lineups. Historical variants include Hux/First Order SF TIE Pilot and Kylo Ren (Unmasked)/Rey (Dark Side Vision). Check Pirate King Hondo's datacron effects and turn order; failures are possible."
+              },
+              {
+                "counterId": "CERE_CAL",
+                "tier": "A",
+                "bannerScore": 56,
+                "undersize": 0,
+                "notes": "Exact 3v3 defence: Pirate King Hondo Ohnaka (leader), Hondo Ohnaka, Vane. Attack: Cere Junda (leader), Taron Malicos, Cal Kestis (not Jedi Knight Cal Kestis). Owner-reported full clear, 56 banners on 2026-11-06: one observed battle, not an established success rate or independently verified repeatability. Tier A is the owner's qualitative classification; 56 is the separately owner-approved planning estimate, not a measured average. Datacron, omicron, relic and mod conditions unknown."
+              }
+            ]
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "AMEND",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Lord Vader"
+          },
+          "before": {
+            "defence": "Lord Vader",
+            "counters": [
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0
+              },
+              {
+                "counterId": "BO_KATAN_MANDALORE",
+                "tier": "A",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Cleanup risk vs dark side clones"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 50,
+                "undersize": 0
+              },
+              {
+                "counterId": "MAUL",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              },
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0
+              }
+            ]
+          },
+          "after": {
+            "defence": "Lord Vader",
+            "counters": [
+              {
+                "counterId": "JMK",
+                "tier": "A",
+                "bannerScore": 52,
+                "undersize": 0,
+                "notes": "Preferred JMK/Commander Ahsoka Tano/General Kenobi. Historical support is stronger against Lord Vader/Maul/Royal Guard than clone variants. A first-attempt failure against Lord Vader/Appo/CX-2 was reported; this variant's reliability is unverified."
+              },
+              {
+                "counterId": "BO_KATAN_MANDALORE",
+                "tier": "A",
+                "bannerScore": 50,
+                "undersize": 0,
+                "notes": "Cleanup risk vs dark side clones"
+              },
+              {
+                "counterId": "SLKR",
+                "tier": "A",
+                "bannerScore": 50,
+                "undersize": 0
+              },
+              {
+                "counterId": "MAUL",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0,
+                "notes": "Cleanup only"
+              },
+              {
+                "counterId": "JML",
+                "tier": "C",
+                "bannerScore": 48,
+                "undersize": 0
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
