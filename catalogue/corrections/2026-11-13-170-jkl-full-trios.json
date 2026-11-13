@@ -1,0 +1,214 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/170",
+  "baseline": {
+    "commit": "253422ce177eaa40bc159fe077c0df1f01bcb72e",
+    "catalogueVersion": 35,
+    "checksum": "sha256:37ed3a2cee20970a0e40898190b795b0fd2fbb66120809523bc10e508c26f5f3"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-13-170-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "ADD",
+      "title": "Add three approved 3v3 full-trio counters against Jedi Knight Luke Skywalker",
+      "rationale": "GAC-170-SPLIT1 Option A authorises independent delivery of only the three full-trio JKL attacks from issue #170. Define distinct exact attacking identities to retain leader-first membership, including Palpatine/Mara/Starkiller instead of existing STARKILLER whose required order begins with Starkiller. Keep generic counter identities, SEE solo S/54, Rotta/Lord Vader/Appo duo A/54 and all other catalogue entries unchanged; the latter two remain pending separate fixed-undersized-scored capability.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://github.com/nimbrethil81/gac-helper/issues/170",
+            "publisher": "Owner-approved issue #170 (GAC-3V3-MISSING1, GAC-3V3-SCORE1 and GAC-170-SPLIT1 Option A)",
+            "publishedOrObservedAt": "2026-11-13",
+            "accessedAt": "2026-11-13",
+            "supports": "Owner-approved three non-provisional 3v3 JKL counter compositions and planning values: Palpatine/Mara/Starkiller A/55; GAS/Fives/Rex A/54; Darth Revan/BSF/Malak A/54. Owner expressly approved a distinct Palpatine-first identity and independent delivery of this subset."
+          }
+        ],
+        "conditions": "Observed defence JKL / Shaak Ti / Grandmaster Yoda. Full trio attacks in approved leader-first order. General Kenobi, Old Ben and other JKL support combinations may perform differently. Opponent-specific datacrons and omicrons not confirmed; relics/mods may vary.",
+        "confidence": "Medium: owner qualitative recollection and explicit owner-approved planning estimates, without independently verified exact-match battle metadata, win rates or banner averages.",
+        "limitations": "These are non-provisional author-approved expected banner estimates conditional on successful clears, not statistical means or guarantees. Prior research cited SWGOH.gg and GAC Film Room only at domain level, not as validated exact battle evidence. No inference of universal performance against all JKL variants. SEE solo and LV/Appo duo remain blocked and explicitly outside this proposal."
+      },
+      "affectedReferences": [
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "DARTH_REVAN_BSF_MALAK"
+          },
+          "effect": "Add exact full-trio attack identity DARTH_REVAN_BSF_MALAK; existing global counter definitions unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "GAS_FIVES_REX"
+          },
+          "effect": "Add exact full-trio attack identity GAS_FIVES_REX; existing global counter definitions unchanged."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "PALPATINE_MARA_STARKILLER"
+          },
+          "effect": "Add exact full-trio attack identity PALPATINE_MARA_STARKILLER; existing global counter definitions unchanged."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Knight Luke Skywalker"
+          },
+          "effect": "Add exactly three scored, non-provisional one-shot counters, A/55, A/54, A/54, all undersize 0 and defence-variation caveats."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Jedi Knight Luke Skywalker",
+            "mode": "3v3"
+          },
+          "effect": "Add observed JKL / Shaak Ti / Grandmaster Yoda defensive composition."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Knight Luke Skywalker"
+          },
+          "effect": "none; no new or changed 5v5 matchup"
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Rotta the Hutt"
+          },
+          "effect": "none; remains blocked pending exact scored undersize capability"
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "none; existing 5v5 data and counters unchanged.",
+        "3v3": "Adds JKL defence-family lookup with three exact full-trio scored attacking options and observed JKL/Shaak Ti/GMY composition; excludes SEE solo and Rotta/LV+Appo.",
+        "FLEET": "none.",
+        "counters": "3v3 Counters shows JKL A/55 Palpatine/Mara/Starkiller, A/54 GAS/Fives/Rex, A/54 Darth Revan/BSF/Malak; required members exactly the approved trios and zero optional flex slots.",
+        "roundAvailability": "Existing required-member roster, defence commitments, spent-unit and overlapping-counter allocation checks apply to three distinct identities; Round cards can assign these entries without altering other uses of generic GAS, DARTH_REVAN or STARKILLER.",
+        "scoring": "No scoring logic or constants change; the three 3v3 rows use bannerScore 55/54/54 with undersize 0 as full-trio baselines and no extra bonus.",
+        "strategicReserve": "none; all three new counter definitions have default (normal) reserve status."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"DARTH_REVAN_BSF_MALAK\"]",
+        "payload[\"counterDefinitions\"][\"GAS_FIVES_REX\"]",
+        "payload[\"counterDefinitions\"][\"PALPATINE_MARA_STARKILLER\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jedi Knight Luke Skywalker\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Jedi Knight Luke Skywalker\"]"
+      ],
+      "changes": [
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "DARTH_REVAN_BSF_MALAK"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "DARTH_REVAN_BSF_MALAK",
+            "name": "Darth Revan / BSF / Malak",
+            "required": [
+              "DARTH_REVAN",
+              "BASTILA_SHAN_FALLEN",
+              "DARTH_MALAK"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "GAS_FIVES_REX"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "GAS_FIVES_REX",
+            "name": "GAS / Fives / Rex",
+            "required": [
+              "GENERAL_SKYWALKER",
+              "CT_5555_FIVES",
+              "CT_7567_REX"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "PALPATINE_MARA_STARKILLER"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "PALPATINE_MARA_STARKILLER",
+            "name": "Palpatine / Mara Jade / Starkiller",
+            "required": [
+              "EMPEROR_PALPATINE",
+              "MARA_JADE",
+              "STARKILLER"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Knight Luke Skywalker"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Jedi Knight Luke Skywalker",
+            "counters": [
+              {
+                "counterId": "PALPATINE_MARA_STARKILLER",
+                "tier": "A",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Owner-approved planning estimate conditional on a successful first-attempt clear, not a measured average. Scoped to the observed JKL / Shaak Ti / Grandmaster Yoda 3v3 defence; JKL with General Kenobi, Old Ben or other allies and differing datacrons, omicrons, relics or mods may behave differently. Exact opponent datacron and omicrons unconfirmed."
+              },
+              {
+                "counterId": "GAS_FIVES_REX",
+                "tier": "A",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Owner-approved planning estimate conditional on a successful first-attempt clear, not a measured average. Scoped to the observed JKL / Shaak Ti / Grandmaster Yoda 3v3 defence; JKL with General Kenobi, Old Ben or other allies and differing datacrons, omicrons, relics or mods may behave differently. Exact opponent datacron and omicrons unconfirmed."
+              },
+              {
+                "counterId": "DARTH_REVAN_BSF_MALAK",
+                "tier": "A",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Owner-approved planning estimate conditional on a successful first-attempt clear, not a measured average. Scoped to the observed JKL / Shaak Ti / Grandmaster Yoda 3v3 defence; JKL with General Kenobi, Old Ben or other allies and differing datacrons, omicrons, relics or mods may behave differently. Exact opponent datacron and omicrons unconfirmed."
+              }
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Jedi Knight Luke Skywalker",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Jedi Knight Luke Skywalker",
+            "mode": "3v3",
+            "units": [
+              "JEDI_KNIGHT_LUKE_SKYWALKER",
+              "SHAAK_TI",
+              "GRANDMASTER_YODA"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
