@@ -26,7 +26,7 @@
           }
         ],
         "conditions": "Observed defence: The Stranger / Maul (Hate-Fueled) / Starkiller, with Starkiller datacron of unknown effects; attack SEE (R10) / Wat Tambor / Savage Opress (GAC omicron). Other support compositions or datacrons may differ.",
-        "confidence": "Owner-observed single loss and owner-approved downgrade; no verified win rate or measured banner average.",
+        "confidence": "Medium: Owner-observed single loss and owner-approved downgrade; no verified win rate or measured banner average.",
         "limitations": "Single reported defeat, opponent datacron effects unknown. The generic leader-family matchup does not establish equal performance against every Stranger lineup. C/50 is a planning estimate conditional on a win."
       },
       "affectedReferences": [
