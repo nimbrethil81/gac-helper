@@ -247,6 +247,14 @@
       ]
     },
     {
+      "defence": "Jedi Knight Luke Skywalker",
+      "counters": [
+        { "counterId": "PALPATINE_MARA_STARKILLER", "tier": "A", "bannerScore": 55, "undersize": 0, "notes": "Owner-approved planning estimate conditional on a successful first-attempt clear, not a measured average. Scoped to the observed JKL / Shaak Ti / Grandmaster Yoda 3v3 defence; JKL with General Kenobi, Old Ben or other allies and differing datacrons, omicrons, relics or mods may behave differently. Exact opponent datacron and omicrons unconfirmed." },
+        { "counterId": "GAS_FIVES_REX", "tier": "A", "bannerScore": 54, "undersize": 0, "notes": "Owner-approved planning estimate conditional on a successful first-attempt clear, not a measured average. Scoped to the observed JKL / Shaak Ti / Grandmaster Yoda 3v3 defence; JKL with General Kenobi, Old Ben or other allies and differing datacrons, omicrons, relics or mods may behave differently. Exact opponent datacron and omicrons unconfirmed." },
+        { "counterId": "DARTH_REVAN_BSF_MALAK", "tier": "A", "bannerScore": 54, "undersize": 0, "notes": "Owner-approved planning estimate conditional on a successful first-attempt clear, not a measured average. Scoped to the observed JKL / Shaak Ti / Grandmaster Yoda 3v3 defence; JKL with General Kenobi, Old Ben or other allies and differing datacrons, omicrons, relics or mods may behave differently. Exact opponent datacron and omicrons unconfirmed." }
+      ]
+    },
+    {
       "defence": "Jedi Knight Revan",
       "counters": [
         { "counterId": "DARTH_REVAN", "tier": "S", "bannerScore": 54, "undersize": 0 }
