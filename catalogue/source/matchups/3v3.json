@@ -453,7 +453,7 @@
     {
       "defence": "The Stranger",
       "counters": [
-        { "counterId": "SEE", "tier": "B", "bannerScore": 52, "undersize": 0 },
+        { "counterId": "SEE", "tier": "C", "bannerScore": 50, "undersize": 0, "notes": "Owner-observed 3v3 loss with SEE / Wat Tambor / Savage Opress against The Stranger / Maul (Hate-Fueled) / Starkiller; no enemy defeated. SEE was R10 and Savage had his GAC omicron. Enemy Starkiller had a datacron of unknown effects. Generic SEE is unreliable as a primary counter to this composition; different allies and datacrons may change the outcome. C/50 is a planning estimate for successful wins, not a measured average." },
         { "counterId": "BANE", "tier": "C", "bannerScore": 48, "undersize": 1, "notes": "Use Darth Bane with one other non-summoned Sith; leave the third slot empty. SEE + Bane is a separate counter. High risk: recent attempts failed outright. Emergency option only." },
         { "counterId": "SEE_BANE", "tier": "S", "bannerScore": 53, "undersize": 1 }
       ]
