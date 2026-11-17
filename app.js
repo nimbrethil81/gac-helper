@@ -1069,7 +1069,9 @@ function setBoardTeam(side, territoryKey, index, value) {
     if (!target) return;
     const team = target.teams.find(t => t.territory === territoryKey && t.index === index);
     if (!team) return;
-    team.name = value;
+    const territory = target.territories.find(t => t.territory === territoryKey);
+    const modeKey = territory ? territoryModeKey(territory, target) : target.mode;
+    team.name = catalogueDefenceName(modeKey, value);
     if (value !== NOT_IN_CATALOGUE) team.customName = "";
     saveBoard(side);
     if (side === "my") saveDefenceTemplateFromMyBoard();
@@ -2890,6 +2892,17 @@ function oneShotCounters(list) {
     return (list || []).filter(c => !isTacticalEntry(c) && c.confidence === undefined);
 }
 
+// Preserve legacy 3v3 JMK names in saved records while resolving current data
+// and labels through the consolidated catalogue identity.
+const LEGACY_3V3_JMK_DEFENCE = "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi";
+function catalogueDefenceName(modeKey, name) {
+    return modeKey === "3v3" && name === LEGACY_3V3_JMK_DEFENCE ? "Jedi Master Kenobi" : name;
+}
+function matchupCounters(modeKey, name) {
+    return (gacData[modeKey] || {})[catalogueDefenceName(modeKey, name)] || [];
+}
+function displayDefenceName(modeKey, name) { return catalogueDefenceName(modeKey, name); }
+
 function tacticalEntries(list) {
     return (list || []).filter(c => isTacticalEntry(c) && TACTICAL_ROLES[c.role]);
 }
@@ -2902,7 +2915,7 @@ function currentLastBattleAdvice(extra) {
         const tDef = board.territories.find(t => t.territory === team.territory);
         const modeKey = tDef ? territoryModeKey(tDef) : board.mode;
         const seen = new Set();
-        counters = oneShotCounters(gacData[modeKey] && gacData[modeKey][team.name]).filter(c => {
+        counters = oneShotCounters(matchupCounters(modeKey, team.name)).filter(c => {
             if (seen.has(c.counterId)) return false;
             seen.add(c.counterId);
             return true;
@@ -2985,7 +2998,7 @@ function buildEligibleTeams() {
                 return;
             }
 
-            const all = oneShotCounters(gacData[modeKey] && gacData[modeKey][team.name]);
+            const all = oneShotCounters(matchupCounters(modeKey, team.name));
             const seen = new Set();
             const candidates = [];
             const candidateStates = [];
@@ -3398,7 +3411,7 @@ function buildReasons(eligible, assign, reserveActive) {
         // No assignment — explain why.
         let reason;
         if (t.candidates.length === 0) {
-            const listed = (gacData[t.modeKey] && gacData[t.modeKey][t.name]) || [];
+            const listed = matchupCounters(t.modeKey, t.name);
             const all = oneShotCounters(listed);
             if (all.length === 0) {
                 reason = tacticalEntries(listed).length
@@ -3637,6 +3650,7 @@ function computeRoundPlan() {
 // rather than throwing or silently sorting to the top.
 function threatFor(name, modeKey) {
     if (!name) return "NORMAL";
+    name = catalogueDefenceName(modeKey, name);
     const exact = defenceTeams[modeKey] && defenceTeams[modeKey][name];
     if (exact && exact.threat) {
         const t = String(exact.threat).toUpperCase();
@@ -4803,8 +4817,9 @@ function setDefenceLineupsIdentity(territory, index, name, customName = "") {
     if (!team || sameDefenceIdentity(team, { name, customName })) return;
     if (team.lineup !== undefined && !confirm("Change this team's identity and remove its saved unit assignments?")) { render(); return; }
     if (!closeDefenceLineupEditor()) { render(); return; }
-    team.name = name;
-    team.customName = name === NOT_IN_CATALOGUE ? customName.slice(0, 80) : "";
+    const teamMode = template.territories.find(t => t.territory === territory)?.type === "FLEET" ? "FLEET" : template.mode;
+    team.name = catalogueDefenceName(teamMode, name);
+    team.customName = team.name === NOT_IN_CATALOGUE ? customName.slice(0, 80) : "";
     delete team.lineup;
     template.updatedAt = new Date().toISOString();
     const ok = persistDefenceTemplate(template);
@@ -4938,12 +4953,14 @@ function renderDefenceLineups() {
 }
 
 function renderDefenceLineupTeam(template, territory, team) {
-    const names = boardSelectableDefenceNames(territory.type === "FLEET" ? "FLEET" : template.mode);
+    const teamMode = territory.type === "FLEET" ? "FLEET" : template.mode;
+    const names = boardSelectableDefenceNames(teamMode);
     const outside = [...new Set(template.teams.filter(t => defenceTemplateTeamType(template, t) === territory.type && t.name && t.name !== NOT_IN_CATALOGUE && !names.includes(t.name)).map(t => t.name))];
+    const legacyJmk = teamMode === "3v3" && team.name === LEGACY_3V3_JMK_DEFENCE;
     const args = `'${territory.territory}', ${team.index}`;
     const options = [`<option value="">Empty slot</option>`, `<option value="${NOT_IN_CATALOGUE}" ${team.name === NOT_IN_CATALOGUE ? "selected" : ""}>Custom / not in catalogue</option>`,
-        ...outside.map(name => `<option value="${escapeHtml(name)}" ${team.name === name ? "selected" : ""}>${escapeHtml(name)} (saved; not in current catalogue)</option>`),
-        ...names.map(name => `<option value="${escapeHtml(name)}" ${team.name === name ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
+        ...outside.map(name => `<option value="${escapeHtml(name)}" ${team.name === name ? "selected" : ""}>${escapeHtml(displayDefenceName(teamMode, name))}${name === LEGACY_3V3_JMK_DEFENCE && teamMode === "3v3" ? "" : " (saved; not in current catalogue)"}</option>`),
+        ...names.filter(name => !(legacyJmk && name === "Jedi Master Kenobi")).map(name => `<option value="${escapeHtml(name)}" ${team.name === name ? "selected" : ""}>${escapeHtml(name)}</option>`)].join("");
     const selection = team.name && readDefenceTemplateLineup(template.mode, territory.territory, team.index);
     const editing = defenceLineupEditor && defenceLineupEditor.territory === team.territory && defenceLineupEditor.index === team.index;
     return `<div class="lineup-team">
@@ -5274,7 +5291,7 @@ function showCounters() {
     const team = teamSelect.value;
     if (!team) return;
 
-    const listed = (gacData[currentMode] && gacData[currentMode][team]) || [];
+    const listed = matchupCounters(currentMode, team);
     const allCounters = sortCounters(oneShotCounters(listed));
 
     if (!hasRoster() && counterFilter !== "all") {
@@ -5547,15 +5564,16 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     const territoryKey = tDef.territory;
     const modeKey = territoryModeKey(tDef, bd);
     const teamNames = boardSelectableDefenceNames(modeKey);
+    const legacyJmk = modeKey === "3v3" && team.name === LEGACY_3V3_JMK_DEFENCE;
     const savedOutsideCatalogue = team.name && team.name !== NOT_IN_CATALOGUE && !teamNames.includes(team.name)
-        ? `<option value="${escapeHtml(team.name)}" selected>${escapeHtml(team.name)} (saved; not in current catalogue)</option>`
+        ? `<option value="${escapeHtml(team.name)}" selected>${escapeHtml(displayDefenceName(modeKey, team.name))}${legacyJmk ? "" : " (saved; not in current catalogue)"}</option>`
         : "";
 
     const options = [
         `<option value="" ${team.name === "" ? "selected" : ""}>Select ${tDef.type === "FLEET" ? "fleet" : "team"}…</option>`,
         `<option value="${NOT_IN_CATALOGUE}" ${team.name === NOT_IN_CATALOGUE ? "selected" : ""}>Not in catalogue</option>`,
         savedOutsideCatalogue,
-        ...teamNames.map(n => `<option value="${escapeHtml(n)}" ${team.name === n ? "selected" : ""}>${escapeHtml(n)}</option>`)
+        ...teamNames.filter(n => !(legacyJmk && n === "Jedi Master Kenobi")).map(n => `<option value="${escapeHtml(n)}" ${team.name === n ? "selected" : ""}>${escapeHtml(n)}</option>`)
     ].filter(Boolean).join("");
 
     // The picker, its battles stepper and its recommendation are wrapped in one
@@ -5572,8 +5590,8 @@ function renderBoardTeamRow(tDef, team, bd, side) {
         ? defenceTemplateTeamAt({ teams: board.defenceSnapshot.slots }, territoryKey, team.index) : null;
     const identity = frozenSlot || team;
     const identityControl = side === "my"
-        ? `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : identity.name || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) ? " (saved; not in current catalogue)" : ""}</div>`
-        : `<div class="board-team-picker"><span class="board-team-select board-team-selected" aria-hidden="true">${escapeHtml(team.name === NOT_IN_CATALOGUE ? "Not in catalogue" : team.name || (tDef.type === "FLEET" ? "Select fleet…" : "Select team…"))}${savedOutsideCatalogue ? " (saved; not in current catalogue)" : ""}</span><select class="board-team-select" aria-label="Defence ${tDef.type === "FLEET" ? "fleet" : "team"}" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select></div>`;
+        ? `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : displayDefenceName(modeKey, identity.name) || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) && !legacyJmk ? " (saved; not in current catalogue)" : ""}</div>`
+        : `<div class="board-team-picker"><span class="board-team-select board-team-selected" aria-hidden="true">${escapeHtml(team.name === NOT_IN_CATALOGUE ? "Not in catalogue" : displayDefenceName(modeKey, team.name) || (tDef.type === "FLEET" ? "Select fleet…" : "Select team…"))}${savedOutsideCatalogue && !legacyJmk ? " (saved; not in current catalogue)" : ""}</span><select class="board-team-select" aria-label="Defence ${tDef.type === "FLEET" ? "fleet" : "team"}" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select></div>`;
 
     const rowState = side === "my" ? null : defenceRowState(territoryKey, team);
     const recommendation = side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey);
@@ -5589,10 +5607,10 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     const status = team.cleared ? "Cleared" : losses ? `Needs cleanup · ${losses} loss${losses === 1 ? "" : "es"}${team.attempts > losses ? ` · ${team.attempts} battles` : ""}` :
         team.attempts ? `Needs cleanup · ${team.attempts} battles` : counter ? "Not attacked" :
         team.name === NOT_IN_CATALOGUE ? "No catalogue coverage" :
-        oneShotCounters((gacData[modeKey] || {})[team.name] || []).length ? "Counter unavailable" : "No scored counter";
+        oneShotCounters(matchupCounters(modeKey, team.name)).length ? "Counter unavailable" : "No scored counter";
     const panelId = "defence-panel-" + territoryKey + "-" + team.index;
     const summary = side === "my" ? "" : `<button type="button" class="defence-row-toggle" id="defence-toggle-${territoryKey}-${team.index}" aria-expanded="${!!open}" aria-controls="${panelId}" onclick="toggleDefenceRow('${territoryKey}', ${team.index})">
-        <span class="defence-row-name">${escapeHtml(team.name === NOT_IN_CATALOGUE ? team.customName || "Unknown defence" : team.name || "Add/select defence")}</span>
+        <span class="defence-row-name">${escapeHtml(team.name === NOT_IN_CATALOGUE ? team.customName || "Unknown defence" : displayDefenceName(modeKey, team.name) || "Add/select defence")}</span>
         ${!team.cleared && counter ? `<span class="defence-row-counter">${escapeHtml(counter.counter)} <span class="tier-badge tier-badge-small" style="background:${getTierColour(counter.tier)}">${escapeHtml(counter.tier)}</span> · ~${counter.bannerScore ?? "?"} banners</span>` : ""}
         ${team.name ? `<span class="defence-row-status ${team.cleared ? "status-available" : team.attempts || losses ? "cleanup-status" : ""}">${escapeHtml(status)}</span>` : ""}
         <span class="defence-row-chevron" aria-hidden="true">▾</span></button>`;
@@ -6108,7 +6126,7 @@ function renderReserveAlternatives(alts, targetKey, reserveActive = true) {
 // expansion keys or storage, and every Round render starts collapsed.
 function renderRoundProvisional(team, modeKey) {
     if (team.cleared || !team.name || !["3v3", "5v5"].includes(modeKey)) return "";
-    const options = ((gacData[modeKey] || {})[team.name] || [])
+    const options = matchupCounters(modeKey, team.name)
         .filter(c => c.confidence === "PROVISIONAL");
     if (!options.length) return "";
     const unknown = !rosterMeta.savedAt && !rosterMeta.syncedAt && !ownedCharacters.length;

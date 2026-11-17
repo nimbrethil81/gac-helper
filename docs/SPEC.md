@@ -587,6 +587,8 @@ Each populated team displays **Confirmed**, **Needs confirmation** (complete but
 
 **Persistence and compatibility.** Both live boards use schema 5 and are hydrated before paint and on Round entry. The opponent-board object persists the defence snapshot. Reset Round clears both. Existing schema-2/3 `boardData` remains readable and is migrated rather than discarded; its saved layout and live team state become Opponent Board, a paired My Board is created from that layout, and existing scores are explicitly preserved. A supported active round without a snapshot freezes its paired My Board once after catalogue data loads; an existing aggregate-only snapshot migrates conservatively as described above. The opponent-board key remains unchanged so compatibility is deliberate rather than a silent contract break.
 
+The retired 3v3 `Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi` name remains readable in existing Round and defence-template records. Lookups and display resolve that name to the current `Jedi Master Kenobi` entry without rewriting saved identities, battle history, confirmed lineups or frozen defence snapshots. New selections use only the canonical name.
+
 ### 6.8 Allocation Engine
 
 The allocation engine surfaces per-team counter recommendations across the whole visible board, accounting for the fact that each counter can be used only once per round and that units used on offence are spent for the round regardless of the battle's outcome.

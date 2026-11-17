@@ -9,7 +9,6 @@
     { "defence": "Executor", "mode": "ANY", "threat": "HIGH" },
     { "defence": "Gungans", "mode": "5v5", "threat": "HIGH" },
     { "defence": "Jedi Master Kenobi", "mode": "ANY", "threat": "HIGH" },
-    { "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi", "mode": "3v3", "threat": "HIGH" },
     { "defence": "Kelleran Beq", "mode": "3v3", "threat": "HIGH" },
     { "defence": "Leviathan", "mode": "ANY", "threat": "EXTREME" },
     { "defence": "Lord Vader", "mode": "ANY", "threat": "HIGH" },
