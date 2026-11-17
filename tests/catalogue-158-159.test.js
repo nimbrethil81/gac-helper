@@ -93,7 +93,7 @@ test('consolidated JMK is the sole current selection and legacy saved names reso
     assert.equal(h.run(`displayDefenceName('3v3', ${JSON.stringify(jmkCatGk)})`), 'Jedi Master Kenobi');
     h.run(`legacyBoardTeam=${JSON.stringify({name:jmkCatGk,index:0,territory:'FRONT_TOP',attempts:1,cleared:false,customName:''})}; board={mode:'3v3',roundId:'legacy-test',territories:[{territory:'FRONT_TOP',type:'SQUAD'}],teams:[legacyBoardTeam]};`);
     const roundRow = h.run(`renderBoardTeamRow({territory:'FRONT_TOP',type:'SQUAD'},legacyBoardTeam,board,'opponent')`);
-    assert.match(roundRow, /board-team-selected[^>]*>Jedi Master Kenobi</);
+    assert.match(roundRow, /defence-heading-picker[^>]*>[\s\S]*<span class="defence-row-name">Jedi Master Kenobi<\/span>/);
     assert.ok(roundRow.includes(`<option value="${jmkCatGk}" selected>Jedi Master Kenobi</option>`));
     assert.equal((roundRow.match(/<option[^>]*>Jedi Master Kenobi<\/option>/g) || []).length, 1);
     assert.equal(h.run('JSON.stringify(legacyBoardTeam.name)'), JSON.stringify(jmkCatGk), 'rendering leaves the saved defence identity unchanged');
