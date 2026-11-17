@@ -5589,9 +5589,9 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     const frozenSlot = side === "my" && board && board.defenceSnapshot && board.defenceSnapshot.schema === 2
         ? defenceTemplateTeamAt({ teams: board.defenceSnapshot.slots }, territoryKey, team.index) : null;
     const identity = frozenSlot || team;
-    const identityControl = side === "my"
-        ? `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : displayDefenceName(modeKey, identity.name) || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) && !legacyJmk ? " (saved; not in current catalogue)" : ""}</div>`
-        : `<div class="board-team-picker"><span class="board-team-select board-team-selected" aria-hidden="true">${escapeHtml(team.name === NOT_IN_CATALOGUE ? "Not in catalogue" : displayDefenceName(modeKey, team.name) || (tDef.type === "FLEET" ? "Select fleet…" : "Select team…"))}${savedOutsideCatalogue && !legacyJmk ? " (saved; not in current catalogue)" : ""}</span><select class="board-team-select" aria-label="Defence ${tDef.type === "FLEET" ? "fleet" : "team"}" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select></div>`;
+    const identityControl = `<div class="board-team-select">${escapeHtml(identity.name === NOT_IN_CATALOGUE ? identity.customName || "Not in catalogue" : displayDefenceName(modeKey, identity.name) || "Empty defence slot")}${identity.name && identity.name !== NOT_IN_CATALOGUE && !teamNames.includes(identity.name) && !legacyJmk ? " (saved; not in current catalogue)" : ""}</div>`;
+    const headingName = team.name === NOT_IN_CATALOGUE ? team.customName || "Unknown defence" : displayDefenceName(modeKey, team.name) || "Add/select defence";
+    const headingPicker = side === "my" ? "" : `<div class="defence-heading-picker"><span class="defence-row-name">${escapeHtml(headingName)}${savedOutsideCatalogue && !legacyJmk ? " (saved; not in current catalogue)" : ""}</span><span class="defence-heading-indicator" aria-hidden="true">▾</span><select class="defence-heading-select" aria-label="${team.name ? `Change defence: ${escapeHtml(headingName)}` : "Add/select defence"}" onchange="setBoardTeam('${side}', '${territoryKey}', ${team.index}, this.value)">${options}</select></div>`;
 
     const rowState = side === "my" ? null : defenceRowState(territoryKey, team);
     const recommendation = side === "my" ? "" : renderTeamRecommendation(side, territoryKey, team, modeKey);
@@ -5609,17 +5609,18 @@ function renderBoardTeamRow(tDef, team, bd, side) {
         team.name === NOT_IN_CATALOGUE ? "No catalogue coverage" :
         oneShotCounters(matchupCounters(modeKey, team.name)).length ? "Counter unavailable" : "No scored counter";
     const panelId = "defence-panel-" + territoryKey + "-" + team.index;
-    const summary = side === "my" ? "" : `<button type="button" class="defence-row-toggle" id="defence-toggle-${territoryKey}-${team.index}" aria-expanded="${!!open}" aria-controls="${panelId}" onclick="toggleDefenceRow('${territoryKey}', ${team.index})">
-        <span class="defence-row-name">${escapeHtml(team.name === NOT_IN_CATALOGUE ? team.customName || "Unknown defence" : displayDefenceName(modeKey, team.name) || "Add/select defence")}</span>
-        ${!team.cleared && counter ? `<span class="defence-row-counter">${escapeHtml(counter.counter)} <span class="tier-badge tier-badge-small" style="background:${getTierColour(counter.tier)}">${escapeHtml(counter.tier)}</span> · ~${counter.bannerScore ?? "?"} banners</span>` : ""}
-        ${team.name ? `<span class="defence-row-status ${team.cleared ? "status-available" : team.attempts || losses ? "cleanup-status" : ""}">${escapeHtml(status)}</span>` : ""}
-        <span class="defence-row-chevron" aria-hidden="true">▾</span></button>`;
+    const summary = side === "my" ? "" : `<div class="defence-row-header">
+        ${headingPicker}
+        <button type="button" class="defence-row-toggle" id="defence-toggle-${territoryKey}-${team.index}" aria-expanded="${!!open}" aria-controls="${panelId}" aria-label="${open ? "Collapse" : "Expand"} details for ${escapeHtml(headingName)}" onclick="toggleDefenceRow('${territoryKey}', ${team.index})">
+        <span class="defence-row-chevron" aria-hidden="true">▾</span></button>
+    </div>
+    ${!team.cleared && counter || team.name ? `<div class="defence-row-meta">${!team.cleared && counter ? `<span class="defence-row-counter">${escapeHtml(counter.counter)} <span class="tier-badge tier-badge-small" style="background:${getTierColour(counter.tier)}">${escapeHtml(counter.tier)}</span> · ~${counter.bannerScore ?? "?"} banners</span>` : ""}${team.name ? `<span class="defence-row-status ${team.cleared ? "status-available" : team.attempts || losses ? "cleanup-status" : ""}">${escapeHtml(status)}</span>` : ""}</div>` : ""}`;
     return `
 <div class="board-team-block ${side === "my" ? "" : "compact-defence"} ${focusClass}" id="teamblock-${territoryKey}-${team.index}">
 ${summary}
 <div ${side === "my" ? "" : `id="${panelId}" ${open ? "" : "hidden"} class="defence-row-panel"`}>
 <div class="board-team ${team.cleared ? "cleared" : ""}">
-    ${identityControl}
+    ${side === "my" ? identityControl : ""}
     ${groupedControls ? "" : renderClearedControl(side, territoryKey, team)}
 </div>
 ${side === "my" ? "" : customName}

@@ -93,6 +93,31 @@ test("Remaining counts configured revealed defences only; empty and unknown entr
     assert.match(html, /Add\/select defence/);
 });
 
+test("opponent defence heading selects directly while a separate chevron controls disclosure", () => {
+    const h = setup();
+    let html = h.run("renderBoard()");
+    assert.match(html, /class="defence-heading-picker"[\s\S]*aria-label="Change defence: Enemy One"/);
+    assert.match(html, /aria-expanded="true" aria-controls="defence-panel-FRONT_TOP-0" aria-label="Collapse details for Enemy One"/);
+    assert.equal((html.match(/aria-label="Change defence: Enemy One"/g) || []).length, 1);
+    const disclosure = html.match(/<button[^>]*class="defence-row-toggle"[^>]*>([\s\S]*?)<\/button>/);
+    assert.ok(disclosure);
+    assert.doesNotMatch(disclosure[1], /defence-row-name|defence-heading-select/);
+
+    rowToggle(h, "FRONT_TOP", 0, true);
+    html = h.run("renderBoard()");
+    assert.match(html, /aria-expanded="false" aria-controls="defence-panel-FRONT_TOP-0" aria-label="Expand details for Enemy One"/);
+    assert.equal((html.match(/aria-label="Change defence: Enemy One"/g) || []).length, 1);
+    rowToggle(h, "FRONT_TOP", 0, false);
+    html = h.run("renderBoard()");
+    assert.match(html, /id="defence-panel-FRONT_TOP-0"[\s\S]*class="board-team "/);
+    assert.doesNotMatch(html, /aria-label="Defence team"/);
+
+    h.run(`board.teams[0].name = ""; renderBoard()`);
+    html = h.run("renderBoard()");
+    assert.match(html, /aria-label="Add\/select defence"/);
+    assert.match(html, /<span class="defence-row-name">Add\/select defence<\/span>/);
+});
+
 test("automatic primary target and manual collapse/open survive rerenders, without changing board or plan", () => {
     const h = setup();
     const target = h.run("automaticDefenceTarget");
