@@ -10,6 +10,7 @@ const { diffPayloads } = require('../scripts/catalogue-audit-lib');
 const root = path.join(__dirname, '..');
 const depa = 'Depa Billaba / Jedi Knight Revan / Bastila Shan';
 const oldDefence = 'Darth Revan / Darth Malgus / Bastila Shan (Fallen)';
+const jmkCatGk = 'Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi';
 const dr = 'Darth Revan / Darth Malak / Bastila Shan (Fallen)';
 const baseline = sourceAtCommit(root, '251ccb342c1f4329708b145afb8ebcaf9cae73e6').source;
 const current = readSource(path.join(root, 'catalogue/source')).source;
@@ -24,6 +25,7 @@ const correction171 = readCorrections(path.join(root, 'catalogue/corrections/202
 const correction180 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-10-180-bane-stranger-note.json'));
 const correction169 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-10-169-geonosians-traya-vader.json'));
 const correction172 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-09-172-reva-jmk.json'));
+const correction206 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-17-206-jmk-cat-gk-five-counters.json'));
 function harness() {
     const elements = { teamSelect: { options: [dr], value: dr }, results: { innerHTML: '' } };
     const values = new Map();
@@ -48,7 +50,25 @@ test('#158/#159 remain reproducible historical decisions; #167 and #171 apply th
     assert.deepEqual(payload.counters['3v3']['Satele Shan'], before.counters['3v3']['Satele Shan']);
     assert.deepEqual({...payload.counters['5v5'], Geonosians: payload.counters['5v5'].Geonosians.slice(0, -2)}, before.counters['5v5']);
     assert.deepEqual(payload.counters.FLEET, before.counters.FLEET);
-    assert.deepEqual(payload.defenceTeams, before.defenceTeams);
+    const defenceTeamsWithoutApprovedJmkTrio = structuredClone(payload.defenceTeams);
+    const currentJmkThreat = defenceTeamsWithoutApprovedJmkTrio['3v3'][jmkCatGk];
+    if (currentJmkThreat !== undefined) delete defenceTeamsWithoutApprovedJmkTrio['3v3'][jmkCatGk];
+    assert.deepEqual(defenceTeamsWithoutApprovedJmkTrio, before.defenceTeams);
+    if (currentJmkThreat !== undefined) assert.deepEqual(currentJmkThreat, { threat: 'HIGH', notes: '' });
+    const jmkEntryPresence = [
+        Object.hasOwn(payload.counters['3v3'], jmkCatGk),
+        Object.hasOwn(payload.defenceCompositions['3v3'], jmkCatGk),
+        Object.hasOwn(payload.defenceTeams['3v3'], jmkCatGk)
+    ];
+    assert.ok(jmkEntryPresence.every(present => present === jmkEntryPresence[0]), 'exact JMK/CAT/GK matchup, composition and threat entries must be all present or all absent');
+    const postApplicationSource = applyCorrections(sourceAtCommit(root, correction206.baseline.commit).source, correction206.corrections);
+    const postApplicationPayload = compileSource(postApplicationSource);
+    assert.deepEqual([
+        Object.hasOwn(postApplicationPayload.counters['3v3'], jmkCatGk),
+        Object.hasOwn(postApplicationPayload.defenceCompositions['3v3'], jmkCatGk),
+        Object.hasOwn(postApplicationPayload.defenceTeams['3v3'], jmkCatGk)
+    ], [true, true, true]);
+    assert.deepEqual(postApplicationPayload.defenceTeams['3v3'][jmkCatGk], { threat: 'HIGH', notes: '' });
     assert.equal(payload.counters['3v3'][oldDefence], undefined);
     assert.equal(payload.defenceCompositions['3v3'][oldDefence], undefined);
     assert.deepEqual(payload.defenceCompositions['3v3'][dr], ['DARTH_REVAN', 'DARTH_MALAK', 'BASTILA_SHAN_FALLEN']);
