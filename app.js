@@ -168,6 +168,9 @@ function toggleDefenceRow(territory, index) {
     defenceRowState(territory, team).manual = open;
     panel.hidden = !open;
     toggle.setAttribute("aria-expanded", String(open));
+    const label = toggle.querySelector(".defence-row-toggle-label");
+    if (label) label.textContent = open ? "Hide details" : "Show details";
+    toggle.setAttribute("aria-label", `${open ? "Hide" : "Show"} details for ${team.name === NOT_IN_CATALOGUE ? team.customName || "Unknown defence" : displayDefenceName(board.mode, team.name) || "Add/select defence"}`);
 }
 
 function setOpponentBoardFilter(filter) {
@@ -5611,8 +5614,8 @@ function renderBoardTeamRow(tDef, team, bd, side) {
     const panelId = "defence-panel-" + territoryKey + "-" + team.index;
     const summary = side === "my" ? "" : `<div class="defence-row-header">
         ${headingPicker}
-        <button type="button" class="defence-row-toggle" id="defence-toggle-${territoryKey}-${team.index}" aria-expanded="${!!open}" aria-controls="${panelId}" aria-label="${open ? "Collapse" : "Expand"} details for ${escapeHtml(headingName)}" onclick="toggleDefenceRow('${territoryKey}', ${team.index})">
-        <span class="defence-row-chevron" aria-hidden="true">▾</span></button>
+        <button type="button" class="defence-row-toggle" id="defence-toggle-${territoryKey}-${team.index}" aria-expanded="${!!open}" aria-controls="${panelId}" aria-label="${open ? "Hide" : "Show"} details for ${escapeHtml(headingName)}" onclick="toggleDefenceRow('${territoryKey}', ${team.index})">
+        <span class="defence-row-toggle-label">${open ? "Hide" : "Show"} details</span><span class="defence-row-chevron" aria-hidden="true">▾</span></button>
     </div>
     ${!team.cleared && counter || team.name ? `<div class="defence-row-meta">${!team.cleared && counter ? `<span class="defence-row-counter">${escapeHtml(counter.counter)} <span class="tier-badge tier-badge-small" style="background:${getTierColour(counter.tier)}">${escapeHtml(counter.tier)}</span> · ~${counter.bannerScore ?? "?"} banners</span>` : ""}${team.name ? `<span class="defence-row-status ${team.cleared ? "status-available" : team.attempts || losses ? "cleanup-status" : ""}">${escapeHtml(status)}</span>` : ""}</div>` : ""}`;
     return `
