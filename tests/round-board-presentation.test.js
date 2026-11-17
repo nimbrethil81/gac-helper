@@ -72,10 +72,17 @@ function setup() {
 
 function rowToggle(h, territory, index, open) {
     const panel = { hidden: !open };
+    const attributes = {};
+    const label = { textContent: open ? "Hide details" : "Show details" };
+    const toggle = {
+        attributes,
+        setAttribute: (name, value) => { attributes[name] = value; },
+        querySelector: selector => selector === ".defence-row-toggle-label" ? label : null
+    };
     h.nodes.set(`defence-panel-${territory}-${index}`, panel);
-    h.nodes.set(`defence-toggle-${territory}-${index}`, { setAttribute() {} });
+    h.nodes.set(`defence-toggle-${territory}-${index}`, toggle);
     h.run(`toggleDefenceRow("${territory}", ${index})`);
-    return panel;
+    return { panel, toggle, label };
 }
 
 test("Remaining counts configured revealed defences only; empty and unknown entry remain usable", () => {
@@ -93,21 +100,31 @@ test("Remaining counts configured revealed defences only; empty and unknown entr
     assert.match(html, /Add\/select defence/);
 });
 
-test("opponent defence heading selects directly while a separate chevron controls disclosure", () => {
+test("opponent defence heading selects directly while a labelled button controls disclosure", () => {
     const h = setup();
     let html = h.run("renderBoard()");
     assert.match(html, /class="defence-heading-picker"[\s\S]*aria-label="Change defence: Enemy One"/);
-    assert.match(html, /aria-expanded="true" aria-controls="defence-panel-FRONT_TOP-0" aria-label="Collapse details for Enemy One"/);
+    assert.match(html, /aria-expanded="true" aria-controls="defence-panel-FRONT_TOP-0" aria-label="Hide details for Enemy One"/);
     assert.equal((html.match(/aria-label="Change defence: Enemy One"/g) || []).length, 1);
     const disclosure = html.match(/<button[^>]*class="defence-row-toggle"[^>]*>([\s\S]*?)<\/button>/);
     assert.ok(disclosure);
+    assert.match(disclosure[1], /Hide details/);
     assert.doesNotMatch(disclosure[1], /defence-row-name|defence-heading-select/);
 
-    rowToggle(h, "FRONT_TOP", 0, true);
+    const collapsed = rowToggle(h, "FRONT_TOP", 0, true);
+    assert.equal(collapsed.panel.hidden, true);
+    assert.equal(collapsed.label.textContent, "Show details");
+    assert.equal(collapsed.toggle.attributes["aria-expanded"], "false");
+    assert.equal(collapsed.toggle.attributes["aria-label"], "Show details for Enemy One");
     html = h.run("renderBoard()");
-    assert.match(html, /aria-expanded="false" aria-controls="defence-panel-FRONT_TOP-0" aria-label="Expand details for Enemy One"/);
+    assert.match(html, /aria-expanded="false" aria-controls="defence-panel-FRONT_TOP-0" aria-label="Show details for Enemy One"/);
+    assert.match(html, /<span class="defence-row-toggle-label">Show details<\/span>/);
     assert.equal((html.match(/aria-label="Change defence: Enemy One"/g) || []).length, 1);
-    rowToggle(h, "FRONT_TOP", 0, false);
+    const expanded = rowToggle(h, "FRONT_TOP", 0, false);
+    assert.equal(expanded.panel.hidden, false);
+    assert.equal(expanded.label.textContent, "Hide details");
+    assert.equal(expanded.toggle.attributes["aria-expanded"], "true");
+    assert.equal(expanded.toggle.attributes["aria-label"], "Hide details for Enemy One");
     html = h.run("renderBoard()");
     assert.match(html, /id="defence-panel-FRONT_TOP-0"[\s\S]*class="board-team "/);
     assert.doesNotMatch(html, /aria-label="Defence team"/);
@@ -127,9 +144,13 @@ test("automatic primary target and manual collapse/open survive rerenders, witho
     assert.equal(h.run(`defenceRowState("${territory}", board.teams.find(t => t.territory === "${territory}")).manual`), false);
     const html = h.run("renderBoard()");
     assert.match(html, new RegExp(`id="defence-toggle-${territory}-${index}" aria-expanded="false"`));
+    assert.match(html, new RegExp(`id="defence-toggle-${territory}-${index}"[^>]*aria-label="Show details for`));
+    assert.match(html, /<span class="defence-row-toggle-label">Show details<\/span>/);
     assert.equal(h.run("JSON.stringify([board, usedTeams, usageHistory, computeRoundPlan()])"), before);
     rowToggle(h, territory, Number(index), false);
-    h.run("renderBoard()");
+    const reopened = h.run("renderBoard()");
+    assert.match(reopened, new RegExp(`id="defence-toggle-${territory}-${index}"[^>]*aria-label="Hide details for`));
+    assert.match(reopened, /<span class="defence-row-toggle-label">Hide details<\/span>/);
     assert.equal(h.run(`defenceRowState("${territory}", board.teams.find(t => t.territory === "${territory}")).manual`), true);
     h.run(`board.teams.find(t => t.territory === "${territory}").name = "Changed identity"; renderBoard()`);
     assert.equal(h.run(`defenceRowState("${territory}", board.teams.find(t => t.territory === "${territory}")).manual`), null);
