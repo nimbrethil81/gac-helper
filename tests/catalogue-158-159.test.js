@@ -55,8 +55,19 @@ test('#158/#159 remain reproducible historical decisions; #167 and #171 apply th
     if (currentJmkThreat !== undefined) delete defenceTeamsWithoutApprovedJmkTrio['3v3'][jmkCatGk];
     assert.deepEqual(defenceTeamsWithoutApprovedJmkTrio, before.defenceTeams);
     if (currentJmkThreat !== undefined) assert.deepEqual(currentJmkThreat, { threat: 'HIGH', notes: '' });
+    const jmkEntryPresence = [
+        Object.hasOwn(payload.counters['3v3'], jmkCatGk),
+        Object.hasOwn(payload.defenceCompositions['3v3'], jmkCatGk),
+        Object.hasOwn(payload.defenceTeams['3v3'], jmkCatGk)
+    ];
+    assert.ok(jmkEntryPresence.every(present => present === jmkEntryPresence[0]), 'exact JMK/CAT/GK matchup, composition and threat entries must be all present or all absent');
     const postApplicationSource = applyCorrections(sourceAtCommit(root, correction206.baseline.commit).source, correction206.corrections);
     const postApplicationPayload = compileSource(postApplicationSource);
+    assert.deepEqual([
+        Object.hasOwn(postApplicationPayload.counters['3v3'], jmkCatGk),
+        Object.hasOwn(postApplicationPayload.defenceCompositions['3v3'], jmkCatGk),
+        Object.hasOwn(postApplicationPayload.defenceTeams['3v3'], jmkCatGk)
+    ], [true, true, true]);
     assert.deepEqual(postApplicationPayload.defenceTeams['3v3'][jmkCatGk], { threat: 'HIGH', notes: '' });
     assert.equal(payload.counters['3v3'][oldDefence], undefined);
     assert.equal(payload.defenceCompositions['3v3'][oldDefence], undefined);
