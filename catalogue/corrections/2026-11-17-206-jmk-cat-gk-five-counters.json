@@ -13,7 +13,7 @@
       "status": "PENDING_OWNER_APPROVAL",
       "disposition": "ADD",
       "title": "Add five approved 3v3 exact full-trio scored counters against JMK/CAT/General Kenobi",
-      "rationale": "GAC-JMK3-CATDEF1 Option A and owner-authorised five-counter Catalogue Direct split. Add the exact defender as a distinct 3v3 team identity rather than broadening generic JMK. Five scored, non-provisional first-attempt full-trio options; defer owner-approved scored-provisional Satele/JKR/Jolee A/53 pending capability. Current source and scoring unaffected until independently approved application.",
+      "rationale": "GAC-JMK3-CATDEF1 Option A and owner-authorised five-counter Catalogue Direct split. Add the exact defender as a distinct 3v3 team identity rather than broadening generic JMK. Five scored, non-provisional first-attempt full-trio options; defer owner-approved scored-provisional Satele/JKR/Jolee A/53 pending capability. Current source and scoring unaffected until independently approved application. Owner-approved GAC-JMK3-THREAT1 Option A resolves independent PR #207 review blocker: add explicit HIGH threat for this new exact 3v3 defensive identity because threatFor() keys by exact name and would otherwise default to NORMAL; preserve generic JMK ANY/HIGH threat unchanged.",
       "approval": null,
       "provenance": {
         "evidence": [
@@ -89,6 +89,14 @@
           "effect": "ADD the exact approved data-only source row; this source row is absent from baseline."
         },
         {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "mode": "3v3"
+          },
+          "effect": "ADD an explicit 3v3 HIGH threat for the exact JMK/CAT/GK identity; preserves correct Round threat-based battle ordering and leaves generic JMK ANY/HIGH unchanged."
+        },
+        {
           "file": "matchups/3v3.json",
           "stableKey": {
             "mode": "3v3",
@@ -124,14 +132,22 @@
             "defence": "Jedi Master Kenobi"
           },
           "effect": "NO CHANGE: existing 5v5 coverage preserved."
+        },
+        {
+          "file": "defence-teams.json",
+          "stableKey": {
+            "defence": "Jedi Master Kenobi",
+            "mode": "ANY"
+          },
+          "effect": "NO CHANGE: preserve existing generic JMK HIGH threat."
         }
       ],
       "runtimeImpact": {
         "5v5": "None; all 5v5 rows unchanged.",
-        "3v3": "One new exact defence key with five scored non-provisional first-attempt full-trio counters. Generic JMK Reva A/53 and Baylan C/48 preserved unchanged.",
+        "3v3": "One new exact defence key with five scored non-provisional first-attempt full-trio counters. Generic JMK Reva A/53 and Baylan C/48 preserved unchanged. New exact defence receives authored HIGH threat rating rather than default NORMAL; this preserves intended Round battle ordering.",
         "FLEET": "None; fleet rows unchanged.",
         "counters": "Existing Baylan/Marrok/Shin, Leia/Drogan/R2-D2, Bo-Katan/IG-12/Paz definitions reused; JML/JK Cal/Leia JT and LV/Appo/CX-2 added as distinct three-required-member counter definitions.",
-        "roundAvailability": "Use current roster ownership, on-defence, spent-unit, overlapping-character and Round allocation checks. Exact defence must be selected; no automatic member-based lookup change.",
+        "roundAvailability": "Use current roster ownership, on-defence, spent-unit, overlapping-character and Round allocation checks. Exact defence must be selected; no automatic member-based lookup change. Battle-order ranking uses the exact new defence's explicitly authored HIGH threat, without broadening existing JMK source rows.",
         "scoring": "3v3 non-provisional full-squad planning values S/55, S/54, A/53, A/53, A/51; all undersize 0. No scoring constants or calculation changes.",
         "strategicReserve": "No strategic reserve flags added or changed."
       },
@@ -139,7 +155,8 @@
         "payload[\"counterDefinitions\"][\"JML_JKCK_LEIA_JT\"]",
         "payload[\"counterDefinitions\"][\"LV_APPO_CX2\"]",
         "payload[\"counters\"][\"3v3\"][\"Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi\"]",
-        "payload[\"defenceCompositions\"][\"3v3\"][\"Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi\"]"
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi\"]",
+        "payload[\"defenceTeams\"][\"3v3\"][\"Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi\"]"
       ],
       "changes": [
         {
@@ -243,6 +260,20 @@
               "COMMANDER_AHSOKA_TANO",
               "GENERAL_KENOBI"
             ]
+          }
+        },
+        {
+          "file": "defence-teams.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "mode": "3v3",
+            "threat": "HIGH"
           }
         }
       ]
