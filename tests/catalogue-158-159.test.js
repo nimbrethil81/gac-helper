@@ -50,17 +50,20 @@ test('#158/#159 remain reproducible historical decisions; #167 and #171 apply th
     assert.deepEqual(payload.counters['3v3']['Satele Shan'], before.counters['3v3']['Satele Shan']);
     assert.deepEqual({...payload.counters['5v5'], Geonosians: payload.counters['5v5'].Geonosians.slice(0, -2)}, before.counters['5v5']);
     assert.deepEqual(payload.counters.FLEET, before.counters.FLEET);
-    const defenceTeamsWithoutApprovedJmkTrio = structuredClone(payload.defenceTeams);
-    const currentJmkThreat = defenceTeamsWithoutApprovedJmkTrio['3v3'][jmkCatGk];
-    if (currentJmkThreat !== undefined) delete defenceTeamsWithoutApprovedJmkTrio['3v3'][jmkCatGk];
-    assert.deepEqual(defenceTeamsWithoutApprovedJmkTrio, before.defenceTeams);
-    if (currentJmkThreat !== undefined) assert.deepEqual(currentJmkThreat, { threat: 'HIGH', notes: '' });
-    const jmkEntryPresence = [
-        Object.hasOwn(payload.counters['3v3'], jmkCatGk),
-        Object.hasOwn(payload.defenceCompositions['3v3'], jmkCatGk),
-        Object.hasOwn(payload.defenceTeams['3v3'], jmkCatGk)
-    ];
-    assert.ok(jmkEntryPresence.every(present => present === jmkEntryPresence[0]), 'exact JMK/CAT/GK matchup, composition and threat entries must be all present or all absent');
+    assert.deepEqual(payload.defenceTeams, before.defenceTeams, 'generic ANY/HIGH JMK threat and other threat rows stay unchanged');
+    assert.equal(Object.hasOwn(payload.counters['3v3'], jmkCatGk), false);
+    assert.equal(Object.hasOwn(payload.defenceCompositions['3v3'], jmkCatGk), false);
+    assert.equal(Object.hasOwn(payload.defenceTeams['3v3'], jmkCatGk), false);
+    const jmkRows = payload.counters['3v3']['Jedi Master Kenobi'];
+    assert.deepEqual(jmkRows.map(({counterId, tier, bannerScore, undersize, notes}) => ({counterId, tier, bannerScore, undersize, notes})), [
+        {counterId:'BAYLAN_MARROK_SHIN',tier:'S',bannerScore:55,undersize:0,notes:'Requires Marrok and Shin Hati. Strong Season 85 exact-trio evidence; verify opposing datacron and relics.'},
+        {counterId:'LEIA',tier:'S',bannerScore:54,undersize:0,notes:'Requires Captain Drogan and R2-D2. Strong Season 85 exact-trio evidence; check enemy datacron and protection recovery.'},
+        {counterId:'BO_KATAN_MANDALORE',tier:'A',bannerScore:53,undersize:0,notes:'Requires IG-12 & Grogu and Paz Vizsla. Exact-trio evidence supports the clear, but banner efficiency varies; check datacron.'},
+        {counterId:'JML_JKCK_LEIA_JT',tier:'A',bannerScore:53,undersize:0,notes:'Requires Jedi Knight Cal Kestis and Leia (Jedi Training). Exact trio only, not generic Jedi Master Luke; assess datacron.'},
+        {counterId:'LV_APPO_CX2',tier:'A',bannerScore:51,undersize:0,notes:'Requires CC-1119 Appo and CX-2. Full clear can be inefficient; do not substitute a different Lord Vader trio.'},
+        {counterId:'REVA',tier:'A',bannerScore:53,undersize:0,notes:'Recent recorded loss against Jedi Master Kenobi in 3v3. Counter remains viable but is not sufficiently reliable for S tier.'},
+        {counterId:'BAYLAN',tier:'C',bannerScore:48,undersize:0,notes:'Cleanup only'}
+    ]);
     const postApplicationSource = applyCorrections(sourceAtCommit(root, correction206.baseline.commit).source, correction206.corrections);
     const postApplicationPayload = compileSource(postApplicationSource);
     assert.deepEqual([
@@ -79,15 +82,29 @@ test('#158/#159 remain reproducible historical decisions; #167 and #171 apply th
     assert.deepEqual(payload.counters['3v3']['Darth Revan with Zaalbar'], before.counters['3v3']['Darth Revan with Zaalbar']);
 });
 
-test('corrected defence is selectable and the exact trio renders as a normal S-tier counter', () => {
+test('consolidated JMK is the sole current selection and legacy saved names resolve without rewriting', () => {
     const h = harness();
     assert.equal(h.run(`boardSelectableDefenceNames('3v3').includes(${JSON.stringify(oldDefence)})`), false);
-    assert.equal(h.run(`boardSelectableDefenceNames('3v3').includes(${JSON.stringify(dr)})`), true);
+    assert.equal(h.run("boardSelectableDefenceNames('3v3').filter(n=>n==='Jedi Master Kenobi').length"), 1);
+    assert.equal(h.run(`boardSelectableDefenceNames('3v3').includes('Jedi Master Kenobi')`), true);
     assert.equal(h.run("boardSelectableDefenceNames('3v3').includes('Satele Shan')"), true);
+    assert.equal(h.run(`matchupCounters('3v3', ${JSON.stringify(jmkCatGk)}).length`), 7);
+    assert.equal(h.run(`threatFor(${JSON.stringify(jmkCatGk)}, '3v3')`), 'HIGH');
+    assert.equal(h.run(`displayDefenceName('3v3', ${JSON.stringify(jmkCatGk)})`), 'Jedi Master Kenobi');
+    h.run(`legacyBoardTeam=${JSON.stringify({name:jmkCatGk,index:0,territory:'FRONT_TOP',attempts:1,cleared:false,customName:''})}; board={mode:'3v3',roundId:'legacy-test',territories:[{territory:'FRONT_TOP',type:'SQUAD'}],teams:[legacyBoardTeam]};`);
+    const roundRow = h.run(`renderBoardTeamRow({territory:'FRONT_TOP',type:'SQUAD'},legacyBoardTeam,board,'opponent')`);
+    assert.match(roundRow, /board-team-selected[^>]*>Jedi Master Kenobi</);
+    assert.ok(roundRow.includes(`<option value="${jmkCatGk}" selected>Jedi Master Kenobi</option>`));
+    assert.equal((roundRow.match(/<option[^>]*>Jedi Master Kenobi<\/option>/g) || []).length, 1);
+    assert.equal(h.run('JSON.stringify(legacyBoardTeam.name)'), JSON.stringify(jmkCatGk), 'rendering leaves the saved defence identity unchanged');
+    h.elements.teamSelect.value = 'Jedi Master Kenobi';
     h.run("counterFilter='all'; showCounters();");
-    assert.doesNotMatch(h.elements.results.innerHTML, /Depa Billaba \/ Jedi Knight Revan|Darth Revan \/ Darth Malgus/);
     assert.match(h.elements.results.innerHTML, /Baylan Skoll \(Marrok \+ Shin Hati\)/);
-    assert.doesNotMatch(h.elements.results.innerHTML, /Provisional/);
+    assert.match(h.elements.results.innerHTML, /Cleanup only/);
+    assert.equal((h.elements.results.innerHTML.match(/counter-card/g) || []).length, 7);
+    const legacy = { name: jmkCatGk, attempts: 2, cleared: false };
+    assert.equal(h.run(`matchupCounters('3v3', ${JSON.stringify(legacy.name)}).find(c=>c.counterId==='BAYLAN').role || 'scored'`), 'scored');
+    assert.equal(legacy.name, jmkCatGk, 'lookup leaves persisted legacy identity untouched');
 });
 
 test('the exact Baylan trio needs every unit and shares spent/on-defence blockers with generic Baylan', () => {
