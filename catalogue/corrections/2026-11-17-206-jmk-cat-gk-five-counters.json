@@ -3,18 +3,22 @@
   "contract": "gac-catalogue-change-set:v1",
   "issue": "https://github.com/nimbrethil81/gac-helper/issues/206",
   "baseline": {
-    "commit": "3ea64b431aff07ac46446fd1c17a4ad78dd7150b",
+    "commit": "4909b48e880c9bf656ab07db33d22c132e3268a2",
     "catalogueVersion": 37,
     "checksum": "sha256:191e4d9b481a636692913350707e0b2faf1528deb2287eaf41366a634d9d194c"
   },
   "corrections": [
     {
       "id": "CR-2026-11-17-206-P01",
-      "status": "PENDING_OWNER_APPROVAL",
+      "status": "APPROVED",
       "disposition": "ADD",
       "title": "Add five approved 3v3 exact full-trio scored counters against JMK/CAT/General Kenobi",
       "rationale": "GAC-JMK3-CATDEF1 Option A and owner-authorised five-counter Catalogue Direct split. Add the exact defender as a distinct 3v3 team identity rather than broadening generic JMK. Five scored, non-provisional first-attempt full-trio options; defer owner-approved scored-provisional Satele/JKR/Jolee A/53 pending capability. Current source and scoring unaffected until independently approved application. Owner-approved GAC-JMK3-THREAT1 Option A resolves independent PR #207 review blocker: add explicit HIGH threat for this new exact 3v3 defensive identity because threatFor() keys by exact name and would otherwise default to NORMAL; preserve generic JMK ANY/HIGH threat unchanged.",
-      "approval": null,
+      "approval": {
+        "reference": "https://github.com/nimbrethil81/gac-helper/issues/206#issuecomment-6949058597",
+        "decidedAt": "2026-11-17T13:13:21Z",
+        "contentChecksum": "sha256:f075e2803e76e200daf1d6bb5999ea2d3d055a36829307b7c3bd4af6000f61e2"
+      },
       "provenance": {
         "evidence": [
           {
