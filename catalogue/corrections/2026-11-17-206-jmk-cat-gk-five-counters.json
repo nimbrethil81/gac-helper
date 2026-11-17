@@ -1,0 +1,251 @@
+{
+  "schema": 2,
+  "contract": "gac-catalogue-change-set:v1",
+  "issue": "https://github.com/nimbrethil81/gac-helper/issues/206",
+  "baseline": {
+    "commit": "3ea64b431aff07ac46446fd1c17a4ad78dd7150b",
+    "catalogueVersion": 37,
+    "checksum": "sha256:191e4d9b481a636692913350707e0b2faf1528deb2287eaf41366a634d9d194c"
+  },
+  "corrections": [
+    {
+      "id": "CR-2026-11-17-206-P01",
+      "status": "PENDING_OWNER_APPROVAL",
+      "disposition": "ADD",
+      "title": "Add five approved 3v3 exact full-trio scored counters against JMK/CAT/General Kenobi",
+      "rationale": "GAC-JMK3-CATDEF1 Option A and owner-authorised five-counter Catalogue Direct split. Add the exact defender as a distinct 3v3 team identity rather than broadening generic JMK. Five scored, non-provisional first-attempt full-trio options; defer owner-approved scored-provisional Satele/JKR/Jolee A/53 pending capability. Current source and scoring unaffected until independently approved application.",
+      "approval": null,
+      "provenance": {
+        "evidence": [
+          {
+            "url": "https://swgoh.gg/gac/counters/JEDIMASTERKENOBI/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-17",
+            "supports": "Season 85, exact 3v3 JMK/CAT/GK defence vs BAYLAN_MARROK_SHIN: 363 battles, 98% reported win rate, 55.82 displayed average banners. Observed aggregate, not the owner's authored banner score."
+          },
+          {
+            "url": "https://swgoh.gg/gac/counters/JEDIMASTERKENOBI/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-17",
+            "supports": "Season 85, exact 3v3 JMK/CAT/GK defence vs LEIA: 130 battles, 98% reported win rate, 54.41 displayed average banners. Observed aggregate, not the owner's authored banner score."
+          },
+          {
+            "url": "https://swgoh.gg/gac/counters/JEDIMASTERKENOBI/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-17",
+            "supports": "Season 85, exact 3v3 JMK/CAT/GK defence vs BO_KATAN_MANDALORE: 203 battles, 95% reported win rate, 51.98 displayed average banners. Observed aggregate, not the owner's authored banner score."
+          },
+          {
+            "url": "https://swgoh.gg/gac/counters/JEDIMASTERKENOBI/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-17",
+            "supports": "Season 85, exact 3v3 JMK/CAT/GK defence vs JML_JKCK_LEIA_JT: 159 battles, 93% reported win rate, 52.82 displayed average banners. Observed aggregate, not the owner's authored banner score."
+          },
+          {
+            "url": "https://swgoh.gg/gac/counters/JEDIMASTERKENOBI/",
+            "publisher": "SWGOH.GG",
+            "publishedOrObservedAt": "2026-11-10",
+            "accessedAt": "2026-11-17",
+            "supports": "Season 85, exact 3v3 JMK/CAT/GK defence vs LV_APPO_CX2: 61 battles, 93% reported win rate, 49.74 displayed average banners. Observed aggregate, not the owner's authored banner score."
+          }
+        ],
+        "conditions": "3v3 first-attempt full clears only versus JMK (leader), Commander Ahsoka Tano and General Kenobi. Exactly three required attacking characters per entry, leader first, undersize 0. Opposing datacrons, omicrons, relics, mods and turn order unverified.",
+        "confidence": "High for the documented Season 85 sample and exact lineup observations for Baylan, Leia and Bo-Katan; Medium for the smaller JML and Lord Vader samples and all owner-approved judgement-based banner values. Observed season statistics do not guarantee individual wins.",
+        "limitations": "Reported SWGOH.GG aggregate win percentages and mean banners are not universal predictions; datacrons, roster investment and sample-selection effects may influence outcomes. Existing app uses defence name lookup, so user must explicitly select the exact defensive composition. Existing generic JMK matchups must not be broadened. No Satele scored-provisional support is claimed."
+      },
+      "affectedReferences": [
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "JML_JKCK_LEIA_JT"
+          },
+          "effect": "ADD the exact approved data-only source row; this source row is absent from baseline."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "LV_APPO_CX2"
+          },
+          "effect": "ADD the exact approved data-only source row; this source row is absent from baseline."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi"
+          },
+          "effect": "ADD the exact approved data-only source row; this source row is absent from baseline."
+        },
+        {
+          "file": "defence-compositions.json",
+          "stableKey": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "mode": "3v3"
+          },
+          "effect": "ADD the exact approved data-only source row; this source row is absent from baseline."
+        },
+        {
+          "file": "matchups/3v3.json",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Kenobi"
+          },
+          "effect": "NO CHANGE: preserve existing generic JMK Reva A/53 and Baylan C/48 rows, notes and ordering."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BAYLAN_MARROK_SHIN"
+          },
+          "effect": "NO CHANGE: existing exact attacking trio reused."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "LEIA"
+          },
+          "effect": "NO CHANGE: existing exact attacking trio reused."
+        },
+        {
+          "file": "counters.json",
+          "stableKey": {
+            "id": "BO_KATAN_MANDALORE"
+          },
+          "effect": "NO CHANGE: existing exact attacking trio reused."
+        },
+        {
+          "file": "matchups/5v5.json",
+          "stableKey": {
+            "mode": "5v5",
+            "defence": "Jedi Master Kenobi"
+          },
+          "effect": "NO CHANGE: existing 5v5 coverage preserved."
+        }
+      ],
+      "runtimeImpact": {
+        "5v5": "None; all 5v5 rows unchanged.",
+        "3v3": "One new exact defence key with five scored non-provisional first-attempt full-trio counters. Generic JMK Reva A/53 and Baylan C/48 preserved unchanged.",
+        "FLEET": "None; fleet rows unchanged.",
+        "counters": "Existing Baylan/Marrok/Shin, Leia/Drogan/R2-D2, Bo-Katan/IG-12/Paz definitions reused; JML/JK Cal/Leia JT and LV/Appo/CX-2 added as distinct three-required-member counter definitions.",
+        "roundAvailability": "Use current roster ownership, on-defence, spent-unit, overlapping-character and Round allocation checks. Exact defence must be selected; no automatic member-based lookup change.",
+        "scoring": "3v3 non-provisional full-squad planning values S/55, S/54, A/53, A/53, A/51; all undersize 0. No scoring constants or calculation changes.",
+        "strategicReserve": "No strategic reserve flags added or changed."
+      },
+      "expectedPayloadPaths": [
+        "payload[\"counterDefinitions\"][\"JML_JKCK_LEIA_JT\"]",
+        "payload[\"counterDefinitions\"][\"LV_APPO_CX2\"]",
+        "payload[\"counters\"][\"3v3\"][\"Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi\"]",
+        "payload[\"defenceCompositions\"][\"3v3\"][\"Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi\"]"
+      ],
+      "changes": [
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "JML_JKCK_LEIA_JT"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "JML_JKCK_LEIA_JT",
+            "name": "Jedi Master Luke / JK Cal / Leia (Jedi Training)",
+            "required": [
+              "JEDI_MASTER_LUKE",
+              "JEDI_KNIGHT_CAL_KESTIS",
+              "LEIA_JEDI_TRAINING"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "counters.json",
+          "operation": "ADD",
+          "stableKey": {
+            "id": "LV_APPO_CX2"
+          },
+          "before": "ABSENT",
+          "after": {
+            "id": "LV_APPO_CX2",
+            "name": "Lord Vader / Appo / CX-2",
+            "required": [
+              "LORD_VADER",
+              "CC_1119_APPO",
+              "CX_2"
+            ],
+            "recommended": []
+          }
+        },
+        {
+          "file": "matchups/3v3.json",
+          "operation": "ADD",
+          "stableKey": {
+            "mode": "3v3",
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "counters": [
+              {
+                "counterId": "BAYLAN_MARROK_SHIN",
+                "tier": "S",
+                "bannerScore": 55,
+                "undersize": 0,
+                "notes": "Requires Marrok and Shin Hati. Strong Season 85 exact-trio evidence; verify opposing datacron and relics."
+              },
+              {
+                "counterId": "LEIA",
+                "tier": "S",
+                "bannerScore": 54,
+                "undersize": 0,
+                "notes": "Requires Captain Drogan and R2-D2. Strong Season 85 exact-trio evidence; check enemy datacron and protection recovery."
+              },
+              {
+                "counterId": "BO_KATAN_MANDALORE",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Requires IG-12 & Grogu and Paz Vizsla. Exact-trio evidence supports the clear, but banner efficiency varies; check datacron."
+              },
+              {
+                "counterId": "JML_JKCK_LEIA_JT",
+                "tier": "A",
+                "bannerScore": 53,
+                "undersize": 0,
+                "notes": "Requires Jedi Knight Cal Kestis and Leia (Jedi Training). Exact trio only, not generic Jedi Master Luke; assess datacron."
+              },
+              {
+                "counterId": "LV_APPO_CX2",
+                "tier": "A",
+                "bannerScore": 51,
+                "undersize": 0,
+                "notes": "Requires CC-1119 Appo and CX-2. Full clear can be inefficient; do not substitute a different Lord Vader trio."
+              }
+            ]
+          }
+        },
+        {
+          "file": "defence-compositions.json",
+          "operation": "ADD",
+          "stableKey": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "mode": "3v3"
+          },
+          "before": "ABSENT",
+          "after": {
+            "defence": "Jedi Master Kenobi / Commander Ahsoka Tano / General Kenobi",
+            "mode": "3v3",
+            "units": [
+              "JEDI_MASTER_KENOBI",
+              "COMMANDER_AHSOKA_TANO",
+              "GENERAL_KENOBI"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
