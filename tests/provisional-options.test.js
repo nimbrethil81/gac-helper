@@ -58,11 +58,43 @@ test('release gate refuses invented confidence, scores, incomplete membership, b
         c => { c[0].tier = 'B'; }, c => { c[0].bannerScore = 0; }, c => { c[0].undersize = 0; }, c => { c[0].role = 'SETUP'; },
         c => { c[0].required = []; }, c => { c[0].required = ['UNKNOWN']; }, c => { c[0].required = ['DARTH_MALAK']; },
         c => { c[0].required.push('DARTH_MALAK'); }, c => { c[0].evidenceUrl = 'javascript:alert(1)'; },
-        c => { c[0].observedAt = '2026-02-30'; }, c => { c[0].notes = ' '; }, c => { c.push(structuredClone(c[0])); }
+        c => { c[0].observedAt = '2026-02-30'; }, c => { c[0].notes = 5; }, c => { c.push(structuredClone(c[0])); }
     ]) assert.equal(auditSource(fixture(mutate)).summary.releaseGate, 'FAIL', mutate.toString());
     const payload = compileSource(fixture());
     payload.counters['3v3'][defence][0].bannerScore = 53;
     assert.equal(auditPayload(payload).summary.releaseGate, 'FAIL');
+});
+
+test('provisional tactical notes are optional: empty or omitted notes keep every structured safeguard (GAC-NOTES1)', () => {
+    for (const mutate of [c => { delete c[0].notes; }, c => { c[0].notes = ''; }]) {
+        const source = fixture(mutate);
+        assert.equal(auditSource(source).summary.releaseGate, 'PASS');
+        const payload = compileSource(source);
+        assert.equal(payload.counters['3v3'][defence][0].notes, '');
+        assert.equal(releaseContract(payload), 'gac-catalogue-release:v2');
+        assert.equal(auditPayload(payload).summary.releaseGate, 'PASS');
+        assert.equal('notes' in importFromPayload(payload)['matchups/3v3.json'].find(d => d.defence === defence).counters[0], false);
+        verifyReleaseText(renderRelease(payload, 26).text);
+        const h = harness(payload);
+        assert.equal(h.run(`isValidCataloguePayload(${JSON.stringify(payload)})`), true);
+        h.run('counterFilter = "all"; showCounters();');
+        const html = h.elements.results.innerHTML;
+        assert.match(html, /Provisional options — not included in plans/);
+        assert.match(html, /provisional-badge/);
+        assert.match(html, /Observed 2026-11-06/);
+        assert.doesNotMatch(html, /<p><\/p>|undefined/);
+        assert.equal(h.run(`oneShotCounters(gacData['3v3'][${JSON.stringify(defence)}]).length`), 0);
+        // Structured safeguards are unchanged: evidence, membership and no score still fail.
+        for (const bad of [c => { delete c[0].evidenceUrl; }, c => { c[0].evidenceUrl = 'http://example.test/x'; }, c => { c[0].tier = 'A'; }, c => { c[0].required = []; }]) {
+            assert.equal(auditSource(fixture(c => { delete c[0].notes; bad(c); })).summary.releaseGate, 'FAIL', bad.toString());
+        }
+        const broken = structuredClone(payload);
+        broken.counters['3v3'][defence][0].evidenceUrl = 'http://example.test/x';
+        assert.equal(h.run(`isValidCataloguePayload(${JSON.stringify(broken)})`), false);
+        broken.counters['3v3'][defence][0].evidenceUrl = entry.evidenceUrl;
+        delete broken.counters['3v3'][defence][0].notes;
+        assert.equal(h.run(`isValidCataloguePayload(${JSON.stringify(broken)})`), false, 'a compiled payload always carries a string note');
+    }
 });
 
 test('v2 release and cache isolate older clients; v1 historical releases still verify', async () => {

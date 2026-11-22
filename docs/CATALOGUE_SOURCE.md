@@ -26,6 +26,7 @@ The mapping is extracted from the game's `crew[].unitId` metadata, not ship name
 ```bash
 npm run catalogue:compile                           # compile + shared rule set (parity gate: report only)
 npm run catalogue:compile -- --gate release         # exit 1 on any blocking or owner-approval finding
+npm run catalogue:compile -- --gate release --base-ref <ref>   # also check counter Notes added/changed versus <ref> (CI on pull requests)
 npm run catalogue:compile -- --compare <action-data.json>   # exact canonical parity with a capture
 npm run catalogue:release                           # record version/checksum (bumps only if the checksum changed)
 npm run catalogue:release -- --check                # verify release.json (CI)
@@ -350,9 +351,34 @@ Before handing off, re-read each proposed before row from the recorded commit, c
 
 Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the latest one is the history to check for duplicates. Recurring execution is currently a manual trigger only: no scheduled task is active, and any future schedule needs the owner's chosen day/time and a verified route (issue #37). A manual "Run a GAC counter review" follows this procedure, including the missing-defence pass. Editing this document cannot change a separately stored scheduled-task prompt: if one is ever created, the owner must ask for its stored instructions to be updated to cite this section. The first pilot is [`CR-2026-10-10-01`](reviews/CR-2026-10-10-01.md).
 
+## Counter Notes (GAC-NOTES1 — Tactical Notes Only)
+
+A counter `notes` value is player-facing tactical copy, not a research or process record. Leave it **empty** unless one specific, actionable instruction or necessary game condition materially helps a player use the counter or avoid a known failure and is not apparent from the lineup, tier or other fields. When evidenced, that can be target priority, turn order, an indispensable unit or omicron, a pertinent datacron mechanic, or the battle purpose and weakened-state condition of a SETUP/CLEANUP step. Write one sentence, normally at most 120 characters; this is an editorial target, not a hard cap.
+
+Never put in Notes: owner/user approval or acceptance, "provisional" status, research provenance, citations or URLs, historical sample sizes or win rates, scoring/tier/banner justification, generic uncertainty or implementation commentary. Keep that information in the structured fields (`evidenceKind`, `evidenceUrl`, `observedAt`), the correction record's provenance, and issue/PR history. Do not add catalogue fields to park it.
+
+| Entry kind | `notes` |
+|---|---|
+| Ordinary scored counter | Optional; absent or empty compiles to `""`. |
+| Unscored provisional option | Optional; evidence, membership, date and no-score rules are unchanged and fully structured. The card omits an empty note. |
+| `SETUP` / `CLEANUP` step | Required and non-blank (purpose and critical condition), never ranked or allocated. |
+
+**Enforcement is on the note diff, not on all Notes.** The compiler's shared audit (`auditSource(..., { baseline })`) compares each counter note with the authoritative baseline and examines only notes that are new or changed. Unchanged legacy Notes are neither checked nor silently altered when an unrelated field is amended; legacy cleanup needs separately approved exact-content corrections. The check runs in:
+
+- schema-2 correction preview, apply, rebaseline and Catalogue Direct, against the source the proposal applies to;
+- pull-request CI, through `npm run catalogue:compile -- --gate release --base-ref origin/<base>`, against the base branch (direct source edits).
+
+| Finding | Severity | Meaning |
+|---|---|---|
+| `NOTE_PROCESS_COMMENTARY` | blocking | Clear process/research wording (approval status, "provisional", URLs, historical/research/evidence commentary, sample sizes or win rates, banner/tier justification, issue/PR references). The diagnostic quotes the match; reword, or move the content to a structured field, the proposal's provenance or leave Notes empty. |
+| `NOTE_LENGTH` | warning | More than 120 characters. Not a refusal: the reviewer decides whether every clause is tactically useful. |
+| `NOTE_UNCERTAINTY` | warning | Generic uncertainty wording rather than an instruction. Reviewer decision. |
+
+Warnings appear in the compile output and the correction preview. The checks are pattern-based and cannot judge tactical utility; that remains the reviewer's decision. Other Notes (`defence-teams.json`, `scoring.json`, battle feedback, research evidence) are out of scope.
+
 ## Unscored provisional squad options
 
-For uncertain one-shot research, use the explicit provisional entry variant documented in [ADR-ARCH-116 §4](decisions/ADR-ARCH-116-git-native-catalogue.md#4-canonical-authoring-schema-cataloguesource-schema-1), not fabricated tiers/banners or SETUP/CLEANUP. Only 3v3/5v5 are supported. `required` is the complete ordered attacking lineup, leader first, includes the global required core, and may be smaller than the mode size without claiming an undersize bonus. Reuse the existing counter ID; do not modify its global core. `observedAt` is the evidence access/observation date, not an invented battle date. The linked source and notes must explain exact versus related support, omicron requirements, unknown conditions and strategic cost. `SINGLE_REPORT` is anecdotal, not verified reliability. Experimental hypotheses stay in research reports.
+For uncertain one-shot research, use the explicit provisional entry variant documented in [ADR-ARCH-116 §4](decisions/ADR-ARCH-116-git-native-catalogue.md#4-canonical-authoring-schema-cataloguesource-schema-1), not fabricated tiers/banners or SETUP/CLEANUP. Only 3v3/5v5 are supported. `required` is the complete ordered attacking lineup, leader first, includes the global required core, and may be smaller than the mode size without claiming an undersize bonus. Reuse the existing counter ID; do not modify its global core. `observedAt` is the evidence access/observation date, not an invented battle date. Support classification, source and date live in `evidenceKind`, `evidenceUrl` and `observedAt`, not in prose. `notes` is optional and follows [Counter Notes](#counter-notes-gac-notes1--tactical-notes-only): tactical guidance only, empty by default. `SINGLE_REPORT` is anecdotal, not verified reliability. Experimental hypotheses stay in research reports.
 
 The ordinary schema-2 content approval, exact-row preview and release checks still apply. Compiling a provisional entry selects release contract v2 automatically; neither numeric estimates nor an extra publisher are involved. Preview/test a proposal before applying it. The approved schema/UI change does not by itself approve complete catalogue rows: retain a separate exact-content decision, the full before/after rows and the tool-generated checksum in the correction record. The original #156 rows are recorded in `catalogue/corrections/2026-11-06-exact-3v3-provisional.json`; the subsequent mistaken-defender correction and distinct solo variant are recorded separately in `catalogue/corrections/2026-11-06-158-159-reconciliation.json`.
 
@@ -367,7 +393,7 @@ Scoring authority is split, with one home per fact: `catalogue/source/scoring.js
 - Never bake undersizing into `bannerScore`. `undersize` is the most units the counter can deliberately leave empty from a full squad **and still win cleanly** (`0` = field the full squad); it must leave at least one unit fielded. Under the current scoring each deliberately empty eligible slot trades the three per-unit bonuses (surviving, full health, full protection) for one unused-slot bonus, a net **+1 banner** in a flawless win, so the app reads `bannerScore + undersize` as the achievable best. Author `undersize` only from evidence that the reduced line-up actually wins; mathematical upside alone is not evidence.
 - Fleet: `bannerScore` assumes a full fleet behind a **7★** capital ship (73 is the flawless first-attempt top of the ladder). `undersize` counts **reinforcement slots** left empty, at most 3 so it holds behind any 5★–7★ capital ship; the app never adds it to fleet ranking and only adds it in the Last Battle advisor once the player gives their capital ship's stars. Never count an empty starting slot, and do not raise a fleet `undersize` on the strength of the unused-slot arithmetic alone.
 
-**Tactical steps (`role`).** Use `role: "SETUP"` for a counter whose evidenced purpose is to weaken a defence for a later attack (remove defenders, wear down health or protection) and `role: "CLEANUP"` for a counter evidenced to win only against a defence an earlier battle has already weakened. Author only `counterId`, `role` and `notes`: never give a tactical step a `tier`, `bannerScore` or `undersize`, since nothing about it is a first-attempt clean clear. The notes carry what the step achieves, the exact weakened state a cleanup depends on, the paired step, and the evidence count. Append tactical steps after a defence's one-shot counters, setup before cleanup. A counter that later proves to win fresh becomes an ordinary scored row through a new proposal.
+**Tactical steps (`role`).** Use `role: "SETUP"` for a counter whose evidenced purpose is to weaken a defence for a later attack (remove defenders, wear down health or protection) and `role: "CLEANUP"` for a counter evidenced to win only against a defence an earlier battle has already weakened. Author only `counterId`, `role` and `notes`: never give a tactical step a `tier`, `bannerScore` or `undersize`, since nothing about it is a first-attempt clean clear. The notes are required and tactical: what the step achieves and the exact weakened state a cleanup depends on, never evidence counts or approval history. Append tactical steps after a defence's one-shot counters, setup before cleanup. A counter that later proves to win fresh becomes an ordinary scored row through a new proposal.
 
 **Unit-count rows.** `OWN_UNITS` (the attacker's units earning per-unit bonuses) and `ENEMY_UNITS` (enemy units defeated in a clean clear) are separate inputs so the model never assumes the two sides match. Squad formats rely on the app's format fallbacks (5 for 5v5, 3 for 3v3); the authored `FLEET` rows are 7, matching the published 7-member Fleet scoring table. An explicit row overrides the fallback, so any row added must equal the format's real count.
 

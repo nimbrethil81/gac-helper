@@ -67,7 +67,8 @@ const MATCHUP_ENTRY = { required: { counterId: "string", tier: "string", bannerS
 // multi-battle plan rather than a one-shot win: SETUP weakens a defence for a
 // later attack, CLEANUP is a conditional win against an already weakened one.
 // It carries no tier, banner score or undersize, so nothing ranks or projects it.
-const MATCHUP_PROVISIONAL_ENTRY = { required: { counterId: "string", confidence: "string", evidenceKind: "string", required: "strings", evidenceUrl: "string", observedAt: "string", notes: "string" } };
+// Provisional evidence lives in its structured fields; tactical notes are optional (GAC-NOTES1).
+const MATCHUP_PROVISIONAL_ENTRY = { required: { counterId: "string", confidence: "string", evidenceKind: "string", required: "strings", evidenceUrl: "string", observedAt: "string" }, optional: { notes: "string" } };
 const MATCHUP_TACTIC_ENTRY = { required: { counterId: "string", role: "string", notes: "string" } };
 
 // Field order used when writing rows, so imports and corrections diff cleanly.
@@ -244,7 +245,7 @@ function importFromPayload(payload, scoreMeanings = []) {
   for (const mode of MATCHUP_MODES) {
     source[`matchups/${mode}.json`] = sortRows(`matchups/${mode}.json`, Object.entries(payload.counters[mode] ?? {}).map(([defence, entries]) => ({
       defence,
-      counters: entries.map((entry) => (entry.confidence !== undefined ? { counterId: entry.counterId, confidence: entry.confidence, evidenceKind: entry.evidenceKind, required: entry.required, evidenceUrl: entry.evidenceUrl, observedAt: entry.observedAt, notes: entry.notes } : entry.role !== undefined
+      counters: entries.map((entry) => (entry.confidence !== undefined ? withoutBlank({ counterId: entry.counterId, confidence: entry.confidence, evidenceKind: entry.evidenceKind, required: entry.required, evidenceUrl: entry.evidenceUrl, observedAt: entry.observedAt, notes: entry.notes }, "notes") : entry.role !== undefined
         ? { counterId: entry.counterId, role: entry.role, notes: entry.notes }
         : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
     })));
@@ -333,7 +334,7 @@ function compileSource(source) {
       const list = payload.counters[mode][defence] ?? (payload.counters[mode][defence] = []);
       for (const entry of counters ?? []) {
         if (entry.confidence !== undefined) {
-          list.push({ ...entry, required: Array.isArray(entry.required) ? [...entry.required] : entry.required, counter: counterNames.get(entry.counterId) ?? "" });
+          list.push({ ...entry, required: Array.isArray(entry.required) ? [...entry.required] : entry.required, counter: counterNames.get(entry.counterId) ?? "", notes: entry.notes ?? "" });
           continue;
         }
         if (entry.role !== undefined) {
@@ -365,6 +366,52 @@ function compileSource(source) {
     for (const unitId of row.units ?? []) if (!units.includes(unitId)) units.push(unitId);
   }
   return payload;
+}
+
+// ─── counter Notes editorial check (GAC-NOTES1 — Tactical Notes Only) ────────
+// Policy: docs/CATALOGUE_SOURCE.md "Counter Notes". Only counter Notes that
+// are new or differ from the authoritative baseline are examined, so legacy
+// wording never blocks an unrelated change. Process/research wording blocks;
+// length and generic uncertainty are warnings for human tactical review.
+
+const NOTE_TARGET_LENGTH = 120;
+const NOTE_PROCESS_PATTERNS = Object.freeze([
+  [/\b(?:owner|user)[- ]?(?:approved|accepted)\b|\b(?:approved|accepted) by (?:the )?(?:owner|user)\b/i, "approval status"],
+  [/\bprovisional(?:ly)?\b/i, "provisional status"],
+  [/https?:\/\/|\bwww\./i, "URL or citation"],
+  [/\b(?:handover|hand-over|historical|provenance|citations?|research(?:ed)?|evidence)\b/i, "research or history commentary"],
+  [/\bwin[- ]?rates?\b|\bsample (?:size|of)\b|\bsamples\b|\b\d+\s+(?:battles?|reports?|attempts?|wins?|losses|samples?|observations?)\b|\bn\s*=\s*\d+/i, "sample size or win rate"],
+  [/\b(?:banner[- ]?scores?|planning estimate|tier [SABC]|[SABC][- ]tier|undersize[ds]? (?:value|score))\b/i, "scoring, tier or banner justification"],
+  [/(?:^|\s)#\d{2,}\b|\b(?:issue|pull request|PR) #?\d+\b/i, "issue or PR reference"]
+]);
+const NOTE_UNCERTAINTY_PATTERN = /\b(?:unverified|untested|anecdotal|not (?:an? )?(?:established|verified|measured|guaranteed)|may or may not|uncertain|unknown conditions)\b/i;
+
+// { "matchups/5v5.json\u0000Defence\u0000COUNTER": "note" } for every non-blank counter note.
+function counterNotes(source) {
+  const notes = new Map();
+  for (const mode of MATCHUP_MODES) {
+    for (const row of source[`matchups/${mode}.json`] ?? []) {
+      for (const entry of Array.isArray(row?.counters) ? row.counters : []) {
+        if (typeof entry?.notes === "string" && entry.notes.trim() !== "") notes.set(`matchups/${mode}.json\u0000${row.defence}\u0000${entry.counterId}`, entry.notes);
+      }
+    }
+  }
+  return notes;
+}
+
+function checkNoteEditorial(baseline, source, add) {
+  const before = counterNotes(baseline);
+  for (const [key, note] of counterNotes(source)) {
+    if (before.get(key) === note) continue;
+    const [file, defence, counterId] = key.split("\u0000");
+    const details = { mode: file.replace(/^matchups\/|\.json$/g, ""), location: file, subject: `${defence} / ${counterId}`, observed: JSON.stringify(note) };
+    for (const [pattern, kind] of NOTE_PROCESS_PATTERNS) {
+      const match = pattern.exec(note);
+      if (match) add("NOTE_PROCESS_COMMENTARY", { ...details, expected: `a tactical instruction only; remove the ${kind} (${JSON.stringify(match[0].trim())}) and keep it in structured fields, the evidence packet or issue/PR history, or leave Notes empty`, effect: "Process or research commentary would be shown to players" });
+    }
+    if (NOTE_UNCERTAINTY_PATTERN.test(note)) add("NOTE_UNCERTAINTY", { ...details, expected: "a specific actionable instruction or condition, not generic uncertainty", effect: "Reviewer judgement needed: generic uncertainty is not tactical guidance" });
+    if (note.length > NOTE_TARGET_LENGTH) add("NOTE_LENGTH", { ...details, observed: `${note.length} characters: ${JSON.stringify(note)}`, expected: `one sentence, normally at most ${NOTE_TARGET_LENGTH} characters`, effect: "Reviewer decision needed: confirm every clause is tactically useful, or shorten it" });
+  }
 }
 
 // ─── source validation ───────────────────────────────────────────────────────
@@ -439,10 +486,13 @@ function validateSource(source, add) {
 }
 
 // Validate source, compile it, and run the shared #34 rule set over the result.
-function auditSource(source, { label = "catalogue/source", readFindings = [] } = {}) {
+// With a `baseline` source, counter Notes added or changed relative to it also
+// get the GAC-NOTES1 editorial check; unchanged Notes are never examined.
+function auditSource(source, { label = "catalogue/source", readFindings = [], baseline } = {}) {
   const { findings, add } = collector();
   findings.push(...readFindings);
   validateSource(source, add);
+  if (baseline) checkNoteEditorial(baseline, source, add);
   const payload = compileSource(source);
   const payloadReport = auditPayload(payload, { label });
   findings.push(...payloadReport.findings);
@@ -664,10 +714,12 @@ module.exports = {
   releaseContract,
   MATCHUP_MODES,
   MATCHUP_ROLES,
+  NOTE_TARGET_LENGTH,
   RELEASE_CONTRACT,
   SOURCE_SCHEMA,
   applyCorrections,
   auditSource,
+  checkNoteEditorial,
   compileSource,
   contentChecksum,
   correctionChecksum,
