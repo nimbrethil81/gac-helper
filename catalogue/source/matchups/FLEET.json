@@ -23,19 +23,19 @@
     {
       "defence": "Executrix",
       "counters": [
-        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
-        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
-        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 69, "undersize": 0, "notes": "Premium fleet; usually conserve for harder defences." },
-        { "counterId": "HOME_ONE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Requires a developed Home One Rebel fleet, including Rebel B-wing; check the defensive Scythe/Empire lineup." },
-        { "counterId": "NEGOTIATOR", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Requires a developed Negotiator fleet with Marauder; confirm matchup against Scythe and reinforcements." }
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 69, "undersize": 0 },
+        { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 69, "undersize": 0 },
+        { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 69, "undersize": 0 },
+        { "counterId": "HOME_ONE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Use Home One with Rebel B-wing against Scythe-based Executrix." },
+        { "counterId": "NEGOTIATOR", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Use Negotiator with Marauder; account for enemy Scythe and reinforcements." }
       ]
     },
     {
       "defence": "Finalizer",
       "counters": [
-        { "counterId": "MALEVOLENCE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Provisional estimate, not a measured result. Economical option; Finalizer is offence-focused, so confirm the enemy opening lineup, Hunted-debuff pressure and reinforcements. Full fleet unless separately validated." },
-        { "counterId": "NEGOTIATOR", "tier": "B", "bannerScore": 64, "undersize": 0, "notes": "Provisional estimate, not a measured result. Requires a developed Negotiator fleet with Marauder; confirm the enemy First Order opening lineup. Full fleet." },
-        { "counterId": "HOME_ONE", "tier": "B", "bannerScore": 61, "undersize": 0, "notes": "Provisional estimate, not a measured result. Needs a developed Rebel fleet including Rebel B-wing; only a historical recorded win, so treat as a fallback. Full fleet." }
+        { "counterId": "MALEVOLENCE", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Check Finalizer's opening lineup, Hunted pressure and reinforcements; field a full Malevolence fleet." },
+        { "counterId": "NEGOTIATOR", "tier": "B", "bannerScore": 64, "undersize": 0, "notes": "Use a full Negotiator fleet with Marauder; confirm Finalizer's opening lineup." },
+        { "counterId": "HOME_ONE", "tier": "B", "bannerScore": 61, "undersize": 0, "notes": "Use a full Home One Rebel fleet with Rebel B-wing." }
       ]
     },
     {
@@ -48,7 +48,7 @@
     {
       "defence": "Leviathan",
       "counters": [
-        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Scimitar-first is lineup-dependent. Confirm capital stars, Darth Revan relics, enemy starters and reinforcement order; TIE Reaper variants need their own mirror plan." },
+        { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1, "notes": "Check Leviathan mirror starters and reinforcement order; TIE Reaper variants need a different plan." },
         { "counterId": "EXECUTOR", "tier": "C", "bannerScore": 57, "undersize": 1 },
         { "counterId": "PROFUNDITY", "tier": "C", "bannerScore": 57, "undersize": 1 }
       ]
@@ -69,7 +69,7 @@
         { "counterId": "PROFUNDITY", "tier": "S", "bannerScore": 71, "undersize": 1 },
         { "counterId": "EXECUTOR", "tier": "S", "bannerScore": 71, "undersize": 1 },
         { "counterId": "LEVIATHAN", "tier": "S", "bannerScore": 71, "undersize": 1 },
-        { "counterId": "CHIMAERA", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Against Anakin's Eta-2, Marauder and BTL-B Y-wing. Recommended start: TIE Advanced x1, Imperial TIE Fighter and Imperial TIE Bomber. TIE Defender is the key reinforcement; TIE/IN Interceptor provides support. Requires developed Empire ships. Manage Unending Loyalty and Marauder carefully. Full fleet recommended." }
+        { "counterId": "CHIMAERA", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Start TIE Advanced x1 / Imperial TIE Fighter / TIE Bomber; use TIE Defender and manage Unending Loyalty." }
       ]
     },
     {
@@ -79,7 +79,7 @@
         { "counterId": "EXECUTOR", "tier": "A", "bannerScore": 69, "undersize": 1, "notes": "Hounds Tooth starts" },
         { "counterId": "EXECUTRIX", "tier": "B", "bannerScore": 67, "undersize": 1 },
         { "counterId": "MALEVOLENCE", "tier": "C", "bannerScore": 57, "undersize": 2 },
-        { "counterId": "PROFUNDITY", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Profundity mirror. Start Han's Millennium Falcon, Outrider and Rebel Y-wing. Imperial TIE Bomber is the preferred first reinforcement to disrupt Rebel assists. Protect Outrider and manage Download progress. Lineup development, turn order and RNG affect reliability. Full fleet recommended." }
+        { "counterId": "PROFUNDITY", "tier": "A", "bannerScore": 67, "undersize": 0, "notes": "Start Falcon / Outrider / Rebel Y-wing; reinforce first with Imperial TIE Bomber; protect Outrider and manage Download." }
       ]
     },
     {

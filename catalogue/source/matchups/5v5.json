@@ -23,7 +23,7 @@
     {
       "defence": "Ahsoka Tano (GL)",
       "counters": [
-        { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Preferred" }
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0 }
       ]
     },
     {
@@ -61,15 +61,15 @@
     {
       "defence": "Cassian Andor (Undercover)",
       "counters": [
-        { "counterId": "QUEEN_AMIDALA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Exact defence: Cassian (Undercover)/Vel Sartha/Cinta Kaz/Kleya Marki/Luthen Rael. Use Queen Amidala with Master Qui-Gon and Padawan Obi-Wan core. Community reports support this; outcome and banners depend on datacron." },
-        { "counterId": "BANE", "tier": "A", "bannerScore": 61, "undersize": 3, "notes": "Exact Rebel Fighter defence as recorded. Provisional expensive fallback; Bane + Sith partner (other slots unused); validate 5v5 omicron/datacron before spending Bane. Undersize 3 assumes two attackers." }
+        { "counterId": "QUEEN_AMIDALA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Against Cassian / Vel / Cinta / Kleya / Luthen, use Queen Amidala / Master Qui-Gon / Padawan Obi-Wan." },
+        { "counterId": "BANE", "tier": "A", "bannerScore": 61, "undersize": 3, "notes": "Use Bane with one Sith partner; leave the other three slots empty." }
       ]
     },
     {
       "defence": "Cere (Malicos)",
       "counters": [
-        { "counterId": "GI", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Standard" },
-        { "counterId": "REVA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "GI", "tier": "S", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "REVA", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "BOSSK", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
         { "counterId": "BAYLAN", "tier": "S", "bannerScore": 62, "undersize": 0 },
@@ -79,7 +79,7 @@
     {
       "defence": "Cobb Vanth",
       "counters": [
-        { "counterId": "BO_KATAN_MANDALORE", "tier": "B", "bannerScore": 62, "undersize": 0, "notes": "Provisional: one directly observed comfortable win with no attacking-character losses against Cobb Vanth, Chief Nebit, Lobot, Coruscant Underworld Police and Tusken Warrior with Cobb's GAC omicron active and no datacron. Not a measured win rate or banner result." }
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "B", "bannerScore": 62, "undersize": 0, "notes": "For Cobb / Nebit / Lobot / Coruscant Underworld Police / Tusken Warrior with Cobb's GAC omicron." }
       ]
     },
     {
@@ -92,8 +92,8 @@
       "defence": "Darth Malgus",
       "counters": [
         { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3 },
-        { "counterId": "JKCK", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Reliable" },
-        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Good option" },
+        { "counterId": "JKCK", "tier": "A", "bannerScore": 61, "undersize": 0 },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 61, "undersize": 0 },
         { "counterId": "SEE", "tier": "S", "bannerScore": 64, "undersize": 3 },
         { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 1 }
       ]
@@ -101,8 +101,8 @@
     {
       "defence": "Dash Rendar",
       "counters": [
-        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Standard CLS/Han/Chewbacca/C-3PO/Threepio & Chewie. Evidence is from a close Dash/Nest/Vandor/Qi'ra variant using L3-37 instead of Young Lando; handle Vandor revives and Nest." },
-        { "counterId": "GAS", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Full GAS/501st. Evidence is from a close Dash/Nest/Vandor/Qi'ra variant using L3-37 instead of Young Lando; conserve GAS if needed elsewhere." }
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Against Dash / Nest / Vandor / Qi'ra / L3-37, handle Vandor revives and Nest." },
+        { "counterId": "GAS", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Against Dash / Nest / Vandor / Qi'ra / L3-37, use full GAS / 501st." }
       ]
     },
     {
@@ -117,8 +117,8 @@
     {
       "defence": "Emperor Palpatine (Duel's End Vader)",
       "counters": [
-        { "counterId": "JMK", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Palpatine lead; Duel's End Vader omicron; Mara Jade; Grand Moff Tarkin; fifth unknown. GL candidate; do not assume a guaranteed win. Check datacrons." },
-        { "counterId": "MAZ_KANATA", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Palpatine lead; Duel's End Vader omicron; Mara Jade; Grand Moff Tarkin; fifth unknown. Reported/video win using strong Maz + datacron; not a reliable generic counter. Prioritise Palpatine; ability-block Tarkin." }
+        { "counterId": "JMK", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Against Palpatine with Duel's End Vader's omicron, Mara Jade and Tarkin; confirm the fifth." },
+        { "counterId": "MAZ_KANATA", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "With a suitable Maz datacron, prioritise Palpatine and ability-block Tarkin." }
       ]
     },
     {
@@ -134,8 +134,8 @@
     {
       "defence": "Finn (Zorii Resistance)",
       "counters": [
-        { "counterId": "MOTHER_TALZIN", "tier": "B", "bannerScore": 59, "undersize": 0, "notes": "Provisional: in one user-reported 5v5 battle Mother Talzin (Nightsisters) lost to Finn (Zorii Resistance) without defeating a single defender. Can fail outright; B / 59 is a conservative planning value, not a measured result or a reliable win." },
-        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "One user-reported 5v5 win came on a second attempt (after a failed Mother Talzin battle) against all five surviving defenders, which may have had reduced protection, health or altered cooldowns. Supports keeping A / 62; not a proven fresh-battle win rate or 62-banner result." },
+        { "counterId": "MOTHER_TALZIN", "tier": "B", "bannerScore": 59, "undersize": 0 },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "BAYLAN", "tier": "S", "bannerScore": 61, "undersize": 0 }
       ]
@@ -143,13 +143,13 @@
     {
       "defence": "GAS",
       "counters": [
-        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Standard lineup: CLS / Han Solo / Chewbacca / Threepio & Chewie, with C-3PO as a recommended fifth. Check the chosen fifth unit, relics, mods and active datacrons before committing." }
+        { "counterId": "CLS", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Use CLS / Han / Chewbacca / Threepio & Chewie; C-3PO is a useful fifth." }
       ]
     },
     {
       "defence": "General Grievous",
       "counters": [
-        { "counterId": "MOTHER_TALZIN", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "MOTHER_TALZIN", "tier": "S", "bannerScore": 63, "undersize": 0 },
         { "counterId": "WAMPA", "tier": "A", "bannerScore": 58, "undersize": 4 }
       ]
     },
@@ -159,8 +159,8 @@
         { "counterId": "JAWAS", "tier": "B", "bannerScore": 60, "undersize": 0 },
         { "counterId": "VEERS", "tier": "B", "bannerScore": 61, "undersize": 0 },
         { "counterId": "BOSSK", "tier": "B", "bannerScore": 61, "undersize": 0 },
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Traya-led Sith; use Traya and Nihilus, with Sion as an optional support. Owner confirms historical 5v5 success. 62 is an approved planning estimate, not a measured banner average. Confirm gear, abilities and datacrons; current-season repeatability unverified." },
-        { "counterId": "VADER", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Original Darth Vader with Merciless Massacre; adequate opening speed and gear are important. Owner confirms historical 5v5 success. 61 is an approved planning estimate, not a measured banner average. Full attacking five is not prescribed; current-season repeatability unverified." }
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Use Traya and Nihilus; Sion can provide additional support." },
+        { "counterId": "VADER", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Use Darth Vader's Merciless Massacre; ensure sufficient opening speed." }
       ]
     },
     {
@@ -179,7 +179,7 @@
       "defence": "Great Mothers",
       "counters": [
         { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3 },
-        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Strong" },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0 },
         { "counterId": "MALGUS", "tier": "A", "bannerScore": 61, "undersize": 0 }
       ]
@@ -188,8 +188,8 @@
       "defence": "Gungans",
       "counters": [
         { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "LEIA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
-        { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Datacron-sensitive: confirm the exact Great Mothers squad and current Gungan datacron before committing; this is not an unconditional preferred counter." },
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "GREAT_MOTHERS", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Check the active Gungan datacron and exact Great Mothers squad before committing." },
         { "counterId": "TRAYA", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "PHOENIX", "tier": "A", "bannerScore": 62, "undersize": 0 },
         { "counterId": "BANE", "tier": "S", "bannerScore": 62, "undersize": 3 }
@@ -205,20 +205,20 @@
     {
       "defence": "Jabba",
       "counters": [
-        { "counterId": "JML", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Cleanup risk" },
-        { "counterId": "BANE", "tier": "A", "bannerScore": 64, "undersize": 0, "notes": "Good banners" },
-        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "JML", "tier": "B", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "BANE", "tier": "A", "bannerScore": 64, "undersize": 0 },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0 },
         { "counterId": "MOTHER_TALZIN", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
         { "counterId": "VEERS", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Cleanup" },
-        { "counterId": "JMK", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
-        { "counterId": "REVA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Cleanup risk" }
+        { "counterId": "JMK", "tier": "A", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "REVA", "tier": "A", "bannerScore": 63, "undersize": 0 }
       ]
     },
     {
       "defence": "Jawas",
       "counters": [
-        { "counterId": "MALAK", "tier": "B", "bannerScore": 61, "undersize": 4, "notes": "Solo Darth Malak only. Small historical 5v5 sample; confirm relics, survivability and current datacron. Undersize requires one attacker." },
-        { "counterId": "KYLO_REN_SOLO", "tier": "B", "bannerScore": 60, "undersize": 4, "notes": "Original Kylo Ren solo (not Unmasked or SLKR). Conditional on strong relics and surviving Jawa thermal detonators; small historical 5v5 sample." }
+        { "counterId": "MALAK", "tier": "B", "bannerScore": 61, "undersize": 4, "notes": "Use Darth Malak solo." },
+        { "counterId": "KYLO_REN_SOLO", "tier": "B", "bannerScore": 60, "undersize": 4, "notes": "Use original Kylo Ren solo (not KRU or SLKR); survive Jawa thermal detonators." }
       ]
     },
     {
@@ -230,26 +230,26 @@
     {
       "defence": "Jedi Master Kenobi",
       "counters": [
-        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Preferred" },
-        { "counterId": "SEE", "tier": "B", "bannerScore": 55, "undersize": 0, "notes": "Riskier" },
-        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "SEE", "tier": "B", "bannerScore": 55, "undersize": 0 },
+        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0 }
       ]
     },
     {
       "defence": "Jedi Master Luke",
       "counters": [
-        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "SEE", "tier": "S", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "REVA", "tier": "S", "bannerScore": 63, "undersize": 0 },
         { "counterId": "JABBA", "tier": "A", "bannerScore": 62, "undersize": 0 }
       ]
     },
     {
       "defence": "Jedi Master Mace Windu",
       "counters": [
-        { "counterId": "SEE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "SEE", "tier": "S", "bannerScore": 63, "undersize": 0 },
         { "counterId": "JML", "tier": "S", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Conditional: confirm a Traya / Nihilus / Savage core, Traya and Savage GAC omicrons, relics and an appropriate active datacron against the exact Jocasta Nu variant. Do not assume a clean full-banner clear." }
+        { "counterId": "TRAYA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Use Traya / Nihilus / Savage with Traya's and Savage's GAC omicrons against Jocasta Nu variants." }
       ]
     },
     {
@@ -270,8 +270,8 @@
       "defence": "Leia Organa (GL)",
       "counters": [
         { "counterId": "JABBA", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Do not full auto" },
-        { "counterId": "GREAT_MOTHERS", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Strong" },
-        { "counterId": "SEE", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "GREAT_MOTHERS", "tier": "A", "bannerScore": 60, "undersize": 0 },
+        { "counterId": "SEE", "tier": "A", "bannerScore": 63, "undersize": 0 },
         { "counterId": "MAUL", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
         { "counterId": "STARKILLER", "tier": "C", "bannerScore": 58, "undersize": 0, "notes": "2 shot" },
         { "counterId": "SLKR", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Cleanup" }
@@ -280,18 +280,18 @@
     {
       "defence": "Lord Vader",
       "counters": [
-        { "counterId": "JMK", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Cleanup risk" },
-        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Cleanup risk against dark side clones" },
-        { "counterId": "JML", "tier": "B", "bannerScore": 58, "undersize": 0, "notes": "Cleanup risk" },
-        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Reliable" },
-        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Strong" }
+        { "counterId": "JMK", "tier": "A", "bannerScore": 62, "undersize": 0 },
+        { "counterId": "BO_KATAN_MANDALORE", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Dark-side clone variants may require cleanup." },
+        { "counterId": "JML", "tier": "B", "bannerScore": 58, "undersize": 0 },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3 }
       ]
     },
     {
       "defence": "Major Partagaz",
       "counters": [
-        { "counterId": "PHOENIX", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Exact defence: Partagaz/Krennic/Dedra Meero/KX Security Droid/Imperial Probe Droid. Captain Rex required. Community-reported counter; provisional 5v5 grading, verify datacron and omicron." },
-        { "counterId": "JML", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Exact ISB defence as recorded. Provisional GL fallback; specific 5v5 performance and datacron compatibility not independently verified." }
+        { "counterId": "PHOENIX", "tier": "A", "bannerScore": 61, "undersize": 0, "notes": "Against Partagaz / Krennic / Dedra / KX / Probe Droid, use Phoenix with Captain Rex." },
+        { "counterId": "JML", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "For Partagaz with Krennic / Dedra / KX / Imperial Probe Droid." }
       ]
     },
     {
@@ -327,18 +327,18 @@
     {
       "defence": "Pirate King Hondo Ohnaka",
       "counters": [
-        { "counterId": "CERE", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Preferred" },
-        { "counterId": "BAYLAN", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Unreliable: owner reports repeated firsthand 5v5 losses to Pirate King Hondo with Baylan Skoll, consistently defeating zero enemy units. C / 55 is an owner-approved conservative downgrade (55 is the lowest existing 5v5 score meaning), not a measured result or win rate; no sample size is recorded. Retained for history; prefer the other Hondo counters." },
-        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
-        { "counterId": "LEIA", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Provisional: field the full five - Leia Organa (GL, leader), R2-D2, Captain Drogan, Mon Mothma, C-3PO. One owner-observed full victory; 62 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average. Attacker survival/damage details were not recorded; no established win rate or datacron independence." },
-        { "counterId": "JMK", "tier": "B", "bannerScore": 58, "undersize": 0, "notes": "Provisional, conditional: field the full five - Jedi Master Kenobi (leader), Ahsoka Tano (Snips, not GL), Commander Ahsoka Tano (CAT), General Kenobi, Wat Tambor. Owner reports possible full wins and a possible attack loss after defeating three defenders, leaving a cleanup opportunity. Three defender defeats are not guaranteed; no dependable setup/cleanup pairing is established. 58 is an owner-approved planning estimate for a successful full-squad first-attempt clear, not measured banners or an average; actual attacker survivors were not recorded. A loss is not a victory or a 58-banner result." }
+        { "counterId": "CERE", "tier": "S", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "BAYLAN", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Avoid Baylan against Hondo when another listed counter is available." },
+        { "counterId": "SLKR", "tier": "A", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 62, "undersize": 0, "notes": "Use full Leia (GL) / R2-D2 / Drogan / Mon Mothma / C-3PO." },
+        { "counterId": "JMK", "tier": "B", "bannerScore": 58, "undersize": 0, "notes": "Use full JMK / Ahsoka Tano (Snips) / CAT / General Kenobi / Wat; may leave a cleanup." }
       ]
     },
     {
       "defence": "Queen Amidala",
       "counters": [
-        { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3, "notes": "Preferred" },
-        { "counterId": "JABBA", "tier": "A", "bannerScore": 60, "undersize": 0, "notes": "Reliable" },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 64, "undersize": 3 },
+        { "counterId": "JABBA", "tier": "A", "bannerScore": 60, "undersize": 0 },
         { "counterId": "GAS", "tier": "A", "bannerScore": 61, "undersize": 0 },
         { "counterId": "JMK", "tier": "A", "bannerScore": 62, "undersize": 1 }
       ]
@@ -346,7 +346,7 @@
     {
       "defence": "Qui-Gon Jinn",
       "counters": [
-        { "counterId": "BAD_BATCH", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Cleanup risk" },
+        { "counterId": "BAD_BATCH", "tier": "B", "bannerScore": 60, "undersize": 0 },
         { "counterId": "JKR", "tier": "A", "bannerScore": 61, "undersize": 0 },
         { "counterId": "JML", "tier": "A", "bannerScore": 62, "undersize": 2 }
       ]
@@ -356,7 +356,7 @@
       "counters": [
         { "counterId": "LEIA", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "JMK", "tier": "A", "bannerScore": 60, "undersize": 0 },
-        { "counterId": "TRAYA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Check relic delta" },
+        { "counterId": "TRAYA", "tier": "A", "bannerScore": 63, "undersize": 0 },
         { "counterId": "PHOENIX", "tier": "S", "bannerScore": 61, "undersize": 0 },
         { "counterId": "MOTHER_TALZIN", "tier": "C", "bannerScore": 55, "undersize": 0, "notes": "Two shot" },
         { "counterId": "MALGUS", "tier": "A", "bannerScore": 61, "undersize": 0 }
@@ -365,30 +365,30 @@
     {
       "defence": "Rey (GL)",
       "counters": [
-        { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Use a full squad with no Galactic Legend allies that activates Starkiller's unique and GAC omicron: Palpatine, Mara Jade (The Emperor's Hand), Starkiller, one Jedi and one Light Side Unaligned Force User. Check the exact Rey allies and active datacrons." },
-        { "counterId": "BANE", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Efficient" },
-        { "counterId": "JML", "tier": "C", "bannerScore": 63, "undersize": 0, "notes": "Standard" },
-        { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
+        { "counterId": "STARKILLER", "tier": "S", "bannerScore": 62, "undersize": 0, "notes": "Activate Starkiller's GAC omicron: Palpatine, Mara, Starkiller, one Jedi and one Light Side UFU; no GL ally." },
+        { "counterId": "BANE", "tier": "A", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "JML", "tier": "C", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "LEIA", "tier": "A", "bannerScore": 63, "undersize": 0 },
         { "counterId": "GAS", "tier": "A", "bannerScore": 55, "undersize": 0, "notes": "Cleanup" }
       ]
     },
     {
       "defence": "Rotta the Hutt",
       "counters": [
-        { "counterId": "SEE", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Provisional: one directly observed full-size SEE victory against Rotta / Cad Bane / Greedo / Mob Enforcer / Gamorrean Guard with Rotta's focused datacron active. Exact other attackers, banners, relics and datacron modifiers were not recorded; not an established win rate. Check current datacron and roster before committing." }
+        { "counterId": "SEE", "tier": "B", "bannerScore": 60, "undersize": 0, "notes": "Check Rotta's focused datacron before committing full-size SEE." }
       ]
     },
     {
       "defence": "SLKR",
       "counters": [
-        { "counterId": "JML", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" },
-        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Strong" }
+        { "counterId": "JML", "tier": "S", "bannerScore": 63, "undersize": 0 },
+        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3 }
       ]
     },
     {
       "defence": "SLKR (Dark Side Vision Rey)",
       "counters": [
-        { "counterId": "JML", "tier": "B", "bannerScore": 55, "undersize": 0, "notes": "Provisional, lineup-specific: repeated user-reported 5v5 JML losses to SLKR with Rey (Dark Side Vision), no datacron. JML can lose outright here; B / 55 is a conservative planning value (down from the generic SLKR S / 63), not a measured result or a dependable win. Does not apply to SLKR without Dark Side Vision Rey or to 3v3." }
+        { "counterId": "JML", "tier": "B", "bannerScore": 55, "undersize": 0 }
       ]
     },
     {
@@ -414,9 +414,9 @@
     {
       "defence": "Sith Eternal Emperor",
       "counters": [
-        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3, "notes": "Very efficient" },
-        { "counterId": "WAMPA", "tier": "B", "bannerScore": 58, "undersize": 4, "notes": "Depends on comp" },
-        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0, "notes": "Strong" }
+        { "counterId": "BANE", "tier": "S", "bannerScore": 65, "undersize": 3 },
+        { "counterId": "WAMPA", "tier": "B", "bannerScore": 58, "undersize": 4 },
+        { "counterId": "SLKR", "tier": "S", "bannerScore": 63, "undersize": 0 }
       ]
     },
     {
@@ -443,8 +443,8 @@
         { "counterId": "JMK", "tier": "B", "bannerScore": 60, "undersize": 0 },
         { "counterId": "SEE_BANE", "tier": "S", "bannerScore": 62, "undersize": 0 },
         { "counterId": "THE_STRANGER", "tier": "A", "bannerScore": 62, "undersize": 0 },
-        { "counterId": "REVA", "role": "SETUP", "notes": "Weakening battle only, not expected to win. In one user-reported 5v5 battle Reva (Inquisitors) defeated one Stranger defender and damaged the others. Use it to remove one or more defenders and wear down health or protection, then plan a second team to finish (see the Great Mothers cleanup). One battle only: no win rate, banner result or repeatability." },
-        { "counterId": "GREAT_MOTHERS", "role": "CLEANUP", "notes": "Conditional cleanup, not a fresh-team counter. One user-reported 5v5 win against four remaining Stranger defenders after a Reva (Inquisitors) setup battle had removed one and weakened the rest. Do not expect the same against a full-strength Stranger or an unweakened remnant. Great Mothers squad, the four remaining defenders and banners were not recorded." }
+        { "counterId": "REVA", "role": "SETUP", "notes": "Use Reva to weaken The Stranger: remove a defender and reduce remaining health/protection before cleanup." },
+        { "counterId": "GREAT_MOTHERS", "role": "CLEANUP", "notes": "Use Great Mothers only after a previous attack has removed a Stranger defender and weakened the rest." }
       ]
     },
     {

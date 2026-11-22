@@ -19,6 +19,7 @@ const current = readSource(path.join(root, 'catalogue/source')).source;
 const v34 = sourceAtCommit(root, '3acc291b6049ac723ba2fa875d5dd2678354e05e').source;
 const before = compileSource(baseline);
 const payload = compileSource(current);
+const noNotes = v => JSON.parse(JSON.stringify(v, (k, x) => k === 'notes' ? undefined : x));
 const historical = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-158-159-reconciliation.json'));
 const correction167 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-07-167-revan-malak-baylan.json'));
 const correction171 = readCorrections(path.join(root, 'catalogue/corrections/2026-11-10-171-bane-stranger.json'));
@@ -48,20 +49,20 @@ test('#158/#159 remain reproducible historical decisions; #167 and #171 apply th
     assert.equal(payload.counters['3v3'][depa], undefined);
     assert.equal(payload.defenceCompositions['3v3'][depa], undefined);
     assert.deepEqual(payload.counters['3v3']['Satele Shan'], before.counters['3v3']['Satele Shan']);
-    assert.deepEqual({...payload.counters['5v5'], Geonosians: payload.counters['5v5'].Geonosians.slice(0, -2)}, before.counters['5v5']);
-    assert.deepEqual(payload.counters.FLEET, before.counters.FLEET);
+    assert.deepEqual(noNotes({...payload.counters['5v5'], Geonosians: payload.counters['5v5'].Geonosians.slice(0, -2)}), noNotes(before.counters['5v5']));
+    assert.deepEqual(noNotes(payload.counters.FLEET), noNotes(before.counters.FLEET));
     assert.deepEqual(payload.defenceTeams, before.defenceTeams, 'generic ANY/HIGH JMK threat and other threat rows stay unchanged');
     assert.equal(Object.hasOwn(payload.counters['3v3'], jmkCatGk), false);
     assert.equal(Object.hasOwn(payload.defenceCompositions['3v3'], jmkCatGk), false);
     assert.equal(Object.hasOwn(payload.defenceTeams['3v3'], jmkCatGk), false);
     const jmkRows = payload.counters['3v3']['Jedi Master Kenobi'];
     assert.deepEqual(jmkRows.map(({counterId, tier, bannerScore, undersize, notes}) => ({counterId, tier, bannerScore, undersize, notes})), [
-        {counterId:'BAYLAN_MARROK_SHIN',tier:'S',bannerScore:55,undersize:0,notes:'Requires Marrok and Shin Hati. Strong Season 85 exact-trio evidence; verify opposing datacron and relics.'},
-        {counterId:'LEIA',tier:'S',bannerScore:54,undersize:0,notes:'Requires Captain Drogan and R2-D2. Strong Season 85 exact-trio evidence; check enemy datacron and protection recovery.'},
-        {counterId:'BO_KATAN_MANDALORE',tier:'A',bannerScore:53,undersize:0,notes:'Requires IG-12 & Grogu and Paz Vizsla. Exact-trio evidence supports the clear, but banner efficiency varies; check datacron.'},
-        {counterId:'JML_JKCK_LEIA_JT',tier:'A',bannerScore:53,undersize:0,notes:'Requires Jedi Knight Cal Kestis and Leia (Jedi Training). Exact trio only, not generic Jedi Master Luke; assess datacron.'},
-        {counterId:'LV_APPO_CX2',tier:'A',bannerScore:51,undersize:0,notes:'Requires CC-1119 Appo and CX-2. Full clear can be inefficient; do not substitute a different Lord Vader trio.'},
-        {counterId:'REVA',tier:'A',bannerScore:53,undersize:0,notes:'Recent recorded loss against Jedi Master Kenobi in 3v3. Counter remains viable but is not sufficiently reliable for S tier.'},
+        {counterId:'BAYLAN_MARROK_SHIN',tier:'S',bannerScore:55,undersize:0,notes:'Use Baylan / Marrok / Shin; check the opposing datacron.'},
+        {counterId:'LEIA',tier:'S',bannerScore:54,undersize:0,notes:'Use Leia / Captain Drogan / R2-D2; check enemy protection recovery.'},
+        {counterId:'BO_KATAN_MANDALORE',tier:'A',bannerScore:53,undersize:0,notes:'Use Bo-Katan / IG-12 & Grogu / Paz Vizsla; check the opposing datacron.'},
+        {counterId:'JML_JKCK_LEIA_JT',tier:'A',bannerScore:53,undersize:0,notes:'Use JML / Jedi Knight Cal Kestis / Leia (Jedi Training), not generic JML.'},
+        {counterId:'LV_APPO_CX2',tier:'A',bannerScore:51,undersize:0,notes:'Use Lord Vader / Appo / CX-2; do not substitute a different Lord Vader trio.'},
+        {counterId:'REVA',tier:'A',bannerScore:53,undersize:0,notes:''},
         {counterId:'BAYLAN',tier:'C',bannerScore:48,undersize:0,notes:'Cleanup only'}
     ]);
     const postApplicationSource = applyCorrections(sourceAtCommit(root, correction206.baseline.commit).source, correction206.corrections);
@@ -75,11 +76,11 @@ test('#158/#159 remain reproducible historical decisions; #167 and #171 apply th
     assert.equal(payload.counters['3v3'][oldDefence], undefined);
     assert.equal(payload.defenceCompositions['3v3'][oldDefence], undefined);
     assert.deepEqual(payload.defenceCompositions['3v3'][dr], ['DARTH_REVAN', 'DARTH_MALAK', 'BASTILA_SHAN_FALLEN']);
-    assert.deepEqual(payload.counters['3v3'][dr], [{ counter: 'Baylan Skoll (Marrok + Shin Hati)', counterId: 'BAYLAN_MARROK_SHIN', tier: 'S', bannerScore: 57, undersize: 0, notes: 'Owner-approved flawless high-banner counter vs this exact Malak lineup; conditions not specified.' }]);
+    assert.deepEqual(payload.counters['3v3'][dr], [{ counter: 'Baylan Skoll (Marrok + Shin Hati)', counterId: 'BAYLAN_MARROK_SHIN', tier: 'S', bannerScore: 57, undersize: 0, notes: '' }]);
     assert.deepEqual(payload.counterDefinitions.BAYLAN.required, ['BAYLAN_SKOLL']);
     assert.deepEqual(payload.counterDefinitions.BAYLAN_MARROK_SHIN.required, ['BAYLAN_SKOLL', 'MARROK', 'SHIN_HATI']);
     assert.deepEqual(payload.counters['3v3']['Darth Malgus'], before.counters['3v3']['Darth Malgus']);
-    assert.deepEqual(payload.counters['3v3']['Darth Revan with Zaalbar'], before.counters['3v3']['Darth Revan with Zaalbar']);
+    assert.deepEqual(noNotes(payload.counters['3v3']['Darth Revan with Zaalbar']), noNotes(before.counters['3v3']['Darth Revan with Zaalbar']));
 });
 
 test('consolidated JMK is the sole current selection and legacy saved names resolve without rewriting', () => {

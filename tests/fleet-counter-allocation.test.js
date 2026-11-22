@@ -100,10 +100,10 @@ test("approved fleet rows and detail notes compile exactly without changing glob
   h.run(`currentMode = "FLEET"`);
   const profundityCard = h.run(`buildCounterCardHtml(${JSON.stringify(profundity[0])})`);
   const chimaeraCard = h.run(`buildCounterCardHtml(${JSON.stringify(chimaera[0])})`);
-  assert.match(profundityCard, /Han's Millennium Falcon/);
-  assert.match(profundityCard, /Imperial TIE Bomber is the preferred first reinforcement/);
-  assert.match(chimaeraCard, /Anakin's Eta-2, Marauder and BTL-B Y-wing/);
-  assert.match(chimaeraCard, /TIE Defender is the key reinforcement/);
+  assert.match(profundityCard, /Start Falcon \/ Outrider \/ Rebel Y-wing/);
+  assert.match(profundityCard, /reinforce first with Imperial TIE Bomber/);
+  assert.match(chimaeraCard, /Start TIE Advanced x1 \/ Imperial TIE Fighter \/ TIE Bomber/);
+  assert.match(chimaeraCard, /use TIE Defender and manage Unending Loyalty/);
 });
 
 test("three-fleet round re-plans after a lost Executor mirror and a Leviathan clear", () => {
@@ -140,7 +140,7 @@ test("three-fleet round re-plans after a lost Executor mirror and a Leviathan cl
   const profundityNote = payload.counters.FLEET.Profundity.find(counter => counter.counterId === "PROFUNDITY").notes;
   const chimaeraNote = payload.counters.FLEET.Negotiator.find(counter => counter.counterId === "CHIMAERA").notes;
   assert.match(profundityNote, /Imperial TIE Bomber/);
-  assert.match(chimaeraNote, /Imperial TIE Bomber/);
+  assert.match(chimaeraNote, /TIE Bomber/);
   assert.ok(!payload.counterDefinitions.PROFUNDITY.required.includes("IMPERIAL_TIE_BOMBER"));
   assert.ok(!payload.counterDefinitions.CHIMAERA.required.includes("IMPERIAL_TIE_BOMBER"));
 });
