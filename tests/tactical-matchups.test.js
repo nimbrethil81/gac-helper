@@ -42,8 +42,8 @@ test("5v5 The Stranger keeps its six one-shot rows and adds Reva (setup) then Gr
     assert.deepEqual(rows.slice(0, 6).map(({ counterId, tier, bannerScore, undersize }) => ({ counterId, tier, bannerScore, undersize })), ONE_SHOT);
     assert.deepEqual(rows.slice(6).map(r => Object.keys(r).sort()), [["counter", "counterId", "notes", "role"], ["counter", "counterId", "notes", "role"]]);
     assert.deepEqual(rows.slice(6).map(r => [r.counterId, r.counter, r.role]), [["REVA", "Reva", "SETUP"], ["GREAT_MOTHERS", "Great Mothers", "CLEANUP"]]);
-    assert.match(rows[6].notes, /not expected to win/);
-    assert.match(rows[7].notes, /not a fresh-team counter/);
+    assert.match(rows[6].notes, /weaken The Stranger: remove a defender/);
+    assert.match(rows[7].notes, /only after a previous attack has removed a Stranger defender/);
     assert.ok(!payload.counters["3v3"]["The Stranger"].some(r => r.role), "3v3 is unchanged");
     assert.equal(auditSource(committed).summary.releaseGate, "PASS");
 });

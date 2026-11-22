@@ -72,12 +72,10 @@ test("#169 5v5 Geonosians keeps its three existing B-tier answers and adds owner
     for (const row of rows.slice(-2)) {
         assert.equal(row.confidence, undefined, "non-provisional: no provisional metadata");
         assert.equal(row.role, undefined, "full-size scored row: no tactical role");
-        assert.match(row.notes, /Owner confirms historical 5v5 success/);
-        assert.match(row.notes, /not a measured banner average/);
-        assert.match(row.notes, /current-season repeatability unverified/);
+        assert.doesNotMatch(row.notes, /Owner confirms|measured banner average|repeatability/);
     }
     assert.match(rows[3].notes, /Traya and Nihilus/);
-    assert.match(rows[3].notes, /Sion as an optional support/);
+    assert.match(rows[3].notes, /Sion can provide additional support/);
     assert.match(rows[4].notes, /Merciless Massacre/);
     assert.deepEqual(payload.counterDefinitions.TRAYA.required, ["DARTH_TRAYA", "DARTH_NIHILUS"]);
     const vader = payload.counterDefinitions.VADER;

@@ -64,9 +64,8 @@ function planFor(defence, ownedCharacters, usedTeams, otherDefence = "") {
 test("#108 Rotta the Hutt 5v5 offers only the provisional full-size SEE counter", () => {
     const rows = payload.counters["5v5"]["Rotta the Hutt"];
     assert.deepEqual(strip(rows), [{ counterId: "SEE", tier: "B", bannerScore: 60, undersize: 0 }]);
-    assert.match(rows[0].notes, /^Provisional:/);
     assert.match(rows[0].notes, /focused datacron/);
-    assert.match(rows[0].notes, /not an established win rate/);
+    assert.doesNotMatch(rows[0].notes, /Provisional|established win rate/);
     assert.equal(payload.counters["3v3"]["Rotta the Hutt"], undefined);
     assert.deepEqual(payload.counterDefinitions.SEE.required, ["SITH_ETERNAL_EMPEROR"]);
     assert.deepEqual(payload.defenceCompositions["5v5"]["Rotta the Hutt"],
@@ -86,15 +85,10 @@ test("#125/#126 Hondo retains its existing answers and adds only provisional ful
         { counterId: "LEIA", tier: "A", bannerScore: 62, undersize: 0 },
         { counterId: "JMK", tier: "B", bannerScore: 58, undersize: 0 }
     ]);
-    assert.deepEqual([rows[0], rows[2]].map(row => row.notes), ["Preferred", "Strong"]);
-    assert.match(rows[3].notes, /Leia Organa \(GL, leader\), R2-D2, Captain Drogan, Mon Mothma, C-3PO/);
-    assert.match(rows[3].notes, /One owner-observed full victory/);
-    assert.match(rows[3].notes, /no established win rate or datacron independence/);
-    assert.match(rows[4].notes, /Jedi Master Kenobi \(leader\), Ahsoka Tano \(Snips, not GL\), Commander Ahsoka Tano \(CAT\), General Kenobi, Wat Tambor/);
-    assert.match(rows[4].notes, /possible attack loss after defeating three defenders/);
-    assert.match(rows[4].notes, /Three defender defeats are not guaranteed/);
-    assert.match(rows[4].notes, /A loss is not a victory or a 58-banner result/);
-    for (const row of rows.slice(3)) assert.match(row.notes, /owner-approved planning estimate.*not measured banners or an average/);
+    assert.deepEqual([rows[0], rows[2]].map(row => row.notes), ["", ""]);
+    assert.match(rows[3].notes, /full Leia \(GL\) \/ R2-D2 \/ Drogan \/ Mon Mothma \/ C-3PO/);
+    assert.match(rows[4].notes, /full JMK \/ Ahsoka Tano \(Snips\) \/ CAT \/ General Kenobi \/ Wat; may leave a cleanup/);
+    for (const row of rows.slice(3)) assert.doesNotMatch(row.notes, /owner-approved|planning estimate|Provisional/i);
     assert.equal(payload.counters["3v3"]["Pirate King Hondo Ohnaka"].some(row => ["JMK", "LEIA"].includes(row.counterId)), false);
     assert.deepEqual(payload.counterDefinitions.JMK, { name: "Jedi Master Kenobi", required: ["JEDI_MASTER_KENOBI"], recommended: [] });
     assert.deepEqual(payload.counterDefinitions.LEIA, { name: "Leia Organa (GL)", required: ["LEIA_ORGANA", "CAPTAIN_DROGAN", "R2_D2"], recommended: [] });
@@ -123,8 +117,7 @@ test("#141 Baylan vs Hondo is downgraded to C / 55 and ranked behind every other
         { counterId: "LEIA", tier: "A", bannerScore: 62, undersize: 0 },
         { counterId: "JMK", tier: "B", bannerScore: 58, undersize: 0 }
     ]);
-    assert.match(rows[1].notes, /repeated firsthand 5v5 losses.*zero enemy units/);
-    assert.match(rows[1].notes, /not a measured result or win rate/);
+    assert.equal(rows[1].notes, "Avoid Baylan against Hondo when another listed counter is available.");
     // Other Baylan matchups and 3v3 are untouched.
     assert.equal(payload.counters["5v5"]["Satele Shan"].find(r => r.counterId === "BAYLAN").tier, "S");
     assert.equal(payload.counters["3v3"]["Pirate King Hondo Ohnaka"].some(r => r.counterId === "BAYLAN" && r.tier === "C"), false);
@@ -146,7 +139,7 @@ test("#108 Round Mode assigns SEE to Rotta, never substitutes SEE and Bane, and 
 test("#110 SLKR with Dark Side Vision Rey is its own 5v5 identity; generic SLKR and 3v3 are unchanged", () => {
     const variant = payload.counters["5v5"]["SLKR (Dark Side Vision Rey)"];
     assert.deepEqual(strip(variant), [{ counterId: "JML", tier: "B", bannerScore: 55, undersize: 0 }]);
-    assert.match(variant[0].notes, /can lose outright/);
+    assert.equal(variant[0].notes, "");
     assert.deepEqual(strip(payload.counters["5v5"].SLKR), [
         { counterId: "JML", tier: "S", bannerScore: 63, undersize: 0 },
         { counterId: "BANE", tier: "S", bannerScore: 65, undersize: 3 }
@@ -167,8 +160,7 @@ test("#111 5v5 Finn (Zorii Resistance): Talzin B / 59 with loss warning, Traya k
         { counterId: "STARKILLER", tier: "S", bannerScore: 62, undersize: 0 },
         { counterId: "BAYLAN", tier: "S", bannerScore: 61, undersize: 0 }
     ]);
-    assert.match(rows[0].notes, /Can fail outright/);
-    assert.match(rows[1].notes, /second attempt/);
+    assert.deepEqual(rows.slice(0, 2).map(row => row.notes), ["", ""]);
     assert.deepEqual(strip(payload.counters["3v3"]["Finn (Zorii Resistance)"])[0], { counterId: "MOTHER_TALZIN", tier: "A", bannerScore: 53, undersize: 0 });
     // With only Talzin and Traya owned, the engine now prefers Traya.
     assert.equal(planFor("Finn (Zorii Resistance)", ["MOTHER_TALZIN", "DARTH_TRAYA", "DARTH_NIHILUS"], []), "TRAYA");

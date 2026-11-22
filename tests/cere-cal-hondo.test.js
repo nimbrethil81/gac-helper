@@ -28,8 +28,9 @@ test('approved exact Hondo counter is A/56 non-provisional; only declared source
     const before=sourceAtCommit(root,document.baseline.commit).source;
     assert.deepEqual(applyCorrections(before,document.corrections), sourceAtCommit(root,'f8d4cc8627eec8494247cff327810d5cca9f32cc').source);
     const old=compileSource(before);
-    assert.deepEqual({...payload.counters['5v5'],Geonosians:payload.counters['5v5'].Geonosians.slice(0,-2)},old.counters['5v5']);
-    assert.deepEqual(payload.counters.FLEET,old.counters.FLEET);
+    const noNotes=v=>JSON.parse(JSON.stringify(v,(k,x)=>k==='notes'?undefined:x));
+    assert.deepEqual(noNotes({...payload.counters['5v5'],Geonosians:payload.counters['5v5'].Geonosians.slice(0,-2)}),noNotes(old.counters['5v5']));
+    assert.deepEqual(noNotes(payload.counters.FLEET),noNotes(old.counters.FLEET));
     assert.deepEqual(payload.counterDefinitions.CERE,old.counterDefinitions.CERE);
     const rows=payload.counters['3v3'][defence];
     const oldRows=old.counters['3v3'][defence];
@@ -41,8 +42,7 @@ test('approved exact Hondo counter is A/56 non-provisional; only declared source
     const row=rows.at(-1);
     assert.equal(row.tier,'A'); assert.equal(row.bannerScore,56); assert.equal(row.undersize,0);
     assert.equal(row.confidence,undefined);
-    assert.match(row.notes,/Owner-reported full clear, 56 banners on 2026-11-06/);
-    assert.match(row.notes,/one observed battle/); assert.match(row.notes,/conditions unknown/);
+    assert.equal(row.notes,'Use Cere / Taron Malicos / Cal Kestis (not Jedi Knight Cal Kestis).');
     assert.deepEqual(payload.counterDefinitions.CERE_CAL.required,members);
     assert.deepEqual(payload.defenceCompositions['3v3'][defence],['PIRATE_KING_HONDO_OHNAKA','HONDO_OHNAKA','VANE']);
 });
