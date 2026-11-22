@@ -8,8 +8,9 @@
 //       Import a reconciled Sheet snapshot into catalogue/source/ unchanged and
 //       prove exact parity with its captured action=data.
 //   compile [--source <dir>] [--gate parity|release] [--out <file>]
-//           [--compare <action-data.json>] [--markdown <file>]
+//           [--compare <action-data.json>] [--markdown <file>] [--base-ref <ref>]
 //       Compile source to the seven-key payload and run the shared rule set.
+//       --base-ref also checks counter Notes added or changed versus <ref>.
 //   release [--check]
 //       Record (or, with --check, verify) catalogue/release.json.
 //   corrections <list.json> [--preview <id>] [--apply <id>]...
@@ -48,6 +49,10 @@ const {
   writeSourceAtomically
 } = require("./catalogue-source-lib.js");
 const { sourceAtCommit } = require("./catalogue-release-lib.js");
+
+// Blocking findings as one line each. Note-editorial findings carry the exact
+// offending text and what to change, so the author can fix them without a rerun.
+const describeFailure = (finding) => `${finding.code} ${finding.subject}${finding.code.startsWith("NOTE_") ? ` — ${finding.observed} — ${finding.expected}` : ""}`;
 
 const DEFAULT_SOURCE = path.join("catalogue", "source");
 const RELEASE_FILE = path.join("catalogue", "release.json");
@@ -135,6 +140,11 @@ function previewLines(document, correction, plan) {
       ...json(difference.actual).split("\n").map((line) => `    + ${line}`)
     );
   }
+  const editorial = plan.after.findings.filter((finding) => finding.code.startsWith("NOTE_"));
+  if (editorial.length) {
+    lines.push("Editorial note review (GAC-NOTES1; warnings need a tactical review decision, not a refusal):");
+    for (const finding of editorial) lines.push(`  ${finding.severity} ${finding.code} ${finding.subject}: ${finding.observed} — ${finding.expected}`);
+  }
   lines.push(
     ...(plan.impactDeclared ? [] : [`DRAFT: copy these ${plan.differences.length} path(s) into expectedPayloadPaths and preview again before approval.`]),
     `Release gate after change: ${plan.after.summary.releaseGate}`,
@@ -145,11 +155,12 @@ function previewLines(document, correction, plan) {
 
 function planModernCorrection(source, current, correction) {
   const next = applyCorrections(source, [correction]);
-  const after = auditSource(next);
+  // The authoritative baseline for the note-editorial check is the source the correction applies to.
+  const after = auditSource(next, { baseline: source });
   if (current.summary.releaseGate !== "PASS") throw new Error(`${correction.id}: current source fails the release gate; refusing to build on an invalid baseline`);
   if (after.summary.releaseGate !== "PASS") {
     const failures = after.findings.filter((finding) => finding.severity === "blocking" || finding.severity === "owner-approval");
-    throw new Error(`${correction.id}: coherent result fails the release gate (${failures.slice(0, 8).map((finding) => `${finding.code} ${finding.subject}`).join("; ")})`);
+    throw new Error(`${correction.id}: coherent result fails the release gate (${failures.slice(0, 8).map(describeFailure).join("; ")})`);
   }
   const differences = diffPayloads(current.payload, after.payload);
   const actualPaths = differences.map((difference) => difference.path).sort();
@@ -164,10 +175,10 @@ function planModernCorrection(source, current, correction) {
 // pass the release gate and change exactly the union of the declared paths.
 function planModernGroup(source, current, chosen) {
   const next = applyCorrections(source, chosen);
-  const after = auditSource(next);
+  const after = auditSource(next, { baseline: source });
   if (after.summary.releaseGate !== "PASS") {
     const failures = after.findings.filter((finding) => finding.severity === "blocking" || finding.severity === "owner-approval");
-    throw new Error(`combined result of ${chosen.map((entry) => entry.id).join(", ")} fails the release gate (${failures.slice(0, 8).map((finding) => `${finding.code} ${finding.subject}`).join("; ")})`);
+    throw new Error(`combined result of ${chosen.map((entry) => entry.id).join(", ")} fails the release gate (${failures.slice(0, 8).map(describeFailure).join("; ")})`);
   }
   const actual = diffPayloads(current.payload, after.payload).map((difference) => difference.path).sort();
   const expected = chosen.flatMap((entry) => entry.expectedPayloadPaths).sort();
@@ -289,7 +300,15 @@ function commandImport(options) {
 
 function commandCompile(options) {
   const { source, findings } = loadSourceOrThrow(options.source ?? DEFAULT_SOURCE);
-  const report = auditSource(source, { readFindings: findings });
+  // --base-ref <ref>: also run the note-editorial check on counter Notes this
+  // source adds or changes relative to the committed source at <ref> (CI).
+  let baseline;
+  if (options.baseRef) {
+    const base = sourceAtCommit(path.resolve(options.repo ?? process.cwd()), options.baseRef);
+    if (base.findings.length) throw new Error(`cannot read the catalogue source at ${options.baseRef}: ${base.findings[0].location} ${base.findings[0].observed}`);
+    baseline = base.source;
+  }
+  const report = auditSource(source, { readFindings: findings, baseline });
   if (options.out) fs.writeFileSync(options.out, `${JSON.stringify(report.payload)}\n`);
   if (options.markdown) fs.writeFileSync(options.markdown, renderMarkdown(report));
   const { bySeverity, releaseGate } = report.summary;
@@ -299,6 +318,9 @@ function commandCompile(options) {
     `Release gate: ${releaseGate}`
   ];
   let exitCode = options.gate === "release" && releaseGate !== "PASS" ? 1 : 0;
+  for (const finding of report.findings.filter((entry) => entry.code.startsWith("NOTE_"))) {
+    lines.push(`${finding.severity} ${finding.code} ${finding.location} ${finding.subject}: ${finding.observed} — ${finding.expected}`);
+  }
   if (options.compare) {
     const differences = diffPayloads(JSON.parse(fs.readFileSync(options.compare, "utf8")), report.payload);
     lines.push(`Compare with ${options.compare}: ${differences.length ? `${differences.length} difference(s)` : "EXACT PARITY"}`);

@@ -114,7 +114,7 @@ test("orchestration exercises preview → authentic approval → engine apply/re
   const doc = pending();
   const { source } = readSource(path.join(seed, "catalogue/source"));
   const before = source["matchups/3v3.json"].find((row) => row.defence === "Jedi Master Kenobi");
-  const after = copy(before); after.counters[0].notes += " Synthetic test only.";
+  const after = copy(before); after.counters[0].notes = "Requires Marrok and Shin Hati."; // a changed note must satisfy GAC-NOTES1
   doc.corrections[0].changes = [{ file: "matchups/3v3.json", operation: "AMEND", stableKey: { mode: "3v3", defence: "Jedi Master Kenobi" }, before, after }];
   doc.corrections[0].expectedPayloadPaths = diffPayloads(compileSource(source), compileSource(applyCorrections(source, doc.corrections))).map((diff) => diff.path);
   const release = JSON.parse(fs.readFileSync(path.join(seed, "catalogue/release.json")));

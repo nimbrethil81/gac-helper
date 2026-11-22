@@ -145,6 +145,9 @@ const RULES = Object.freeze({
   UNDERSIZE_NONNUMERIC: ["warning", "Undersize is blank or non-numeric and is read as 0."],
   UNDERSIZE_INVALID: ["blocking", "Undersize is fractional, negative or larger than the format allows."],
   MATCHUP_PROVISIONAL_INVALID: ["blocking", "A provisional option needs valid evidence, exact attacking membership and no scoring or tactical role."],
+  NOTE_PROCESS_COMMENTARY: ["blocking", "A new or changed counter note contains process or research commentary (approval status, provisional status, URLs, history, sample sizes, scoring justification) instead of tactical guidance."],
+  NOTE_LENGTH: ["warning", "A new or changed counter note is longer than the 120-character editorial target; confirm it is all tactically useful."],
+  NOTE_UNCERTAINTY: ["warning", "A new or changed counter note contains generic uncertainty wording rather than a specific tactical instruction."],
   MATCHUP_ROLE_INVALID: ["blocking", "A tactical matchup's role is not exactly SETUP or CLEANUP."],
   MATCHUP_ROLE_SCORED: ["blocking", "A SETUP/CLEANUP matchup carries a tier, banner score or undersize; tactical steps are never ranked or projected as wins."],
   MATCHUP_ROLE_NOTES_BLANK: ["blocking", "A SETUP/CLEANUP matchup has no notes stating its purpose and conditions."],
@@ -1028,8 +1031,8 @@ function checkMatchups(model, add, units, scoreMeanings) {
       const validMembers = Array.isArray(members) && members.length > 0 && members.length <= UNIT_COUNT[mode] && new Set(members).size === members.length && members.every(id => units.has(id) && (mode === "FLEET" ? SHIP_TYPES.includes(units.get(id).unitType) : units.get(id).unitType === "CHARACTER"));
       const core = model.members.filter(m => m.counterId === counterId && m.role === "REQUIRED").map(m => m.unitId);
       const validDate = /^\d{4}-\d{2}-\d{2}$/.test(matchup.observedAt ?? "") && Number.isFinite(Date.parse(matchup.observedAt)) && new Date(matchup.observedAt).toISOString().slice(0, 10) === matchup.observedAt;
-      if (!["3v3", "5v5"].includes(mode) || matchup.confidence !== "PROVISIONAL" || !["RELATED", "SINGLE_REPORT"].includes(matchup.evidenceKind) || !validMembers || !core.every(id => members?.includes(id)) || members?.[0] !== core[0] || !url || url.protocol !== "https:" || url.username || url.password || !validDate || isBlank(matchup.notes) || ["tier", "bannerScore", "undersize", "role"].some(field => matchup[field] !== undefined)) {
-        add("MATCHUP_PROVISIONAL_INVALID", { ...context, observed: "invalid provisional option", expected: "PROVISIONAL, RELATED or SINGLE_REPORT, exact core-inclusive members, HTTPS evidence, observation date, conditions, no score/role", effect: "Cannot safely show an unscored research option" });
+      if (!["3v3", "5v5"].includes(mode) || matchup.confidence !== "PROVISIONAL" || !["RELATED", "SINGLE_REPORT"].includes(matchup.evidenceKind) || !validMembers || !core.every(id => members?.includes(id)) || members?.[0] !== core[0] || !url || url.protocol !== "https:" || url.username || url.password || !validDate || typeof matchup.notes !== "string" || ["tier", "bannerScore", "undersize", "role"].some(field => matchup[field] !== undefined)) {
+        add("MATCHUP_PROVISIONAL_INVALID", { ...context, observed: "invalid provisional option", expected: "PROVISIONAL, RELATED or SINGLE_REPORT, exact core-inclusive members, HTTPS evidence, observation date, string notes (may be empty), no score/role", effect: "Cannot safely show an unscored research option" });
       }
       checkMatchupUnitTypes(matchup, mode, counterId, types, add, context);
       continue;

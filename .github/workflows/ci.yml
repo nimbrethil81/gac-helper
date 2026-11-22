@@ -38,5 +38,11 @@ jobs:
       - name: Verify Git-native catalogue source matches its release record
         run: npm run catalogue:release -- --check
 
+      - name: Check counter Notes added or changed by this pull request (GAC-NOTES1)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: origin/${{ github.base_ref }}
+        run: npm run catalogue:compile -- --gate release --base-ref "$BASE_REF"
+
       - name: Build and verify the static catalogue Pages artifact
         run: npm run catalogue:site -- --out "$RUNNER_TEMP/_site"

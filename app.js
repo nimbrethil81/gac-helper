@@ -4061,7 +4061,7 @@ function isValidCataloguePayload(data) {
                 Array.isArray(row.required) && row.required.length > 0 && row.required.length <= (mode === "3v3" ? 3 : 5) &&
                 new Set(row.required).size === row.required.length && row.required.every(id => data.characterDefinitions[id]?.unitType === "CHARACTER") &&
                 data.counterDefinitions[row.counterId] && Array.isArray(data.counterDefinitions[row.counterId].required) && row.required[0] === data.counterDefinitions[row.counterId].required[0] && data.counterDefinitions[row.counterId].required.every(id => row.required.includes(id)) &&
-                typeof row.notes === "string" && row.notes.trim() && /^\d{4}-\d{2}-\d{2}$/.test(row.observedAt || "") &&
+                typeof row.notes === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.observedAt || "") &&
                 Number.isFinite(Date.parse(row.observedAt)) && new Date(row.observedAt).toISOString().slice(0, 10) === row.observedAt &&
                 url.protocol === "https:" && !url.username && !url.password;
         })));
@@ -5172,7 +5172,7 @@ function buildProvisionalCardHtml(option, availabilityUnknown = false) {
         <div class="card-header"><div class="team-name">${escapeHtml(option.counter)}</div><span class="provisional-badge">Provisional</span><span>${statusLabel}</span></div>
         <p><strong>Provisional — ${label}</strong></p>
         <p>${option.required.map((id, i) => escapeHtml(getCharacterName(id)) + (i === 0 ? " (leader)" : "") + (!availabilityUnknown && characterAvailabilityNote(id) ? ` — ${escapeHtml(characterAvailabilityNote(id))}` : "")).join(" / ")}</p>
-        <p>${escapeHtml(option.notes)}</p>
+        ${option.notes.trim() ? `<p>${escapeHtml(option.notes)}</p>` : ""}
         <p><a href="${escapeHtml(option.evidenceUrl)}" target="_blank" rel="noopener noreferrer">Evidence</a> · Observed ${escapeHtml(option.observedAt)}</p>
     </div>`;
 }
