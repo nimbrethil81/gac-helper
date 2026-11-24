@@ -1771,3 +1771,77 @@ body:has(.app-version-card) { background-color: var(--bg); background-repeat: no
 .board-undo-notice { position: sticky; top: 8px; z-index: 5; }
 .round-board-switch .mode-button { min-height: 44px; }
 .defence-row-panel .board-team-select, .defence-row-panel .board-custom-name { min-height: 44px; }
+
+/* Upgrade priorities reuse the round cards and Usage rows. */
+body:has(.upgrade-header) { background-color: var(--bg); background-repeat: no-repeat; }
+.upgrade-header h1 { font-size: 16px; margin: 0 0 10px; }
+.upgrade-header p, .upgrade-prompt p, .upgrade-coverage p, .upgrade-gear-intro,
+.upgrade-sync, .upgrade-metrics dt {
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
+.upgrade-header p, .upgrade-coverage p { margin: 0; }
+.upgrade-prompt h2, .upgrade-category h2 { font-size: 15px; margin: 0; }
+.upgrade-prompt p { margin: 11px 0; }
+.upgrade-header .roster-msg { margin: 8px 0; }
+.upgrade-header .roster-data-btn, .upgrade-prompt .roster-data-btn, .upgrade-header select {
+    min-height: 44px;
+    border: 1px solid #22324a;
+}
+.upgrade-prompt .roster-undo-btn { border-color: var(--jedi-blue); }
+.upgrade-prompt button + button { margin-top: 8px; }
+.upgrade-sync {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.upgrade-sync button { width: auto; flex-shrink: 0; }
+.upgrade-sync button:disabled { opacity: .65; cursor: default; }
+.upgrade-header .usage-period { font-size: 12px; }
+.upgrade-header select { width: 100%; background: var(--panel-light); }
+.upgrade-metrics {
+    display: flex;
+    justify-content: space-between;
+    column-gap: 12px;
+    margin: 10px 0 2px;
+    padding-top: 9px;
+    border-top: 1px solid #22324a;
+}
+.upgrade-metrics div:last-child { text-align: right; }
+.upgrade-metrics dd { margin: 2px 0 0; font-size: 20px; font-weight: bold; }
+.upgrade-gear-intro { margin: 6px 0 0; }
+.upgrade-ranking { margin: 6px 0 0; }
+.upgrade-row { padding: 10px 0; }
+.upgrade-row .usage-rank { flex-basis: 18px; font-size: 14px; }
+.upgrade-row .usage-help { margin-top: 4px; }
+.upgrade-row .usage-total { flex-shrink: 0; font-size: 20px; }
+.upgrade-mods { display: flex; gap: 3px; margin-top: 6px; }
+.upgrade-mods span {
+    width: 12px;
+    height: 12px;
+    box-sizing: border-box;
+    border-radius: 2px;
+    border: 1px solid #687c99;
+}
+.upgrade-mods .filled { background: var(--jedi-blue); border-color: var(--jedi-blue); }
+.upgrade-disclosure {
+    display: block;
+    margin: 0 auto;
+    padding: 6px 10px;
+    min-height: 44px;
+    border: 0;
+    background: transparent;
+    color: var(--jedi-blue);
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+}
+.upgrade-category .usage-empty { padding: 0; margin-bottom: 0; }
+.upgrade-coverage p + p { margin-top: 4px; }
+
+@media (max-width: 350px) {
+    .upgrade-header select { padding-inline: 6px; }
+}

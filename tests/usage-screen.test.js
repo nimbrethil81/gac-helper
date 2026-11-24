@@ -226,3 +226,230 @@ test("import rejects current/completed season contradictions instead of choosing
     assert.equal(h.run(`importUsageHistory(${JSON.stringify(backup(newerDevice))}).ok`), false);
     assert.equal(h.run("JSON.stringify(usageHistory)"), before);
 });
+
+const originalAccount = "000000001";
+const otherAccount = "000000002";
+const rosterSync = "2026-10-27T12:00:00.000Z";
+
+function seedUpgradeRoster(h, units, allyCode = originalAccount, owned = Object.keys(units)) {
+    h.run(`{
+        const rosterFacts = ${JSON.stringify(units)};
+        const apiAccount = ${JSON.stringify(allyCode)};
+        const syncedAt = ${JSON.stringify(rosterSync)};
+        const meta = { allyCode: apiAccount, syncedAt };
+        const development = { ...meta, source: ROSTER_SOURCE_API, units: rosterFacts };
+        applyRoster(${JSON.stringify(owned)}, ROSTER_SOURCE_API, { meta, development, undo: true });
+    }`);
+}
+
+test("upgrade rankings apply lower median, minimum use, ownership and independent mod qualification", () => {
+    const h = harness();
+    h.run(`Object.assign(characterDefinitions, {
+        C:{name:'Charlie',unitType:'CHARACTER'}, D:{name:'Delta',unitType:'CHARACTER'},
+        E:{name:'Echo',unitType:'CHARACTER'}, F:{name:'Foxtrot',unitType:'CHARACTER'},
+        G:{name:'Golf',unitType:'CHARACTER'}
+    })`);
+    seedUpgradeRoster(h, {
+        A: { gear: 12, modCount: 0 }, B: { gear: 13, relic: 0, modCount: 6 },
+        C: { gear: 13, relic: 2, stars: 5 }, D: { gear: 13, relic: 3, modCount: 4 },
+        E: { gear: 13, modCount: 0 }, F: { gear: 1, modCount: 0 }, G: { gear: 0, modCount: -1 },
+        S1: { gear: 1, modCount: 0 }, OLD: { gear: 1, modCount: 0 }
+    });
+    const eventWith = (id, ids, options = {}) => event(id, "attack", "S4", {
+        participants: ids.map(unitId => ({ unitId, unitType: "CHARACTER", role: "member" })), ...options
+    });
+    const ids = ["A", "B", "C", "D", "E", "G", "S1", "OLD"];
+    seed(h, [eventWith("r1", [...ids, "F"]), eventWith("r2", [...ids, "F"]), eventWith("r3", ids),
+        eventWith("void", ["F", "C"], { voided: true })]);
+    const result = h.read("upgradeRankings(usagePeriodEvents('all'))");
+    assert.equal(result.typical, 13, "lower middle is R0, not R2");
+    assert.deepEqual(result.gear.map(r => [r.id, r.investment, r.uses, r.gap, r.score]), [["A", 12, 3, 1, 3]]);
+    assert.deepEqual(result.mods.map(r => [r.id, r.modCount, r.gap, r.score]), [["A", 0, 6, 18], ["E", 0, 6, 18], ["D", 4, 2, 6]]);
+    assert.equal(result.unknownGear, 2);
+    assert.equal(result.unknownMods, 2);
+
+    h.run("ownedCharacters = ['E','G']");
+    const onlyMods = h.read("upgradeRankings(usagePeriodEvents('all'))");
+    assert.equal(onlyMods.typical, null);
+    assert.deepEqual(onlyMods.mods.map(r => r.id), ["E"]);
+    assert.deepEqual(onlyMods.gear, []);
+});
+
+test("upgrade ties use uses, display label and ID and update from changed development and ownership", () => {
+    const h = harness();
+    const facts = {
+        A: { gear: 10, modCount: 3 }, B: { gear: 8, modCount: 2 },
+        C: { gear: 10, modCount: 3 }, D: { gear: 10, modCount: 3 },
+        HIGH1: { gear: 13, relic: 0 }, HIGH2: { gear: 13, relic: 1 },
+        HIGH3: { gear: 13, relic: 2 }, HIGH4: { gear: 13, relic: 2 }, HIGH5: { gear: 13, relic: 3 }
+    };
+    h.run(`for (const id of ${JSON.stringify(Object.keys(facts))}) {
+        characterDefinitions[id] = {name: id === 'A' ? 'Zulu' : ['C','D'].includes(id) ? 'Twin' : id, unitType: 'CHARACTER'};
+    }`);
+    seedUpgradeRoster(h, facts);
+    seed(h, Array.from({ length: 4 }, (_, i) => event("round" + i, i === 0 ? "defence" : "attack", "S4", {
+        participants: Object.keys(facts).filter(id => id !== "B" || i !== 3)
+            .map(unitId => ({ unitId, unitType: "CHARACTER", role: "member" }))
+    })));
+    const rows = () => h.read("upgradeRankings(usagePeriodEvents('all'))");
+    assert.equal(rows().typical, 13);
+    assert.deepEqual(rows().mods.map(r => [r.id, r.score]), [["C", 12], ["D", 12], ["A", 12], ["B", 12]]);
+    assert.deepEqual(rows().gear.map(r => r.id), ["B", "C", "D", "A"]);
+    h.run("rosterDevelopment.units.A = { gear: 13, relic: 4, modCount: 6 }; ownedCharacters = ownedCharacters.filter(id => id !== 'C')");
+    assert.deepEqual(rows().mods.map(r => r.id), ["D", "B"]);
+    assert.deepEqual(rows().gear.map(r => r.id), ["B", "D", "HIGH1"]);
+});
+
+test("upgrade period defaults by attributed seasons and keeps explicit empty periods separate from Usage", () => {
+    const h = harness();
+    const pilot = { unitId: "A", unitType: "CHARACTER", role: "pilot" };
+    const fleet = event("fleet", "attack", "S2", { mode: "FLEET", participants: [pilot],
+        benchShips: ["S3"], attribution: { complete: false, pilotsComplete: false, provenance: "actual-fleet" } });
+    seed(h, [event("one", "attack", "S1"), fleet, event("void", "attack", "S3", { voided: true }),
+        event("unattributed", "attack", "S3", { participants: [], attribution: { complete: false, provenance: "unknown" } }),
+        event("unknown", "attack", null)]);
+    seedUpgradeRoster(h, { A: { modCount: 0 } });
+    assert.equal(h.run("defaultUpgradePeriod()"), "all");
+    h.run(`const duplicatePilot = ${JSON.stringify(fleet)}; duplicatePilot.participants.push(duplicatePilot.participants[0]);`);
+    assert.equal(h.run("usageRankings('characters', [duplicatePilot])[0].total"), 1);
+    h.run(`usageHistory.events.push(${JSON.stringify(event("three", "attack", "S3"))}); setView('upgrades'); confirmUpgradeAccount()`);
+    assert.equal(h.run("upgradePeriod"), "completed");
+    assert.equal(h.run("usageRankings('characters', usagePeriodEvents('completed'))[0].total"), 3);
+    assert.match(h.app.innerHTML, /partial lineups and unknown pilot participation/i);
+    h.run("setUpgradePeriod('current'); render()");
+    assert.match(h.app.innerHTML, /No usage recorded for this period/);
+    assert.equal(h.run("upgradePeriod"), "current");
+    h.run("setUsagePeriod('all'); setView('more'); setView('upgrades')");
+    assert.equal(h.run("upgradePeriod"), "completed");
+    assert.equal(h.run("usagePeriod"), "all");
+});
+
+test("offline upgrade navigation and cancel are read-only with no active round or network", () => {
+    const h = harness();
+    h.context.fetch = () => assert.fail("opening Upgrade priorities must not fetch");
+    h.run("setView('more')");
+    assert.match(h.app.innerHTML, /📊 Usage<\/span>[\s\S]*?📈 Upgrade priorities/);
+    const beforeFirstUse = [...h.values];
+    h.run("setView('upgrades')");
+    assert.match(h.app.innerHTML, /Back to More/);
+    assert.match(h.app.innerHTML, /Go to My Roster/);
+    assert.match(h.app.innerHTML, /Go to Usage/);
+    assert.match(h.app.innerHTML, /nav-button active" onclick="setView\('more'\)/);
+    assert.deepEqual([...h.values], beforeFirstUse);
+    seedUpgradeRoster(h, { A: { gear: 12, modCount: 0 } });
+    seed(h, [event("one"), event("two"), event("three")]);
+    const beforeCancel = [...h.values];
+    h.run("setView('upgrades')");
+    assert.match(h.app.innerHTML, /Confirm your usage history/);
+    assert.doesNotMatch(h.app.innerHTML, /Missing mods/);
+    h.run("setView('more'); setView('usage')");
+    assert.match(h.app.innerHTML, /Alpha/);
+    assert.deepEqual([...h.values], beforeCancel);
+    assert.equal(h.run("board"), null);
+});
+
+test("binding survives reload, clears no history, and restores only the original account", () => {
+    const h = harness();
+    seedUpgradeRoster(h, { A: { gear: 12, modCount: 0 } });
+    seed(h, [event("one"), event("two"), event("three")]);
+    h.run("saveUsageHistory(); setView('upgrades'); confirmUpgradeAccount()");
+    assert.match(h.app.innerHTML, /0\/6/);
+    const restart = harness(Object.fromEntries(h.values));
+    restart.run("loadRoster(); setView('upgrades')");
+    assert.match(restart.app.innerHTML, /0\/6/);
+    seedUpgradeRoster(h, { A: { gear: 8, modCount: 5 } }, otherAccount);
+    h.run("render()");
+    assert.match(h.app.innerHTML, /Return to your original roster/);
+    assert.doesNotMatch(h.app.innerHTML, /Confirm usage belongs|Missing mods|00000000/);
+    const stats = h.read("JSON.parse(usageBackupPayload()).history");
+    h.run("undoImport()");
+    assert.match(h.app.innerHTML, /0\/6/);
+    h.run("clearRoster()");
+    assert.match(h.app.innerHTML, /Import your roster/);
+    assert.deepEqual(h.read("JSON.parse(usageBackupPayload()).history"), stats);
+    assert.equal(h.run("readUpgradeAccount().allyCode"), originalAccount);
+    seedUpgradeRoster(h, { A: { gear: 10, modCount: 1 } });
+    h.run("render()");
+    assert.match(h.app.innerHTML, /1\/6/);
+    assert.doesNotMatch(h.run("usageBackupPayload() + JSON.stringify(battleFeedbackPayload())"), /00000000|allyCode/);
+});
+
+test("mixed-account recording and valid backup import require truthful reconfirmation, failed import does not", () => {
+    const h = harness();
+    seed(h, [event("one"), event("two"), event("three")]);
+    seedUpgradeRoster(h, { A: { gear: 12, modCount: 0 } });
+    h.run("setView('upgrades'); confirmUpgradeAccount()");
+    assert.equal(h.run("importUsageHistory('{}').ok"), false);
+    assert.equal(h.run("upgradeAccountStatus()"), "ready");
+    h.run(`const writeStore = localStorage.setItem;
+        localStorage.setItem = (key, value) => {
+            if (key === USAGE_HISTORY_KEY) throw new Error('quota');
+            writeStore(key, value);
+        };`);
+    assert.equal(h.run("importUsageHistory(usageBackupPayload()).ok"), false);
+    assert.equal(h.run("upgradeAccountStatus()"), "ready");
+    h.run("localStorage.setItem = writeStore");
+    assert.equal(h.run("importUsageHistory(usageBackupPayload()).ok"), true);
+    assert.equal(h.run("upgradeAccountStatus()"), "confirm");
+    h.run("confirmUpgradeAccount()");
+    seedUpgradeRoster(h, { A: { gear: 12, modCount: 4 } }, otherAccount);
+    h.run(`writeUsageEvent(${JSON.stringify(event("other"))}); undoImport();`);
+    assert.match(h.app.innerHTML, /Confirm your usage history/);
+    assert.doesNotMatch(h.app.innerHTML, /Missing mods/);
+    assert.equal(h.run("readUpgradeAccount().allyCode"), originalAccount);
+    assert.equal(h.run("usageHistory.events.length"), 4);
+    const fresh = harness(Object.fromEntries(h.values));
+    fresh.run("loadRoster(); setView('upgrades')");
+    assert.match(fresh.app.innerHTML, /Confirm your usage history/);
+});
+
+test("legacy, paste claims and a typed code are ineligible to confirm history", () => {
+    const h = harness();
+    seed(h, [event("one")]);
+    h.run("allyCodeDraft='000000002'; saveRoster('manual', { owned: ['A'] }); setView('upgrades'); confirmUpgradeAccount()");
+    assert.match(h.app.innerHTML, /Import your roster/);
+    assert.equal(h.run("readUpgradeAccount()"), null);
+    const claimed = JSON.stringify({ owned: ["A"], source: "swgoh.gg", allyCode: otherAccount,
+        development: { A: { gear: 13, relic: 5 } } });
+    h.run(`importDraft=${JSON.stringify(claimed)}; importRoster(); confirmUpgradeAccount()`);
+    assert.match(h.app.innerHTML, /Import your roster/);
+    assert.equal(h.run("readUpgradeAccount()"), null);
+    seedUpgradeRoster(h, { A: { gear: 13, relic: 0 } });
+    h.run("toggleOwned('B'); confirmUpgradeAccount()");
+    assert.equal(h.run("readUpgradeAccount().allyCode"), originalAccount, "manual ownership edit retains the genuine snapshot");
+    h.run(`importDraft=${JSON.stringify(claimed)}; importRoster()`);
+    assert.match(h.app.innerHTML, /Import your roster/);
+    h.run("undoImport()");
+    assert.equal(h.run("upgradeAccountStatus()"), "ready");
+});
+
+test("explicit refresh uses saved account, coalesces in-flight requests and preserves state on failure", async () => {
+    const h = harness();
+    seedUpgradeRoster(h, { A: { gear: 12, modCount: 0 } });
+    seed(h, [event("one"), event("two"), event("three")]);
+    h.context.navigator.onLine = true;
+    h.context.AbortController = AbortController;
+    h.run(`baseIdToUnit = { EXTERNAL_A: { characterId: 'A', unitType: 'CHARACTER' }};
+        allyCodeDraft = '${otherAccount}';
+        setView('upgrades'); confirmUpgradeAccount(); setUpgradePeriod('current'); toggleUpgradeList('mods');
+        let requested = [], resolveRoster;
+        fetchRosterFromApi = code => { requested.push(code); return new Promise(resolve => { resolveRoster = resolve; }); };
+    `);
+    const refresh = h.run("refreshUpgradeRoster()");
+    await h.run("refreshUpgradeRoster()");
+    assert.deepEqual(h.read("requested"), [originalAccount]);
+    assert.match(h.app.innerHTML, /refreshUpgradeRoster\(\)" disabled>Refreshing…/);
+    h.run(`resolveRoster({ ok: true, allyCode: '${originalAccount}', syncedAt: '2026-10-28T12:00:00.000Z',
+        ownedBaseIds:['EXTERNAL_A'], development: { EXTERNAL_A: { gear: 13, relic: 2, modCount: 6 } } })`);
+    await refresh;
+    assert.match(h.app.innerHTML, /28 Oct 2026/);
+    assert.doesNotMatch(h.app.innerHTML, /0\/6/);
+    assert.equal(h.run("allyCodeDraft"), otherAccount);
+    assert.equal(h.run("upgradePeriod"), "current");
+    assert.equal(h.run("expandedUpgrades.has('mods')"), true);
+    h.context.navigator.onLine = false;
+    await h.run("refreshUpgradeRoster()");
+    assert.match(h.app.innerHTML, /You&#39;re offline/);
+    assert.match(h.app.innerHTML, /28 Oct 2026/);
+    assert.equal(h.run("upgradeAccountStatus()"), "ready");
+});
