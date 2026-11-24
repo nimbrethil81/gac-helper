@@ -541,10 +541,19 @@ test("Deploy Pages Live stays manual, main-only and serialised, and gates the ca
   assert.match(workflow, /if: github\.repository == 'nimbrethil81\/gac-helper' && github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /concurrency:\n {2}group: pages-live\n {2}cancel-in-progress: false/);
   assert.match(workflow, /fetch-depth: 0/);
-  const order = ["catalogue-release.js site --out _site", "catalogue-release.js guard", "actions/upload-pages-artifact", "actions/deploy-pages", "catalogue-release.js verify"]
-    .map((step) => workflow.indexOf(step));
+  const order = [
+    "catalogue-release.js site --out _site", "actions/upload-pages-artifact", "actions/download-artifact",
+    'tar -xf "$RUNNER_TEMP/pages-artifact/artifact.tar" -C _site', "catalogue-release.js guard",
+    "actions/deploy-pages", "catalogue-release.js verify"
+  ].map((step) => workflow.indexOf(step));
   assert.ok(order.every((index) => index > 0), "every catalogue step is present");
-  assert.deepEqual([...order].sort((a, b) => a - b), order, "build → guard → upload → deploy → verify");
+  assert.deepEqual([...order].sort((a, b) => a - b), order, "build → upload → restore → guard → deploy → verify");
+  assert.match(workflow, /^ {2}deploy:\n {4}needs: build$/m);
+  assert.match(workflow, /name=github-pages-\$GITHUB_RUN_ATTEMPT/);
+  assert.match(workflow, /artifact_name: \$\{\{ steps\.artifact\.outputs\.name \}\}/);
+  assert.match(workflow, /^ {10}name: \$\{\{ steps\.artifact\.outputs\.name \}\}$/m);
+  assert.match(workflow, /^ {10}name: \$\{\{ needs\.build\.outputs\.artifact_name \}\}$/m);
+  assert.match(workflow, /^ {10}artifact_name: \$\{\{ needs\.build\.outputs\.artifact_name \}\}$/m);
   assert.doesNotMatch(workflow, /cp "\$file" _site/, "the allow-list lives in one place");
 });
 

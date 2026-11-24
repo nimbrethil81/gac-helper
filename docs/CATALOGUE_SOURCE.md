@@ -176,7 +176,7 @@ The historical #172 pending-pilot description in #176 is superseded by current m
 
 ### Publish verification and recovery
 
-Before an authorised publish, rerun the release gate, release check, ledger and site build on `main`. The owner then runs **Deploy Pages Live**. Its guard checks the live transition before upload; post-deploy verify pins the deployed commit, pointer, manifest, version, checksum and every retained release byte. Smoke-check the app's Counters and Round behaviour for 5v5, 3v3 and FLEET plus offline availability. Apps Script `action=data` parity is not a publication test.
+Before an authorised publish, rerun the release gate, release check, ledger and site build on `main`. The owner then runs **Deploy Pages Live**. Its guard checks the live transition against the uploaded artifact before deployment. Post-deploy verification pins the deployed commit, pointer, manifest, version, checksum and every retained release byte. Smoke-check the app's Counters and Round behaviour for 5v5, 3v3 and FLEET plus offline availability. Apps Script `action=data` parity is not a publication test.
 
 - **Before merge or after failed PR checks:** no live state changed. Fix the branch or abandon it; never amend `main` or deploy the failed branch.
 - **Failed deploy verification:** this is not an automatic undo. Inspect/re-run `catalogue:verify-live`; if the artifact is correct but Pages was stale, redeploy the same reviewed `main`. Do not claim success from the upload step alone.
@@ -410,6 +410,8 @@ The fleet slot model in [`SPEC.md`](SPEC.md#69-points-to-win) rests on this evid
 
 `Deploy Pages Live` (manual `workflow_dispatch`, `main` only, one run at a time) builds the catalogue into the same allow-listed artifact as the app. Nothing is published by a merge, schedule or bot.
 
+The build job uploads an artifact named for its attempt. A retry of the deploy job reuses that upload while it is retained. A full rerun builds and uploads a new artifact.
+
 ### Artifact
 
 | Path | Content |
@@ -434,7 +436,7 @@ No source, `release.json`, corrections, snapshots, scripts, tests or docs are in
 
 The ledger is every `catalogue/release.json` state on the first-parent history of `main`, which is every catalogue `main` could have deployed. Versions must strictly increase, and a version never names two checksums. A checksum may reappear under a higher version (a rollback). The deployed release must be the committed `release.json`, must be the highest version, and must equal the compiled source.
 
-Each deployment replaces the whole Pages site, so nothing from an earlier deployment is assumed to survive. Every deployment rebuilds from Git:
+Each deployment replaces the whole Pages site, so nothing from an earlier deployment is assumed to survive. The build job reconstructs from Git:
 - the current release;
 - up to four earlier releases that still compile to their recorded checksum and pass the current release gate.
 
@@ -443,7 +445,7 @@ A rebuilt file is byte-identical to the one served before. Older releases are no
 ### Deployment checks
 
 1. **Preflight** (before upload): the catalogue tests run, then `catalogue:site` builds the artifact. Either failing stops the run. This covers invalid schema, broken identity references, a failing release gate, a corrupted or stale `release.json` checksum, undeclared drift between source and `release.json`, ledger violations, corrupted written files, files outside the allow-list and the budget.
-2. **Guard** (before upload): reads the live `catalogue/manifest.json`. A 404 means a first deployment. The run is refused if:
+2. **Guard** (before deployment): checks the downloaded build artifact against the live `catalogue/manifest.json`. A 404 means a first deployment. The run is refused if:
    - the live current version is higher than the build's;
    - the live version names a different checksum;
    - a live release file differs from its rebuilt bytes;

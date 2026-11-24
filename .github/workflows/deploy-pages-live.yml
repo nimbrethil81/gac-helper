@@ -5,22 +5,19 @@ on:
 
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages-live
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     # Migration safety guard: this workflow must remain inert until the source
     # repository has been renamed to nimbrethil81/gac-helper.
     if: github.repository == 'nimbrethil81/gac-helper' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      artifact_name: ${{ steps.artifact.outputs.name }}
 
     steps:
       - name: Checkout source
@@ -45,6 +42,49 @@ jobs:
       - name: Build allow-listed Pages artifact
         run: node scripts/catalogue-release.js site --out _site
 
+      # A full rerun creates a new upload. A deploy-only rerun uses this job's output.
+      - name: Name Pages artifact for this attempt
+        id: artifact
+        run: echo "name=github-pages-$GITHUB_RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: ${{ steps.artifact.outputs.name }}
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download Pages artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact_name }}
+          path: ${{ runner.temp }}/pages-artifact
+
+      # Validate the uploaded site itself, including on a deploy-only rerun.
+      - name: Restore site from Pages artifact
+        run: |
+          mkdir _site
+          tar -xf "$RUNNER_TEMP/pages-artifact/artifact.tar" -C _site
+
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
@@ -54,14 +94,11 @@ jobs:
           PAGES_URL: ${{ steps.pages.outputs.base_url }}
         run: node scripts/catalogue-release.js guard --site _site --url "$PAGES_URL"
 
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ needs.build.outputs.artifact_name }}
 
       - name: Verify live app shell and catalogue
         env:
