@@ -441,11 +441,26 @@ body {
 
 .roster-name {
     font-size: 15px;
+    overflow-wrap: anywhere;
     color: var(--text);
     display: flex;
     align-items: center;
     gap: 8px;
     min-width: 0;
+}
+
+.roster-row-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.roster-investment {
+    margin-left: 10px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
 }
 
 .roster-status {

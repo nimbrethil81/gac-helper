@@ -388,10 +388,8 @@ function buildDefenceCompositions(ss) {
 
 // ─── ROSTER FETCH (action=roster) ────────────────────────────────────────────
 // Thin proxy: server-side POST to a self-hosted SWGOH Comlink instance, which
-// talks directly to the game's read-only APIs (no swgoh.gg, so no Cloudflare
-// challenge). Returns base_ids only; the client maps base_id → Character_ID and
-// classifies, keeping this endpoint dumb. Response contract is unchanged from
-// the previous swgoh.gg implementation.
+// talks directly to the game's read-only APIs. Returns base IDs and compact
+// development facts; the client maps base IDs to Character_ID and unit type.
 //
 // Comlink /player returns rosterUnit[].definitionId as "BASEID:RARITY"
 // (e.g. "MAGMATROOPER:SEVEN_STAR"); the base_id is the part before the colon.
@@ -442,14 +440,17 @@ function fetchRoster(allyCodeRaw) {
   }
 
   const ownedBaseIds = [];
-  const seen = {};
+  const seen = Object.create(null);
+  const development = Object.create(null);
   roster.forEach(u => {
     const defId = u && u.definitionId;
     if (!defId) return;
-    const baseId = String(defId).split(":")[0];
+    const [baseId, raritySuffix] = String(defId).split(":");
     if (baseId && !seen[baseId]) {
       seen[baseId] = true;
       ownedBaseIds.push(baseId);
+      const facts = rosterUnitDevelopment(u, raritySuffix);
+      if (Object.keys(facts).length) development[baseId] = facts;
     }
   });
 
@@ -457,6 +458,34 @@ function fetchRoster(allyCodeRaw) {
     ok: true,
     allyCode: allyCode,
     syncedAt: new Date().toISOString(),
-    ownedBaseIds: ownedBaseIds
+    ownedBaseIds: ownedBaseIds,
+    development: development
   };
+}
+
+function rosterUnitDevelopment(unit, raritySuffix) {
+  const facts = {};
+  const gear = unit.currentTier;
+  if (Number.isInteger(gear) && gear >= 1 && gear <= 13) facts.gear = gear;
+
+  const rawRelic = unit.relic && unit.relic.currentTier;
+  if (facts.gear === 13 && Number.isInteger(rawRelic) && rawRelic >= 2 && rawRelic <= 12) {
+    facts.relic = rawRelic - 2;
+  }
+
+  const rarity = unit.currentRarity;
+  const suffixStars = ["ONE_STAR", "TWO_STAR", "THREE_STAR", "FOUR_STAR", "FIVE_STAR", "SIX_STAR", "SEVEN_STAR"]
+    .indexOf(raritySuffix) + 1;
+  if (Number.isInteger(rarity) && rarity >= 1 && rarity <= 7) {
+    if (!suffixStars || rarity === suffixStars) facts.stars = rarity;
+  } else if (suffixStars) {
+    facts.stars = suffixStars;
+  }
+
+  const mods = unit.equippedStatMod;
+  if (Array.isArray(mods) && mods.length <= 6 &&
+      mods.every(mod => mod && typeof mod.id === "string" && mod.id.length > 0)) {
+    facts.modCount = mods.length;
+  }
+  return facts;
 }
