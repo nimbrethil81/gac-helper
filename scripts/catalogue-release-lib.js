@@ -342,7 +342,7 @@ async function fetchLive(fetchImpl, baseUrl, relative, fresh = false) {
   return { url, status: response.status, ok: response.ok, body };
 }
 
-// Before upload: what is live must not be newer than, or contradict, the
+// Before deployment: what is live must not be newer than, or contradict, the
 // artifact about to replace it. Refuses a version regression (a stale run or a
 // reverted release.json), a version naming a different checksum, and a release
 // file whose live bytes differ from the rebuilt immutable file.
