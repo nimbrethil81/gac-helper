@@ -63,7 +63,7 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify live catalogue
+      - name: Verify live app shell and catalogue
         env:
           PAGES_URL: ${{ steps.deployment.outputs.page_url }}
         run: node scripts/catalogue-release.js verify --site _site --url "$PAGES_URL" --timeout 900 --interval 20

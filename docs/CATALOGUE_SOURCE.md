@@ -414,13 +414,15 @@ The fleet slot model in [`SPEC.md`](SPEC.md#69-points-to-win) rests on this evid
 
 | Path | Content |
 |---|---|
-| `index.html`, `app.js`, `styles.css`, `manifest.json`, `service-worker.js`, `icon-192.png`, `icon-512.png` | App shell. The allow-list lives in `PAGES_APP_FILES` in `scripts/catalogue-release-lib.js`. |
+| `index.html`, `app.js`, `app-updates.js`, `styles.css`, `manifest.json`, `service-worker.js`, `icon-192.png`, `icon-512.png` | App shell. The allow-list lives in `PAGES_APP_FILES` in `scripts/app-shell-lib.js`. |
+| `app-build.json` | Generated `gac-app-build:v1` metadata with the human version, SHA-256 build ID and the byte count and SHA-256 for each emitted shell asset. The ID uses ordered source paths and bytes plus the build recipe version, so catalogue-only and docs-only commits preserve it. The builder then stamps the ID into the shell and hashes the emitted assets. |
 | `catalogue/releases/{N}-{12 hex}.json` | Immutable release file (ADR §5): the seven keys plus `release` `{contract, sourceSchema, catalogueVersion, checksum}`, written as compact JSON with keys sorted recursively. Its bytes depend only on the version and the payload. |
 | `catalogue/current.json` | Pointer (ADR §7): `pointerSchema`, `contract`, `catalogueVersion`, `checksum`, `path`, `bytes`. Depends only on the current release. |
-| `catalogue/manifest.json` | Deployment record: the `deployedCommit`, the `current` release, and each served release with its `bytes`, file `sha256` and `sourceCommit`. `sourceCommit` is the first `main` commit that recorded the release. This is the only file that changes when an app-only commit is redeployed. |
+| `catalogue/manifest.json` | Deployment record with the `deployedCommit`, the `current` release, and each served release with its `bytes`, file `sha256` and `sourceCommit`. `sourceCommit` is the first `main` commit that recorded the release. |
 
 The build refuses a non-empty output directory. After writing, it re-reads the artifact and fails unless:
 - the file set is exactly the allow-list;
+- the app build ID reproduces from the shell inputs, and the emitted assets match their lengths and hashes;
 - every release file matches its manifest bytes and hash;
 - every release file passes the release gate again;
 - the pointer names the highest version;
@@ -446,13 +448,13 @@ A rebuilt file is byte-identical to the one served before. Older releases are no
    - the live version names a different checksum;
    - a live release file differs from its rebuilt bytes;
    - the live site cannot be read.
-3. **Verify** (after deploy): polls the live pointer, manifest and every release file every 20 s for up to 15 min. It passes only when all are byte-identical to the artifact, which pins the deployed commit, version and checksum. It then re-verifies the live current release. Otherwise the run fails, naming the stale or wrong files. A failed verify does not undo the deployment: re-run `catalogue:verify-live` later, or redeploy.
+3. **Verify** (after deploy) polls the live shell, build metadata and catalogue files every 20 s for up to 15 min. Fresh root and `index.html` requests must both match the built HTML. The run compares each file to the artifact, re-verifies the current catalogue release and reports the app build ID. On timeout it names the mismatched files. The published site remains available after a failed verify. Re-run `catalogue:verify-live` later or redeploy.
 
 ### Behaviour
 
 | Situation | Result |
 |---|---|
-| Same release redeployed (for example after an app-only merge) | Release files and pointer are byte-identical. Only `manifest.json` `deployedCommit` changes. The guard reports `same-release`. Clients see the same checksum and download nothing new at cutover. |
+| Same catalogue release redeployed (for example after an app-only merge) | Catalogue release files and pointer are byte-identical. The catalogue manifest records the deployed commit. The guard reports `same-release`, and the app skips re-downloading the catalogue payload. |
 | Changed catalogue content | A new `release.json` version (from `catalogue:release`) gets a new release file and a moved pointer. Earlier releases stay served within retention. |
 | Source changed without `catalogue:release` | CI and the deploy preflight fail with "Undeclared catalogue change". |
 | Stale pointer or out-of-order run | The guard refuses any build older than the live version. Concurrent runs are serialised by the `pages-live` group. A client holding an older pointer still finds a retained release file instead of a 404. |

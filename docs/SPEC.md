@@ -94,11 +94,18 @@ The app is a static frontend served from GitHub Pages. Its authored game and con
 
 Hosted on GitHub Pages. The manual `Deploy Pages Live` workflow publishes the app shell and the static catalogue release under `catalogue/` together, in one allow-listed artifact ([`CATALOGUE_SOURCE.md`](CATALOGUE_SOURCE.md#static-release-on-pages)).
 
-* **index.html** — app shell; loads styles and scripts; registers the service worker.
+* **index.html** — app shell that loads build-stamped styles and scripts.
 * **styles.css** — theme, layout, responsive design, component styling.
 * **app.js** — catalogue loading, verification and caching, state management, rendering, counter lookup, used-team tracking, two-sided banner tracking, roster management/import, paired round-board and defence-template persistence, availability calculation, the allocation engine, the battle-order pass that schedules its output, and the Last Battle advisor.
-* **service-worker.js** — PWA offline shell. It never handles cross-origin requests or requests under `catalogue/`, so `app.js` owns the only catalogue cache.
+* **app-updates.js** — service-worker registration, app update checks, and the More → App version card and update notice.
+* **service-worker.js** — PWA offline shell. Each production worker installs a complete verified build before it can serve the shell. Catalogue and cross-origin roster requests go directly to the network.
 * **manifest.json** — PWA metadata.
+
+**App updates.** More → App version shows the running human version and the first seven characters of the build ID. The ID comes from the loaded HTML and scripts. The app checks fresh deployment metadata on opening, returning online, returning to the foreground, and on request. It reports current when the live metadata, loaded shell and controlling worker agree. A new version becomes actionable after the worker has verified and installed every shell asset and is waiting to activate. When ready, a dismissible notice appears above the bottom navigation outside the More menu. Dismissal lasts until the next opening or foreground return. The More card remains available.
+
+Update now checks the waiting build and safety again before requesting activation. The worker accepts only if the requesting window is the sole in-scope app window. Edit drafts, unsaved evidence or player writes, an open usage correction, pending file/share or roster operations, and the short round Undo window defer the update. A session-only roster Undo requires confirmation before updating. Only the initiating page reloads, once the requested worker controls it, and it checks the loaded build after reload. If the reload is interrupted, Try again can verify the requested build is already controlling that window and offer Reload app in More. Reload app repeats the safety checks and requires a tap. Saved player data stays in localStorage. The active worker serves a coherent shell offline, while build metadata is fetched from the network. Source-tree previews show Build unavailable and can run without an installed worker or generated metadata.
+
+For a window still served by the pre-update worker, finish edits and close all GAC Helper windows, then reopen the app online. That gives a verified waiting worker a chance to activate naturally and keeps saved player data available.
 
 ### 3.2 Backend
 

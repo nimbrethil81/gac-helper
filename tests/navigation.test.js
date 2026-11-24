@@ -5,6 +5,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 
 const source = fs.readFileSync(path.join(__dirname, "..", "app.js"), "utf8");
+const updates = fs.readFileSync(path.join(__dirname, "..", "app-updates.js"), "utf8");
 
 function harness(initialStorage = {}) {
     const values = new Map(Object.entries(initialStorage));
@@ -30,6 +31,7 @@ function harness(initialStorage = {}) {
         }
     };
     vm.createContext(context);
+    vm.runInContext(updates, context, { filename: "app-updates.js" });
     vm.runInContext(source, context, { filename: "app.js" });
     return {
         values,
@@ -139,6 +141,8 @@ test("More opens the existing My Roster screen with a return to More", () => {
     assert.doesNotMatch(h.appElement.innerHTML, /MY ROSTER/);
     assert.match(h.appElement.innerHTML, /Defence Lineups/);
     assert.match(h.appElement.innerHTML, /My Roster/);
+    assert.match(h.appElement.innerHTML, /Usage<\/span>[\s\S]*<h2 id="app-version-heading">App version<\/h2>/);
+    assert.ok(h.appElement.innerHTML.includes(`v${h.run("APP_VERSION")} · Build unavailable`));
     click(h, /<button class="more-menu-entry" onclick="([^"]+)"/);
     assert.equal(h.run("currentView"), "roster");
     // Keep the existing renderer, import controls and filtering surface intact.
@@ -149,6 +153,75 @@ test("More opens the existing My Roster screen with a return to More", () => {
     assert.equal(h.run("currentView"), "more");
     assert.match(h.appElement.innerHTML, /My Roster/);
     assert.doesNotMatch(h.appElement.innerHTML, /more-back|MY ROSTER/);
+});
+
+test("app updates defer on local drafts, writes, operations and round Undo", async () => {
+    const h = harness();
+    const blocker = () => h.run("appUpdateBlocker()");
+    assert.equal(blocker(), null);
+
+    h.run("setBoardModeDraft('5v5')");
+    assert.equal(blocker(), null, "choosing the already selected mode leaves no draft change");
+    h.run("setBoardModeDraft('3v3')");
+    assert.equal(blocker(), "editing");
+    h.run("setBoardModeDraft('5v5'); defenceLineupEditor = { dirty: true }");
+    assert.equal(blocker(), "editing");
+    h.run("defenceLineupEditor = null; usageLineupEditor = { mode: 'FLEET' }");
+    assert.equal(blocker(), "editing");
+    h.run("usageLineupEditor = null; importDraft = 'unsaved roster paste'");
+    assert.equal(blocker(), "editing");
+    h.run("importDraft = ''; rosterMeta.allyCode = '123456789'; allyCodeDraft = ''");
+    assert.equal(blocker(), "editing", "a deliberately emptied saved ally code is still a draft");
+    h.run("allyCodeDraft = null; document.activeElement = { matches: () => true }");
+    assert.equal(blocker(), "editing");
+    h.run("document.activeElement = null; rosterRequest = {};");
+    assert.equal(blocker(), "working");
+    h.run("rosterRequest = null; pendingUndo = {};");
+    assert.equal(blocker(), "undo");
+    h.run("pendingUndo = null; rosterBackup = {};");
+    assert.equal(blocker(), null, "roster Undo permits an explicit confirmation at update time");
+
+    h.run(`const store = localStorage.setItem;
+        localStorage.setItem = () => { throw new Error('quota'); };`);
+    assert.throws(() => h.run("persistBannerData()"), /quota/);
+    assert.equal(blocker(), "editing");
+    h.run("localStorage.setItem = store; persistBannerData()");
+    assert.equal(blocker(), null);
+
+    h.run("let finishRead; const reading = new Promise(resolve => { finishRead = resolve; })");
+    const importing = h.run("importUsageHistoryFile({ files: [{ size: 10, text: () => reading }] })");
+    assert.equal(blocker(), "working");
+    h.run("finishRead('{}')");
+    await importing;
+    assert.equal(blocker(), null);
+});
+
+test("failed battle notes stay available and block an update after blur and navigation", () => {
+    const h = harness(savedRoundStorage());
+    h.run(`loadBoard(); usageHistory.selectedSeasonId = '80';
+        recordAttackUsage('used-counter', 'won', 'board', 'FRONT_TOP:0');
+        const eventId = usageHistory.events[0].id;
+        const details = { dataset: { eventId }, querySelector: () => ({ classList: { toggle() {} } }) };
+        const note = { value: 'Keep this unsaved note', closest: () => details, setAttribute() {} };
+        trackBattleEvidenceDraft(note, 'notes');`);
+    assert.equal(h.run("appUpdateBlocker()"), "editing");
+    h.run(`const store = localStorage.setItem;
+        localStorage.setItem = () => { throw new Error('quota'); };
+        commitBattleEvidence(note, 'notes');
+        setView('more');`);
+    assert.equal(h.run("appUpdateBlocker()"), "editing");
+    assert.match(h.run("renderBattleDetails(usageHistory.events[0])"), /aria-invalid="true"[^>]*>Keep this unsaved note/);
+    assert.equal(h.run("battleEvidenceFor(usageHistory.events[0]).notes"), "");
+    h.run("localStorage.setItem = store; commitBattleEvidence(note, 'notes')");
+    assert.equal(h.run("appUpdateBlocker()"), null);
+    assert.equal(h.run("battleEvidenceFor(usageHistory.events[0]).notes"), "Keep this unsaved note");
+
+    h.run(`updateBattleEvidence(eventId, 'actualBanners', '61');
+        const banners = { ...note, value: '', validity: { badInput: true } };
+        trackBattleEvidenceDraft(banners, 'actualBanners');
+        commitPendingBattleEvidence({ ...banners, validity: { badInput: false } }, 'actualBanners');`);
+    assert.equal(h.run("battleEvidenceFor(usageHistory.events[0]).actualBanners"), 61);
+    assert.equal(h.run("appUpdateBlocker()"), "editing");
 });
 
 test("offline tab changes and My Roster re-entry preserve saved round and roster state", () => {
