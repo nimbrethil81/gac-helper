@@ -101,13 +101,16 @@ let defenceLineupsMessage = null;
 // app reads; rosterMeta carries provenance for the freshness line.
 let ownedCharacters = [];
 let rosterMeta = { savedAt: null, source: "manual", allyCode: null, syncedAt: null };
+let rosterDevelopment = null;           // last enriched snapshot, independently dated
+let rosterStorageValue = null;          // persisted roster last read or written
+let rosterRevision = 0;                 // successful local writes invalidate pending syncs
 
 let rosterSearch = "";
 let rosterPanelOpen = false;            // collapsible data panel state
 let rosterBackup = null;                // session-only snapshot for Undo
 let importDraft = "";                   // text in the paste-import box
 let allyCodeDraft = "";                 // text in the ally-code input
-let rosterSyncing = false;              // true while an API import/refresh is in flight
+let rosterRequest = null;               // one shared foreground/background request
 let rosterMessage = null;               // { text, kind: "ok" | "warn" | "error" }
 
 // Board state. board is null until set up; league persists across rounds.
@@ -233,73 +236,128 @@ let counterFilter = localStorage.getItem("counterFilter") || "all";
 // Single load/save path. localStorage is the working store; the API is a refresh
 // mechanism, not a dependency. The app is fully functional on cached data alone.
 
+function isRosterRecord(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function validRosterAllyCode(value) {
+    return typeof value === "string" && /^[0-9]{9}$/.test(value);
+}
+
+function validRosterTimestamp(value) {
+    return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function normalizeRosterDevelopment(value) {
+    if (!isRosterRecord(value)) return null;
+    const facts = {};
+    if (Number.isInteger(value.gear) && value.gear >= 1 && value.gear <= 13) facts.gear = value.gear;
+    if (facts.gear === 13 && Number.isInteger(value.relic) && value.relic >= 0 && value.relic <= 10) {
+        facts.relic = value.relic;
+    }
+    if (Number.isInteger(value.stars) && value.stars >= 1 && value.stars <= 7) facts.stars = value.stars;
+    if (Number.isInteger(value.modCount) && value.modCount >= 0 && value.modCount <= 6) facts.modCount = value.modCount;
+    return Object.keys(facts).length ? facts : null;
+}
+
 function loadRoster() {
-    // Preferred: versioned object (schema 1 or 2 both read here; missing fields default).
     const raw = localStorage.getItem(ROSTER_KEY);
-    if (raw) {
-        try {
-            const parsed = JSON.parse(raw);
-            if (parsed && Array.isArray(parsed.owned)) {
-                ownedCharacters = parsed.owned.slice();
-                rosterMeta = {
-                    savedAt:  parsed.savedAt  || null,
-                    source:   parsed.source   || "manual",
-                    allyCode: parsed.allyCode || null,   // new in schema 2
-                    syncedAt: parsed.syncedAt || null    // new in schema 2
-                };
-                return;
-            }
-        } catch (e) {
-            console.error("Roster parse failed, attempting legacy migration", e);
-        }
+    if (raw !== rosterStorageValue) rosterRevision++;
+    rosterStorageValue = raw;
+    let parsed;
+    try {
+        parsed = JSON.parse(raw);
+    } catch (e) {
+        console.error("Roster parse failed, attempting legacy migration", e);
     }
 
-    // One-time migration: pre-v1.9 bare array under ownedCharacters.
-    const legacy = localStorage.getItem(LEGACY_ROSTER_KEY);
-    if (legacy) {
-        try {
-            const arr = JSON.parse(legacy);
-            if (Array.isArray(arr)) {
-                ownedCharacters = arr.slice();
-                rosterMeta = { savedAt: null, source: "manual", allyCode: null, syncedAt: null };
-                saveRoster("manual");                 // re-write in current schema
-                localStorage.removeItem(LEGACY_ROSTER_KEY);
-                return;
-            }
-        } catch (e) {
-            console.error("Legacy roster parse failed", e);
-        }
+    // Schema 1 and 2 share the ownership shape. Keep cached IDs even before the
+    // catalogue is available, including IDs missing from an older catalogue.
+    if (parsed && Array.isArray(parsed.owned)) {
+        ownedCharacters = parsed.owned.slice();
+        rosterMeta = {
+            savedAt: parsed.savedAt || null,
+            source: parsed.source || "manual",
+            allyCode: parsed.allyCode || null,
+            syncedAt: parsed.syncedAt || null
+        };
+        rosterDevelopment = loadRosterDevelopment(parsed.development);
+        return;
     }
 
-    // Nothing stored.
-    ownedCharacters = [];
+    // Bare arrays predate the versioned object; the original key may still exist.
     rosterMeta = { savedAt: null, source: "manual", allyCode: null, syncedAt: null };
-}
-
-function saveRoster(source) {
-    if (source) rosterMeta.source = source;
-    rosterMeta.savedAt = new Date().toISOString();
-
-    const payload = {
-        schema:   ROSTER_SCHEMA,
-        savedAt:  rosterMeta.savedAt,
-        source:   rosterMeta.source,
-        allyCode: rosterMeta.allyCode || null,
-        syncedAt: rosterMeta.syncedAt || null,
-        owned:    ownedCharacters
-    };
-    localStorage.setItem(ROSTER_KEY, JSON.stringify(payload));
-}
-
-// Shared replace path. The API import calls this with the API source tag and an
-// extra { allyCode, syncedAt }. Caller is responsible for validation.
-function applyRoster(owned, source, extra) {
-    ownedCharacters = owned.slice();
-    if (extra) {
-        if (extra.allyCode !== undefined) rosterMeta.allyCode = extra.allyCode;
-        if (extra.syncedAt !== undefined) rosterMeta.syncedAt = extra.syncedAt;
+    rosterDevelopment = null;
+    ownedCharacters = [];
+    const legacy = localStorage.getItem(LEGACY_ROSTER_KEY);
+    try {
+        const arr = Array.isArray(parsed) ? parsed : JSON.parse(legacy);
+        if (!Array.isArray(arr)) return;
+        ownedCharacters = arr.slice();
+        if (saveRoster("manual") && !Array.isArray(parsed)) localStorage.removeItem(LEGACY_ROSTER_KEY);
+    } catch (e) {
+        console.error("Legacy roster migration failed", e);
     }
-    saveRoster(source);
+}
+
+function loadRosterDevelopment(snapshot) {
+    if (!isRosterRecord(snapshot) || snapshot.source !== ROSTER_SOURCE_API ||
+        !validRosterAllyCode(snapshot.allyCode) || snapshot.allyCode !== rosterMeta.allyCode ||
+        !validRosterTimestamp(snapshot.syncedAt) || !isRosterRecord(snapshot.units)) return null;
+
+    const owned = new Set(ownedCharacters);
+    const units = Object.create(null);
+    for (const [id, raw] of Object.entries(snapshot.units)) {
+        if (!owned.has(id)) continue;
+        const facts = normalizeRosterDevelopment(raw);
+        if (facts) units[id] = facts;
+    }
+    return { source: ROSTER_SOURCE_API, allyCode: snapshot.allyCode, syncedAt: snapshot.syncedAt, units };
+}
+
+function saveRoster(source = rosterMeta.source, {
+    owned = ownedCharacters, meta = rosterMeta, development = rosterDevelopment
+} = {}) {
+    const nextMeta = {
+        savedAt: new Date().toISOString(),
+        source: source || "manual",
+        allyCode: meta.allyCode || null,
+        syncedAt: meta.syncedAt || null
+    };
+    const payload = { schema: ROSTER_SCHEMA, ...nextMeta, owned };
+    if (development) payload.development = development;
+
+    try {
+        const serialized = JSON.stringify(payload);
+        localStorage.setItem(ROSTER_KEY, serialized);
+        rosterStorageValue = serialized;
+    } catch {
+        return false;
+    }
+    ownedCharacters = owned.slice();
+    rosterMeta = nextMeta;
+    rosterDevelopment = development;
+    rosterRevision++;
+    return true;
+}
+
+// Snapshots are replaced on writes. Undo never shares a mutable development map.
+function applyRoster(owned, source, { meta = rosterMeta, development = null, undo = false } = {}) {
+    const previous = { owned: ownedCharacters, meta: rosterMeta, development: rosterDevelopment };
+    if (!saveRoster(source, { owned, meta, development })) return false;
+    if (undo) rosterBackup = previous;
+    return true;
+}
+
+function pruneRosterDevelopment(snapshot, owned, allyCode) {
+    if (!snapshot || snapshot.allyCode !== allyCode) return null;
+    const ids = new Set(owned);
+    return { ...snapshot, units: Object.fromEntries(Object.entries(snapshot.units).filter(([id]) => ids.has(id))) };
+}
+
+function rosterStorageError() {
+    rosterMessage = { text: "Couldn't save the roster on this device. Your previous roster is still available.", kind: "error" };
+    render();
 }
 
 function formatSavedAt(iso) {
@@ -4292,7 +4350,7 @@ function classifyBaseIds(baseIds, opts) {
         if (seen.has(key)) return;
         seen.add(key);
 
-        const hit = baseIdToUnit[key];
+        const hit = Object.hasOwn(baseIdToUnit, key) ? baseIdToUnit[key] : null;
         if (!hit) { unknown.push(key); return; }
 
         if (wantTypes.includes(hit.unitType)) {
@@ -4314,17 +4372,70 @@ function sameSet(a, b) {
 
 // ─── ROSTER API CALL ───────────────────────────────────────────────────────────
 
-function fetchWithTimeout(url, ms) {
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), ms);
-    return fetch(url, { signal: controller.signal })
-        .finally(() => clearTimeout(t));
+async function fetchRosterFromApi(allyCode, controller = new AbortController()) {
+    const url = ROSTER_API_URL + "?action=roster&allyCode=" + encodeURIComponent(allyCode);
+    const timer = setTimeout(() => controller.abort(), ROSTER_FETCH_TIMEOUT_MS);
+    try {
+        const resp = await fetch(url, { signal: controller.signal });
+        return await resp.json();
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
-async function fetchRosterFromApi(allyCode) {
-    const url = ROSTER_API_URL + "?action=roster&allyCode=" + encodeURIComponent(allyCode);
-    const resp = await fetchWithTimeout(url, ROSTER_FETCH_TIMEOUT_MS);
-    return await resp.json();   // structured { ok, ... }
+function startRosterRequest(allyCode, foreground) {
+    const prior = rosterRequest;
+    const reuse = prior && prior.allyCode === allyCode && prior.revision === rosterRevision;
+    if (prior && !reuse) prior.controller.abort();
+    const controller = reuse ? prior.controller : new AbortController();
+    const promise = reuse ? prior.promise : fetchRosterFromApi(allyCode, controller);
+    // A foreground refresh can take responsibility for a matching background
+    // request. Only the current owner of the request may apply its result.
+    const request = { allyCode, foreground, revision: rosterRevision, controller, promise };
+    rosterRequest = request;
+    return request;
+}
+
+function finishRosterRequest(request) {
+    if (rosterRequest !== request) return false;
+    rosterRequest = null;
+    if (request.revision !== rosterRevision) return false;
+    try {
+        return localStorage.getItem(ROSTER_KEY) === rosterStorageValue;
+    } catch {
+        return false;
+    }
+}
+
+function rosterApiResult(data, allyCode) {
+    if (data?.ok !== true || !Array.isArray(data.ownedBaseIds) ||
+        !data.ownedBaseIds.every(id => typeof id === "string" && id.length > 0) ||
+        (data.allyCode != null && data.allyCode !== allyCode)) return null;
+
+    const result = classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER", "SHIP", "CAPITAL_SHIP"] });
+    const syncedAt = validRosterTimestamp(data.syncedAt) ? data.syncedAt : new Date().toISOString();
+    let development = pruneRosterDevelopment(rosterDevelopment, result.ownedUnitIds, allyCode);
+
+    if (isRosterRecord(data.development) && validRosterTimestamp(data.syncedAt)) {
+        const units = Object.create(null);
+        for (const externalId of data.ownedBaseIds) {
+            if (!Object.hasOwn(baseIdToUnit, externalId) || !Object.hasOwn(data.development, externalId)) continue;
+            const mapped = baseIdToUnit[externalId];
+            if (mapped.unitType !== "CHARACTER") continue;
+            const facts = normalizeRosterDevelopment(data.development[externalId]);
+            if (facts) units[mapped.characterId] = facts;
+        }
+        development = { source: ROSTER_SOURCE_API, allyCode, syncedAt, units };
+    }
+    return { ...result, meta: { allyCode, syncedAt }, development };
+}
+
+function rosterDevelopmentChanged(next) {
+    const before = rosterDevelopment?.units || {};
+    const after = next?.units || {};
+    return Object.keys(before).length !== Object.keys(after).length ||
+        Object.entries(after).some(([id, facts]) => !Object.hasOwn(before, id) ||
+            JSON.stringify(before[id]) !== JSON.stringify(facts));
 }
 
 function apiErrorMessage(error) {
@@ -4363,6 +4474,9 @@ async function importFromAllyCode() {
         return;
     }
 
+    if (rosterRequest?.foreground && rosterRequest.allyCode === allyCode &&
+        rosterRequest.revision === rosterRevision) return;
+
     const isRoutineRefresh =
         rosterMeta.source === ROSTER_SOURCE_API && rosterMeta.allyCode === allyCode;
     if (hasRoster() && !isRoutineRefresh) {
@@ -4370,37 +4484,40 @@ async function importFromAllyCode() {
         if (!ok) return;
     }
 
-    rosterSyncing = true;
+    const request = startRosterRequest(allyCode, true);
     rosterMessage = null;
     render();
 
     let data;
     try {
-        data = await fetchRosterFromApi(allyCode);
+        data = await request.promise;
     } catch (e) {
-        rosterSyncing = false;
-        const timedOut = e && e.name === "AbortError";
-        rosterMessage = {
-            text: timedOut
-                ? "The import took too long to respond. Check your connection and try again."
-                : "Couldn't reach the roster service. Check your connection and try again.",
-            kind: "error"
-        };
+        if (rosterRequest !== request) return;
+        if (finishRosterRequest(request)) {
+            rosterMessage = {
+                text: e?.name === "AbortError"
+                    ? "The import took too long to respond. Check your connection and try again."
+                    : "Couldn't reach the roster service. Check your connection and try again.",
+                kind: "error"
+            };
+        }
         render();
         return;
     }
 
-    rosterSyncing = false;
-
-    if (!data || !data.ok) {
-        rosterMessage = { text: apiErrorMessage(data && data.error), kind: "error" };
+    if (rosterRequest !== request) return;
+    if (!finishRosterRequest(request)) {
+        render();
+        return;
+    }
+    const result = rosterApiResult(data, allyCode);
+    if (!result) {
+        rosterMessage = { text: apiErrorMessage(data?.error), kind: "error" };
         render();
         return;
     }
 
-    const { ownedUnitIds, counts, unknown } =
-        classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER", "SHIP", "CAPITAL_SHIP"] });
-
+    const { ownedUnitIds, counts, unknown, meta, development } = result;
     if (ownedUnitIds.length === 0) {
         rosterMessage = {
             text: "We loaded your account, but none of your units are mapped in the app yet, so nothing was imported.",
@@ -4410,11 +4527,10 @@ async function importFromAllyCode() {
         return;
     }
 
-    rosterBackup = { owned: ownedCharacters.slice(), meta: { ...rosterMeta } };
-    applyRoster(ownedUnitIds, ROSTER_SOURCE_API, {
-        allyCode: data.allyCode || allyCode,
-        syncedAt: data.syncedAt || new Date().toISOString()
-    });
+    if (!applyRoster(ownedUnitIds, ROSTER_SOURCE_API, { meta, development, undo: true })) {
+        rosterStorageError();
+        return;
+    }
     allyCodeDraft = "";
 
     rosterMessage = {
@@ -4425,34 +4541,25 @@ async function importFromAllyCode() {
 }
 
 async function maybeBackgroundSync() {
-    if (rosterMeta.source !== ROSTER_SOURCE_API) return; // only API rosters auto-sync
-    if (!rosterMeta.allyCode) return;
-    if (!navigator.onLine) return;
-    if (currentView === "roster") return;                // never apply mid-edit
+    if (rosterMeta.source !== ROSTER_SOURCE_API || !validRosterAllyCode(rosterMeta.allyCode)) return;
+    if (!navigator.onLine || currentView === "roster" || rosterRequest) return;
 
     const last = rosterMeta.syncedAt ? Date.parse(rosterMeta.syncedAt) : 0;
     if (last && (Date.now() - last) < ROSTER_SYNC_STALE_MS) return;
 
+    const request = startRosterRequest(rosterMeta.allyCode, false);
     try {
-        const data = await fetchRosterFromApi(rosterMeta.allyCode);
-        if (!data || !data.ok) return;            // silent: stay on cache
-        if (currentView === "roster") return;     // user navigated in-flight: abandon
+        const data = await request.promise;
+        if (!finishRosterRequest(request) || currentView === "roster" ||
+            rosterMeta.allyCode !== request.allyCode) return;
 
-        const { ownedUnitIds } =
-            classifyBaseIds(data.ownedBaseIds, { unitTypes: ["CHARACTER", "SHIP", "CAPITAL_SHIP"] });
-        if (ownedUnitIds.length === 0) return; // don't wipe a good cache on a bad map
-
-        const changed = !sameSet(ownedUnitIds, ownedCharacters);
-        if (changed) {
-            rosterBackup = { owned: ownedCharacters.slice(), meta: { ...rosterMeta } };
-        }
-        applyRoster(ownedUnitIds, ROSTER_SOURCE_API, {
-            allyCode: data.allyCode || rosterMeta.allyCode,
-            syncedAt: data.syncedAt || new Date().toISOString()
-        });
-        render();   // refresh availability + freshness line quietly
-    } catch (e) {
-        console.warn("Background roster sync failed (staying on cached roster)", e);
+        const result = rosterApiResult(data, request.allyCode);
+        if (!result?.ownedUnitIds.length) return;
+        const { ownedUnitIds, meta, development } = result;
+        const undo = !sameSet(ownedUnitIds, ownedCharacters) || rosterDevelopmentChanged(development);
+        if (applyRoster(ownedUnitIds, ROSTER_SOURCE_API, { meta, development, undo })) render();
+    } catch {
+        finishRosterRequest(request);   // stay on the cached roster
     }
 }
 
@@ -6519,7 +6626,7 @@ function renderRoster() {
     const freshLine = isApi
         ? `Last synced: ${rosterMeta.syncedAt ? formatSavedAt(rosterMeta.syncedAt) : "never"}`
         : (rosterMeta.savedAt
-            ? `Last saved: ${formatSavedAt(rosterMeta.savedAt)} (${rosterMeta.source})`
+            ? `Last saved: ${formatSavedAt(rosterMeta.savedAt)} (${escapeHtml(rosterMeta.source)})`
             : "Not saved yet");
 
     return `
@@ -6536,7 +6643,7 @@ ${renderRosterNotice()}
     type="text"
     class="search-box"
     placeholder="Search characters and ships..."
-    value="${rosterSearch}"
+    value="${escapeHtml(rosterSearch)}"
     oninput="updateRosterSearch(this.value)"
 >
 
@@ -6591,6 +6698,7 @@ function renderRosterGroups() {
 function renderRosterImportCard() {
     const empty = !hasRoster();
     const ally = rosterMeta.allyCode || allyCodeDraft || "";
+    const rosterSyncing = rosterRequest?.foreground;
     const isApi = rosterMeta.source === ROSTER_SOURCE_API && rosterMeta.allyCode;
     const btnLabel = isApi ? "Refresh roster" : "Import roster";
 
@@ -6607,7 +6715,7 @@ function renderRosterImportCard() {
         inputmode="numeric"
         class="roster-ally-input"
         placeholder="123456789"
-        value="${ally}"
+        value="${escapeHtml(ally)}"
         oninput="allyCodeDraft = this.value"
         ${rosterSyncing ? "disabled" : ""}
     >
@@ -6636,10 +6744,16 @@ function renderRosterRow(c) {
     const badge = c.unitType === "CAPITAL_SHIP"
         ? `<span class="roster-badge">Capital</span>`
         : "";
+    const facts = owned && c.unitType === "CHARACTER" ? rosterDevelopment?.units[c.id] : null;
+    const investment = facts?.relic !== undefined ? `R${facts.relic}`
+        : facts?.gear && facts.gear < 13 ? `G${facts.gear}` : "";
     return `
-<div class="roster-row ${owned ? "owned" : ""}" onclick="toggleOwned('${c.id}')">
-    <span class="roster-name">${c.name}${badge}</span>
-    <span class="roster-status">${owned ? "✅" : "➕"}</span>
+<div class="roster-row ${owned ? "owned" : ""}" onclick="toggleOwned(${escapeHtml(JSON.stringify(c.id))})">
+    <span class="roster-name">${escapeHtml(c.name)}${badge}</span>
+    <span class="roster-row-status">
+        ${investment ? `<span class="roster-investment">${investment}</span>` : ""}
+        <span class="roster-status">${owned ? "✅" : "➕"}</span>
+    </span>
 </div>
 `;
 }
@@ -6657,7 +6771,7 @@ function renderRosterDataPanel() {
         class="roster-import-box"
         placeholder='{"schema":2,"owned":[ ... ]}'
         oninput="importDraft = this.value"
-    >${importDraft}</textarea>
+    >${escapeHtml(importDraft)}</textarea>
 <button class="roster-data-btn" onclick="importRoster()">Import from text</button>
 
     <button class="roster-data-btn roster-clear-btn" onclick="clearRoster()">Clear roster</button>
@@ -6689,13 +6803,14 @@ function updateRosterSearch(value) {
 }
 
 function toggleOwned(characterId) {
-    const idx = ownedCharacters.indexOf(characterId);
-    if (idx === -1) {
-        ownedCharacters.push(characterId);
-    } else {
-        ownedCharacters.splice(idx, 1);
+    const owned = ownedCharacters.includes(characterId)
+        ? ownedCharacters.filter(id => id !== characterId)
+        : [...ownedCharacters, characterId];
+    const development = pruneRosterDevelopment(rosterDevelopment, owned, rosterMeta.allyCode);
+    if (!saveRoster("manual", { owned, development })) {
+        rosterStorageError();
+        return;
     }
-    saveRoster("manual");
     updateRosterSearch(rosterSearch);
     updateRosterStat();
 }
@@ -6709,10 +6824,11 @@ function updateRosterStat() {
 function clearRoster() {
     const confirmed = confirm("Clear all owned units? In SWGOH you rarely lose characters or ships, so this is mainly for starting over.");
     if (!confirmed) return;
-    ownedCharacters = [];
-    rosterMeta.allyCode = null;
-    rosterMeta.syncedAt = null;
-    saveRoster("manual");
+    const meta = { allyCode: null, syncedAt: null };
+    if (!applyRoster([], "manual", { meta })) {
+        rosterStorageError();
+        return;
+    }
     rosterMessage = null;
     rosterBackup = null;
     render();
@@ -6831,10 +6947,14 @@ function importRoster() {
         return;
     }
 
-    rosterBackup = { owned: ownedCharacters.slice(), meta: { ...rosterMeta } };
-
-    const importSource = (parsed && parsed.source) ? parsed.source : "import";
-    applyRoster(known, importSource);   // note: does not adopt a pasted allyCode
+    const claimedSource = parsed?.source;
+    // Pasted text supplies ownership only and cannot establish API provenance.
+    const importSource = typeof claimedSource === "string" && claimedSource && claimedSource !== ROSTER_SOURCE_API
+        ? claimedSource : "import";
+    if (!applyRoster(known, importSource, { undo: true })) {
+        rosterStorageError();
+        return;
+    }
 
     importDraft = "";
     const base = `Imported ${chCount} character${chCount === 1 ? "" : "s"} and ${shCount} ship${shCount === 1 ? "" : "s"}.`;
@@ -6847,14 +6967,11 @@ function importRoster() {
 
 function undoImport() {
     if (!rosterBackup) return;
-    ownedCharacters = rosterBackup.owned.slice();
-    rosterMeta = {
-        savedAt:  rosterBackup.meta.savedAt  || null,
-        source:   rosterBackup.meta.source   || "manual",
-        allyCode: rosterBackup.meta.allyCode || null,
-        syncedAt: rosterBackup.meta.syncedAt || null
-    };
-    saveRoster(rosterMeta.source || "manual");
+    const { owned, meta, development } = rosterBackup;
+    if (!saveRoster(meta.source, { owned, meta, development: development ?? null })) {
+        rosterStorageError();
+        return;
+    }
     rosterBackup = null;
     rosterMessage = { text: "Import undone. Previous roster restored.", kind: "ok" };
     render();
