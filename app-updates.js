@@ -8,6 +8,7 @@ const appUpdates = (() => {
         preparing: ["Preparing new version…"],
         current: ["You're up to date", "Latest app version is running.", "Check for updates", "current"],
         ready: ["A new version is ready", "Update when you're ready.", "Update now", "download"],
+        reloadReady: ["Reload to finish updating", "", "Reload app", "download"],
         editing: ["Update ready — finish editing", "Finish or cancel your edits first.", "", "pause"],
         working: ["Update ready — finish editing", "Wait for the current operation to finish.", "", "pause"],
         undo: ["Update ready — finish editing", "Use Undo or wait for it to expire first.", "", "pause"],
@@ -19,7 +20,8 @@ const appUpdates = (() => {
         updating: ["Updating app…"]
     };
 
-    let loadedBuild, workers, registration, checkRun, inspection, live, waiting, activation;
+    let loadedBuild, workers, registration, checkRun, inspection, live, updateTarget, activation;
+    let recoveryBuild, reloadTimer;
     let status = "checking";
     let dismissed = false;
     let failedInstall = false;
@@ -73,7 +75,7 @@ const appUpdates = (() => {
 
     function viewStatus() {
         if (status !== "ready") return status;
-        return localBlocker() || (waiting.soleWindow ? "ready" : "windows");
+        return localBlocker() || (!updateTarget.soleWindow ? "windows" : updateTarget.reloadOnly ? "reloadReady" : "ready");
     }
 
     function changeText(node, value) {
@@ -104,8 +106,9 @@ const appUpdates = (() => {
             const processing = ["checking", "preparing", "updating"].includes(state);
             button.hidden = !action && !processing;
             button.disabled = processing;
-            button.classList.toggle("app-update-primary", state === "ready");
-            changeIcon(button.querySelector("[data-update-button-icon]"), state === "ready" ? "download" : "refresh");
+            const ready = state === "ready" || state === "reloadReady";
+            button.classList.toggle("app-update-primary", ready);
+            changeIcon(button.querySelector("[data-update-button-icon]"), ready ? "download" : "refresh");
             changeText(button.querySelector("[data-update-button-label]"), action || (state === "updating" ? "Update now" : "Check for updates"));
         }
         notice.hidden = !!card || currentView === "more" || state !== "ready" || dismissed;
@@ -169,6 +172,14 @@ const appUpdates = (() => {
         return message(worker, { type: "gac-app-inspect" });
     }
 
+    function verifiedBuild(reply, buildId, hash) {
+        return reply?.buildId === buildId && reply.metadataHash === hash;
+    }
+
+    function controlsPage(worker) {
+        return worker?.state === "activated" && workers.controller === worker && registration.active === worker;
+    }
+
     function observeWorker(worker) {
         if (!worker || watched.has(worker)) return;
         watched.add(worker);
@@ -201,7 +212,7 @@ const appUpdates = (() => {
     }
 
     async function assess(metadata) {
-        if (!loadedBuild) { show("interrupted"); return; }
+        if (!loadedBuild && !recoveryBuild) { show("interrupted"); return; }
         const controller = workers.controller;
         const candidate = registration.waiting;
         const [active, installed] = await Promise.all([inspect(controller), inspect(candidate)]);
@@ -211,16 +222,19 @@ const appUpdates = (() => {
             requestInspection();
             return;
         }
+        const activeMatches = controlsPage(controller) && verifiedBuild(active, metadata.buildId, metadata.hash);
         if (registration.installing || registration.active?.state === "activating") {
             show("preparing");
-        } else if (loadedBuild === metadata.buildId && metadata.version === APP_VERSION &&
-            controller && controller === registration.active && active?.metadataHash === metadata.hash && active.buildId === loadedBuild &&
+        } else if (loadedBuild === metadata.buildId && metadata.version === APP_VERSION && activeMatches &&
             !failedInstall && (!candidate || installed?.metadataHash === metadata.hash)) {
             show("current");
-        } else if (candidate?.state === "installed" && installed?.metadataHash === metadata.hash && installed.buildId === metadata.buildId) {
-            waiting = { worker: candidate, buildId: installed.buildId, hash: metadata.hash, soleWindow: installed.soleWindow === true };
+        } else if (loadedBuild !== metadata.buildId && recoveryBuild === metadata.buildId && activeMatches && !failedInstall) {
+            updateTarget = { worker: controller, buildId: metadata.buildId, hash: metadata.hash, soleWindow: active.soleWindow === true, reloadOnly: true };
             show("ready");
-        } else show("failed");
+        } else if (loadedBuild && candidate?.state === "installed" && verifiedBuild(installed, metadata.buildId, metadata.hash)) {
+            updateTarget = { worker: candidate, buildId: metadata.buildId, hash: metadata.hash, soleWindow: installed.soleWindow === true, reloadOnly: false };
+            show("ready");
+        } else show(recoveryBuild ? "interrupted" : "failed");
     }
 
     function requestInspection() {
@@ -287,8 +301,7 @@ const appUpdates = (() => {
     }
 
     function waitForControl(worker) {
-        const controlsPage = () => worker.state === "activated" && workers.controller === worker && registration.active === worker;
-        if (controlsPage()) return Promise.resolve(true);
+        if (controlsPage(worker)) return Promise.resolve(true);
         return new Promise(resolve => {
             function finish(result) {
                 clearTimeout(timer);
@@ -297,7 +310,7 @@ const appUpdates = (() => {
                 resolve(result);
             }
             function changed() {
-                if (controlsPage()) finish(true);
+                if (controlsPage(worker)) finish(true);
                 else if (worker.state === "redundant") finish(false);
             }
             const timer = setTimeout(() => finish(false), 6000);
@@ -307,23 +320,38 @@ const appUpdates = (() => {
         });
     }
 
+    function canReload() {
+        return !localBlocker() && document.visibilityState === "visible" && navigator.onLine !== false;
+    }
+
+    function finishAttempt(next) {
+        clearTimeout(reloadTimer);
+        reloadTimer = undefined;
+        frozen = false;
+        activation = null;
+        if (next === "interrupted") live = null;
+        show(next);
+    }
+
     async function activate() {
-        if (activation || viewStatus() !== "ready") return;
-        const { worker, buildId, hash } = waiting;
+        if (activation || !["ready", "reloadReady"].includes(viewStatus())) return;
+        const target = updateTarget;
+        const { worker, buildId, hash, reloadOnly } = target;
+        const targetAvailable = () => reloadOnly ? controlsPage(worker) : worker === registration.waiting && worker.state === "installed";
         activation = true;
         show("updating");
         let failure = "interrupted";
         try {
             const metadata = await readLiveBuild();
-            if (metadata.buildId !== buildId || metadata.hash !== hash || worker !== registration.waiting || worker.state !== "installed") return;
+            if (metadata.buildId !== buildId || metadata.hash !== hash || !targetAvailable()) return;
             const installed = await inspect(worker);
-            if (installed?.metadataHash !== hash || installed.buildId !== buildId) return;
-            if (!installed.soleWindow) {
-                waiting.soleWindow = false;
+            if (!verifiedBuild(installed, buildId, hash)) return;
+            if (installed.soleWindow !== true) {
+                target.soleWindow = false;
                 failure = "ready";
                 return;
             }
-            if (localBlocker() || document.visibilityState !== "visible" || navigator.onLine === false) {
+            if (!canReload()) {
                 failure = navigator.onLine === false ? "offline" : "ready";
                 return;
             }
@@ -332,8 +360,8 @@ const appUpdates = (() => {
                 failure = "ready";
                 return;
             }
-            if (localBlocker() || rosterBackup !== backup || worker !== registration.waiting ||
-                document.visibilityState !== "visible" || navigator.onLine === false) {
+            if (!targetAvailable()) return;
+            if (!canReload() || rosterBackup !== backup) {
                 failure = navigator.onLine === false ? "offline" : "ready";
                 return;
             }
@@ -342,28 +370,35 @@ const appUpdates = (() => {
             // asynchronous client enumeration. The fence lasts through reload
             // or a bounded failure, and is never used while checking.
             sessionStorage.setItem(reloadKey, buildId);
+            recoveryBuild = buildId;
             frozen = true;
-            const deadline = Date.now() + 2800;
-            const result = await message(worker, { type: "gac-app-activate", buildId, metadataHash: hash, deadline }, 3500);
-            if (result?.result === "other-windows") {
-                waiting.soleWindow = false;
-                failure = "ready";
+            if (!reloadOnly) {
+                const deadline = Date.now() + 2800;
+                const result = await message(worker, { type: "gac-app-activate", buildId, metadataHash: hash, deadline }, 3500);
+                if (result?.result === "other-windows") {
+                    target.soleWindow = false;
+                    failure = "ready";
+                    return;
+                }
+                if (result?.result !== "accepted" || result.buildId !== buildId || !await waitForControl(worker)) return;
+            }
+            const active = await inspect(worker);
+            if (!verifiedBuild(active, buildId, hash) || !controlsPage(worker)) return;
+            if (active.soleWindow !== true || !canReload() || rosterBackup !== backup) {
+                updateTarget = { ...target, soleWindow: active.soleWindow === true, reloadOnly: true };
+                failure = navigator.onLine === false ? "offline" : "ready";
                 return;
             }
-            if (result?.result !== "accepted" || result.buildId !== buildId || !await waitForControl(worker)) return;
-            const active = await inspect(worker);
-            if (active?.metadataHash !== hash || active.buildId !== buildId || workers.controller !== worker || localBlocker()) return;
+            reloadTimer = setTimeout(() => {
+                // Cancel a pending navigation before allowing editing again.
+                try { window.stop(); } finally { finishAttempt("interrupted"); }
+            }, 6000);
             location.reload();
             failure = null;
         } catch {
             // The existing page and saved shell remain available for a retry.
         } finally {
-            if (failure) {
-                frozen = false;
-                activation = null;
-                try { sessionStorage.removeItem(reloadKey); } catch {}
-                show(failure);
-            }
+            if (failure) finishAttempt(failure);
         }
     }
 
@@ -374,8 +409,9 @@ const appUpdates = (() => {
             dismissed = true;
             refreshView();
         } else if (button.matches("[data-app-update-action]")) {
-            if (viewStatus() === "ready") activate();
-            else if (["current", "failed", "interrupted", "offline", "windows"].includes(viewStatus())) check();
+            const state = viewStatus();
+            if (state === "ready" || state === "reloadReady") activate();
+            else if (["current", "failed", "interrupted", "offline", "windows"].includes(state)) check();
         }
     }
 
@@ -418,19 +454,23 @@ const appUpdates = (() => {
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "visible") resume();
         });
-        window.addEventListener("pageshow", event => { if (event.persisted) resume(); });
+        window.addEventListener("pageshow", event => {
+            if (!event.persisted) return;
+            if (reloadTimer !== undefined) finishAttempt("interrupted");
+            resume();
+        });
         window.addEventListener("online", reconnect);
         window.addEventListener("offline", () => {
             clearTimeout(reconnectTimer);
             if (!activation) { live = null; show("offline"); }
         });
 
-        let target;
         try {
-            target = sessionStorage.getItem(reloadKey);
-            if (target) sessionStorage.removeItem(reloadKey);
+            const target = sessionStorage.getItem(reloadKey);
+            if (buildPattern.test(target ?? "") && target !== loadedBuild) recoveryBuild = target;
+            else if (target) sessionStorage.removeItem(reloadKey);
         } catch {}
-        if (!loadedBuild || (target && target !== loadedBuild)) show("interrupted");
+        if (!loadedBuild || recoveryBuild) show("interrupted");
         else check();
     }
 
