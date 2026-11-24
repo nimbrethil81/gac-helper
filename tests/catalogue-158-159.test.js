@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const { readSource, compileSource, readCorrections, applyCorrections, auditSource } = require('../scripts/catalogue-source-lib');
+const { readSource, compileSource, readCorrections, applyCorrections, auditSource, isApplied } = require('../scripts/catalogue-source-lib');
 const { sourceAtCommit } = require('../scripts/catalogue-release-lib');
 const { diffPayloads } = require('../scripts/catalogue-audit-lib');
 const root = path.join(__dirname, '..');
@@ -17,7 +17,7 @@ const current = readSource(path.join(root, 'catalogue/source')).source;
 // Historical corrections through #172 reproduce this immutable v34 checkpoint.
 // Compare current gameplay invariants separately; later approved updates are valid.
 const v34 = sourceAtCommit(root, '3acc291b6049ac723ba2fa875d5dd2678354e05e').source;
-const before = compileSource(baseline);
+const before = auditSource(baseline, { historical: true }).payload;
 const payload = compileSource(current);
 const noNotes = v => JSON.parse(JSON.stringify(v, (k, x) => k === 'notes' ? undefined : x));
 const historical = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-158-159-reconciliation.json'));
@@ -39,11 +39,15 @@ function harness() {
 }
 
 test('#158/#159 remain reproducible historical decisions; #167 and #171 apply their exact approved current corrections', () => {
-    const delivered = compileSource(sourceAtCommit(root, '44c305f05f99959a154c5086326dec743b7e25c0').source);
-    assert.deepEqual(compileSource(applyCorrections(baseline, historical.corrections)), delivered);
+    const delivered = sourceAtCommit(root, '44c305f05f99959a154c5086326dec743b7e25c0').source;
+    const historicalReport = auditSource(delivered, { historical: true });
+    assert.equal(historicalReport.summary.releaseGate, 'PASS');
+    assert.ok(historical.corrections.every(correction => isApplied(delivered, correction)));
+    assert.deepEqual(diffPayloads(before, historicalReport.payload).map(d => d.path).sort(), historical.corrections.flatMap(c => c.expectedPayloadPaths).sort());
+    assert.throws(() => applyCorrections(baseline, historical.corrections), /provisional matchup fields are retired/);
     assert.deepEqual(applyCorrections(applyCorrections(applyCorrections(applyCorrections(applyCorrections(sourceAtCommit(root, correction167.baseline.commit).source, correction167.corrections), correction171.corrections), correction180.corrections), correction169.corrections), correction172.corrections), v34);
     assert.equal(auditSource(current).summary.releaseGate, 'PASS');
-    const preview = compileSource(sourceAtCommit(root, correction167.baseline.commit).source);
+    const preview = auditSource(sourceAtCommit(root, correction167.baseline.commit).source, { historical: true }).payload;
     const v34Payload = compileSource(v34);
     assert.deepEqual(diffPayloads(preview, v34Payload).map(d => d.path).sort(), [...new Set([...correction167.corrections.flatMap(c => c.expectedPayloadPaths), ...correction171.corrections.flatMap(c => c.expectedPayloadPaths), ...correction180.corrections.flatMap(c => c.expectedPayloadPaths), ...correction169.corrections.flatMap(c => c.expectedPayloadPaths), ...correction172.corrections.flatMap(c => c.expectedPayloadPaths)])].sort());
     assert.equal(payload.counters['3v3'][depa], undefined);

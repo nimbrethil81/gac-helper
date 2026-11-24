@@ -144,7 +144,8 @@ const RULES = Object.freeze({
   BANNER_SCORE_NO_MEANING: ["warning", "No Score_Meanings row exists for this mode and Banner Score."],
   UNDERSIZE_NONNUMERIC: ["warning", "Undersize is blank or non-numeric and is read as 0."],
   UNDERSIZE_INVALID: ["blocking", "Undersize is fractional, negative or larger than the format allows."],
-  MATCHUP_PROVISIONAL_INVALID: ["blocking", "A provisional option needs valid evidence, exact attacking membership and no scoring or tactical role."],
+  MATCHUP_PROVISIONAL_RETIRED: ["blocking", "Provisional matchup fields are retired and accepted only when verifying historical releases."],
+  MATCHUP_PROVISIONAL_INVALID: ["blocking", "A historical provisional row must have valid evidence and exact attacking membership, with no scoring or tactical role."],
   NOTE_PROCESS_COMMENTARY: ["blocking", "A new or changed counter note contains process or research commentary (approval status, provisional status, URLs, history, sample sizes, scoring justification) instead of tactical guidance."],
   NOTE_LENGTH: ["warning", "A new or changed counter note is longer than the 120-character editorial target; confirm it is all tactically useful."],
   NOTE_UNCERTAINTY: ["warning", "A new or changed counter note contains generic uncertainty wording rather than a specific tactical instruction."],
@@ -806,6 +807,7 @@ function modelFromPayload(payload, add) {
           defence,
           counterId: entry?.counterId,
           counterName: entry?.counter,
+          hasRetiredFields: hasRetiredMatchupFields(entry),
           confidence: entry?.confidence,
           evidenceKind: entry?.evidenceKind,
           required: entry?.required,
@@ -987,7 +989,11 @@ function checkCounterComposition(model, add, units) {
   }
 }
 
-function checkMatchups(model, add, units, scoreMeanings) {
+function hasRetiredMatchupFields(row) {
+  return ["confidence", "evidenceKind", "evidenceUrl", "observedAt"].some(field => Object.hasOwn(row ?? {}, field));
+}
+
+function checkMatchups(model, add, units, scoreMeanings, historical) {
   const counterById = new Map(model.counters.map((counter) => [trimmed(counter.id), counter]));
   const memberCounterIds = new Set(model.members.map((member) => trimmed(member.counterId)));
   const types = counterUnitTypes(model, units);
@@ -1024,7 +1030,11 @@ function checkMatchups(model, add, units, scoreMeanings) {
       add("DERIVED_VALUE_MISMATCH", { ...context, observed: jsonValue(matchup.counterName), expected: JSON.stringify(definition.name), effect: "Counter card name disagrees with counterDefinitions" });
     }
 
-    if (matchup.confidence !== undefined) {
+    if (matchup.hasRetiredFields) {
+      if (!historical) {
+        add("MATCHUP_PROVISIONAL_RETIRED", { ...context, observed: "retired matchup fields", expected: "a scored matchup or a SETUP/CLEANUP step", effect: "Cannot publish retired research options" });
+        continue;
+      }
       const members = matchup.required;
       let url;
       try { url = new URL(matchup.evidenceUrl); } catch {}
@@ -1032,7 +1042,7 @@ function checkMatchups(model, add, units, scoreMeanings) {
       const core = model.members.filter(m => m.counterId === counterId && m.role === "REQUIRED").map(m => m.unitId);
       const validDate = /^\d{4}-\d{2}-\d{2}$/.test(matchup.observedAt ?? "") && Number.isFinite(Date.parse(matchup.observedAt)) && new Date(matchup.observedAt).toISOString().slice(0, 10) === matchup.observedAt;
       if (!["3v3", "5v5"].includes(mode) || matchup.confidence !== "PROVISIONAL" || !["RELATED", "SINGLE_REPORT"].includes(matchup.evidenceKind) || !validMembers || !core.every(id => members?.includes(id)) || members?.[0] !== core[0] || !url || url.protocol !== "https:" || url.username || url.password || !validDate || typeof matchup.notes !== "string" || ["tier", "bannerScore", "undersize", "role"].some(field => matchup[field] !== undefined)) {
-        add("MATCHUP_PROVISIONAL_INVALID", { ...context, observed: "invalid provisional option", expected: "PROVISIONAL, RELATED or SINGLE_REPORT, exact core-inclusive members, HTTPS evidence, observation date, string notes (may be empty), no score/role", effect: "Cannot safely show an unscored research option" });
+        add("MATCHUP_PROVISIONAL_INVALID", { ...context, observed: "invalid provisional option", expected: "PROVISIONAL, RELATED or SINGLE_REPORT, exact core-inclusive members, HTTPS evidence, observation date, string notes (may be empty), no score/role", effect: "Cannot verify the historical row" });
       }
       checkMatchupUnitTypes(matchup, mode, counterId, types, add, context);
       continue;
@@ -1468,14 +1478,14 @@ function collector() {
   return { findings, add };
 }
 
-function runRules(model, add) {
+function runRules(model, add, historical = false) {
   const units = new Map();
   for (const unit of model.units) if (!units.has(trimmed(unit.id))) units.set(trimmed(unit.id), unit);
   checkUnits(model, add);
   checkCounters(model, add, units);
   checkCounterComposition(model, add, units);
   const meanings = model.sourceKind === "sheets" && model.scoreMeanings.length ? checkScoreMeanings(model, add) : null;
-  checkMatchups(model, add, units, meanings);
+  checkMatchups(model, add, units, meanings, historical);
   checkDefences(model, add, units);
   checkBoard(model, add);
   checkScoring(model, add);
@@ -1550,10 +1560,10 @@ function auditSnapshot(snapshot) {
 }
 
 // Audit any seven-key payload through the same rules.
-function auditPayload(payload, { label = "payload", capturedAt = null } = {}) {
+function auditPayload(payload, { label = "payload", capturedAt = null, historical = false } = {}) {
   const { findings, add } = collector();
   const model = modelFromPayload(payload, add);
-  runRules(model, add);
+  runRules(model, add, historical);
   scanSensitive(payload, "payload", add);
   findings.sort(compareFindings);
   let counts = null;
@@ -1667,6 +1677,7 @@ module.exports = {
   summarise,
   diffPayloads,
   emulateActionData,
+  hasRetiredMatchupFields,
   loadSnapshot,
   payloadChecksum,
   renderMarkdown

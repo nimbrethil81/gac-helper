@@ -55,7 +55,7 @@ Each file is UTF-8 JSON, 2-space indented, with a top-level `"schema": 1` and on
 | `scoring.json` | `rules` | **`ruleId`**, **`battleType`**, **`mode`**, **`value`**, `notes` | Row order preserved. |
 | `score-meanings.json` | `meanings` | **`mode`**, **`bannerScore`**, **`meaning`** | Authoring reference only; **not** compiled into the payload. |
 
-**Unscored provisional variant (#156).** A 3v3/5v5 matchup entry may instead be `{counterId, confidence: "PROVISIONAL", evidenceKind: "RELATED" | "SINGLE_REPORT", required: [Character_ID, ...], evidenceUrl, observedAt, notes?}`. All fields except `notes` are required; `notes` is optional tactical copy (GAC-NOTES1) and an absent value compiles to `""`. Membership is nonempty, unique, no larger than the squad mode, contains the global core and puts its first required member (leader) first. Evidence must be HTTPS with no credentials; `observedAt` is a valid UTC calendar date. Evidence classification, source and date stay in their structured fields, never in notes. A provisional entry cannot contain `role`, `tier`, `bannerScore` or `undersize`; it is never one-shot coverage. Duplicate defence/mode/counter references remain blocked.
+**Retired matchup fields (#220).** Author scored matchups or SETUP/CLEANUP steps. Keep candidate evidence and confidence in research provenance.
 
 Rules:
 
@@ -77,7 +77,7 @@ The compiler emits exactly these seven keys, with the semantics SPEC §5 documen
 
 | Key | Generated from | Contract |
 |---|---|---|
-| `counters` | `matchups/*.json` + `counters.json` names | `{mode: {defence: [{counterId, counter, tier, bannerScore, undersize, notes}]}}`; a tactical step is `{counterId, counter, role, notes}` (#112/#115); a provisional option carries the §4 provisional fields plus resolved `counter`, with its exact `required` membership preserved (#156). `5v5` and `3v3` always present (possibly `{}`); `FLEET` present iff it has ≥ 1 matchup. `counter` = `counters.json` `name`. `notes` = `""` when absent. |
+| `counters` | `matchups/*.json` + `counters.json` names | `{mode: {defence: [{counterId, counter, tier, bannerScore, undersize, notes}]}}`; a tactical step is `{counterId, counter, role, notes}` (#112/#115). `5v5` and `3v3` always present (possibly `{}`); `FLEET` present iff it has ≥ 1 matchup. `counter` = `counters.json` `name`. `notes` = `""` when absent. |
 | `counterDefinitions` | `counters.json` | `{Counter_ID: {name, required[], recommended[]}}`; `strategicReserve: true` present only when set, otherwise omitted. |
 | `characterDefinitions` | `units.json` + optional `ship-pilots.json` | `{Character_ID: {name, unitType, externalId}}`; `externalId` is `""` when unmapped. Ship entries add optional `pilotIds[]` when metadata exists; `[]` means pilotless, omission means unknown. Older releases retain their exact payload/checksum. |
 | `boardConfig` | `board-config.json` | `{LEAGUE: {mode: [{territory, type, teamCount}]}}`, source row order. |
@@ -87,7 +87,7 @@ The compiler emits exactly these seven keys, with the semantics SPEC §5 documen
 
 Equivalence: two payloads are equal when their **canonical JSON** is identical — object keys sorted recursively, array order significant, `JSON.stringify(sorted, null, 2) + "\n"` (existing `canonicalJson` in `scripts/baseline-lib.js`). Object key order carries no meaning (the app sorts defence names for display); array order does (stable sorts use it to break ties, and scoring/territory order is consumed positionally).
 
-**Release capability contract (#156).** `gac-catalogue-release:v1` remains the contract for payloads without structured provisional entries. Payloads containing them use `gac-catalogue-release:v2`; the seven keys and canonical checksum are unchanged. The release builder, pointer and manifest use that payload-selected contract. Verification requires a matching release capability, and the client stores the same contract in the cache envelope. Historical v1 releases are still rebuilt and accepted. Older clients reject v2 pointers/caches rather than treating unscored rows as ordinary recommendations. A rollback without provisional rows uses v1 again. This is a deliberate compatibility boundary; consumers must not discard the discriminator or downgrade a v2 payload to v1.
+**Release contracts.** Active releases use `gac-catalogue-release:v1`. Historical `gac-catalogue-release:v2` releases carry unscored provisional rows with `confidence`, `evidenceKind`, `required`, `evidenceUrl` and `observedAt` (#156). Ledger rebuild and release verification preserve the original bytes, contract and seven-key checksum. The client verifies and caches the original payload, then excludes these rows from the data it applies. Clients that predate v2 reject that contract. Forward-version rollback uses eligible v1 source because restoring v2 source would republish retired rows.
 
 **Additive release metadata.** A release file is the seven keys plus exactly one extra top-level key, `release`. Consumers that predate it ignore it (the current `isValidCataloguePayload` already does). No metadata is placed inside any legacy key.
 

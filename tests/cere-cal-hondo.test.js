@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const {readSource, compileSource, applyCorrections, readCorrections} = require('../scripts/catalogue-source-lib');
+const {readSource, compileSource, auditSource, applyCorrections, readCorrections} = require('../scripts/catalogue-source-lib');
 const {sourceAtCommit} = require('../scripts/catalogue-release-lib');
 const root = path.join(__dirname, '..');
 const payload = compileSource(readSource(path.join(root, 'catalogue/source')).source);
@@ -27,7 +27,7 @@ test('approved exact Hondo counter is A/56 non-provisional; only declared source
     const document=readCorrections(path.join(root,'catalogue/corrections/2026-11-06-cere-cal-hondo-3v3.json'));
     const before=sourceAtCommit(root,document.baseline.commit).source;
     assert.deepEqual(applyCorrections(before,document.corrections), sourceAtCommit(root,'f8d4cc8627eec8494247cff327810d5cca9f32cc').source);
-    const old=compileSource(before);
+    const old=auditSource(before,{historical:true}).payload;
     const noNotes=v=>JSON.parse(JSON.stringify(v,(k,x)=>k==='notes'?undefined:x));
     assert.deepEqual(noNotes({...payload.counters['5v5'],Geonosians:payload.counters['5v5'].Geonosians.slice(0,-2)}),noNotes(old.counters['5v5']));
     assert.deepEqual(noNotes(payload.counters.FLEET),noNotes(old.counters.FLEET));

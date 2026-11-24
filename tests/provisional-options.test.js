@@ -2,283 +2,161 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
+const { execFileSync } = require('node:child_process');
 const { webcrypto } = require('node:crypto');
-const { readSource, compileSource, auditSource, importFromPayload, releaseContract, readCorrections, applyCorrections } = require('../scripts/catalogue-source-lib.js');
+const { readSource, writeSource, compileSource, auditSource, importFromPayload, readCorrections, applyCorrections } = require('../scripts/catalogue-source-lib.js');
 const { auditPayload } = require('../scripts/catalogue-audit-lib.js');
+const { run: runBuild } = require('../scripts/catalogue-build.js');
 const { sourceAtCommit, renderRelease, verifyReleaseText } = require('../scripts/catalogue-release-lib.js');
+
 const root = path.join(__dirname, '..');
-// Pin the original #156 release; later approved corrections may retire its rows.
-const committed = sourceAtCommit(root, '251ccb342c1f4329708b145afb8ebcaf9cae73e6').source;
-const approvedProposal = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
-const original = structuredClone(committed);
-for (const change of approvedProposal.corrections[0].changes) {
-    original[change.file] = original[change.file].filter(row => !(row.defence === change.stableKey.defence && (change.file.startsWith('matchups/') || row.mode === change.stableKey.mode)));
-}
+const historicalCommit = '251ccb342c1f4329708b145afb8ebcaf9cae73e6';
+const historicalSource = sourceAtCommit(root, historicalCommit).source;
+const historicalPayload = auditSource(historicalSource, { historical: true }).payload;
+const historicalRelease = renderRelease(historicalPayload, 26);
+const v2 = 'gac-catalogue-release:v2';
+const v1 = 'gac-catalogue-release:v1';
 const defence = 'Depa Billaba / Jedi Knight Revan / Bastila Shan';
-const entry = { counterId: 'DARTH_REVAN', confidence: 'PROVISIONAL', evidenceKind: 'RELATED', required: ['DARTH_REVAN', 'BASTILA_SHAN_FALLEN', 'DARTH_MALAK'], evidenceUrl: 'https://www.swgoh-ga3.online-server.info/index.php?id=jedi_knight_revan', observedAt: '2026-11-06', notes: 'Related evidence only; exact defence untested. Datacrons, relics and mods unknown.' };
-function fixture(mutate = () => {}) {
-    const source = structuredClone(original);
-    source['matchups/3v3.json'].push({ defence, counters: [structuredClone(entry)] });
-    source['matchups/3v3.json'].sort((a, b) => a.defence < b.defence ? -1 : 1);
-    mutate(source['matchups/3v3.json'].find(d => d.defence === defence).counters);
-    return source;
-}
-function harness(payload = compileSource(fixture()), old = false) {
+const pointerFor = (release, contract) => ({ pointerSchema: 1, contract, catalogueVersion: release.catalogueVersion, checksum: release.checksum, path: release.path, bytes: release.bytes });
+const pointer = pointerFor(historicalRelease, v2);
+const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+
+function harness(code = appSource) {
     const values = new Map();
-    const elements = { teamSelect: { value: defence, options: [defence] }, results: {} };
-    const context = { __GAC_HELPER_TEST__: true, URL, AbortController, crypto: webcrypto, TextEncoder, TextDecoder, console, setTimeout, clearTimeout, navigator: {}, confirm: () => true, alert: () => {}, localStorage: { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) }, document: { getElementById: id => elements[id] ?? { innerHTML: '' }, querySelectorAll: () => [], querySelector: () => null } };
+    const elements = { app: {}, teamSelect: { value: defence, options: [defence] }, results: {} };
+    const context = {
+        __GAC_HELPER_TEST__: true, URL, AbortController, crypto: webcrypto, TextEncoder, TextDecoder, console, setTimeout, clearTimeout,
+        navigator: {}, confirm: () => true, alert: () => {},
+        localStorage: { getItem: k => values.get(k) ?? null, setItem: (k, v) => values.set(k, v), removeItem: k => values.delete(k) },
+        document: { getElementById: id => elements[id] ?? null, querySelectorAll: () => [], querySelector: () => null }
+    };
     vm.createContext(context);
-    // The actual pre-change client proves v2 is refused rather than interpreted
-    // as a tierless ordinary recommendation.
-    const code = old ? require('node:child_process').execFileSync('git', ['show', 'e7ba65a:app.js'], { cwd: root, encoding: 'utf8' }) : fs.readFileSync(path.join(root, 'app.js'), 'utf8');
     vm.runInContext(code, context);
-    const run = code => vm.runInContext(code, context);
-    run(`gacData = ${JSON.stringify(payload.counters)}; counterDefinitions = ${JSON.stringify(payload.counterDefinitions)}; characterDefinitions = ${JSON.stringify(payload.characterDefinitions)}; defenceTeams = ${JSON.stringify(payload.defenceTeams)}; defenceCompositions = ${JSON.stringify(payload.defenceCompositions)}; currentMode = '3v3'; ownedCharacters = ${JSON.stringify(entry.required)}; usedTeams = [];`);
-    return { run, context, elements, values };
+    return { run: code => vm.runInContext(code, context), context, elements, values };
 }
 
-test('provisional source round-trips evidence and exact membership; existing payload stays identical', () => {
-    const source = fixture();
-    const report = auditSource(source);
-    assert.equal(report.summary.releaseGate, 'PASS');
-    const payload = compileSource(source);
-    assert.deepEqual(importFromPayload(payload)['matchups/3v3.json'].find(d => d.defence === defence).counters, [entry]);
-    const stripped = structuredClone(payload);
-    delete stripped.counters['3v3'][defence];
-    assert.deepEqual(stripped, compileSource(original));
-    assert.equal(payload.counters['5v5'][defence], undefined);
-    assert.notEqual(payload.counters['3v3']['Jedi Knight Revan'], payload.counters['3v3'][defence]);
+test('active audit, compiler, import, corrections and release recording refuse retired matchup fields', (t) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gac-retired-source-'));
+    t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+    const active = readSource(path.join(root, 'catalogue/source')).source;
+    const source = structuredClone(active);
+    const historicalMatch = historicalSource['matchups/3v3.json'].find(row => row.defence === defence);
+    source['matchups/3v3.json'].push(historicalMatch);
+    assert.ok(auditSource(source).findings.some(f => f.code === 'MATCHUP_PROVISIONAL_RETIRED'));
+    assert.ok(auditPayload(historicalPayload).findings.some(f => f.code === 'MATCHUP_PROVISIONAL_RETIRED'));
+    assert.throws(() => compileSource(source), /provisional matchup fields are retired/);
+    assert.throws(() => importFromPayload(historicalPayload), /provisional matchup fields are retired/);
+    const detachedEvidence = structuredClone(active);
+    detachedEvidence['matchups/FLEET.json'][0].counters[0].evidenceKind = 'RELATED';
+    assert.throws(() => compileSource(detachedEvidence), /provisional matchup fields are retired/);
+    assert.ok(auditSource(detachedEvidence).findings.some(f => f.code === 'MATCHUP_PROVISIONAL_RETIRED'));
+
+    const document = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
+    assert.equal(document.corrections[0].status, 'APPROVED', 'historical approval remains readable');
+    assert.throws(() => applyCorrections(active, document.corrections), /provisional matchup fields are retired/);
+    assert.throws(() => applyCorrections(active, [{ id: 'legacy', changes: [{ file: 'matchups/3v3.json', after: historicalMatch }] }]), /provisional matchup fields are retired/);
+
+    const sourceDir = path.join(dir, 'source');
+    const out = path.join(dir, 'payload.json');
+    const releaseFile = path.join(dir, 'release.json');
+    writeSource(sourceDir, source);
+    const compile = runBuild(['compile', '--source', sourceDir, '--out', out]);
+    assert.equal(compile.exitCode, 1);
+    assert.match(compile.lines.join('\n'), /MATCHUP_PROVISIONAL_RETIRED/);
+    assert.equal(fs.existsSync(out), false);
+    const release = runBuild(['release', '--source', sourceDir, '--release-file', releaseFile]);
+    assert.match(release.lines.join('\n'), /provisional matchup fields are retired/);
+    assert.equal(fs.existsSync(releaseFile), false);
 });
 
-test('release gate refuses invented confidence, scores, incomplete membership, bad evidence and duplicates', () => {
-    for (const mutate of [
-        c => { c[0].confidence = 'EXPERIMENTAL'; }, c => { c[0].evidenceKind = 'VERIFIED'; },
-        c => { c[0].tier = 'B'; }, c => { c[0].bannerScore = 0; }, c => { c[0].undersize = 0; }, c => { c[0].role = 'SETUP'; },
-        c => { c[0].required = []; }, c => { c[0].required = ['UNKNOWN']; }, c => { c[0].required = ['DARTH_MALAK']; },
-        c => { c[0].required.push('DARTH_MALAK'); }, c => { c[0].evidenceUrl = 'javascript:alert(1)'; },
-        c => { c[0].observedAt = '2026-02-30'; }, c => { c[0].notes = 5; }, c => { c.push(structuredClone(c[0])); }
-    ]) assert.equal(auditSource(fixture(mutate)).summary.releaseGate, 'FAIL', mutate.toString());
-    const payload = compileSource(fixture());
-    payload.counters['3v3'][defence][0].bannerScore = 53;
-    assert.equal(auditPayload(payload).summary.releaseGate, 'FAIL');
-});
-
-test('provisional tactical notes are optional: empty or omitted notes keep every structured safeguard (GAC-NOTES1)', () => {
-    for (const mutate of [c => { delete c[0].notes; }, c => { c[0].notes = ''; }]) {
-        const source = fixture(mutate);
-        assert.equal(auditSource(source).summary.releaseGate, 'PASS');
-        const payload = compileSource(source);
-        assert.equal(payload.counters['3v3'][defence][0].notes, '');
-        assert.equal(releaseContract(payload), 'gac-catalogue-release:v2');
-        assert.equal(auditPayload(payload).summary.releaseGate, 'PASS');
-        assert.equal('notes' in importFromPayload(payload)['matchups/3v3.json'].find(d => d.defence === defence).counters[0], false);
-        verifyReleaseText(renderRelease(payload, 26).text);
-        const h = harness(payload);
-        assert.equal(h.run(`isValidCataloguePayload(${JSON.stringify(payload)})`), true);
-        h.run('counterFilter = "all"; showCounters();');
-        const html = h.elements.results.innerHTML;
-        assert.match(html, /Provisional options — not included in plans/);
-        assert.match(html, /provisional-badge/);
-        assert.match(html, /Observed 2026-11-06/);
-        assert.doesNotMatch(html, /<p><\/p>|undefined/);
-        assert.equal(h.run(`oneShotCounters(gacData['3v3'][${JSON.stringify(defence)}]).length`), 0);
-        // Structured safeguards are unchanged: evidence, membership and no score still fail.
-        for (const bad of [c => { delete c[0].evidenceUrl; }, c => { c[0].evidenceUrl = 'http://example.test/x'; }, c => { c[0].tier = 'A'; }, c => { c[0].required = []; }]) {
-            assert.equal(auditSource(fixture(c => { delete c[0].notes; bad(c); })).summary.releaseGate, 'FAIL', bad.toString());
-        }
-        const broken = structuredClone(payload);
-        broken.counters['3v3'][defence][0].evidenceUrl = 'http://example.test/x';
-        assert.equal(h.run(`isValidCataloguePayload(${JSON.stringify(broken)})`), false);
-        broken.counters['3v3'][defence][0].evidenceUrl = entry.evidenceUrl;
-        delete broken.counters['3v3'][defence][0].notes;
-        assert.equal(h.run(`isValidCataloguePayload(${JSON.stringify(broken)})`), false, 'a compiled payload always carries a string note');
-    }
-});
-
-test('v2 release and cache isolate older clients; v1 historical releases still verify', async () => {
-    const payload = compileSource(fixture());
-    const rendered = renderRelease(payload, 26);
-    assert.equal(releaseContract(payload), 'gac-catalogue-release:v2');
-    assert.deepEqual(verifyReleaseText(rendered.text).payload, payload);
-    const pointer = { pointerSchema: 1, contract: 'gac-catalogue-release:v2', catalogueVersion: 26, checksum: rendered.checksum, path: rendered.path, bytes: rendered.bytes };
-    const h = harness(payload);
-    h.context.fetch = async () => ({ ok: true, text: async () => rendered.text });
-    h.context.pointer = pointer;
-    const fetched = await h.run('fetchCatalogueRelease(pointer)');
-    assert.equal(fetched.payload.counters['3v3'][defence][0].confidence, 'PROVISIONAL');
-    h.context.fetched = fetched;
-    assert.equal(h.run('writeCatalogueCache(fetched); readCatalogueCache().sourceContract'), 'gac-catalogue-release:v2');
-    const old = harness(payload, true);
+test('historical v2 verifies with its original checksum and is still refused by pre-v2 clients', async () => {
+    assert.equal(historicalRelease.checksum, 'sha256:036f4f986b949dff01715ec3ac0764ad37487021b1e8274a2b10214c0e92fa99');
+    assert.equal(historicalRelease.sha256, 'sha256:874b0475119c571f3ab3146fb4104802ca43b138c76f5c006ad2ad4a2090ecfe');
+    assert.deepEqual(verifyReleaseText(historicalRelease.text).payload, historicalPayload);
+    const old = harness(execFileSync('git', ['show', 'e7ba65a:app.js'], { cwd: root, encoding: 'utf8' }));
     old.context.pointer = pointer;
     assert.equal(old.run('parseCataloguePointer(pointer)'), null);
+
+    const h = harness();
+    h.context.fetch = async () => ({ ok: true, text: async () => historicalRelease.text });
+    h.context.pointer = pointer;
+    h.context.fetched = await h.run('fetchCatalogueRelease(pointer)');
+    assert.equal(h.context.fetched.payload.counters['3v3'][defence][0].confidence, 'PROVISIONAL');
+    assert.equal(h.run('writeCatalogueCache(fetched); readCatalogueCache().sourceContract'), v2);
     old.values.set('catalogueCache:v2', h.values.get('catalogueCache:v2'));
     assert.equal(old.run('readCatalogueCache()'), null);
-    assert.equal(releaseContract(compileSource(original)), 'gac-catalogue-release:v1');
-    verifyReleaseText(renderRelease(compileSource(original), 25).text);
-    const forged = JSON.parse(rendered.text);
-    forged.release.contract = 'gac-catalogue-release:v1';
+    const forged = JSON.parse(historicalRelease.text);
+    forged.release.contract = v1;
     assert.throws(() => verifyReleaseText(JSON.stringify(forged)), /contract/);
-    h.context.pointer = { ...pointer, contract: 'gac-catalogue-release:v1' };
+    h.context.pointer = { ...pointer, contract: v1 };
     await assert.rejects(h.run('fetchCatalogueRelease(pointer)'), /pointer/);
 });
 
-test('Counters shows confidence, evidence and exact squad availability with no score or tier', () => {
+test('malformed v2 rows fail verification and a corrupt offline cache fails closed', () => {
     const h = harness();
-    h.run('counterFilter = "all"; showCounters();');
-    let html = h.elements.results.innerHTML;
-    assert.match(html, /Provisional options — not included in plans/);
-    assert.match(html, /Provisional — related evidence/);
-    assert.match(html, /Darth Malak/);
-    assert.match(html, /Observed 2026-11-06/);
-    assert.doesNotMatch(html, /Expected Banners|tier-badge|Undersize|undefined|Mark Used/);
-    h.run('ownedCharacters = ["DARTH_REVAN"]; counterFilter = "available"; showCounters();');
-    assert.doesNotMatch(h.elements.results.innerHTML, /provisional-card/);
-    assert.equal(h.run(`provisionalStatus(gacData['3v3'][${JSON.stringify(defence)}][0])`), 'not-owned');
-    h.run(`ownedCharacters = ${JSON.stringify(entry.required)}; usedTeams = ['OTHER']; counterDefinitions.OTHER = {required:['DARTH_MALAK'], recommended:[]};`);
-    assert.equal(h.run(`provisionalStatus(gacData['3v3'][${JSON.stringify(defence)}][0])`), 'spent');
-    h.run(`usedTeams = []; gacData['3v3'][${JSON.stringify(defence)}][0].notes = '<script>alert(1)</script>'; counterFilter = 'all'; showCounters();`);
-    assert.match(h.elements.results.innerHTML, /&lt;script&gt;/);
+    for (const change of [
+        row => { row.evidenceUrl = 'http://example.test/evidence'; },
+        row => { row.observedAt = '2026-02-30'; },
+        row => { row.confidence = 'VERIFIED'; },
+        row => { row.required = []; },
+        row => { row.tier = 'A'; },
+        row => { row.role = 'SETUP'; }
+    ]) {
+        const payload = structuredClone(historicalPayload);
+        change(payload.counters['3v3'][defence][0]);
+        const release = renderRelease(payload, 26);
+        assert.throws(() => verifyReleaseText(release.text), /MATCHUP_PROVISIONAL_INVALID/);
+        h.values.set('catalogueCache:v2', JSON.stringify({ schema: 2, sourceContract: v2, acceptedAt: '2026-11-06', catalogueVersion: 26, checksum: release.checksum, payload }));
+        assert.equal(h.run('readCatalogueCache()'), null);
+    }
 });
 
-test('provisional options never enter Round coverage, resource competition or Last Battle input', () => {
+test('offline v2 cache retains scored and tactical rows while excluding retired rows throughout the app', async () => {
     const h = harness();
-    h.run(`board = createRoundBoard('KYBER', '3v3', [{territory:'FRONT_TOP',type:'SQUAD',teamCount:1}], 'opponent','round','now'); board.teams[0].name = ${JSON.stringify(defence)}; roundPlan = computeRoundPlan();`);
+    const cache = JSON.stringify({ schema: 2, sourceContract: v2, acceptedAt: '2026-11-06', catalogueVersion: 26, checksum: historicalRelease.checksum, payload: historicalPayload });
+    h.values.set('catalogueCache:v2', cache);
+    h.context.fetch = async () => { throw new Error('offline'); };
+    h.run('render = () => {}; maybeBackgroundSync = () => {};');
+    await h.run('loadData()');
+    assert.equal(h.values.get('catalogueCache:v2'), cache);
+    for (const mode of ['3v3', '5v5', 'FLEET']) {
+        h.context.expected = Object.fromEntries(Object.entries(historicalPayload.counters[mode]).map(([name, rows]) => [name, rows.filter(row => row.confidence === undefined)]));
+        assert.equal(h.run(`JSON.stringify(gacData['${mode}'])`), JSON.stringify(h.context.expected));
+    }
+
+    h.context.defence = defence;
+    const owned = historicalPayload.counters['3v3'][defence].flatMap(row => row.required);
+    h.context.owned = [...new Set(owned)];
+    h.run(`currentMode = '3v3'; counterFilter = 'all'; ownedCharacters = owned; showCounters();
+        board = createRoundBoard('KYBER', '3v3', [{territory:'FRONT_TOP',type:'SQUAD',teamCount:1}], 'opponent','round','now');
+        board.teams[0].name = defence; roundPlan = computeRoundPlan();`);
+    assert.match(h.elements.results.innerHTML, /No one-shot counters are catalogued/);
+    assert.doesNotMatch(h.elements.results.innerHTML, /counter-card|Provisional/);
     assert.equal(h.run('Object.keys(roundPlan.assign).length'), 0);
-    assert.equal(h.run(`oneShotCounters(gacData['3v3'][${JSON.stringify(defence)}]).length`), 0);
+    assert.match(h.run(`renderTeamRecommendation('opponent', 'FRONT_TOP', board.teams[0], '3v3')`), /No counters in the catalogue/);
+    assert.doesNotMatch(h.run(`renderTeamRecommendation('opponent', 'FRONT_TOP', board.teams[0], '3v3')`), /<details|Mark used|Provisional/);
     h.run('let seen; lastBattleAdvice = input => { seen = input.counters; return {status:"captured"}; }; currentLastBattleAdvice();');
     assert.equal(h.run('seen.length'), 0);
-    assert.match(h.run('roundPlan.reasons["FRONT_TOP:0"].reason'), /Provisional/);
+
+    const current = compileSource(readSource(path.join(root, 'catalogue/source')).source);
+    const release = renderRelease(current, 40);
+    const currentPointer = pointerFor(release, v1);
+    h.context.fetch = async url => ({ ok: true, text: async () => url.endsWith('current.json') ? JSON.stringify(currentPointer) : release.text });
+    assert.equal(await h.run('refreshCatalogue(readCatalogueCache())'), 'updated');
+    assert.equal(h.run('readCatalogueCache().sourceContract'), v1);
+    assert.equal(h.run('readCatalogueCache().checksum'), release.checksum);
 });
 
-
-test('the historical v26 six-option proposal matches its original source without changing generic counters', () => {
-    const document = readCorrections(path.join(root, 'catalogue/corrections/2026-11-06-exact-3v3-provisional.json'));
-    assert.equal(document.corrections[0].status, 'APPROVED');
-    const proposed = applyCorrections(original, document.corrections);
-    assert.equal(auditSource(proposed).summary.releaseGate, 'PASS');
-    const before = compileSource(original);
-    const after = compileSource(proposed);
-    assert.deepEqual(after, compileSource(committed));
-    const names = document.corrections[0].changes.filter(c => c.file === 'matchups/3v3.json').map(c => c.after.defence);
-    assert.equal(names.length, 2);
-    assert.equal(after.counters['3v3'][names[0]].length, 2);
-    assert.equal(after.counters['3v3'][names[1]].length, 4);
-    assert.equal(after.defenceCompositions['3v3'][names[0]][0], 'DEPA_BILLABA');
-    assert.equal(after.defenceCompositions['3v3'][names[1]][0], 'DARTH_REVAN');
-    for (const name of names) {
-        assert.equal(after.counters['5v5'][name], undefined);
-        assert.equal(new Set(after.counters['3v3'][name].map(c => c.counterId)).size, after.counters['3v3'][name].length);
-        assert.equal(oneShotCount(after.counters['3v3'][name]), 0);
-        delete after.counters['3v3'][name];
-        delete after.defenceCompositions['3v3'][name];
-    }
-    assert.deepEqual(after, before);
-});
-function oneShotCount(rows) {
-    const h = harness();
-    h.context.rows = rows;
-    return h.run('oneShotCounters(rows).length');
-}
-
-
-test('malformed provisional downloads/caches fail closed without throwing', () => {
-    const valid = compileSource(fixture());
-    const h = harness(valid);
-    for (const mutate of [
-        p => { p.counterDefinitions.DARTH_REVAN.required = null; },
-        p => { p.counters['3v3'][defence][0].evidenceUrl = 'javascript:alert(1)'; },
-        p => { p.counters['3v3'][defence][0].observedAt = '2026-02-30'; },
-        p => { p.counters['3v3'][defence][0].confidence = 'VERIFIED'; },
-        p => { p.counters['3v3'][defence][0].required.reverse(); },
-        p => { p.counters['3v3'][defence][0].required = ['DARTH_REVAN']; p.counters['3v3'][defence][0].tier = 'A'; }
-    ]) {
-        h.context.bad = structuredClone(valid);
-        mutate(h.context.bad);
-        assert.equal(h.run('isValidCataloguePayload(bad)'), false);
-    }
-});
-
-
-test('Round disclosure appends all provisional options beneath assessed and no-assessed content, without actions or persistence', () => {
-    const h = harness();
-    h.run(`board = createRoundBoard('KYBER', '3v3', [{territory:'FRONT_TOP',type:'SQUAD',teamCount:1}], 'opponent','round','now'); board.teams[0].name = ${JSON.stringify(defence)}; roundPlan = computeRoundPlan();`);
-    const render = () => h.run(`renderTeamRecommendation('opponent', 'FRONT_TOP', board.teams[0], '3v3')`);
-    const before = JSON.stringify([...h.values]);
-    const html = render();
-    assert.match(html, /No assessed one-shot/);
-    assert.match(html, /Provisional counters \(1\)/);
-    assert.match(html, /Manual consideration only — excluded from battle plans/);
-    assert.match(html, /aria-expanded="false"/);
-    assert.doesNotMatch(html, /<details[^>]* open|Mark used|Used \+|tier-badge|banners/);
-    assert.equal(render(), html, 're-render is collapsed and does not duplicate content');
-    assert.equal(JSON.stringify([...h.values]), before);
-    h.run(`roundPlan.reasons['FRONT_TOP:0'].counter = { counterId:'DARTH_REVAN', counter:'Assessed option', tier:'A', bannerScore:53 };`);
-    const mixed = render();
-    assert.ok(mixed.indexOf('Used + Won') < mixed.indexOf('Provisional counters'));
-    assert.equal((mixed.match(/round-provisional/g) || []).length, 1);
-    for (const side of ['my']) assert.equal(h.run(`renderTeamRecommendation('${side}', 'FRONT_TOP', board.teams[0], '3v3')`), '');
-    for (const team of [{name:defence,cleared:true},{name:''},{name:'Not in catalogue'}]) {
-        assert.equal(h.run(`renderRoundProvisional(${JSON.stringify(team)}, '3v3')`), '');
-    }
-    h.run(`gacData['5v5'][${JSON.stringify(defence)}] = gacData['3v3'][${JSON.stringify(defence)}];`);
-    assert.match(h.run(`renderRoundProvisional(board.teams[0], '5v5')`), /Provisional counters/);
-});
-
-test('Round provisional availability distinguishes unknown, missing, used, defence and shared spent units', () => {
-    const h = harness();
-    const render = () => h.run(`renderRoundProvisional({name:${JSON.stringify(defence)}}, '3v3')`);
-    h.run('ownedCharacters = [];');
-    assert.match(render(), /Roster not loaded — availability unknown/);
-    assert.doesNotMatch(render(), /Not owned/);
-    h.run(`rosterMeta.savedAt = 'now';`);
-    assert.match(render(), /Not owned/);
-    h.run(`ownedCharacters = ${JSON.stringify(entry.required)};`);
-    assert.match(render(), /Available/);
-    h.run(`usedTeams = ['DARTH_REVAN'];`);
-    assert.match(render(), />Used</);
-    h.run(`usedTeams = ['VARIANT']; counterDefinitions.VARIANT = {required:['DARTH_MALAK'],recommended:[]};`);
-    assert.match(render(), /Unavailable/);
-    assert.doesNotMatch(render(), />Available</);
-    h.run(`usedTeams = []; isCharacterOnDefence = id => id === 'DARTH_MALAK';`);
-    assert.match(render(), /On defence/);
-});
-
-test('the approved Malak Revan correction retires its provisional rows and exposes the normal exact counter', () => {
+test('the approved Malak Revan correction still exposes the ordinary exact counter', () => {
     const payload = compileSource(readSource(path.join(root, 'catalogue/source')).source);
-    const h = harness(payload);
     const name = 'Darth Revan / Darth Malak / Bastila Shan (Fallen)';
     const oldName = 'Darth Revan / Darth Malgus / Bastila Shan (Fallen)';
-    const options = payload.counters['3v3'][name];
     assert.equal(payload.counters['3v3'][oldName], undefined);
     assert.equal(payload.defenceCompositions['3v3'][oldName], undefined);
-    assert.equal(options.length, 1);
-    assert.equal(options[0].counterId, 'BAYLAN_MARROK_SHIN');
-    assert.equal(options[0].tier, 'S');
-    assert.equal(options[0].bannerScore, 57);
-    assert.equal(options[0].undersize, 0);
-    assert.equal(options[0].confidence, undefined);
-    h.run(`ownedCharacters = ${JSON.stringify(payload.counterDefinitions.BAYLAN_MARROK_SHIN.required)};`);
-    const html = h.run(`renderRoundProvisional({name:${JSON.stringify(name)}}, '3v3')`);
-    assert.equal(html, '');
-    assert.equal(h.run(`oneShotCounters(gacData['3v3'][${JSON.stringify(name)}]).length`), 1);
+    const [row, ...rest] = payload.counters['3v3'][name];
+    assert.deepEqual([row.counterId, row.tier, row.bannerScore, row.undersize, rest.length], ['BAYLAN_MARROK_SHIN', 'S', 57, 0, 0]);
     assert.equal(payload.counterDefinitions.BAYLAN.required.length, 1);
-});
-
-
-test('research cards use a modest Provisional badge and never invent scored actions or evidence', () => {
-    const h = harness();
-    const html = h.run(`buildProvisionalCardHtml(gacData['3v3'][${JSON.stringify(defence)}][0])`);
-    assert.match(html, /class="provisional-badge">Provisional<\/span>/);
-    assert.match(html, /Provisional — related evidence/);
-    assert.match(html, /Observed 2026-11-06/);
-    assert.match(html, /href="https:\/\/www.swgoh-ga3.online-server.info/);
-    assert.doesNotMatch(html, /tier-badge|board-rec-banners|Expected Banners|Undersize|markUsed|markCounterUsed|Used \+|~[0-9]/);
-    h.run(`board = createRoundBoard('KYBER', '3v3', [{territory:'FRONT_TOP',type:'SQUAD',teamCount:1}], 'opponent','round','now'); board.teams[0].name = ${JSON.stringify(defence)}; roundPlan = computeRoundPlan();`);
-    const row = h.run(`renderBoardTeamRow(board.territories[0], board.teams[0], board, 'opponent')`);
-    assert.equal((row.match(/onclick="toggleTeamCleared/g) || []).length, 1);
-    assert.equal((row.match(/class="board-attempts"/g) || []).length, 1);
-    assert.match(row, /Provisional counters \(1\)/);
-    assert.doesNotMatch(row, /markUsedAndCleared|markUsedAndLost|markCounterUsedFromBoard/);
 });
