@@ -250,7 +250,7 @@ Every used source must have a link that was opened successfully during the run, 
 
 Keep evidence for the three modes separate: 5v5 does not establish 3v3, either squad mode does not establish FLEET, and TW does not establish GAC. Note material unknowns such as relics, mods, abilities, turn order, player skill, opponent quality, cleanup state, preloaded turn meter, selection bias, survivor/publication bias, small samples and patch lag. Contradictory evidence stays visible.
 
-Assign **High**, **Medium** or **Low** confidence as a reasoned summary, never directly from one win-rate threshold. High confidence normally needs current, mode-correct, reproducible evidence from more than one independent source or a suitably large and well-defined sample. Medium has useful but limited or partly conflicting support. Low is sparse, conditional, newly released or materially biased. Confidence does not override identity ambiguity or the owner's approval gate.
+Assign **High**, **Medium** or **Low** confidence as a reasoned summary, never directly from one win-rate threshold. High confidence normally needs current, mode-correct, reproducible evidence from more than one independent source or a suitably large and well-defined sample. Medium has useful but limited or partly conflicting support. Low is sparse, conditional, newly released or materially biased. Keep the confidence assessment in research and correction provenance. Propose a scored counter only when the evidence supports reliable full-clear use and the proposed tier and banner estimate. Keep candidates with insufficient support in research, outside the catalogue. The owner's exact-content approval still applies.
 
 ### Reconcile identities and fields
 
@@ -355,12 +355,11 @@ Reports are kept in [`reviews/`](reviews/), one `CR-…` file per review; the la
 
 A counter `notes` value is player-facing tactical copy, not a research or process record. Leave it **empty** unless one specific, actionable instruction or necessary game condition materially helps a player use the counter or avoid a known failure and is not apparent from the lineup, tier or other fields. When evidenced, that can be target priority, turn order, an indispensable unit or omicron, a pertinent datacron mechanic, or the battle purpose and weakened-state condition of a SETUP/CLEANUP step. Write one sentence, normally at most 120 characters; this is an editorial target, not a hard cap.
 
-Never put in Notes: owner/user approval or acceptance, "provisional" status, research provenance, citations or URLs, historical sample sizes or win rates, scoring/tier/banner justification, generic uncertainty or implementation commentary. Keep that information in the structured fields (`evidenceKind`, `evidenceUrl`, `observedAt`), the correction record's provenance, and issue/PR history. Do not add catalogue fields to park it.
+Never put in Notes: owner/user approval or acceptance, "provisional" status, research provenance, citations or URLs, historical sample sizes or win rates, scoring/tier/banner justification, generic uncertainty or implementation commentary. Record that information in the correction's provenance or supporting research and issue history.
 
 | Entry kind | `notes` |
 |---|---|
 | Ordinary scored counter | Optional; absent or empty compiles to `""`. |
-| Unscored provisional option | Optional; evidence, membership, date and no-score rules are unchanged and fully structured. The card omits an empty note. |
 | `SETUP` / `CLEANUP` step | Required and non-blank (purpose and critical condition), never ranked or allocated. |
 
 **Enforcement is on the note diff, not on all Notes.** The compiler's shared audit (`auditSource(..., { baseline })`) compares each counter note with the authoritative baseline and examines only notes that are new or changed. Unchanged legacy Notes are neither checked nor silently altered when an unrelated field is amended; legacy cleanup needs separately approved exact-content corrections. The check runs in:
@@ -370,17 +369,11 @@ Never put in Notes: owner/user approval or acceptance, "provisional" status, res
 
 | Finding | Severity | Meaning |
 |---|---|---|
-| `NOTE_PROCESS_COMMENTARY` | blocking | Clear process/research wording (approval status, "provisional", URLs, historical/research/evidence commentary, sample sizes or win rates, banner/tier justification, issue/PR references). The diagnostic quotes the match; reword, or move the content to a structured field, the proposal's provenance or leave Notes empty. |
+| `NOTE_PROCESS_COMMENTARY` | blocking | Clear process/research wording (approval status, "provisional", URLs, historical/research/evidence commentary, sample sizes or win rates, banner/tier justification, issue/PR references). The diagnostic quotes the match; reword, or move the content to the proposal's provenance or leave Notes empty. |
 | `NOTE_LENGTH` | warning | More than 120 characters. Not a refusal: the reviewer decides whether every clause is tactically useful. |
 | `NOTE_UNCERTAINTY` | warning | Generic uncertainty wording rather than an instruction. Reviewer decision. |
 
 Warnings appear in the compile output and the correction preview. The checks are pattern-based and cannot judge tactical utility; that remains the reviewer's decision. Other Notes (`defence-teams.json`, `scoring.json`, battle feedback, research evidence) are out of scope.
-
-## Unscored provisional squad options
-
-For uncertain one-shot research, use the explicit provisional entry variant documented in [ADR-ARCH-116 §4](decisions/ADR-ARCH-116-git-native-catalogue.md#4-canonical-authoring-schema-cataloguesource-schema-1), not fabricated tiers/banners or SETUP/CLEANUP. Only 3v3/5v5 are supported. `required` is the complete ordered attacking lineup, leader first, includes the global required core, and may be smaller than the mode size without claiming an undersize bonus. Reuse the existing counter ID; do not modify its global core. `observedAt` is the evidence access/observation date, not an invented battle date. Support classification, source and date live in `evidenceKind`, `evidenceUrl` and `observedAt`, not in prose. `notes` is optional and follows [Counter Notes](#counter-notes-gac-notes1--tactical-notes-only): tactical guidance only, empty by default. `SINGLE_REPORT` is anecdotal, not verified reliability. Experimental hypotheses stay in research reports.
-
-The ordinary schema-2 content approval, exact-row preview and release checks still apply. Compiling a provisional entry selects release contract v2 automatically; neither numeric estimates nor an extra publisher are involved. Preview/test a proposal before applying it. The approved schema/UI change does not by itself approve complete catalogue rows: retain a separate exact-content decision, the full before/after rows and the tool-generated checksum in the correction record. The original #156 rows are recorded in `catalogue/corrections/2026-11-06-exact-3v3-provisional.json`; the subsequent mistaken-defender correction and distinct solo variant are recorded separately in `catalogue/corrections/2026-11-06-158-159-reconciliation.json`.
 
 ## Scoring data authoring
 
@@ -476,7 +469,7 @@ A rebuilt file is byte-identical to the one served before. Older releases are no
 
 To restore a previously approved release N (repeatable, and tested in `tests/catalogue-release.test.js`):
 
-1. On a branch from current `main`, run `npm run catalogue:restore -- --version N`. This writes release N's exact committed source back into `catalogue/source/`. It refuses if N is not on `main`'s first-parent history, or if N no longer compiles to its checksum or passes today's gate.
+1. On a branch from current `main`, run `npm run catalogue:restore -- --version N`. This writes release N's exact committed source back into `catalogue/source/`. It refuses if N is not on `main`'s first-parent history, or if N no longer compiles to its checksum or passes today's gate. A historical release containing retired provisional rows remains verifiable, but `restore` requires a prior-good v1 release for publication.
 2. Run `npm run catalogue:release`. It records N's checksum under a new, higher version.
 3. Commit, open a PR, and let CI run. The owner merges.
 4. Run `Deploy Pages Live`. The guard reports `vCurrent → vNew`, and verify confirms that the live pointer names the new version with N's checksum.

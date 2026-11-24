@@ -6,7 +6,7 @@ const vm = require("node:vm");
 
 const { compileSource, readSource } = require("../scripts/catalogue-source-lib.js");
 
-// Regression pins for the provisional 5v5 rows from issues #108 (Rotta the
+// Regression pins for the scored 5v5 rows from issues #108 (Rotta the
 // Hutt / SEE), #110 (SLKR with Dark Side Vision Rey / JML) and #111 (Finn
 // (Zorii Resistance) / Talzin and Traya), and #125/#126 (Hondo / JMK and Leia) and #141 (Baylan / Hondo downgrade).
 // They check the compiled catalogue and
@@ -61,7 +61,7 @@ function planFor(defence, ownedCharacters, usedTeams, otherDefence = "") {
     return h.run(`(roundPlan.assign["FRONT_BOTTOM:0"] || {}).counterId || null`);
 }
 
-test("#108 Rotta the Hutt 5v5 offers only the provisional full-size SEE counter", () => {
+test("#108 Rotta the Hutt 5v5 offers only the full-size SEE counter", () => {
     const rows = payload.counters["5v5"]["Rotta the Hutt"];
     assert.deepEqual(strip(rows), [{ counterId: "SEE", tier: "B", bannerScore: 60, undersize: 0 }]);
     assert.match(rows[0].notes, /focused datacron/);
@@ -76,7 +76,7 @@ test("#108 Rotta the Hutt 5v5 offers only the provisional full-size SEE counter"
         ["RACCOON", "GREEDO", "HUMANTHUG", "CADBANE", "GAMORREANGUARD"]);
 });
 
-test("#125/#126 Hondo retains its existing answers and adds only provisional full-size Leia and JMK", () => {
+test("#125/#126 Hondo retains its existing answers and adds only full-size Leia and JMK", () => {
     const rows = payload.counters["5v5"]["Pirate King Hondo Ohnaka"];
     assert.deepEqual(strip(rows), [
         { counterId: "CERE", tier: "S", bannerScore: 63, undersize: 0 },

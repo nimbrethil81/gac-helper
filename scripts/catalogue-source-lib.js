@@ -28,6 +28,7 @@ const {
   compareFindings,
   diffPayloads,
   emulateActionData,
+  hasRetiredMatchupFields,
   payloadChecksum,
   scanSensitive,
   summarise
@@ -35,10 +36,10 @@ const {
 
 const SOURCE_SCHEMA = 1;
 const RELEASE_CONTRACT = "gac-catalogue-release:v1";
-const PROVISIONAL_RELEASE_CONTRACT = "gac-catalogue-release:v2";
+const LEGACY_V2_RELEASE_CONTRACT = "gac-catalogue-release:v2";
 function releaseContract(payload) {
   return Object.values(payload.counters ?? {}).some(teams => Object.values(teams).some(rows => rows.some(row => row.confidence !== undefined)))
-    ? PROVISIONAL_RELEASE_CONTRACT : RELEASE_CONTRACT;
+    ? LEGACY_V2_RELEASE_CONTRACT : RELEASE_CONTRACT;
 }
 const CHANGE_SET_SCHEMA = 2;
 const CHANGE_SET_CONTRACT = "gac-catalogue-change-set:v1";
@@ -67,7 +68,7 @@ const MATCHUP_ENTRY = { required: { counterId: "string", tier: "string", bannerS
 // multi-battle plan rather than a one-shot win: SETUP weakens a defence for a
 // later attack, CLEANUP is a conditional win against an already weakened one.
 // It carries no tier, banner score or undersize, so nothing ranks or projects it.
-// Provisional evidence lives in its structured fields; tactical notes are optional (GAC-NOTES1).
+// Retained for reproducing the exact bytes of historical v2 releases.
 const MATCHUP_PROVISIONAL_ENTRY = { required: { counterId: "string", confidence: "string", evidenceKind: "string", required: "strings", evidenceUrl: "string", observedAt: "string" }, optional: { notes: "string" } };
 const MATCHUP_TACTIC_ENTRY = { required: { counterId: "string", role: "string", notes: "string" } };
 
@@ -219,6 +220,12 @@ function sortRows(file, rows) {
   return rows;
 }
 
+function assertAuthorableMatchups(rows, where) {
+  if (rows.some(hasRetiredMatchupFields)) {
+    throw new Error(`${where}: provisional matchup fields are retired`);
+  }
+}
+
 function importFromPayload(payload, scoreMeanings = []) {
   const unrepresentable = Object.keys(payload.counters).filter((mode) => !MATCHUP_MODES.includes(mode));
   if (unrepresentable.length) throw new Error(`Counters mode(s) ${JSON.stringify(unrepresentable)} cannot be represented: matchup files exist only for ${MATCHUP_MODES.join(", ")}`);
@@ -243,12 +250,15 @@ function importFromPayload(payload, scoreMeanings = []) {
     "score-meanings.json": scoreMeanings.map((row) => ({ ...row }))
   };
   for (const mode of MATCHUP_MODES) {
-    source[`matchups/${mode}.json`] = sortRows(`matchups/${mode}.json`, Object.entries(payload.counters[mode] ?? {}).map(([defence, entries]) => ({
-      defence,
-      counters: entries.map((entry) => (entry.confidence !== undefined ? withoutBlank({ counterId: entry.counterId, confidence: entry.confidence, evidenceKind: entry.evidenceKind, required: entry.required, evidenceUrl: entry.evidenceUrl, observedAt: entry.observedAt, notes: entry.notes }, "notes") : entry.role !== undefined
-        ? { counterId: entry.counterId, role: entry.role, notes: entry.notes }
-        : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
-    })));
+    source[`matchups/${mode}.json`] = sortRows(`matchups/${mode}.json`, Object.entries(payload.counters[mode] ?? {}).map(([defence, entries]) => {
+      assertAuthorableMatchups(entries, `${mode} ${defence}`);
+      return {
+        defence,
+        counters: entries.map((entry) => (entry.role !== undefined
+          ? { counterId: entry.counterId, role: entry.role, notes: entry.notes }
+          : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
+      };
+    }));
   }
   const crew = Object.entries(payload.characterDefinitions).filter(([, unit]) => unit.pilotIds !== undefined)
     .map(([shipId, unit]) => ({ shipId, pilotIds: [...unit.pilotIds] }));
@@ -299,6 +309,17 @@ function importSnapshot(snapshot, snapshotReport) {
 // ─── compile (source → seven-key payload) ────────────────────────────────────
 
 function compileSource(source) {
+  for (const mode of MATCHUP_MODES) {
+    for (const { defence, counters } of source[`matchups/${mode}.json`] ?? []) {
+      assertAuthorableMatchups(counters ?? [], `${mode} ${defence}`);
+    }
+  }
+  return buildPayload(source);
+}
+
+// Audit needs the original row to report rejection. Ledger rebuilds use it to
+// reproduce the immutable payload and checksum.
+function buildPayload(source) {
   const counterNames = new Map();
   const payload = {
     counters: { "5v5": {}, "3v3": {} },
@@ -333,8 +354,8 @@ function compileSource(source) {
     for (const { defence, counters } of defences) {
       const list = payload.counters[mode][defence] ?? (payload.counters[mode][defence] = []);
       for (const entry of counters ?? []) {
-        if (entry.confidence !== undefined) {
-          list.push({ ...entry, required: Array.isArray(entry.required) ? [...entry.required] : entry.required, counter: counterNames.get(entry.counterId) ?? "", notes: entry.notes ?? "" });
+        if (hasRetiredMatchupFields(entry)) {
+          list.push({ ...entry, ...(Array.isArray(entry.required) ? { required: [...entry.required] } : {}), counter: counterNames.get(entry.counterId) ?? "", notes: entry.notes ?? "" });
           continue;
         }
         if (entry.role !== undefined) {
@@ -439,13 +460,17 @@ function checkRow(row, spec, location, add) {
   return problems.length === 0;
 }
 
-function validateSource(source, add) {
+function validateSource(source, add, historical) {
   for (const [file, spec] of Object.entries(FILES)) {
     const rows = source[file] ?? [];
     rows.forEach((row, index) => {
       const location = `${file} ${spec.array}[${index}]`;
       if (checkRow(row, spec, location, add) && spec.array === "defences") {
-        row.counters.forEach((entry, entryIndex) => checkRow(entry, entry && typeof entry === "object" && "confidence" in entry ? MATCHUP_PROVISIONAL_ENTRY : entry && typeof entry === "object" && "role" in entry ? MATCHUP_TACTIC_ENTRY : MATCHUP_ENTRY, `${location}.counters[${entryIndex}]`, add));
+        row.counters.forEach((entry, entryIndex) => {
+          const spec = historical && hasRetiredMatchupFields(entry) ? MATCHUP_PROVISIONAL_ENTRY
+            : entry?.role !== undefined ? MATCHUP_TACTIC_ENTRY : MATCHUP_ENTRY;
+          checkRow(entry, spec, `${location}.counters[${entryIndex}]`, add);
+        });
       }
     });
     if (spec.sortBy) {
@@ -488,13 +513,13 @@ function validateSource(source, add) {
 // Validate source, compile it, and run the shared #34 rule set over the result.
 // With a `baseline` source, counter Notes added or changed relative to it also
 // get the GAC-NOTES1 editorial check; unchanged Notes are never examined.
-function auditSource(source, { label = "catalogue/source", readFindings = [], baseline } = {}) {
+function auditSource(source, { label = "catalogue/source", readFindings = [], baseline, historical = false } = {}) {
   const { findings, add } = collector();
   findings.push(...readFindings);
-  validateSource(source, add);
+  validateSource(source, add, historical);
   if (baseline) checkNoteEditorial(baseline, source, add);
-  const payload = compileSource(source);
-  const payloadReport = auditPayload(payload, { label });
+  const payload = buildPayload(source);
+  const payloadReport = auditPayload(payload, { label, historical });
   findings.push(...payloadReport.findings);
   findings.sort(compareFindings);
   return {
@@ -644,6 +669,14 @@ function correctionChecksum(document, correction) {
   return `sha256:${sha256(canonicalJson({ baseline: document.baseline, id: correction.id, changes: correction.changes }))}`;
 }
 
+function assertAuthorableCorrection(correction) {
+  for (const [index, change] of correction.changes.entries()) {
+    if (change.file.startsWith("matchups/") && Array.isArray(change.after?.counters)) {
+      assertAuthorableMatchups(change.after.counters, `${correction.id} change ${index + 1} (${change.file})`);
+    }
+  }
+}
+
 // Apply corrections in memory. Schema-1 migration corrections retain their
 // historical omitted-before/after convention. Schema-2 change sets use stable
 // keys and explicit ABSENT/REMOVE sentinels. Nothing is written until every
@@ -652,6 +685,7 @@ function correctionChecksum(document, correction) {
 function applyCorrections(source, corrections) {
   const next = Object.fromEntries(Object.entries(source).map(([file, rows]) => [file, JSON.parse(JSON.stringify(rows))]));
   for (const correction of corrections) {
+    assertAuthorableCorrection(correction);
     for (const [index, change] of correction.changes.entries()) {
       const where = `${correction.id} change ${index + 1} (${change.file})`;
       const rows = next[change.file];
@@ -710,7 +744,7 @@ module.exports = {
   CHANGE_SET_SCHEMA,
   FILES,
   IMPORT_BLOCKERS,
-  PROVISIONAL_RELEASE_CONTRACT,
+  LEGACY_V2_RELEASE_CONTRACT,
   releaseContract,
   MATCHUP_MODES,
   MATCHUP_ROLES,
@@ -718,6 +752,7 @@ module.exports = {
   RELEASE_CONTRACT,
   SOURCE_SCHEMA,
   applyCorrections,
+  assertAuthorableCorrection,
   auditSource,
   checkNoteEditorial,
   compileSource,

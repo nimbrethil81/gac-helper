@@ -9,11 +9,11 @@ const CATALOGUE_POINTER_URL = "catalogue/current.json";
 const CATALOGUE_BASE_URL = "catalogue/";
 const CATALOGUE_POINTER_SCHEMA = 1;
 const CATALOGUE_RELEASE_CONTRACT = "gac-catalogue-release:v1";
-const PROVISIONAL_RELEASE_CONTRACT = "gac-catalogue-release:v2";
-const SUPPORTED_CATALOGUE_CONTRACTS = [CATALOGUE_RELEASE_CONTRACT, PROVISIONAL_RELEASE_CONTRACT];
+const LEGACY_V2_RELEASE_CONTRACT = "gac-catalogue-release:v2";
+const SUPPORTED_CATALOGUE_CONTRACTS = [CATALOGUE_RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT];
 function catalogueContract(data) {
     return Object.values(data.counters || {}).some(teams => Object.values(teams).some(rows => rows.some(row => row.confidence !== undefined)))
-        ? PROVISIONAL_RELEASE_CONTRACT : CATALOGUE_RELEASE_CONTRACT;
+        ? LEGACY_V2_RELEASE_CONTRACT : CATALOGUE_RELEASE_CONTRACT;
 }
 const CATALOGUE_POINTER_TIMEOUT_MS = 10000;
 const CATALOGUE_RELEASE_TIMEOUT_MS = 30000;
@@ -2892,7 +2892,7 @@ function isTacticalEntry(c) {
 }
 
 function oneShotCounters(list) {
-    return (list || []).filter(c => !isTacticalEntry(c) && c.confidence === undefined);
+    return (list || []).filter(c => !isTacticalEntry(c));
 }
 
 // Preserve legacy 3v3 JMK names in saved records while resolving current data
@@ -3419,9 +3419,7 @@ function buildReasons(eligible, assign, reserveActive) {
             if (all.length === 0) {
                 reason = tacticalEntries(listed).length
                     ? "No one-shot counters in the catalogue for this team; see Counters for multi-battle options."
-                    : listed.some(c => c.confidence === "PROVISIONAL")
-                        ? "No assessed one-shot counters for this team. Provisional options are shown below and in Counters, and excluded from plans."
-                        : "No counters in the catalogue for this team yet.";
+                    : "No counters in the catalogue for this team yet.";
             } else if (all.some(c => getOwnership(c.counterId).owned)) {
                 // v3.2: distinguish "you sent them all" from "a unit they need went
                 // out with something else" — the second is not obvious from the board.
@@ -4088,7 +4086,7 @@ function readCatalogueEntry(key, schema, sourceContract) {
 // The validated v2 cache first, then a pre-cutover v1 cache (same seven-key
 // payload) so an upgrading user keeps their offline catalogue.
 function readCatalogueCache() {
-    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, PROVISIONAL_RELEASE_CONTRACT) || readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, CATALOGUE_RELEASE_CONTRACT);
+    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, LEGACY_V2_RELEASE_CONTRACT) || readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, CATALOGUE_RELEASE_CONTRACT);
     if (current && CATALOGUE_CHECKSUM_PATTERN.test(current.checksum) &&
         Number.isSafeInteger(current.catalogueVersion) && current.catalogueVersion > 0) {
         return current;
@@ -4192,7 +4190,14 @@ async function fetchCatalogueRelease(pointer) {
 }
 
 function applyCataloguePayload(data) {
-    gacData = data.counters;
+    // Keep verified payloads and caches intact. Exclude retired matchup rows
+    // before any display, selection or planning logic can consume them.
+    gacData = catalogueContract(data) === LEGACY_V2_RELEASE_CONTRACT
+        ? Object.fromEntries(Object.entries(data.counters).map(([mode, teams]) => [mode,
+            Object.fromEntries(Object.entries(teams).map(([name, rows]) => [name,
+                rows.filter(row => row.confidence === undefined)]))
+        ]))
+        : data.counters;
     counterDefinitions = data.counterDefinitions;
     characterDefinitions = data.characterDefinitions;
     spentCharsCache = { key: null, map: new Map() };   // definitions changed: required-unit lookups are stale
@@ -5154,29 +5159,6 @@ function resetRound() {
 
 // ─── COUNTER CARD ─────────────────────────────────────────────────────────────
 
-// Provisional rows are unscored research options. Their exact membership is
-// local to this matchup and must never change a global core definition.
-function provisionalStatus(option) {
-    if (!option.required.every(id => ownedCharacters.includes(id))) return "not-owned";
-    if (usedTeams.includes(option.counterId)) return "used";
-    if (option.required.some(isCharacterOnDefence)) return "on-defence";
-    if (option.required.some(id => spentCharacters().has(id))) return "spent";
-    return "available";
-}
-
-function buildProvisionalCardHtml(option, availabilityUnknown = false) {
-    const status = availabilityUnknown ? "unknown" : provisionalStatus(option);
-    const label = option.evidenceKind === "SINGLE_REPORT" ? "one reported battle" : "related evidence";
-    const statusLabel = { unknown: "Roster not loaded — availability unknown", "not-owned": "Not owned", used: "Used", "on-defence": "On defence", spent: "Unavailable", available: "Available" }[status];
-    return `<div class="counter-card provisional-card ${status === "available" ? "" : "used"}">
-        <div class="card-header"><div class="team-name">${escapeHtml(option.counter)}</div><span class="provisional-badge">Provisional</span><span>${statusLabel}</span></div>
-        <p><strong>Provisional — ${label}</strong></p>
-        <p>${option.required.map((id, i) => escapeHtml(getCharacterName(id)) + (i === 0 ? " (leader)" : "") + (!availabilityUnknown && characterAvailabilityNote(id) ? ` — ${escapeHtml(characterAvailabilityNote(id))}` : "")).join(" / ")}</p>
-        ${option.notes.trim() ? `<p>${escapeHtml(option.notes)}</p>` : ""}
-        <p><a href="${escapeHtml(option.evidenceUrl)}" target="_blank" rel="noopener noreferrer">Evidence</a> · Observed ${escapeHtml(option.observedAt)}</p>
-    </div>`;
-}
-
 function buildCounterCardHtml(counter) {
     const status = getCounterStatus(counter.counterId);
     const ownership = getOwnership(counter.counterId);
@@ -5310,14 +5292,11 @@ function showCounters() {
                                    : getCounterStatus(c.counterId) === "available");
     const filtered = allCounters.filter(keep);
     const tactics = tacticalEntries(listed).filter(keep);
-    const provisional = listed.filter(c => c.confidence === "PROVISIONAL").filter(c =>
-        counterFilter === "all" || (counterFilter === "owned" ? provisionalStatus(c) !== "not-owned" : provisionalStatus(c) === "available"));
-
     let html;
     if (filtered.length) {
         html = filtered.map(buildCounterCardHtml).join("");
     } else if (allCounters.length === 0) {
-        html = tactics.length ? "<p class='empty-state'>No one-shot counters are catalogued for this team.</p>" : "";
+        html = "<p class='empty-state'>No one-shot counters are catalogued for this team.</p>";
     } else if (counterFilter === "owned") {
         html = "<p class='empty-state'>You don't own any counters for this team.</p>";
     } else {
@@ -5333,11 +5312,6 @@ function showCounters() {
                 : "<p class='empty-state'>You've used all your counters for this team.</p>";
     }
 
-    if (provisional.length) {
-        html += `<section class="tactics-section"><h3 class="tactics-heading">Provisional options — not included in plans</h3>
-            <p class="tactics-intro">Uncertain research options, not dependable recommendations. No tier or banner estimate. Check the exact lineup and conditions before trying.</p>
-            ${provisional.map(option => buildProvisionalCardHtml(option)).join("")}</section>`;
-    }
     if (tactics.length) {
         html += `
 <div class="tactics-section">
@@ -6126,28 +6100,12 @@ function renderReserveAlternatives(alts, targetKey, reserveActive = true) {
     </div>`).join("");
 }
 
-// Native disclosure state belongs only to the rendered card: no IDs, shared
-// expansion keys or storage, and every Round render starts collapsed.
-function renderRoundProvisional(team, modeKey) {
-    if (team.cleared || !team.name || !["3v3", "5v5"].includes(modeKey)) return "";
-    const options = matchupCounters(modeKey, team.name)
-        .filter(c => c.confidence === "PROVISIONAL");
-    if (!options.length) return "";
-    const unknown = !rosterMeta.savedAt && !rosterMeta.syncedAt && !ownedCharacters.length;
-    return `<details class="round-provisional" ontoggle="this.querySelector('summary').setAttribute('aria-expanded', String(this.open))">
-        <summary class="board-rec-disclosure" aria-expanded="false"><span>Provisional counters (${options.length})</span><span class="board-rec-chevron" aria-hidden="true">▾</span></summary>
-        <p class="board-rec-reason">Manual consideration only — excluded from battle plans.</p>
-        ${options.map(option => buildProvisionalCardHtml(option, unknown)).join("")}
-    </details>`;
-}
-
 function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     if (side === "my" || !roundPlan || team.cleared || !team.name) return "";
 
-    const provisional = renderRoundProvisional(team, modeKey);
     const targetKey = territoryKey + ":" + team.index;
     const info = roundPlan.reasons[targetKey];
-    if (!info) return provisional;
+    if (!info) return "";
     const blocked = (info.defenceBlocked || []).map(c => `
     <div class="board-rec-blocked"><span>On defence</span> ${escapeHtml(c.counter)}</div>`).join("");
     const conservation = conservationReason(roundPlan, targetKey);
@@ -6196,7 +6154,6 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
     </div>
     ${renderAttemptControl(side, territoryKey, team)}${blocked}${reserveAltsHtml}
 </div>
-${provisional}
 `;
     }
 
@@ -6204,7 +6161,6 @@ ${provisional}
 <div class="board-rec board-rec-none">
     <div class="board-rec-reason">${escapeHtml(reason)}</div>${riskHtml}${blocked}${reserveAltsHtml}
 </div>
-${provisional}
 `;
 }
 

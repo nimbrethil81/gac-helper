@@ -23,6 +23,7 @@ const {
   releaseLedger,
   renderRelease,
   restoreSource,
+  sourceAtCommit,
   verifyLive,
   verifyReleaseText,
   verifySite
@@ -417,6 +418,29 @@ test("rollback restores an earlier release's source under a new, higher version 
   // Rolling back again (repeatable) produces v4 with v2's content.
   restoreSource({ repo: repo.dir, catalogueVersion: 2 });
   assert.deepEqual(repo.release().catalogueVersion, 4);
+});
+
+test("a retained v2 release rebuilds byte-for-byte and cannot be republished by rollback", (t) => {
+  const repo = fixtureRepo(t);
+  const v1Commit = git(repo.dir, "rev-parse", "HEAD");
+  const v26Commit = "251ccb342c1f4329708b145afb8ebcaf9cae73e6";
+  const { source, findings } = sourceAtCommit(ROOT, v26Commit);
+  assert.deepEqual(findings, []);
+  writeSource(repo.sourceDir, source);
+  fs.writeFileSync(repo.releaseFile, git(ROOT, "show", `${v26Commit}:catalogue/release.json`));
+  repo.commit("historical v26");
+  git(repo.dir, "checkout", v1Commit, "--", "catalogue/source");
+  repo.release();
+  repo.commit("return to v1 contract");
+
+  const before = readTree(repo.sourceDir);
+  assert.throws(() => restoreSource({ repo: repo.dir, catalogueVersion: 26 }), /retired provisional matchups/);
+  assert.deepEqual(readTree(repo.sourceDir), before, "refuses before writing any source");
+  const { out, manifest } = repo.build(t);
+  assert.deepEqual(manifest.releases.map(entry => entry.catalogueVersion), [27, 26, 1]);
+  const historical = manifest.releases[1];
+  assert.equal(historical.sha256, "sha256:874b0475119c571f3ab3146fb4104802ca43b138c76f5c006ad2ad4a2090ecfe");
+  assert.equal(verifyReleaseText(fs.readFileSync(path.join(out, "catalogue", historical.path), "utf8")).release.contract, "gac-catalogue-release:v2");
 });
 
 test("a release that fails today's gate cannot be restored", (t) => {

@@ -97,6 +97,33 @@ function amendFirstMatchup(source, note = "Synthetic approved rehearsal") {
   return { file: "matchups/5v5.json", operation: "AMEND", stableKey: { mode: "5v5", defence: before.defence }, before, after };
 }
 
+test("schema-2 preview, approval and apply refuse retired matchup fields before writing", (t) => {
+  const repo = fixtureRepo(t);
+  const source = readSource(repo.sourceDir).source;
+  const change = amendFirstMatchup(source);
+  const correction = modernCorrection(source, { change });
+  change.after.counters[0].confidence = "PROVISIONAL";
+  const baseline = { commit: repo.commit, catalogueVersion: repo.release.catalogueVersion, checksum: repo.release.checksum };
+  const document = modernDocument(source, baseline, correction);
+  const file = writeDocument(repo.dir, document);
+  const args = ["corrections", file, "--repo", repo.dir];
+  const original = fs.readFileSync(file, "utf8");
+
+  const preview = run([...args, "--preview", correction.id]);
+  assert.equal(preview.exitCode, 2);
+  assert.match(preview.lines[0], /provisional matchup fields are retired/);
+  const approval = run([...args, "--record-approval", correction.id, "--decision", document.issue, "--decided-at", "2099-01-03T12:00:00Z"]);
+  assert.equal(approval.exitCode, 2);
+  assert.match(approval.lines[0], /provisional matchup fields are retired/);
+  assert.equal(fs.readFileSync(file, "utf8"), original);
+
+  writeDocument(repo.dir, modernDocument(source, baseline, correction, { approved: true }));
+  const apply = run([...args, "--apply", correction.id]);
+  assert.equal(apply.exitCode, 2);
+  assert.match(apply.lines[0], /provisional matchup fields are retired/);
+  assert.equal(git(repo.dir, "diff", "--name-only"), "");
+});
+
 test("every correction is either APPROVED and applied, or pending and not applied", () => {
   const document = readCorrections(BASELINE_CORRECTIONS);
   assert.deepEqual(document.corrections.map((correction) => correction.id), ["C1", "C2", "C3", "C4", "C5"]);

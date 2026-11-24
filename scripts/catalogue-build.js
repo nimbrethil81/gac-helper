@@ -37,6 +37,7 @@ const {
   FILES,
   CHANGE_SET_SCHEMA,
   applyCorrections,
+  assertAuthorableCorrection,
   auditSource,
   compileSource,
   contentChecksum,
@@ -309,7 +310,8 @@ function commandCompile(options) {
     baseline = base.source;
   }
   const report = auditSource(source, { readFindings: findings, baseline });
-  if (options.out) fs.writeFileSync(options.out, `${JSON.stringify(report.payload)}\n`);
+  const retired = report.findings.filter((finding) => finding.code === "MATCHUP_PROVISIONAL_RETIRED");
+  if (options.out && !retired.length) fs.writeFileSync(options.out, `${JSON.stringify(report.payload)}\n`);
   if (options.markdown) fs.writeFileSync(options.markdown, renderMarkdown(report));
   const { bySeverity, releaseGate } = report.summary;
   const lines = [
@@ -317,7 +319,8 @@ function commandCompile(options) {
     `Findings: ${bySeverity.blocking} blocking, ${bySeverity["owner-approval"]} owner-approval, ${bySeverity.warning} warning, ${bySeverity.info} info`,
     `Release gate: ${releaseGate}`
   ];
-  let exitCode = options.gate === "release" && releaseGate !== "PASS" ? 1 : 0;
+  let exitCode = retired.length || (options.gate === "release" && releaseGate !== "PASS") ? 1 : 0;
+  for (const finding of retired) lines.push(`blocking ${finding.code} ${finding.location} ${finding.subject}: ${finding.expected}`);
   for (const finding of report.findings.filter((entry) => entry.code.startsWith("NOTE_"))) {
     lines.push(`${finding.severity} ${finding.code} ${finding.location} ${finding.subject}: ${finding.observed} — ${finding.expected}`);
   }
@@ -353,6 +356,7 @@ function commandRecordApproval(document, file, options) {
   if (!correction) throw new Error(`No correction ${options.recordApproval} in ${file}`);
   if (correction.status !== "PENDING_OWNER_APPROVAL") throw new Error(`${correction.id} is ${correction.status}; only a pending proposal can be recorded as approved`);
   if (!options.decision || !options.decidedAt) throw new Error("--record-approval needs --decision <GitHub issue body/comment/review URL> and --decided-at <ISO UTC>");
+  assertAuthorableCorrection(correction);
   const next = JSON.parse(JSON.stringify(document));
   const target = next.corrections.find((entry) => entry.id === correction.id);
   target.status = "APPROVED";

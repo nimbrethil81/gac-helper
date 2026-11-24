@@ -1591,17 +1591,6 @@ body {
 .usage-file-label { display: block; color: var(--muted); font-size: 13px; margin-top: 12px; }
 .usage-file-label input { display: block; width: 100%; margin-top: 8px; font-size: 12px; }
 
-/* Unscored research options share the existing card/theme styling. */
-.provisional-card { overflow-wrap: anywhere; }
-.provisional-card p { line-height: 1.5; }
-.provisional-card a { color: inherit; text-decoration: underline; }
-
-.round-provisional[open] > summary .board-rec-chevron { transform: rotate(180deg); }
-.round-provisional > summary::-webkit-details-marker { display: none; }
-.round-provisional .card-header { flex-wrap: wrap; gap: 8px; }
-.round-provisional .card-header .team-name { flex: 1 0 100%; }
-
-.provisional-badge { padding: 3px 7px; border: 1px solid var(--muted); border-radius: 6px; font-size: 11px; color: var(--muted); }
 /* The native picker covers a wrapping value so even long saved names remain readable. */
 .board-team-picker { position: relative; flex: 1; min-width: 0; }
 .board-team-picker select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }

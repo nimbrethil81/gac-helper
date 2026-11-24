@@ -24,7 +24,7 @@ const { execFileSync } = require("node:child_process");
 
 const { REQUIRED_PAYLOAD_KEYS, sha256, sortJson } = require("./baseline-lib.js");
 const { auditPayload, payloadChecksum } = require("./catalogue-audit-lib.js");
-const { FILES, RELEASE_CONTRACT, PROVISIONAL_RELEASE_CONTRACT, releaseContract, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
+const { FILES, RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT, releaseContract, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
 
 // The live Pages allow-list for the app shell (moved here from the workflow).
 const PAGES_APP_FILES = Object.freeze([
@@ -143,7 +143,8 @@ function verifyReleaseText(text, expected = {}) {
   const wanted = [...REQUIRED_PAYLOAD_KEYS, "release"].sort();
   if (keys.join() !== wanted.join()) throw new Error(`release keys differ: ${keys.join(", ")}`);
   const meta = document.release;
-  if (meta?.contract !== releaseContract(document)) throw new Error(`release contract ${JSON.stringify(meta?.contract)} is not ${RELEASE_CONTRACT}`);
+  const contract = releaseContract(document);
+  if (meta?.contract !== contract) throw new Error(`release contract ${JSON.stringify(meta?.contract)} is not ${contract}`);
   if (meta.sourceSchema !== SOURCE_SCHEMA) throw new Error(`release sourceSchema ${JSON.stringify(meta.sourceSchema)} is not ${SOURCE_SCHEMA}`);
   if (Object.keys(meta).sort().join() !== "catalogueVersion,checksum,contract,sourceSchema") throw new Error("release metadata has unexpected keys");
   const checksum = payloadChecksum(document);
@@ -151,7 +152,7 @@ function verifyReleaseText(text, expected = {}) {
   if (expected.checksum !== undefined && checksum !== expected.checksum) throw new Error(`release checksum ${checksum} is not the expected ${expected.checksum}`);
   if (expected.catalogueVersion !== undefined && meta.catalogueVersion !== expected.catalogueVersion) throw new Error(`release version ${meta.catalogueVersion} is not the expected ${expected.catalogueVersion}`);
   const payload = Object.fromEntries(REQUIRED_PAYLOAD_KEYS.map((key) => [key, document[key]]));
-  const report = auditPayload(payload, { label: "release" });
+  const report = auditPayload(payload, { label: "release", historical: contract === LEGACY_V2_RELEASE_CONTRACT });
   if (report.summary.releaseGate !== "PASS") {
     const failing = report.findings.filter((finding) => finding.severity === "blocking" || finding.severity === "owner-approval");
     throw new Error(`release fails the release gate: ${failing.slice(0, 5).map((finding) => `${finding.code} ${finding.subject}`).join("; ")}`);
@@ -189,7 +190,7 @@ function gateFailures(report) {
 // checksum and passes the release gate.
 function rebuildEntry(repo, entry) {
   const { source, findings } = sourceAtCommit(repo, entry.sourceCommit);
-  const report = auditSource(source, { readFindings: findings });
+  const report = auditSource(source, { readFindings: findings, historical: true });
   if (report.input.checksum !== entry.checksum) return { ok: false, reason: `source at ${entry.sourceCommit} compiles to ${report.input.checksum}, not the recorded ${entry.checksum}` };
   if (report.summary.releaseGate !== "PASS") return { ok: false, reason: `fails the release gate (${gateFailures(report).length} blocking/owner-approval finding(s))` };
   return { ok: true, rendered: renderRelease(report.payload, entry.catalogueVersion) };
@@ -288,7 +289,7 @@ function verifySite(out, { budget = BUDGET } = {}) {
   const read = (relative) => fs.readFileSync(path.join(out, relative));
   const manifest = JSON.parse(read(MANIFEST_PATH).toString("utf8"));
   const pointer = JSON.parse(read(POINTER_PATH).toString("utf8"));
-  if (manifest.manifestSchema !== MANIFEST_SCHEMA || ![RELEASE_CONTRACT, PROVISIONAL_RELEASE_CONTRACT].includes(manifest.contract) || !COMMIT.test(manifest.deployedCommit ?? "")) throw new Error("manifest.json has an unexpected shape");
+  if (manifest.manifestSchema !== MANIFEST_SCHEMA || ![RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT].includes(manifest.contract) || !COMMIT.test(manifest.deployedCommit ?? "")) throw new Error("manifest.json has an unexpected shape");
   if (pointer.pointerSchema !== POINTER_SCHEMA || pointer.contract !== manifest.contract) throw new Error("current.json has an unexpected shape");
   if (Object.keys(pointer).sort().join() !== "bytes,catalogueVersion,checksum,contract,path,pointerSchema") throw new Error("current.json has unexpected keys");
 
@@ -432,6 +433,9 @@ function restoreSource({ repo, catalogueVersion }) {
   if (!entry) throw new Error(`No catalogueVersion ${catalogueVersion} on the first-parent history of HEAD (known: ${ledger.entries.map((candidate) => candidate.catalogueVersion).join(", ") || "none"})`);
   const rebuilt = rebuildEntry(repo, entry);
   if (!rebuilt.ok) throw new Error(`v${catalogueVersion} cannot be restored: ${rebuilt.reason}`);
+  if (verifyReleaseText(rebuilt.rendered.text).release.contract === LEGACY_V2_RELEASE_CONTRACT) {
+    throw new Error(`v${catalogueVersion} contains retired provisional matchups. Choose a prior-good v1 release for rollback.`);
+  }
   for (const file of Object.keys(FILES)) {
     const bytes = gitFileAt(repo, entry.sourceCommit, `${SOURCE_DIR}/${file}`);
     const target = path.join(repo, SOURCE_DIR, file);

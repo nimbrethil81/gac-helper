@@ -260,7 +260,7 @@ test("network, HTTP, JSON, contract, size and checksum failures keep the cached 
         "offline": () => Promise.reject(new TypeError("Failed to fetch")),
         "pointer 404": pages({}).fetchImpl,
         "pointer HTML error page": pages({ [pointerPath]: "<html>Service unavailable</html>" }).fetchImpl,
-        "pointer unknown contract": pages({ ...good.files, [pointerPath]: pointerWith({ contract: "gac-catalogue-release:v2" }) }).fetchImpl,
+        "pointer unknown contract": pages({ ...good.files, [pointerPath]: pointerWith({ contract: "gac-catalogue-release:v3" }) }).fetchImpl,
         "pointer unknown schema": pages({ ...good.files, [pointerPath]: pointerWith({ pointerSchema: 2 }) }).fetchImpl,
         "pointer bad version": pages({ ...good.files, [pointerPath]: pointerWith({ catalogueVersion: 0 }) }).fetchImpl,
         "pointer path outside releases": pages({ ...good.files, [pointerPath]: pointerWith({ path: "../app.js" }) }).fetchImpl,
