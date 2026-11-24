@@ -13,7 +13,7 @@
 //       Before deployment: refuse if the live release is newer or contradicts
 //       the artifact.
 //   verify --site <dir> --url <pages base url> [--timeout <s>] [--interval <s>]
-//       After deployment: wait until the live catalogue is byte-identical to the
+//       After deployment: wait until the live app shell and catalogue match the
 //       artifact, or fail.
 //   restore --version <N>
 //       Rollback: write the committed source of release N into catalogue/source/.
@@ -62,6 +62,7 @@ const COMMANDS = {
       exitCode: 0,
       lines: [
         `Built ${result.files.length} files into ${options.out} from ${result.head}`,
+        `App build: v${result.appBuild.version} · ${result.appBuild.buildId}`,
         `Current: v${result.pointer.catalogueVersion} ${result.pointer.checksum} → catalogue/${result.pointer.path}`,
         `Retained: ${result.manifest.releases.map((entry) => `v${entry.catalogueVersion}`).join(", ")}`,
         ...result.skipped.map((entry) => `Not retained: v${entry.catalogueVersion} (${entry.reason})`),

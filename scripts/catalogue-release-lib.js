@@ -20,16 +20,14 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { randomUUID } = require("node:crypto");
 const { execFileSync } = require("node:child_process");
 
 const { REQUIRED_PAYLOAD_KEYS, sha256, sortJson } = require("./baseline-lib.js");
 const { auditPayload, payloadChecksum } = require("./catalogue-audit-lib.js");
 const { FILES, RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT, releaseContract, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
+const { APP_BUILD_PATH, PAGES_APP_FILES, buildAppShell, verifyAppShell } = require("./app-shell-lib.js");
 
-// The live Pages allow-list for the app shell (moved here from the workflow).
-const PAGES_APP_FILES = Object.freeze([
-  "index.html", "app.js", "styles.css", "manifest.json", "service-worker.js", "icon-192.png", "icon-512.png"
-]);
 const RELEASE_FILE = "catalogue/release.json";
 const SOURCE_DIR = "catalogue/source";
 const POINTER_PATH = "catalogue/current.json";
@@ -269,12 +267,14 @@ function buildSite({ repo, out, budget = BUDGET, retain = RETAINED_RELEASES }) {
     releases: retained.map(({ catalogueVersion, checksum, path: file, bytes, sha256: digest, sourceCommit }) => ({ catalogueVersion, checksum, path: file, bytes, sha256: digest, sourceCommit }))
   };
 
-  fs.mkdirSync(out, { recursive: true });
-  for (const file of PAGES_APP_FILES) {
+  const { files: shell, metadata } = buildAppShell((file) => {
     const from = path.join(repo, file);
     if (!fs.statSync(from, { throwIfNoEntry: false })?.isFile()) throw new Error(`Allow-listed app file missing: ${file}`);
-    writeNew(path.join(out, file), fs.readFileSync(from));
-  }
+    return fs.readFileSync(from);
+  });
+  fs.mkdirSync(out, { recursive: true });
+  for (const [file, bytes] of Object.entries(shell)) writeNew(path.join(out, file), bytes);
+  writeNew(path.join(out, APP_BUILD_PATH), jsonText(metadata));
   for (const release of retained) writeNew(path.join(out, "catalogue", release.path), release.text);
   writeNew(path.join(out, POINTER_PATH), jsonText(pointer));
   writeNew(path.join(out, MANIFEST_PATH), jsonText(manifest));
@@ -293,13 +293,14 @@ function verifySite(out, { budget = BUDGET } = {}) {
   if (pointer.pointerSchema !== POINTER_SCHEMA || pointer.contract !== manifest.contract) throw new Error("current.json has an unexpected shape");
   if (Object.keys(pointer).sort().join() !== "bytes,catalogueVersion,checksum,contract,path,pointerSchema") throw new Error("current.json has unexpected keys");
 
-  const expected = [...PAGES_APP_FILES, POINTER_PATH, MANIFEST_PATH, ...manifest.releases.map((release) => `catalogue/${release.path}`)].sort();
+  const expected = [...PAGES_APP_FILES, APP_BUILD_PATH, POINTER_PATH, MANIFEST_PATH, ...manifest.releases.map((release) => `catalogue/${release.path}`)].sort();
   const actual = listFiles(out);
   if (actual.join("\n") !== expected.join("\n")) {
     const extra = actual.filter((file) => !expected.includes(file));
     const missing = expected.filter((file) => !actual.includes(file));
     throw new Error(`Artifact is not exactly the allow-list (extra: ${extra.join(", ") || "none"}; missing: ${missing.join(", ") || "none"})`);
   }
+  const appBuild = verifyAppShell(read);
 
   const versions = new Set();
   for (const entry of manifest.releases) {
@@ -327,13 +328,15 @@ function verifySite(out, { budget = BUDGET } = {}) {
   if (sizes.pointer > budget.pointerBytes) throw new Error(`current.json is ${sizes.pointer} bytes, over the ${budget.pointerBytes}-byte budget`);
   if (sizes.manifest > budget.manifestBytes) throw new Error(`manifest.json is ${sizes.manifest} bytes, over the ${budget.manifestBytes}-byte budget`);
   if (sizes.catalogue > budget.catalogueBytes) throw new Error(`catalogue/ is ${sizes.catalogue} bytes, over the ${budget.catalogueBytes}-byte budget`);
-  return { files: actual, pointer, manifest, sizes };
+  return { files: actual, pointer, manifest, appBuild, sizes };
 }
 
 // ─── live checks ─────────────────────────────────────────────────────────────
 
-async function fetchLive(fetchImpl, baseUrl, relative) {
-  const url = new URL(relative, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).toString();
+async function fetchLive(fetchImpl, baseUrl, relative, fresh = false) {
+  const target = new URL(relative, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`);
+  if (fresh) target.searchParams.set("verify", randomUUID());
+  const url = target.toString();
   const response = await fetchImpl(url, { cache: "no-store", headers: { "Cache-Control": "no-cache" }, redirect: "follow" });
   const body = Buffer.from(await response.arrayBuffer());
   return { url, status: response.status, ok: response.ok, body };
@@ -380,13 +383,13 @@ async function checkLiveBeforeDeploy({ site, baseUrl, fetchImpl = globalThis.fet
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// After deployment: poll the live pointer, manifest and every release file until
-// each is byte-identical to the artifact (which names the deployed commit), then
-// verify the live current release independently. Throws if the site is still
-// stale or wrong when the timeout expires; it never reports success early.
+// After deployment, poll the shell and catalogue until they match the artifact.
+// Check the directory URL separately from index.html because users launch both.
 async function verifyLive({ site, baseUrl, fetchImpl = globalThis.fetch, timeoutMs = 15 * 60 * 1000, intervalMs = 20 * 1000, sleep = delay, now = Date.now }) {
-  const manifest = JSON.parse(fs.readFileSync(path.join(site, MANIFEST_PATH), "utf8"));
-  const files = [POINTER_PATH, MANIFEST_PATH, ...manifest.releases.map((release) => `catalogue/${release.path}`)];
+  const { manifest, appBuild } = verifySite(site);
+  const shell = [APP_BUILD_PATH, "", ...PAGES_APP_FILES];
+  const files = [POINTER_PATH, MANIFEST_PATH, ...manifest.releases.map((release) => `catalogue/${release.path}`), ...shell];
+  const expected = new Map(files.map((file) => [file, fs.readFileSync(path.join(site, file || "index.html"))]));
   const deadline = now() + timeoutMs;
   let attempt = 0;
   for (;;) {
@@ -394,15 +397,16 @@ async function verifyLive({ site, baseUrl, fetchImpl = globalThis.fetch, timeout
     const problems = [];
     let currentBody = null;
     for (const relative of files) {
+      const label = relative || "site root";
       let live;
       try {
-        live = await fetchLive(fetchImpl, baseUrl, relative);
+        live = await fetchLive(fetchImpl, baseUrl, relative, shell.includes(relative));
       } catch (error) {
-        problems.push(`${relative}: ${error.message}`);
+        problems.push(`${label}: ${error.message}`);
         continue;
       }
-      if (!live.ok) { problems.push(`${relative}: HTTP ${live.status}`); continue; }
-      if (!live.body.equals(fs.readFileSync(path.join(site, relative)))) { problems.push(`${relative}: live bytes differ from the deployed artifact`); continue; }
+      if (!live.ok) { problems.push(`${label}: HTTP ${live.status}`); continue; }
+      if (!live.body.equals(expected.get(relative))) { problems.push(`${label}: live bytes differ from the deployed artifact`); continue; }
       if (relative === `catalogue/${manifest.current.path}`) currentBody = live.body;
     }
     if (!problems.length) {
@@ -411,11 +415,12 @@ async function verifyLive({ site, baseUrl, fetchImpl = globalThis.fetch, timeout
         attempts: attempt,
         lines: [
           `Live catalogue verified after ${attempt} attempt(s): v${release.catalogueVersion} ${release.checksum}`,
-          `Deployed commit ${manifest.deployedCommit}; ${manifest.releases.length} release file(s) served: ${manifest.releases.map((entry) => `v${entry.catalogueVersion}`).join(", ")}`
+          `Deployed commit ${manifest.deployedCommit}; ${manifest.releases.length} release file(s) served: ${manifest.releases.map((entry) => `v${entry.catalogueVersion}`).join(", ")}`,
+          `Live app shell verified: v${appBuild.version} · ${appBuild.buildId}`
         ]
       };
     }
-    if (now() >= deadline) throw new Error(`Live catalogue does not match the deployment after ${attempt} attempt(s) (stale Pages/CDN or failed deployment): ${problems.join("; ")}`);
+    if (now() >= deadline) throw new Error(`Live site does not match the deployment after ${attempt} attempt(s) (stale Pages/CDN or failed deployment): ${problems.join("; ")}`);
     await sleep(intervalMs);
   }
 }
@@ -450,6 +455,7 @@ function restoreSource({ repo, catalogueVersion }) {
 }
 
 module.exports = {
+  APP_BUILD_PATH,
   BUDGET,
   MANIFEST_PATH,
   PAGES_APP_FILES,

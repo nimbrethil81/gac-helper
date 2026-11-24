@@ -13,6 +13,7 @@ const vm = require("node:vm");
 const { payloadChecksum } = require("../scripts/catalogue-audit-lib.js");
 const { compileSource, readSource, releaseContract } = require("../scripts/catalogue-source-lib.js");
 const { renderRelease } = require("../scripts/catalogue-release-lib.js");
+const { PAGES_APP_FILES, buildAppShell } = require("../scripts/app-shell-lib.js");
 
 const ROOT = path.join(__dirname, "..");
 const source = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
@@ -438,64 +439,133 @@ test("catalogue loading is same-origin; roster import still uses the Apps Script
 
 // ─── service worker ─────────────────────────────────────────────────────────
 
-function worker(scriptUrl) {
+const shell = buildAppShell(file => fs.readFileSync(path.join(ROOT, file)));
+
+function worker(scope, { override = {}, saved = new Map(), matchAll = async () => [] } = {}) {
     const listeners = {};
-    const context = { URL,
-        URL,
-        self: { location: new URL(scriptUrl), addEventListener: (type, fn) => { listeners[type] = fn; } },
-        caches: { match: async () => undefined },
-        fetch: async () => "network"
+    const requests = [];
+    let activations = 0;
+    const name = `gac-app-shell:${new URL(scope).pathname}:${shell.metadata.buildId}`;
+    const cacheApi = entries => ({
+        match: async url => entries.get(url)?.clone(),
+        put: async (url, response) => entries.set(url, response.clone())
+    });
+    const caches = {
+        keys: async () => [...saved.keys()],
+        has: async key => saved.has(key),
+        open: async key => {
+            if (!saved.has(key)) saved.set(key, new Map());
+            return cacheApi(saved.get(key));
+        },
+        match: async (url, { cacheName }) => saved.get(cacheName)?.get(url)?.clone(),
+        delete: async key => saved.delete(key)
     };
-    vm.createContext(context);
-    vm.runInContext(fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8"), context, { filename: "service-worker.js" });
-    return url => {
-        let responded = false;
-        listeners.fetch({ request: { url }, respondWith: () => { responded = true; } });
-        return responded;
+    vm.runInNewContext(shell.files["service-worker.js"].toString("utf8"), {
+        URL, Response, AbortController, TextDecoder, crypto: globalThis.crypto, setTimeout, clearTimeout, caches,
+        self: {
+            registration: { scope }, clients: { matchAll },
+            addEventListener: (type, fn) => { listeners[type] = fn; },
+            skipWaiting: async () => { activations++; }
+        },
+        fetch: async (url, options) => {
+            const href = typeof url === "string" ? url : url.url;
+            requests.push({ href, options });
+            const file = new URL(href).pathname.slice(new URL(scope).pathname.length) || "index.html";
+            return new Response(override[file] ?? (file === "app-build.json"
+                ? JSON.stringify(shell.metadata)
+                : shell.files[file]));
+        }
+    }, { filename: "service-worker.js" });
+    return {
+        name, saved, requests,
+        get activations() { return activations; },
+        fetch(url) {
+            let response;
+            listeners.fetch({ request: { url, method: "GET" }, respondWith: result => { response = result; } });
+            return response;
+        },
+        install() {
+            let promise;
+            listeners.install({ waitUntil: result => { promise = result; } });
+            return promise;
+        },
+        async message(source, data) {
+            let operation;
+            let response;
+            listeners.message({ source, data, ports: [{ postMessage: value => { response = value; } }],
+                waitUntil: result => { operation = result; } });
+            await operation;
+            return response;
+        }
     };
 }
 
 test("the service worker bypasses the catalogue under the /gac-helper/ Pages path", () => {
-    const handles = worker("https://nimbrethil81.github.io/gac-helper/service-worker.js");
     const base = "https://nimbrethil81.github.io/gac-helper/";
+    const sw = worker(base);
 
-    assert.equal(handles(`${base}catalogue/current.json`), false);
-    assert.equal(handles(`${base}catalogue/current.json?probe=1`), false);
-    assert.equal(handles(`${base}catalogue/releases/6-5d95a75e5a94.json`), false);
-    assert.equal(handles(ROSTER_API_URL + "?action=roster&allyCode=123456789"), false);
+    assert.equal(sw.fetch(`${base}catalogue/current.json`), undefined);
+    assert.equal(sw.fetch(`${base}catalogue/current.json?probe=1`), undefined);
+    assert.equal(sw.fetch(`${base}catalogue/releases/6-5d95a75e5a94.json`), undefined);
+    assert.equal(sw.fetch(ROSTER_API_URL + "?action=roster&allyCode=123456789"), undefined);
 
-    assert.equal(handles(base), true);
-    assert.equal(handles(`${base}app.js`), true);
-    assert.equal(handles(`${base}index.html`), true);
+    assert.ok(sw.fetch(base));
+    assert.ok(sw.fetch(`${base}app.js`));
+    assert.ok(sw.fetch(`${base}index.html`));
+});
+
+test("the waiting worker rechecks all app windows and accepts only the requested build within the deadline", async () => {
+    const base = "https://example.test/gac-helper/";
+    const source = { type: "window", url: base, id: "caller" };
+    let windows = [source, { type: "window", url: "https://example.test/other/", id: "unrelated" }];
+    const sw = worker(base, { matchAll: async options => {
+        assert.equal(options.includeUncontrolled, true);
+        return windows;
+    } });
+    await sw.install();
+    const inspected = await sw.message(source, { type: "gac-app-inspect" });
+    assert.equal(inspected.soleWindow, true);
+    assert.equal(sw.activations, 0);
+    const request = { type: "gac-app-activate", buildId: inspected.buildId, metadataHash: inspected.metadataHash, deadline: Date.now() + 2000 };
+    windows.push({ type: "window", url: base + "index.html", id: "just opened" });
+    assert.equal((await sw.message(source, request)).result, "other-windows");
+    windows.pop();
+    assert.equal((await sw.message(source, { ...request, deadline: 0 })).result, "unavailable");
+    assert.equal((await sw.message(source, { ...request, buildId: "another" })).result, "unavailable");
+    assert.equal(sw.activations, 0);
+    assert.equal((await sw.message(source, request)).result, "accepted");
+    assert.equal(sw.activations, 1);
 });
 
 test("the service worker bypasses the catalogue at a site root too", () => {
-    const handles = worker("http://localhost:8080/service-worker.js");
-    assert.equal(handles("http://localhost:8080/catalogue/current.json"), false);
-    assert.equal(handles("http://localhost:8080/app.js"), true);
+    const sw = worker("http://localhost:8080/");
+    assert.equal(sw.fetch("http://localhost:8080/catalogue/current.json"), undefined);
+    assert.ok(sw.fetch("http://localhost:8080/app.js"));
 });
 
-test("the service worker installs a versioned shell cache without precaching the catalogue", async () => {
-    const text = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-    let install;
-    let cacheName;
-    let precached;
-    const context = { URL,
-        URL,
-        self: {
-            location: new URL("https://example.test/gac-helper/service-worker.js"),
-            addEventListener: (type, handler) => { if (type === "install") install = handler; }
-        },
-        caches: { open: async name => {
-            cacheName = name;
-            return { addAll: async files => { precached = Array.from(files); } };
-        } }
-    };
-    vm.runInNewContext(text, context, { filename: "service-worker.js" });
-    let installing;
-    install({ waitUntil: promise => { installing = promise; } });
-    await installing;
-    assert.match(cacheName, /^swgoh-shell-v[1-9]\d*$/);
-    assert.deepEqual(precached, ["./", "./index.html", "./app.js", "./styles.css", "./manifest.json"]);
-    assert.doesNotMatch(text, /catalogue\/current\.json/, "the catalogue is never precached");
+test("the service worker verifies and caches the complete shell without caching catalogue or build metadata", async () => {
+    const base = "https://example.test/gac-helper/";
+    const sw = worker(base);
+    await sw.install();
+    assert.equal(sw.name, `gac-app-shell:/gac-helper/:${shell.metadata.buildId}`);
+    const cache = sw.saved.get(sw.name);
+    assert.deepEqual([...cache.keys()].sort(), ["", ".gac-shell-ready", ...PAGES_APP_FILES].map(file => base + file).sort());
+    assert.equal(await (await sw.fetch(base)).text(), await (await sw.fetch(base + "index.html")).text());
+    for (const file of PAGES_APP_FILES) {
+        const response = await sw.fetch(`${base}${file}?build=${shell.metadata.buildId}`);
+        assert.deepEqual(Buffer.from(await response.arrayBuffer()), shell.files[file]);
+    }
+    const fresh = sw.requests.length;
+    await sw.fetch(base + "app-build.json");
+    assert.equal(sw.requests.length, fresh + 1);
+    assert.equal(sw.requests.at(-1).options.cache, "no-store");
+    assert.equal(cache.has(base + "app-build.json"), false);
+    assert.ok(sw.requests.every(request => !request.href.includes("/catalogue/")));
+});
+
+test("an incomplete install leaves owned and unrelated caches alone", async () => {
+    const keys = new Map([["unrelated", new Map()], ["gac-app-shell:/gac-helper/:" + "1".repeat(64), new Map()]]);
+    const sw = worker("https://example.test/gac-helper/", { override: { "styles.css": "mixed shell" }, saved: keys });
+    await assert.rejects(sw.install(), /App shell verification failed: styles.css/);
+    assert.deepEqual([...sw.saved.keys()], ["unrelated", "gac-app-shell:/gac-helper/:" + "1".repeat(64)]);
 });

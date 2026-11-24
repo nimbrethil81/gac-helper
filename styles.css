@@ -18,7 +18,7 @@
 body {
     margin: 0;
     padding: 20px;
-    padding-bottom: 80px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px) + var(--app-update-space, 0px));
     font-family: Arial, sans-serif;
 
     background:
@@ -364,6 +364,93 @@ body {
 .nav-icon {
     font-size: 22px;
     line-height: 1;
+}
+
+/* ─── APP UPDATES ────────────────────────────────────────────────── */
+
+.app-update-notice {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--bottom-nav-height, 59px) + 2px);
+    transform: translateX(-50%);
+    z-index: 99;
+    width: min(350px, calc(100% - 40px));
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid var(--jedi-blue);
+    border-radius: 12px;
+    background: var(--panel);
+}
+
+.app-update-notice-row, .app-update-status, .app-update-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.app-update-notice-row { margin-bottom: 6px; }
+.app-update-notice-row p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.app-update-notice-icon { color: var(--jedi-blue); }
+
+.app-update-notice svg, .app-version-card svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+    flex: none;
+}
+
+.app-update-notice-icon svg, .app-update-dismiss svg { width: 20px; height: 20px; }
+
+.app-update-dismiss {
+    display: grid;
+    flex: 0 0 44px;
+    min-height: 44px;
+    margin-left: auto;
+    place-items: center;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+.app-update-button {
+    justify-content: center;
+    width: 100%;
+    min-height: 44px;
+    padding: 8px;
+    border: 1px solid #22324a;
+    border-radius: 8px;
+    background: var(--panel-light);
+    color: var(--text);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.app-update-primary { background: var(--jedi-blue); border-color: var(--jedi-blue); color: var(--bg); }
+.app-update-button:disabled { color: var(--muted); cursor: default; }
+.app-update-button:focus-visible, .app-update-dismiss:focus-visible { outline: 2px solid var(--jedi-blue); outline-offset: 2px; }
+.app-update-button[hidden] { display: none; }
+
+.app-version-card h2 { margin: 0; font-size: 16px; }
+body:has(.app-version-card) { background-color: var(--bg); background-repeat: no-repeat; }
+.app-build-version { margin: 11px 0 16px; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.app-update-status { gap: 10px; min-height: 18px; }
+.app-update-status [data-update-icon] { color: var(--muted); flex: none; }
+.app-update-status [data-icon="current"] { color: var(--s-tier); }
+.app-update-status [data-icon="download"] { color: var(--jedi-blue); }
+.app-update-status [data-icon="pause"] { color: var(--b-tier); }
+.app-update-explanation { margin: 7px 0 12px; color: var(--muted); font-size: 13px; line-height: 18px; }
+.app-version-card button { margin-top: 12px; }
+.app-update-explanation:not([hidden]) + button { margin-top: 0; }
+
+.app-update-announcement {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
 }
 
 /* ─── MORE AND NESTED SCREENS ────────────────────────────────────── */

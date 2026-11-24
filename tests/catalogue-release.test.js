@@ -15,6 +15,7 @@ const { execFileSync } = require("node:child_process");
 const { compileSource, readSource, writeSource, releaseContract } = require("../scripts/catalogue-source-lib.js");
 const { run: runBuild } = require("../scripts/catalogue-build.js");
 const {
+  APP_BUILD_PATH,
   BUDGET,
   PAGES_APP_FILES,
   RETAINED_RELEASES,
@@ -48,7 +49,7 @@ function fixtureRepo(t) {
   const dir = tempDir(t);
   git(dir, "init", "-q", "-b", "main");
   git(dir, "config", "commit.gpgsign", "false");
-  for (const file of PAGES_APP_FILES) fs.writeFileSync(path.join(dir, file), `${file} v1\n`);
+  for (const file of PAGES_APP_FILES) fs.copyFileSync(path.join(ROOT, file), path.join(dir, file));
   fs.cpSync(path.join(ROOT, "catalogue", "source"), path.join(dir, "catalogue", "source"), { recursive: true });
   fs.mkdirSync(path.join(dir, "docs"));
   fs.writeFileSync(path.join(dir, "docs", "SPEC.md"), "internal\n");
@@ -103,7 +104,7 @@ function pagesFrom(tree, overrides = {}) {
   const fetchImpl = async (url) => {
     const relative = new URL(url).pathname.replace(/^\/gac-helper\//, "");
     requests.push(relative);
-    const body = files[relative];
+    const body = files[relative || (Object.hasOwn(files, "") ? "" : "index.html")];
     if (body instanceof Error) throw body;
     if (typeof body === "number") return new Response("error", { status: body });
     return body === undefined ? new Response("not found", { status: 404 }) : new Response(body, { status: 200 });
@@ -158,15 +159,65 @@ test("the artifact is exactly the allow-list, complete, verified and reproducibl
   const record = JSON.parse(fs.readFileSync(repo.releaseFile, "utf8"));
   const releaseFile = `catalogue/releases/1-${record.checksum.slice(7, 19)}.json`;
 
-  assert.deepEqual(first.files, [...PAGES_APP_FILES, "catalogue/current.json", "catalogue/manifest.json", releaseFile].sort());
+  assert.deepEqual(first.files, [...PAGES_APP_FILES, APP_BUILD_PATH, "catalogue/current.json", "catalogue/manifest.json", releaseFile].sort());
   assert.deepEqual(readTree(first.out), readTree(second.out), "same commit, byte-identical artifact");
-  for (const file of PAGES_APP_FILES) assert.equal(fs.readFileSync(path.join(first.out, file), "utf8"), `${file} v1\n`);
+  assert.match(first.appBuild.buildId, /^[0-9a-f]{64}$/);
+  for (const file of ["index.html", "app.js", "app-updates.js", "service-worker.js", "manifest.json"]) {
+    const text = fs.readFileSync(path.join(first.out, file), "utf8");
+    assert.ok(text.includes(first.appBuild.buildId), file);
+    assert.ok(!text.includes("__GAC_BUILD_ID__"), file);
+  }
+  for (const file of ["styles.css", "icon-192.png", "icon-512.png"]) {
+    assert.deepEqual(fs.readFileSync(path.join(first.out, file)), fs.readFileSync(path.join(repo.dir, file)));
+  }
 
   assert.deepEqual(first.pointer, { pointerSchema: 1, contract: releaseContract(compileSource(readSource(repo.sourceDir).source)), catalogueVersion: 1, checksum: record.checksum, path: releaseFile.slice("catalogue/".length), bytes: fs.statSync(path.join(first.out, releaseFile)).size });
   assert.equal(first.manifest.deployedCommit, head);
   assert.deepEqual(first.manifest.releases.map((entry) => [entry.catalogueVersion, entry.sourceCommit]), [[1, head]]);
   verifyReleaseText(fs.readFileSync(path.join(first.out, releaseFile), "utf8"), record);
   assert.ok(first.sizes.pointer <= BUDGET.pointerBytes && first.sizes.current <= BUDGET.releaseBytes);
+});
+
+test("shell identity changes with app assets, independent of catalogue and docs commits, and returns on rollback", (t) => {
+  const repo = fixtureRepo(t);
+  const first = repo.build(t);
+  const published = repo.publishChange("catalogue only");
+  const catalogue = repo.build(t);
+  assert.equal(catalogue.pointer.checksum, published.checksum);
+  fs.appendFileSync(path.join(repo.dir, "docs", "SPEC.md"), "\nExpanded documentation\n");
+  repo.commit("docs only");
+  const docs = repo.build(t);
+  for (const build of [catalogue, docs]) {
+    assert.notEqual(build.manifest.deployedCommit, first.manifest.deployedCommit);
+    assert.deepEqual(build.appBuild, first.appBuild);
+    assert.deepEqual(fs.readFileSync(path.join(build.out, "service-worker.js")), fs.readFileSync(path.join(first.out, "service-worker.js")));
+  }
+
+  const icon = path.join(repo.dir, "icon-512.png");
+  const original = fs.readFileSync(icon);
+  fs.appendFileSync(icon, "changed icon bytes");
+  const app = repo.build(t);
+  assert.equal(app.appBuild.version, first.appBuild.version);
+  assert.notEqual(app.appBuild.buildId, first.appBuild.buildId);
+  fs.writeFileSync(icon, original);
+  assert.deepEqual(repo.build(t).appBuild, first.appBuild);
+});
+
+test("shell verification rejects corrupt bytes and self-consistent metadata for a different build", (t) => {
+  const repo = fixtureRepo(t);
+  const { out, appBuild } = repo.build(t);
+  const styles = path.join(out, "styles.css");
+  const metadata = path.join(out, APP_BUILD_PATH);
+  fs.appendFileSync(styles, "\n/* stale stylesheet */\n");
+  assert.throws(() => verifySite(out), /styles.css is corrupted/);
+
+  const bytes = fs.readFileSync(styles);
+  appBuild.assets["styles.css"] = { bytes: bytes.length, sha256: require("../scripts/baseline-lib.js").sha256(bytes) };
+  fs.writeFileSync(metadata, JSON.stringify(appBuild));
+  assert.throws(() => verifySite(out), /does not match the deterministic shell identity/);
+  appBuild.assets.extra = appBuild.assets["styles.css"];
+  fs.writeFileSync(metadata, JSON.stringify(appBuild));
+  assert.throws(() => verifySite(out), /app-build.json has an unexpected shape/);
 });
 
 test("the build refuses a non-empty output directory and a missing app file", (t) => {
@@ -250,7 +301,7 @@ test("earlier releases are rebuilt from Git, retained and byte-identical across 
 test("repeat deployment of the same release changes nothing but the deployed commit", (t) => {
   const repo = fixtureRepo(t);
   const before = repo.build(t);
-  fs.writeFileSync(path.join(repo.dir, "app.js"), "app.js v2\n");
+  fs.appendFileSync(path.join(repo.dir, "app.js"), "\n// App-only change\n");
   const head = repo.commit("app-only change");
   const after = repo.build(t);
 
@@ -352,12 +403,11 @@ test("post-deployment verification waits for propagation and fails rather than r
   const timing = { timeoutMs: 60_000, intervalMs: 20_000, sleep: async (ms) => { clock += ms; }, now: () => clock };
 
   // The CDN serves the old pointer for the first two attempts.
-  let calls = 0;
-  const propagating = async (url, init) => {
-    calls += 1;
+  let attempts = 0;
+  const propagating = async (url) => {
     const relative = new URL(url).pathname.replace(/^\/gac-helper\//, "");
-    const tree = calls <= 6 ? oldTree : newTree;
-    return tree[relative] === undefined ? new Response("", { status: 404 }) : new Response(tree[relative], { status: 200 });
+    if (relative === "catalogue/current.json") attempts += 1;
+    return pagesFrom(attempts <= 2 ? oldTree : newTree).fetchImpl(url);
   };
   const ok = await verifyLive({ site: v2.out, baseUrl: BASE_URL, fetchImpl: propagating, ...timing });
   assert.ok(ok.attempts > 1);
@@ -374,12 +424,27 @@ test("post-deployment verification waits for propagation and fails rather than r
   await assert.rejects(verifyLive({ site: v2.out, baseUrl: BASE_URL, fetchImpl: pagesFrom(newTree, { "catalogue/current.json": new Error("ECONNRESET") }).fetchImpl, ...timing }), /ECONNRESET/);
 
   // A redeploy of the same release from a newer commit is told apart by the manifest.
-  fs.writeFileSync(path.join(repo.dir, "app.js"), "app.js v2\n");
+  fs.appendFileSync(path.join(repo.dir, "app.js"), "\n// App-only change\n");
   repo.commit("app-only");
   const redeploy = repo.build(t);
   clock = 0;
   await assert.rejects(verifyLive({ site: redeploy.out, baseUrl: BASE_URL, fetchImpl: pagesFrom(newTree).fetchImpl, ...timing }), /manifest.json: live bytes differ/);
   assert.ok((await verifyLive({ site: redeploy.out, baseUrl: BASE_URL, fetchImpl: pagesFrom(readTree(redeploy.out)).fetchImpl, ...timing })).attempts === 1);
+  const redeployed = readTree(redeploy.out);
+  for (const [relative, label] of [["", "site root"], [APP_BUILD_PATH, "app-build.json"], ["app.js", "app.js"]]) {
+    const stale = newTree[relative || "index.html"];
+    const staleShell = pagesFrom(redeployed, { [relative]: stale });
+    const fetchImpl = (url, init) => {
+      const value = new URL(url);
+      if (!value.pathname.startsWith("/gac-helper/catalogue/")) {
+        assert.ok(value.searchParams.get("verify"));
+        assert.equal(init.cache, "no-store");
+      }
+      return staleShell.fetchImpl(url);
+    };
+    await assert.rejects(verifyLive({ site: redeploy.out, baseUrl: BASE_URL, fetchImpl, timeoutMs: 0 }),
+      error => error.message.includes(`${label}: live bytes differ`));
+  }
 });
 
 // ─── rollback ────────────────────────────────────────────────────────────────

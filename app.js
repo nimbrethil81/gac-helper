@@ -1,5 +1,6 @@
 // app.js
 const APP_VERSION = "3.6";
+const APP_BUILD_ID = "__GAC_BUILD_ID__";
 const ROSTER_API_URL = "https://script.google.com/macros/s/AKfycbwSg1axISAAWN2AIMq5U6suLdj9yrfgeT1h2Nys_NT2M0D-9NA-xJ8YVKKMLKKiDcKMdA/exec";
 
 // Static catalogue (ADR-ARCH-116 §8): a small same-origin pointer names an
@@ -89,6 +90,7 @@ let catalogueStatus = null;             // quiet cache/refresh status; never blo
 let currentMode = "5v5";
 let lastSquadMode = localStorage.getItem(LAST_SQUAD_MODE_KEY) || "5v5"; // last 5v5/3v3 chosen; used for board setup when the toggle is on Fleet
 let boardModeDraft = null;              // GAC format chosen on the round setup card; owned by the round once set
+let boardModeDraftSeed = null;
 let currentView = "round";
 let usedTeams = JSON.parse(localStorage.getItem("usedTeams") || "[]");
 let spentCharsCache = { key: null, map: new Map() };  // derived from usedTeams + counterDefinitions (v3.2)
@@ -109,7 +111,7 @@ let rosterSearch = "";
 let rosterPanelOpen = false;            // collapsible data panel state
 let rosterBackup = null;                // session-only snapshot for Undo
 let importDraft = "";                   // text in the paste-import box
-let allyCodeDraft = "";                 // text in the ally-code input
+let allyCodeDraft = null;                // null uses the saved ally code
 let rosterRequest = null;               // one shared foreground/background request
 let rosterMessage = null;               // { text, kind: "ok" | "warn" | "error" }
 
@@ -118,6 +120,7 @@ let board = null;
 let myBoard = null;
 let activeBoardSide = "opponent";      // Opponent Board is always the entry default
 let leagueDraft = localStorage.getItem(LEAGUE_KEY) || "";
+let leagueDraftSaved = leagueDraft;
 let roundPlan = null;                   // live allocation plan — recomputed every Round render, never persisted
 let focusedTeamKey = null;              // board team the Next Up card last pointed at, e.g. "FRONT_BOTTOM:0"
 let focusFlash = false;                 // one-shot: true only for the render immediately after a Next Up tap
@@ -438,10 +441,10 @@ function loadBoard() {
 
 function saveBoard(side) {
     if (side === "my") {
-        if (myBoard) localStorage.setItem(MY_BOARD_KEY, JSON.stringify(myBoard));
+        if (myBoard) writePlayerState(MY_BOARD_KEY, JSON.stringify(myBoard));
         return;
     }
-    if (board) localStorage.setItem(BOARD_KEY, JSON.stringify(board));
+    if (board) writePlayerState(BOARD_KEY, JSON.stringify(board));
 }
 
 function discardBoard() {
@@ -449,12 +452,13 @@ function discardBoard() {
     myBoard = null;
     activeBoardSide = "opponent";
     boardModeDraft = null;
+    boardModeDraftSeed = null;
     focusedTeamKey = null;
     resetRoundPresentation();
     expandedCounterCards = new Set();
     clearPendingUndo();
-    localStorage.removeItem(BOARD_KEY);
-    localStorage.removeItem(MY_BOARD_KEY);
+    writePlayerState(BOARD_KEY);
+    writePlayerState(MY_BOARD_KEY);
 }
 
 function templateKey(mode) {
@@ -948,7 +952,7 @@ function saveDefenceTemplateFromMyBoard() {
 function clearDefenceTemplate(mode) {
     const label = mode || (board && board.mode) || boardMode();
     if (!confirm(`Clear your saved ${label} defence template? Your current round board will not change.`)) return;
-    localStorage.removeItem(templateKey(label));
+    writePlayerState(templateKey(label));
     render();
 }
 
@@ -968,7 +972,10 @@ function escapeHtml(value) {
 
 function setLeague(value) {
     leagueDraft = value;
-    if (value) localStorage.setItem(LEAGUE_KEY, value);
+    if (value) {
+        writePlayerState(LEAGUE_KEY, value);
+        leagueDraftSaved = value;
+    }
     render();
 }
 
@@ -984,6 +991,7 @@ function boardMode() {
 }
 
 function setBoardModeDraft(mode) {
+    if (!boardModeDraftSeed) boardModeDraftSeed = boardMode();
     boardModeDraft = mode;
     render();
 }
@@ -1050,6 +1058,7 @@ function createBoard() {
     board.defenceSnapshot = captureDefenceSnapshot(mode, myBoard, savedDefence);
     activeBoardSide = "opponent";
     boardModeDraft = null;
+    boardModeDraftSeed = null;
     resetRoundPresentation();
     expandedCounterCards = new Set();
     saveBoard("opponent");
@@ -1204,7 +1213,7 @@ function markUsedAndCleared(side, territoryKey, index, counterId) {
 
     if (!wasUsed) {
         usedTeams.push(counterId);
-        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+        writePlayerState("usedTeams", JSON.stringify(usedTeams));
     }
     team.cleared = true;
     if (side !== "my" && focusedTeamKey === territoryKey + ":" + index) focusedTeamKey = null;
@@ -1246,7 +1255,7 @@ function markUsedAndLost(side, territoryKey, index, counterId) {
 
     if (!wasUsed) {
         usedTeams.push(counterId);
-        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+        writePlayerState("usedTeams", JSON.stringify(usedTeams));
     }
     team.attempts = prevAttempts + 1;
     saveBoard(side);
@@ -1286,6 +1295,7 @@ function setPendingUndo(entry) {
         pendingUndo = null;
         // Expiring an offer must not replace active feedback inputs or lose drafts.
         document.querySelectorAll(".board-undo-notice").forEach(node => node.remove());
+        refreshAppUpdateView();
     }, PENDING_UNDO_WINDOW_MS);
     pendingUndo = entry;
 }
@@ -1325,7 +1335,7 @@ function undoPendingAction() {
         const i = usedTeams.indexOf(counterId);
         if (i !== -1) {
             usedTeams.splice(i, 1);
-            localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+            writePlayerState("usedTeams", JSON.stringify(usedTeams));
         }
     }
 
@@ -1414,7 +1424,7 @@ function markCounterUsedFromBoard(counterId, targetKey) {
     if (!usedTeams.includes(counterId)) {
         recordAttackUsage(counterId, "used", "board", targetKey);
         usedTeams.push(counterId);
-        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+        writePlayerState("usedTeams", JSON.stringify(usedTeams));
     }
     render();
 }
@@ -1433,12 +1443,14 @@ function validUsageParticipants(participants) {
 
 // Optional observed facts; absence means unknown for legacy events.
 const battleDetailsOpen = new Set();
+const battleEvidenceDrafts = new Map();
 let battleFeedbackReportOpen = false;
 let battleFeedbackReportMessage = "";
 
 // Drop a changed/withdrawn result's editor so Undo cannot retain stale evidence.
 function closeBattleDetails(eventId) {
     battleDetailsOpen.delete(eventId);
+    battleEvidenceDrafts.delete(eventId);
     document.querySelectorAll(".battle-details").forEach(node => {
         if (node.dataset.eventId === eventId) node.remove();
     });
@@ -1484,11 +1496,35 @@ function updateBattleEvidence(eventId, field, raw) {
     return change ? { ok: true, text: "Saved locally" } : { ok: false, text: "Could not save locally. Free device storage and try again." };
 }
 
+function trackBattleEvidenceDraft(input, field, error = null) {
+    const details = input.closest(".battle-details");
+    const eventId = details.dataset.eventId;
+    const draft = battleEvidenceDrafts.get(eventId) || {};
+    const invalidNumber = field === "actualBanners" && input.validity?.badInput;
+    draft[field] = { value: input.value, error: error || (invalidNumber ? "Enter whole banners from 0 to 999, or clear the field." : null) };
+    battleEvidenceDrafts.set(eventId, draft);
+}
+
+function commitPendingBattleEvidence(input, field) {
+    const eventId = input.closest(".battle-details").dataset.eventId;
+    const entry = battleEvidenceDrafts.get(eventId)?.[field];
+    if (entry && !entry.error) commitBattleEvidence(input, field);
+}
+
 function commitBattleEvidence(input, field) {
     const details = input.closest(".battle-details");
+    const eventId = details.dataset.eventId;
     const result = input.validity?.badInput
         ? { ok: false, text: "Enter whole banners from 0 to 999, or clear the field." }
-        : updateBattleEvidence(details.dataset.eventId, field, input.value);
+        : updateBattleEvidence(eventId, field, input.value);
+    if (!result.ok) trackBattleEvidenceDraft(input, field, result.text);
+    else {
+        const draft = battleEvidenceDrafts.get(eventId);
+        if (draft) {
+            delete draft[field];
+            if (Object.keys(draft).length === 0) battleEvidenceDrafts.delete(eventId);
+        }
+    }
     const status = details.querySelector(".battle-save-status");
     status.textContent = result.text;
     status.classList.toggle("battle-error", !result.ok);
@@ -1499,19 +1535,23 @@ function commitBattleEvidence(input, field) {
         const banners = event && battleEvidenceFor(event).actualBanners;
         if (summary) summary.textContent = banners === null ? "Banners not provided" : `${banners} actual banners`;
     }
+    refreshAppUpdateView();
 }
 
 function renderBattleDetails(event) {
     const e = battleEvidenceFor(event);
-    const select = (field, label, choices) => `<label>${label}<select onchange="commitBattleEvidence(this, '${field}')">${choices.map(([value, text]) => `<option value="${value}" ${e[field] === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
+    const draft = battleEvidenceDrafts.get(event.id) || {};
+    const invalid = field => draft[field]?.error ? 'aria-invalid="true"' : "";
+    const error = Object.values(draft).find(entry => entry.error)?.error;
+    const select = (field, label, choices) => `<label>${label}<select ${invalid(field)} onchange="commitBattleEvidence(this, '${field}')">${choices.map(([value, text]) => `<option value="${value}" ${(draft[field]?.value ?? e[field]) === value ? "selected" : ""}>${text}</option>`).join("")}</select></label>`;
     return `<details class="battle-details" data-event-id="${escapeHtml(event.id)}" ${battleDetailsOpen.has(event.id) ? "open" : ""} ontoggle="if (this.isConnected) { this.open ? battleDetailsOpen.add(this.dataset.eventId) : battleDetailsOpen.delete(this.dataset.eventId); }">
         <summary>Battle details · ${escapeHtml(e.counterName || event.counterId || "Unknown counter")} · ${event.outcome === "won" ? "Won" : "Lost"} · <span class="battle-actual-summary">${e.actualBanners === null ? "Banners not provided" : `${e.actualBanners} actual banners`}</span> · ${escapeHtml(event.createdAt.replace("T", " ").slice(0, 19))}</summary>
         <p class="usage-help">${escapeHtml(event.mode)} · ${escapeHtml(e.defenceName || "Unknown defence")} · ${escapeHtml(event.createdAt.slice(0, 10))}</p>
-        <div class="battle-fields"><label>Actual banners<input type="number" inputmode="numeric" min="0" max="999" step="1" value="${e.actualBanners ?? ""}" onchange="commitBattleEvidence(this, 'actualBanners')"></label>
+        <div class="battle-fields"><label>Actual banners<input type="number" inputmode="numeric" min="0" max="999" step="1" value="${escapeHtml(draft.actualBanners?.value ?? e.actualBanners ?? "")}" ${invalid("actualBanners")} oninput="trackBattleEvidenceDraft(this, 'actualBanners')" onblur="commitPendingBattleEvidence(this, 'actualBanners')" onchange="commitBattleEvidence(this, 'actualBanners')"></label>
         ${select("datacron", "Datacron involved?", [["unknown", "Unknown"], ["yes", "Yes"], ["no", "No"]])}</div>
         <details class="battle-more"><summary>More details</summary>${select("attempt", "Attempt", [["unknown", "Unknown"], ["first", "First attempt"], ["cleanup", "Cleanup"]])}
-        <label>Notes (optional)<textarea maxlength="500" onblur="commitBattleEvidence(this, 'notes')">${escapeHtml(e.notes)}</textarea></label></details>
-        <p class="battle-save-status" role="status" aria-live="polite"></p>
+        <label>Notes (optional)<textarea maxlength="500" ${invalid("notes")} oninput="trackBattleEvidenceDraft(this, 'notes')" onblur="commitBattleEvidence(this, 'notes')">${escapeHtml(draft.notes?.value ?? e.notes)}</textarea></label></details>
+        <p class="battle-save-status${error ? " battle-error" : ""}" role="status" aria-live="polite">${escapeHtml(error)}</p>
     </details>`;
 }
 
@@ -1583,6 +1623,8 @@ function battleFeedbackFile() {
 }
 
 async function shareBattleFeedback() {
+    appUpdateOperations++;
+    refreshAppUpdateView();
     try {
         const file = battleFeedbackFile();
         if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
@@ -1593,6 +1635,8 @@ async function shareBattleFeedback() {
         }
     } catch (e) {
         battleFeedbackReportMessage = e.name === "AbortError" ? "Sharing cancelled. You can try again or Download JSON." : "Could not share. Try Download JSON.";
+    } finally {
+        appUpdateOperations--;
     }
     render();
 }
@@ -1669,10 +1713,14 @@ function loadUsageHistory() {
     }
 }
 
-function saveUsageHistory() {
+function saveUsageHistory(rollbackOnFailure = false) {
     if (!usageHistoryWritable) return false;
     try {
-        localStorage.setItem(USAGE_HISTORY_KEY, JSON.stringify(usageHistory));
+        const value = JSON.stringify(usageHistory);
+        if (rollbackOnFailure) {
+            localStorage.setItem(USAGE_HISTORY_KEY, value);
+            failedPlayerWrites.delete(USAGE_HISTORY_KEY);
+        } else writePlayerState(USAGE_HISTORY_KEY, value);
         return true;
     } catch (e) {
         usageHistoryMessage = "Usage history could not be saved on this device. Keep this page open and free some storage.";
@@ -1721,7 +1769,7 @@ function writeUsageEvent(fact, persist = true, rollbackOnFailure = false) {
     if (!validUsageEvent(next)) return null;
     if (previous) usageHistory.events[usageHistory.events.indexOf(previous)] = next;
     else usageHistory.events.push(next);
-    const persisted = !persist || saveUsageHistory();
+    const persisted = !persist || saveUsageHistory(rollbackOnFailure);
     if (!persisted && rollbackOnFailure) {
         if (previous) usageHistory.events[usageHistory.events.indexOf(next)] = previous;
         else usageHistory.events.splice(usageHistory.events.indexOf(next), 1);
@@ -2098,8 +2146,11 @@ async function importUsageHistoryFile(input) {
         usageScreenMessage = { kind: "error", text: "Usage backup is too large (maximum 16 MB). Existing history is unchanged." };
         render(); return;
     }
+    appUpdateOperations++;
+    refreshAppUpdateView();
     try { importUsageHistory(await file.text()); }
     catch (error) { usageScreenMessage = { kind: "error", text: "Could not read that file. Existing history is unchanged." }; render(); }
+    finally { appUpdateOperations--; refreshAppUpdateView(); }
 }
 
 function exportUsageHistory() {
@@ -4393,6 +4444,7 @@ function startRosterRequest(allyCode, foreground) {
     // request. Only the current owner of the request may apply its result.
     const request = { allyCode, foreground, revision: rosterRevision, controller, promise };
     rosterRequest = request;
+    refreshAppUpdateView();
     return request;
 }
 
@@ -4460,7 +4512,7 @@ function buildImportSummary(counts, unknown) {
 }
 
 async function importFromAllyCode() {
-    const allyCode = String(allyCodeDraft || rosterMeta.allyCode || "").replace(/\D/g, "");
+    const allyCode = String(allyCodeDraft ?? rosterMeta.allyCode ?? "").replace(/\D/g, "");
 
     if (allyCode.length !== 9) {
         rosterMessage = { text: "An ally code is 9 digits — find it in-game under Menu → Profile.", kind: "error" };
@@ -4531,7 +4583,7 @@ async function importFromAllyCode() {
         rosterStorageError();
         return;
     }
-    allyCodeDraft = "";
+    allyCodeDraft = null;
 
     rosterMessage = {
         text: buildImportSummary(counts, unknown.length),
@@ -4542,7 +4594,8 @@ async function importFromAllyCode() {
 
 async function maybeBackgroundSync() {
     if (rosterMeta.source !== ROSTER_SOURCE_API || !validRosterAllyCode(rosterMeta.allyCode)) return;
-    if (!navigator.onLine || currentView === "roster" || rosterRequest) return;
+    if (!navigator.onLine || currentView === "roster" || rosterRequest ||
+        (typeof appUpdates !== "undefined" && appUpdates.isActivating())) return;
 
     const last = rosterMeta.syncedAt ? Date.parse(rosterMeta.syncedAt) : 0;
     if (last && (Date.now() - last) < ROSTER_SYNC_STALE_MS) return;
@@ -4560,6 +4613,8 @@ async function maybeBackgroundSync() {
         if (applyRoster(ownedUnitIds, ROSTER_SOURCE_API, { meta, development, undo })) render();
     } catch {
         finishRosterRequest(request);   // stay on the cached roster
+    } finally {
+        refreshAppUpdateView();
     }
 }
 
@@ -4770,7 +4825,7 @@ function setView(view) {
         // convenience, once, on first entry into a fresh setup. From then on
         // the round owns its own format until it is created or discarded.
         if (!board && !boardModeDraft) {
-            boardModeDraft = currentMode !== "FLEET" ? currentMode : lastSquadMode;
+            boardModeDraftSeed = boardModeDraft = currentMode !== "FLEET" ? currentMode : lastSquadMode;
         }
     }
     render();
@@ -4834,6 +4889,7 @@ ${viewHtml}
     if (currentView === "counters") {
         showCounters();
     }
+    refreshAppUpdateView();
 }
 
 function windowScrollY() {
@@ -4859,6 +4915,7 @@ function renderMore() {
         <span>📊 Usage</span><span aria-hidden="true">›</span>
     </button>
 </div>
+${typeof appUpdates === "undefined" ? "" : appUpdates.renderCard()}
 `;
 }
 
@@ -5203,7 +5260,7 @@ function renderCounters() {
 
 function setCounterFilter(filter) {
     counterFilter = filter;
-    localStorage.setItem("counterFilter", filter);
+    writePlayerState("counterFilter", filter);
 
     document.querySelectorAll(".counter-filter-btn").forEach(btn => btn.classList.remove("active"));
     const activeBtn = document.querySelector(`.counter-filter-btn[data-filter="${filter}"]`);
@@ -5216,7 +5273,7 @@ function setMode(mode) {
     currentMode = mode;
     if (mode === "5v5" || mode === "3v3") {
         lastSquadMode = mode;
-        localStorage.setItem(LAST_SQUAD_MODE_KEY, mode);
+        writePlayerState(LAST_SQUAD_MODE_KEY, mode);
     }
     render();
 }
@@ -5241,7 +5298,7 @@ function markUsed(counterId) {
     if (!usedTeams.includes(counterId)) {
         recordAttackUsage(counterId);
         usedTeams.push(counterId);
-        localStorage.setItem("usedTeams", JSON.stringify(usedTeams));
+        writePlayerState("usedTeams", JSON.stringify(usedTeams));
     }
     showCounters();
 }
@@ -5251,10 +5308,10 @@ function resetRound() {
     if (!confirmed) return;
 
     usedTeams = [];
-    localStorage.removeItem("usedTeams");
+    writePlayerState("usedTeams");
 
     bannerData = { myScore: 0, oppScore: 0, remaining: null, oppFinal: false, scoresPrefilled: false };
-    localStorage.removeItem("bannerData");
+    writePlayerState("bannerData");
 
     discardBoard();
     battleDetailsOpen.clear();
@@ -6572,7 +6629,7 @@ function clearRemainingOverrideOnBoardChange() {
 }
 
 function persistBannerData() {
-    localStorage.setItem("bannerData", JSON.stringify(bannerData));
+    writePlayerState("bannerData", JSON.stringify(bannerData));
 }
 
 function recomputeBannerReadouts() {
@@ -6697,7 +6754,7 @@ function renderRosterGroups() {
 
 function renderRosterImportCard() {
     const empty = !hasRoster();
-    const ally = rosterMeta.allyCode || allyCodeDraft || "";
+    const ally = allyCodeDraft ?? rosterMeta.allyCode ?? "";
     const rosterSyncing = rosterRequest?.foreground;
     const isApi = rosterMeta.source === ROSTER_SOURCE_API && rosterMeta.allyCode;
     const btnLabel = isApi ? "Refresh roster" : "Import roster";
@@ -6979,9 +7036,40 @@ function undoImport() {
 
 // ─── BOOT ───────────────────────────────────────────────────────────────────
 
+const failedPlayerWrites = new Set();
+let appUpdateOperations = 0;
+
+function writePlayerState(key, value) {
+    try {
+        if (value === undefined) localStorage.removeItem(key);
+        else localStorage.setItem(key, value);
+        failedPlayerWrites.delete(key);
+    } catch (error) {
+        failedPlayerWrites.add(key);
+        refreshAppUpdateView();
+        throw error;
+    }
+}
+
+function refreshAppUpdateView() {
+    if (typeof appUpdates !== "undefined") appUpdates.refreshView();
+}
+
+function appUpdateBlocker() {
+    if (defenceLineupEditor?.dirty || usageLineupEditor || importDraft ||
+        (allyCodeDraft !== null && allyCodeDraft !== (rosterMeta.allyCode || "")) ||
+        (!board && (boardModeDraft !== boardModeDraftSeed || leagueDraft !== leagueDraftSaved)) ||
+        battleEvidenceDrafts.size || failedPlayerWrites.size ||
+        document.activeElement?.matches?.("input, textarea, select, [contenteditable]:not([contenteditable=false])")) return "editing";
+    if (rosterRequest || appUpdateOperations) return "working";
+    if (pendingUndo) return "undo";
+    return null;
+}
+
 if (!(typeof globalThis !== "undefined" && globalThis.__GAC_HELPER_TEST__)) {
     requestPersistentStorage();  // best-effort eviction resistance
     loadRoster();                // hydrate roster (with migration) before first paint
     loadBoard();                 // hydrate both boards; migrates a legacy opponent board additively
     loadData();                  // counters/defs/board config, then a staleness-gated background sync
+    if (typeof appUpdates !== "undefined") appUpdates.start();
 }

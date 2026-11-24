@@ -4,17 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SWGOH Counters</title>
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="gac-app-build" content="__GAC_BUILD_ID__">
+  <link rel="manifest" href="manifest.json?build=__GAC_BUILD_ID__">
+  <link rel="stylesheet" href="styles.css?build=__GAC_BUILD_ID__">
 </head>
 <body>
   <div class="app-header">GAC HELPER</div>
   <div id="app">Loading...</div>
-  <script src="app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('service-worker.js');
-    }
-  </script>
+  <script src="app-updates.js?build=__GAC_BUILD_ID__"></script>
+  <script src="app.js?build=__GAC_BUILD_ID__"></script>
 </body>
 </html>
