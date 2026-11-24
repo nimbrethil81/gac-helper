@@ -1713,14 +1713,16 @@ function loadUsageHistory() {
     }
 }
 
-function saveUsageHistory(rollbackOnFailure = false) {
+function saveUsageHistory(rollbackOnFailure = false, recorded = false) {
     if (!usageHistoryWritable) return false;
     try {
         const value = JSON.stringify(usageHistory);
-        if (rollbackOnFailure) {
-            localStorage.setItem(USAGE_HISTORY_KEY, value);
-            failedPlayerWrites.delete(USAGE_HISTORY_KEY);
-        } else writePlayerState(USAGE_HISTORY_KEY, value);
+        saveHistoryWithUpgradeSafeguard({ recorded, rollback: rollbackOnFailure }, () => {
+            if (rollbackOnFailure) {
+                localStorage.setItem(USAGE_HISTORY_KEY, value);
+                failedPlayerWrites.delete(USAGE_HISTORY_KEY);
+            } else writePlayerState(USAGE_HISTORY_KEY, value);
+        });
         return true;
     } catch (e) {
         usageHistoryMessage = "Usage history could not be saved on this device. Keep this page open and free some storage.";
@@ -1769,7 +1771,7 @@ function writeUsageEvent(fact, persist = true, rollbackOnFailure = false) {
     if (!validUsageEvent(next)) return null;
     if (previous) usageHistory.events[usageHistory.events.indexOf(previous)] = next;
     else usageHistory.events.push(next);
-    const persisted = !persist || saveUsageHistory(rollbackOnFailure);
+    const persisted = !persist || saveUsageHistory(rollbackOnFailure, addsUsageFact(previous, next));
     if (!persisted && rollbackOnFailure) {
         if (previous) usageHistory.events[usageHistory.events.indexOf(next)] = previous;
         else usageHistory.events.splice(usageHistory.events.indexOf(next), 1);
@@ -1834,6 +1836,7 @@ function syncConfirmedDefenceUsage() {
     if (!board || !usageHistoryWritable || !usageHistory.defenceRounds.includes(board.roundId)) return;
     const snapshot = board.defenceSnapshot;
     if (!snapshot || snapshot.schema !== 2) return;
+    const previousEvents = [...usageHistory.events];
     snapshot.slots.forEach(slot => {
         // An explicitly reviewed empty slot is not a deployed team.
         const slotKey = `${slot.territory}:${slot.index}`;
@@ -1857,7 +1860,17 @@ function syncConfirmedDefenceUsage() {
             counterId: null, slotKey, snapshotFingerprint, identity: slot.name ? slot.customName || slot.name : "",
             ...facts, outcome: "deployed", voided: false }, false);
     });
-    saveUsageHistory();
+    saveUsageHistory(false, addedUsageFacts(previousEvents));
+}
+
+function addsUsageFact(previous, next) {
+    return previous !== next && !next.voided && (!previous || previous.voided ||
+        previous.outcome !== next.outcome ||
+        JSON.stringify(previous.participants) !== JSON.stringify(next.participants));
+}
+
+function addedUsageFacts(previous) {
+    return usageHistory.events.some((event, index) => addsUsageFact(previous[index], event));
 }
 
 // Both sides contribute one per event, never outcome-based weights. Missing
@@ -1901,11 +1914,15 @@ function usageCompletedSeasons(history = usageHistory) {
     return Array.isArray(history.completedSeasonIds) ? history.completedSeasonIds : [];
 }
 
+function recentCompletedUsageSeasons(history = usageHistory) {
+    return usageCompletedSeasons(history).filter(id => id !== history.selectedSeasonId).slice(-3);
+}
+
 function usagePeriodEvents(period = usagePeriod, history = usageHistory) {
     const events = history.events.filter(event => validUsageEvent(event) && !event.voided);
     if (period === "all") return events;
     const seasons = period === "completed"
-        ? usageCompletedSeasons(history).filter(id => id !== history.selectedSeasonId).slice(-3)
+        ? recentCompletedUsageSeasons(history)
         : history.selectedSeasonId ? [history.selectedSeasonId] : [];
     return events.filter(event => event.seasonId !== null && seasons.includes(event.seasonId));
 }
@@ -1953,6 +1970,253 @@ function setUsagePeriod(period) {
     if (!["current", "completed", "all"].includes(period)) return;
     usagePeriod = period;
     render();
+}
+
+function usagePeriodLabel(period) {
+    if (period === "current") return usageHistory.selectedSeasonId
+        ? `Current season: ${usageHistory.selectedSeasonId}`
+        : "Choose a current season to view this period.";
+    if (period === "completed") return `Completed seasons: ${recentCompletedUsageSeasons().join(", ") || "none marked complete"}`;
+    return "All recorded time, including unknown seasons";
+}
+
+// Upgrade priorities share Usage facts, but keep their own period and disclosure.
+const UPGRADE_ACCOUNT_KEY = "gacUpgradeUsageAccount:v1";
+const upgradePeriods = [["current", "Current season"], ["completed", "Last three completed seasons"], ["all", "All recorded time"]];
+let upgradePeriod = "all";
+let expandedUpgrades = new Set();
+let upgradeAccountMessage = "";
+let upgradeAccountWriteFailed = false;
+
+function importedRosterAccount() {
+    const { allyCode, source, syncedAt } = rosterMeta;
+    if (!validRosterAllyCode(allyCode)) return null;
+    // Manual ownership edits can retain a genuine development snapshot.
+    return (source === ROSTER_SOURCE_API && validRosterTimestamp(syncedAt)) ||
+        rosterDevelopment?.allyCode === allyCode ? allyCode : null;
+}
+
+function readUpgradeAccount() {
+    try {
+        const account = JSON.parse(localStorage.getItem(UPGRADE_ACCOUNT_KEY));
+        if (validRosterAllyCode(account?.allyCode) && [0, 1].includes(account.confirmed)) return account;
+    } catch {
+        // A missing/unreadable association always requires confirmation.
+    }
+    return null;
+}
+
+function saveHistoryWithUpgradeSafeguard({ recorded, imported, rollback }, writeHistory) {
+    const account = recorded || imported || upgradeAccountWriteFailed ? readUpgradeAccount() : null;
+    const rosterAccount = recorded ? importedRosterAccount() : null;
+    const mismatch = rosterAccount && account?.allyCode !== rosterAccount;
+    if (!account?.confirmed || !(imported || mismatch || upgradeAccountWriteFailed)) {
+        writeHistory();
+        return;
+    }
+
+    // Clear confirmation before making the history write durable. Keep the
+    // original account so a different roster can never take over the binding.
+    const wasBlocked = upgradeAccountWriteFailed;
+    try {
+        localStorage.setItem(UPGRADE_ACCOUNT_KEY, JSON.stringify({ ...account, confirmed: 0 }));
+        upgradeAccountWriteFailed = false;
+    } catch (error) {
+        upgradeAccountWriteFailed = wasBlocked || !rollback;
+        throw error;
+    }
+    try {
+        writeHistory();
+    } catch (error) {
+        if (rollback && !wasBlocked) {
+            try {
+                localStorage.setItem(UPGRADE_ACCOUNT_KEY, JSON.stringify(account));
+            } catch {
+                // The durable state is already unconfirmed.
+            }
+        }
+        throw error;
+    }
+}
+
+function upgradeAccountStatus() {
+    const rosterAccount = importedRosterAccount();
+    const account = readUpgradeAccount();
+    if (rosterAccount && account && rosterAccount !== account.allyCode) return "mismatch";
+    if (!rosterAccount || rosterDevelopment?.allyCode !== rosterAccount ||
+        !Object.keys(rosterDevelopment.units).length) return "roster";
+    return account?.confirmed && !upgradeAccountWriteFailed ? "ready" : "confirm";
+}
+
+function confirmUpgradeAccount() {
+    if (currentView !== "upgrades" || upgradeAccountStatus() !== "confirm" ||
+        !usageHistoryWritable || !usagePeriodEvents("all").length) return;
+    try {
+        localStorage.setItem(UPGRADE_ACCOUNT_KEY, JSON.stringify({ allyCode: importedRosterAccount(), confirmed: 1 }));
+        upgradeAccountWriteFailed = false;
+        upgradeAccountMessage = "";
+    } catch {
+        upgradeAccountMessage = "Couldn't save your confirmation on this device. Try again.";
+    }
+    render();
+    document.getElementById("upgrade-title")?.focus({ preventScroll: true });
+}
+
+function defaultUpgradePeriod(history = usageHistory) {
+    const attributedSeasons = new Set(usagePeriodEvents("completed", history)
+        .filter(event => event.participants.some(unit => unit.unitType === "CHARACTER"))
+        .map(event => event.seasonId));
+    return attributedSeasons.size >= 3 ? "completed" : "all";
+}
+
+function setUpgradePeriod(period) {
+    if (!upgradePeriods.some(([id]) => id === period) || period === upgradePeriod) return;
+    upgradePeriod = period;
+    expandedUpgrades.clear();
+    render();
+    document.getElementById("upgrade-period")?.focus({ preventScroll: true });
+}
+
+function toggleUpgradeList(category) {
+    const wasExpanded = expandedUpgrades.has(category);
+    if (wasExpanded) expandedUpgrades.delete(category);
+    else expandedUpgrades.add(category);
+    render();
+    document.getElementById(`upgrade-toggle-${category}`)?.focus({ preventScroll: !wasExpanded });
+}
+
+function developmentInvestment(facts) {
+    if (Number.isInteger(facts?.gear) && facts.gear >= 1 && facts.gear <= 12) return facts.gear;
+    if (facts?.gear === 13 && Number.isInteger(facts.relic) && facts.relic >= 0 && facts.relic <= 10) return 13 + facts.relic;
+    return null;
+}
+
+function investmentLabel(investment) {
+    if (investment === null) return "";
+    return investment >= 13 ? `R${investment - 13}` : `G${investment}`;
+}
+
+function upgradeRankings(events) {
+    const owned = new Set(ownedCharacters);
+    const eligible = usageRankings("characters", events).filter(row => row.total >= 3 &&
+        owned.has(row.id) && characterDefinitions[row.id]?.unitType === "CHARACTER");
+    const qualified = eligible.map(row => {
+        const facts = rosterDevelopment?.units[row.id];
+        const modCount = facts?.modCount;
+        return { id: row.id, label: row.label, uses: row.total, investment: developmentInvestment(facts),
+            modCount: Number.isInteger(modCount) && modCount >= 0 && modCount <= 6 ? modCount : null };
+    });
+    const investments = qualified.map(row => row.investment).filter(value => value !== null).sort((a, b) => a - b);
+    const typical = investments[Math.floor((investments.length - 1) / 2)] ?? null;
+    const compare = (a, b) => b.score - a.score || b.uses - a.uses ||
+        a.label.localeCompare(b.label) || a.id.localeCompare(b.id);
+    const gear = qualified.filter(row => typical !== null && row.investment !== null && row.investment < typical)
+        .map(row => ({ ...row, gap: typical - row.investment, score: row.uses * (typical - row.investment) })).sort(compare);
+    const knownMods = qualified.filter(row => row.modCount !== null);
+    const mods = knownMods.filter(row => row.modCount < 6)
+        .map(row => ({ ...row, gap: 6 - row.modCount, score: row.uses * (6 - row.modCount) })).sort(compare);
+    return { typical, gear, mods, eligible: eligible.length,
+        unknownGear: eligible.length - investments.length, unknownMods: eligible.length - knownMods.length };
+}
+
+async function refreshUpgradeRoster() {
+    const allyCode = importedRosterAccount();
+    if (currentView !== "upgrades" || !allyCode || rosterRequest?.foreground) return;
+    const restoreFocus = document.activeElement?.id === "upgrade-refresh";
+    await importFromAllyCode(allyCode);
+    if (restoreFocus && document.activeElement === document.body) {
+        document.getElementById("upgrade-refresh")?.focus({ preventScroll: true });
+    }
+}
+
+function renderUpgradePrompt(title, copy, action) {
+    return `<section class="round-card upgrade-prompt">
+        <h2>${title}</h2><p>${copy}</p>${action}
+    </section>`;
+}
+
+function renderUpgradeList(category, rows, emptyText) {
+    const expanded = expandedUpgrades.has(category);
+    const isGear = category === "gear";
+    return `<section class="round-card upgrade-category">
+        <h2>${isGear ? "Gear &amp; relics" : "Missing mods"}</h2>
+        ${isGear ? '<p class="upgrade-gear-intro">Frequently used, below your typical investment.</p>' : ""}
+        ${rows.length ? `<ol class="usage-ranking upgrade-ranking" role="list" id="upgrade-list-${category}">${(expanded ? rows : rows.slice(0, 3)).map((row, index) => {
+            const current = investmentLabel(row.investment);
+            const uses = `${row.uses} uses`;
+            const details = isGear ? `${uses} · ${row.gap} level${row.gap === 1 ? "" : "s"} below typical investment`
+                : [current, uses, `${row.gap} empty slot${row.gap === 1 ? "" : "s"}`].filter(Boolean).join(" · ");
+            const squares = isGear ? "" : `<span class="upgrade-mods" aria-hidden="true">${Array.from({ length: 6 }, (_, i) => `<span class="${i < row.modCount ? "filled" : ""}"></span>`).join("")}</span>`;
+            return `<li class="usage-row upgrade-row">
+                ${isGear ? `<div class="usage-rank" aria-label="Rank ${index + 1}">${index + 1}</div>` : ""}
+                <div class="usage-unit"><strong>${escapeHtml(row.label)}</strong><span class="usage-help">${details}</span>${squares}</div>
+                <div class="usage-total">${isGear ? current : `${row.modCount}/6`}</div>
+            </li>`;
+        }).join("")}</ol>
+        ${rows.length > 3 ? `<button class="upgrade-disclosure" id="upgrade-toggle-${category}" aria-controls="upgrade-list-${category}" aria-expanded="${expanded}" aria-label="${expanded ? "Show fewer" : `Show all ${rows.length}`} ${isGear ? "gear and relic" : "missing mod"} candidates" onclick="toggleUpgradeList('${category}')">${expanded ? "Show fewer" : `Show all ${rows.length} candidates`} <span aria-hidden="true">${expanded ? "▴" : "▾"}</span></button>` : ""}`
+        : `<p class="usage-empty">${emptyText}</p>`}
+    </section>`;
+}
+
+function renderUpgrades() {
+    const status = upgradeAccountStatus();
+    const hasUsage = usagePeriodEvents("all").length > 0;
+    const title = '<h1 class="round-title" id="upgrade-title" tabindex="-1">UPGRADE PRIORITIES</h1>';
+    const goToRoster = `<button class="roster-data-btn roster-undo-btn" onclick="setView('roster')">Go to My Roster</button>`;
+    const goToUsage = `<button class="roster-data-btn" onclick="setView('usage')">Go to Usage</button>`;
+    if (status !== "ready" || !hasUsage || !usageHistoryWritable) {
+        const rosterPrompt = status === "mismatch"
+            ? renderUpgradePrompt("Return to your original roster", "Your recorded usage is associated with another roster. Import the original account to see upgrade priorities.", goToRoster)
+            : status === "roster" ? renderUpgradePrompt("Import your roster", "Gear, relic and mod information is needed before upgrade priorities can be calculated.", goToRoster) : "";
+        const usagePrompt = !usageHistoryWritable
+            ? renderUpgradePrompt("Usage history unavailable", "Open Usage to check the history saved on this device.", goToUsage)
+            : !hasUsage ? renderUpgradePrompt("Record GAC usage", "Record attacks and confirm defensive deployments to build your personal usage history.", goToUsage) : "";
+        const confirmation = status === "confirm" && hasUsage && usageHistoryWritable
+            ? renderUpgradePrompt("Confirm your usage history", "Confirm only if all recorded usage on this device belongs to the imported roster account. You can still use GAC Helper if you’re unsure.",
+                `<button class="roster-data-btn roster-undo-btn" onclick="confirmUpgradeAccount()">Confirm usage belongs to this roster</button>
+                <button class="roster-data-btn" onclick="setView('more')">Cancel</button>
+                ${upgradeAccountMessage ? `<p role="status">${upgradeAccountMessage}</p>` : ""}`) : "";
+        return `<section class="round-card upgrade-header">${title}<p>Compare your roster investment with recorded GAC use.</p></section>${rosterPrompt}${usagePrompt}${confirmation}`;
+    }
+
+    const events = usagePeriodEvents(upgradePeriod);
+    const { typical, gear, mods, eligible, unknownGear, unknownMods } = upgradeRankings(events);
+    const syncing = rosterRequest?.foreground;
+    const noUses = events.length ? "No owned characters have at least 3 recorded uses in this period." : "No usage recorded for this period.";
+    const gearEmpty = !eligible ? noUses : typical === null ? "Gear or relic investment is unknown for the qualifying characters." :
+        "No qualifying characters with known investment are below your typical investment.";
+    const modsEmpty = !eligible ? noUses : unknownMods === eligible ? "Equipped mod counts are unknown for the qualifying characters." :
+        "No qualifying characters with known mod counts have empty slots.";
+    const partial = events.some(event => !event.attribution.complete ||
+        (event.mode === "FLEET" && (event.attribution.pilotsComplete !== true ||
+            event.attribution.reinforcementParticipationKnown === false || event.benchShips?.length)));
+    const unknownSeasons = events.filter(event => event.seasonId === null).length;
+    const syncedAt = new Date(rosterDevelopment.syncedAt);
+    const syncLabel = syncedAt.toDateString() === new Date().toDateString()
+        ? `today, ${syncedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`
+        : formatSavedAt(rosterDevelopment.syncedAt);
+    return `<section class="round-card upgrade-header">
+        ${title}
+        <div class="upgrade-sync">
+            <span>Last synced: <time datetime="${escapeHtml(rosterDevelopment.syncedAt)}">${escapeHtml(syncLabel)}</time></span>
+            <button class="roster-data-btn" id="upgrade-refresh" onclick="refreshUpgradeRoster()" ${syncing ? "disabled" : ""}>${syncing ? "Refreshing…" : "↻ Refresh roster"}</button>
+        </div>
+        ${rosterMessage && rosterMessage.kind !== "ok" ? `<p class="roster-msg roster-msg-${rosterMessage.kind}" role="status">${escapeHtml(rosterMessage.text)}</p>` : ""}
+        <label class="usage-period" for="upgrade-period">Period
+            <select class="board-team-select" id="upgrade-period" onchange="setUpgradePeriod(this.value)">
+                ${upgradePeriods.map(([id, label]) => `<option value="${id}" ${upgradePeriod === id ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+        </label>
+        <dl class="upgrade-metrics"><div><dt>Typical investment</dt><dd>${investmentLabel(typical) || "Unavailable"}</dd></div>
+            <div><dt>Gear candidates</dt><dd>${gear.length}</dd></div></dl>
+    </section>
+    ${renderUpgradeList("gear", gear, gearEmpty)}
+    ${renderUpgradeList("mods", mods, modsEmpty)}
+    <div class="upgrade-coverage">
+        <p>${escapeHtml(usagePeriodLabel(upgradePeriod))}${unknownSeasons ? ` · ${unknownSeasons} with an unknown season` : ""}</p>
+        <p>${partial ? "Partial lineups and unknown pilot participation can limit recorded uses." : "Based on recorded uses only."} Investment gaps measure relative levels. Upgrade costs and combat impact vary.</p>
+        ${(gear.length && unknownGear) || (mods.length && unknownMods) ? "<p>Characters with unknown gear or mod counts are excluded from the corresponding list.</p>" : ""}
+    </div>`;
 }
 
 function completeUsageSeason(nextSeasonId) {
@@ -2126,7 +2390,9 @@ function importUsageHistory(raw) {
     try {
         const { history, added } = prepareUsageHistoryImport(raw);
         // Commit a validated merge in one write; quota errors preserve memory and disk.
-        localStorage.setItem(USAGE_HISTORY_KEY, JSON.stringify(history));
+        saveHistoryWithUpgradeSafeguard({ imported: true, rollback: true }, () => {
+            localStorage.setItem(USAGE_HISTORY_KEY, JSON.stringify(history));
+        });
         usageHistory = history;
         clearPendingUndo();
         usageScreenMessage = { kind: "ok", text: `Imported ${added} new usage event${added === 1 ? "" : "s"}. Existing identical events were kept once.` };
@@ -2177,8 +2443,7 @@ function renderUsage() {
     const unknownPilots = events.filter(event => event.mode === "FLEET" && event.attribution.pilotsComplete !== true).length;
     const unconfirmedReinforcements = events.filter(event => event.mode === "FLEET" && ((event.benchShips || []).length || event.attribution.reinforcementParticipationKnown === false)).length;
     const unknownFleets = events.filter(event => event.mode === "FLEET" && !event.capitalShipId && !event.participants.some(p => p.unitType === "CAPITAL_SHIP")).length;
-    const periodLabel = usagePeriod === "current" ? usageHistory.selectedSeasonId ? `Current season: ${usageHistory.selectedSeasonId}` : "Choose a current season to view this period."
-        : usagePeriod === "completed" ? `Completed seasons: ${usageCompletedSeasons().filter(id => id !== usageHistory.selectedSeasonId).slice(-3).join(", ") || "none marked complete"}` : "All recorded time, including unknown seasons";
+    const periodLabel = usagePeriodLabel(usagePeriod);
     return `<section class="round-card usage-screen">
         <h1 class="round-title">USAGE</h1>
         <p class="usage-help">Each attack and confirmed defensive deployment counts once. Wins and losses describe attacks only.</p>
@@ -2310,7 +2575,7 @@ function correctUsageLineup(eventId, lineup, options = { complete: true }) {
     const previousEvents = [...usageHistory.events];
     const change = writeUsageEvent({ ...event, ...facts }, false);
     if (!change) return false;
-    if (saveUsageHistory()) return true;
+    if (saveUsageHistory(false, addedUsageFacts(previousEvents))) return true;
     usageHistory.events = previousEvents;
     return false;
 }
@@ -4511,8 +4776,8 @@ function buildImportSummary(counts, unknown) {
     return summary;
 }
 
-async function importFromAllyCode() {
-    const allyCode = String(allyCodeDraft ?? rosterMeta.allyCode ?? "").replace(/\D/g, "");
+async function importFromAllyCode(savedAccount = null) {
+    const allyCode = savedAccount ?? String(allyCodeDraft ?? rosterMeta.allyCode ?? "").replace(/\D/g, "");
 
     if (allyCode.length !== 9) {
         rosterMessage = { text: "An ally code is 9 digits — find it in-game under Menu → Profile.", kind: "error" };
@@ -4529,7 +4794,7 @@ async function importFromAllyCode() {
     if (rosterRequest?.foreground && rosterRequest.allyCode === allyCode &&
         rosterRequest.revision === rosterRevision) return;
 
-    const isRoutineRefresh =
+    const isRoutineRefresh = savedAccount === allyCode ||
         rosterMeta.source === ROSTER_SOURCE_API && rosterMeta.allyCode === allyCode;
     if (hasRoster() && !isRoutineRefresh) {
         const ok = confirm(`This replaces your current roster (${ownedCharacters.length} characters) with data from your game account. You can undo straight afterwards.`);
@@ -4583,12 +4848,15 @@ async function importFromAllyCode() {
         rosterStorageError();
         return;
     }
-    allyCodeDraft = null;
+    if (savedAccount === null) allyCodeDraft = null;
 
     rosterMessage = {
         text: buildImportSummary(counts, unknown.length),
         kind: unknown.length ? "warn" : "ok"
     };
+    if (savedAccount !== null && (!isRosterRecord(data.development) || !validRosterTimestamp(data.syncedAt))) {
+        rosterMessage = { text: "The roster service did not return new development data. Showing your last saved development.", kind: "warn" };
+    }
     render();
 }
 
@@ -4811,8 +5079,16 @@ function setView(view) {
     if (currentView === "defence-lineups" && view !== currentView) {
         if (!closeDefenceLineupEditor()) return;
     }
-    if (view !== currentView) { battleDetailsOpen.clear(); battleFeedbackReportOpen = false; }
+    const changingView = view !== currentView;
+    const enteringUpgrades = changingView && view === "upgrades";
+    if (changingView) { battleDetailsOpen.clear(); battleFeedbackReportOpen = false; }
     currentView = view;
+    if (enteringUpgrades) {
+        upgradePeriod = defaultUpgradePeriod();
+        expandedUpgrades.clear();
+        upgradeAccountMessage = "";
+        rosterMessage = null;
+    }
     if (view === "roster") {
         loadRoster();          // defensive re-read on entry
         rosterMessage = null;
@@ -4829,6 +5105,10 @@ function setView(view) {
         }
     }
     render();
+    if (enteringUpgrades) {
+        if (typeof window !== "undefined") window.scrollTo(0, 0);
+        document.getElementById("upgrade-title")?.focus({ preventScroll: true });
+    }
 }
 
 // ─── RENDER ──────────────────────────────────────────────────────────────────
@@ -4850,6 +5130,8 @@ function render() {
         viewHtml = renderMoreSubview(renderDefenceLineups());
     } else if (currentView === "usage") {
         viewHtml = renderMoreSubview(renderUsage());
+    } else if (currentView === "upgrades") {
+        viewHtml = renderMoreSubview(renderUpgrades());
     } else if (currentView === "more") {
         viewHtml = renderMore();
     } else {
@@ -4871,7 +5153,7 @@ ${viewHtml}
         <span class="nav-icon">🗺️</span>
         ROUND
     </button>
-    <button class="nav-button ${["more", "roster", "defence-lineups", "usage"].includes(currentView) ? "active" : ""}" onclick="setView('more')">
+    <button class="nav-button ${["more", "roster", "defence-lineups", "usage", "upgrades"].includes(currentView) ? "active" : ""}" onclick="setView('more')">
         <span class="nav-icon">☰</span>
         MORE
     </button>
@@ -4913,6 +5195,9 @@ function renderMore() {
     </button>
     <button class="more-menu-entry" onclick="setView('usage')">
         <span>📊 Usage</span><span aria-hidden="true">›</span>
+    </button>
+    <button class="more-menu-entry" onclick="setView('upgrades')">
+        <span>📈 Upgrade priorities</span><span aria-hidden="true">›</span>
     </button>
 </div>
 ${typeof appUpdates === "undefined" ? "" : appUpdates.renderCard()}
@@ -6802,8 +7087,7 @@ function renderRosterRow(c) {
         ? `<span class="roster-badge">Capital</span>`
         : "";
     const facts = owned && c.unitType === "CHARACTER" ? rosterDevelopment?.units[c.id] : null;
-    const investment = facts?.relic !== undefined ? `R${facts.relic}`
-        : facts?.gear && facts.gear < 13 ? `G${facts.gear}` : "";
+    const investment = investmentLabel(developmentInvestment(facts));
     return `
 <div class="roster-row ${owned ? "owned" : ""}" onclick="toggleOwned(${escapeHtml(JSON.stringify(c.id))})">
     <span class="roster-name">${escapeHtml(c.name)}${badge}</span>
