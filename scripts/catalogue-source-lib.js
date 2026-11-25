@@ -37,9 +37,12 @@ const {
 const SOURCE_SCHEMA = 1;
 const RELEASE_CONTRACT = "gac-catalogue-release:v1";
 const LEGACY_V2_RELEASE_CONTRACT = "gac-catalogue-release:v2";
+const FIXED_RELEASE_CONTRACT = "gac-catalogue-release:v3";
 function releaseContract(payload) {
-  return Object.values(payload.counters ?? {}).some(teams => Object.values(teams).some(rows => rows.some(row => row.confidence !== undefined)))
-    ? LEGACY_V2_RELEASE_CONTRACT : RELEASE_CONTRACT;
+  const rows = Object.values(payload.counters ?? {}).flatMap(teams => Object.values(teams).flat());
+  if (rows.some(row => row?.lineup !== undefined)) return FIXED_RELEASE_CONTRACT;
+  if (rows.some(row => row?.confidence !== undefined)) return LEGACY_V2_RELEASE_CONTRACT;
+  return RELEASE_CONTRACT;
 }
 const CHANGE_SET_SCHEMA = 2;
 const CHANGE_SET_CONTRACT = "gac-catalogue-change-set:v1";
@@ -63,7 +66,7 @@ const FILES = Object.freeze({
     sortBy: "defence"
   }]))
 });
-const MATCHUP_ENTRY = { required: { counterId: "string", tier: "string", bannerScore: "number", undersize: "number" }, optional: { notes: "string" } };
+const MATCHUP_ENTRY = { required: { counterId: "string", tier: "string", bannerScore: "number", undersize: "number" }, optional: { lineup: "string", notes: "string" } };
 // A tactical entry (issues #112/#115) is a counter used as one step of a
 // multi-battle plan rather than a one-shot win: SETUP weakens a defence for a
 // later attack, CLEANUP is a conditional win against an already weakened one.
@@ -75,7 +78,7 @@ const MATCHUP_TACTIC_ENTRY = { required: { counterId: "string", role: "string", 
 // Field order used when writing rows, so imports and corrections diff cleanly.
 const FIELD_ORDER = ["id", "defence", "mode", "league", "territory", "type", "teamCount", "ruleId", "battleType", "value",
   "name", "unitType", "externalId", "shipId", "pilotIds", "strategicReserve", "required", "recommended", "threat", "units", "counterId", "role", "tier",
-  "bannerScore", "undersize", "meaning", "notes", "counters",
+  "bannerScore", "undersize", "lineup", "meaning", "notes", "counters",
   // Correction lists (catalogue/corrections/*.json).
   "baseline", "baselineChecksum", "issue", "approval", "status", "title", "resolves", "references",
   "externalIdVerification", "runtimeEffect", "file", "before", "after", "changes", "corrections"];
@@ -255,8 +258,8 @@ function importFromPayload(payload, scoreMeanings = []) {
       return {
         defence,
         counters: entries.map((entry) => (entry.role !== undefined
-          ? { counterId: entry.counterId, role: entry.role, notes: entry.notes }
-          : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, notes: entry.notes }, "notes")))
+          ? { counterId: entry.counterId, role: entry.role, ...(entry.lineup !== undefined ? { lineup: entry.lineup } : {}), notes: entry.notes }
+          : withoutBlank({ counterId: entry.counterId, tier: entry.tier, bannerScore: entry.bannerScore, undersize: entry.undersize, ...(entry.lineup !== undefined ? { lineup: entry.lineup } : {}), notes: entry.notes }, "notes")))
       };
     }));
   }
@@ -359,7 +362,7 @@ function buildPayload(source) {
           continue;
         }
         if (entry.role !== undefined) {
-          list.push({ counterId: entry.counterId, counter: counterNames.get(entry.counterId) ?? "", role: entry.role, notes: entry.notes ?? "" });
+          list.push({ counterId: entry.counterId, counter: counterNames.get(entry.counterId) ?? "", role: entry.role, ...(entry.lineup !== undefined ? { lineup: entry.lineup } : {}), notes: entry.notes ?? "" });
           continue;
         }
         list.push({
@@ -368,6 +371,7 @@ function buildPayload(source) {
           tier: entry.tier,
           bannerScore: entry.bannerScore,
           undersize: entry.undersize,
+          ...(entry.lineup !== undefined ? { lineup: entry.lineup } : {}),
           notes: entry.notes ?? ""
         });
       }
@@ -744,6 +748,7 @@ module.exports = {
   CHANGE_SET_SCHEMA,
   FILES,
   IMPORT_BLOCKERS,
+  FIXED_RELEASE_CONTRACT,
   LEGACY_V2_RELEASE_CONTRACT,
   releaseContract,
   MATCHUP_MODES,

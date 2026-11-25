@@ -624,3 +624,41 @@ test("overlapping corrections in one change set are refused", (t) => {
   const document = { schema: 2, contract: "gac-catalogue-change-set:v1", issue: "https://github.com/nimbrethil81/gac-helper/issues/68", baseline: f.baseline, corrections: [one, two] };
   assert.throws(() => readCorrections(writeDocument(f.repo.dir, document)), /overlaps/);
 });
+
+test("schema-2 preview, approval digest and apply retain a matchup-local fixed lineup", (t) => {
+  const { fixtureSource, modeFile, defence } = require("./fixed-matchup-fixture.js");
+  const repo = fixtureRepo(t);
+  const source = fixtureSource();
+  const fileKey = modeFile("3v3");
+  const after = structuredClone(source[fileKey].find(entry => entry.defence === defence));
+  const before = source[fileKey].find(entry => entry.defence === defence);
+  delete before.counters[0].lineup;
+  delete before.counters[1].lineup;
+  delete source[modeFile("5v5")].find(entry => entry.defence === defence).counters[0].lineup;
+  source[modeFile("5v5")].find(entry => entry.defence === defence).counters[0].bannerScore = 64;
+  writeSource(repo.sourceDir, source);
+  assert.equal(run(["release", "--source", repo.sourceDir, "--release-file", repo.releaseFile]).exitCode, 0);
+  git(repo.dir, "add", "-A");
+  git(repo.dir, "commit", "-qm", "synthetic ordinary rows");
+  const commit = git(repo.dir, "rev-parse", "HEAD");
+  git(repo.dir, "update-ref", "refs/remotes/origin/main", commit);
+  const baseline = { ...JSON.parse(fs.readFileSync(repo.releaseFile, "utf8")), commit };
+  delete baseline.schema;
+  const change = { file: fileKey, operation: "AMEND", stableKey: { mode: "3v3", defence }, before, after };
+  const correction = modernCorrection(source, { change });
+  const document = modernDocument(source, baseline, correction);
+  const file = writeDocument(repo.dir, document);
+  const args = ["corrections", file, "--repo", repo.dir];
+  const preview = run([...args, "--preview", correction.id]);
+  assert.equal(preview.exitCode, 0, preview.lines.join("\n"));
+  assert.match(preview.lines.join("\n"), /"lineup": "FIXED"/);
+  assert.deepEqual(correction.expectedPayloadPaths, [0, 1].map(i => `payload["counters"]["3v3"][${JSON.stringify(defence)}][${i}]["lineup"]`));
+
+  const approval = run([...args, "--record-approval", correction.id, "--decision", `${document.issue}#issuecomment-1`, "--decided-at", "2099-01-03T12:00:00Z"]);
+  assert.equal(approval.exitCode, 0, approval.lines.join("\n"));
+  const approved = readCorrections(file).corrections[0];
+  assert.equal(approved.approval.contentChecksum, contentChecksum(approved));
+  const applied = run([...args, "--apply", correction.id]);
+  assert.equal(applied.exitCode, 0, applied.lines.join("\n"));
+  assert.deepEqual(readSource(repo.sourceDir).source[fileKey].find(entry => entry.defence === defence), after);
+});

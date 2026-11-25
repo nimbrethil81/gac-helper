@@ -11,10 +11,15 @@ const CATALOGUE_BASE_URL = "catalogue/";
 const CATALOGUE_POINTER_SCHEMA = 1;
 const CATALOGUE_RELEASE_CONTRACT = "gac-catalogue-release:v1";
 const LEGACY_V2_RELEASE_CONTRACT = "gac-catalogue-release:v2";
-const SUPPORTED_CATALOGUE_CONTRACTS = [CATALOGUE_RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT];
+const FIXED_RELEASE_CONTRACT = "gac-catalogue-release:v3";
+const SUPPORTED_CATALOGUE_CONTRACTS = [CATALOGUE_RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT, FIXED_RELEASE_CONTRACT];
 function catalogueContract(data) {
-    return Object.values(data.counters || {}).some(teams => Object.values(teams).some(rows => rows.some(row => row.confidence !== undefined)))
-        ? LEGACY_V2_RELEASE_CONTRACT : CATALOGUE_RELEASE_CONTRACT;
+    const rows = Object.values(data.counters || {}).flatMap(teams => Object.values(teams).flat());
+    const fixed = rows.some(row => row.lineup !== undefined);
+    const historical = rows.some(row => row.confidence !== undefined);
+    if (fixed && historical) return null;
+    if (fixed) return FIXED_RELEASE_CONTRACT;
+    return historical ? LEGACY_V2_RELEASE_CONTRACT : CATALOGUE_RELEASE_CONTRACT;
 }
 const CATALOGUE_POINTER_TIMEOUT_MS = 10000;
 const CATALOGUE_RELEASE_TIMEOUT_MS = 30000;
@@ -3218,9 +3223,9 @@ function lastBattleAdvice(input) {
             message: "Target is against their current score; it may rise." });
     }
 
-    // Counter options: bannerScore is a full-squad, first-attempt estimate; shift
-    // it by the attempt-bonus difference for a repeat attempt. A fleet estimate
-    // assumes a 7★ capital ship's full fleet, so a 5★–6★ capital loses the locked
+    // Counter options start at the authored first-attempt estimate, including
+    // the exact lineup's empty slots for FIXED. Shift for a repeat attempt.
+    // A fleet estimate assumes a 7★ capital ship, so a 5★–6★ capital loses the locked
     // slot's per-unit banners. Undersize is the catalogue's documented safe drop,
     // the only undersize the advisor treats as supported; for a fleet only once
     // the capital's stars are known, and only into unlocked reinforcement slots.
@@ -3229,13 +3234,15 @@ function lastBattleAdvice(input) {
     const counters = Array.isArray(inp.counters) ? inp.counters.map(c => {
         const banner = Number(c.bannerScore);
         const hasScore = Number.isFinite(banner) && banner > 0;
-        const drop = Math.max(0, Math.floor(Number(c.undersize)) || 0);
+        const fixed = c.lineup === "FIXED";
+        const drop = fixed ? 0 : Math.max(0, Math.floor(Number(c.undersize)) || 0);
         const documentedDrop = fleet && !capacity.capital ? 0 : Math.min(drop, confirmedEmpty);
         const shift = attemptBonusFor(rules, attempts) - firstBonus + lockedShift;
         const expected = hasScore ? banner + shift : null;
         return {
             counterId: c.counterId, name: c.name || c.counterId, tier: c.tier || "", available: c.available !== false,
             bannerScore: hasScore ? banner : null, undersize: drop,
+            ...(fixed ? { lineup: c.lineup, members: c.members } : {}),
             expected, documentedDrop,
             expectedWithDrop: hasScore ? banner + shift + documentedDrop : null,
             expectedMeets: hasScore ? (banner + shift >= battleTarget) : null,
@@ -3298,6 +3305,7 @@ function currentLastBattleAdvice(extra) {
             return true;
         }).map(c => ({
             counterId: c.counterId, name: c.counter, tier: c.tier, bannerScore: c.bannerScore, undersize: c.undersize,
+            ...(c.lineup === "FIXED" ? { lineup: c.lineup, members: requiredChars(c.counterId).map(getCharacterName) } : {}),
             available: getCounterStatus(c.counterId) === "available"
         }));
     }
@@ -4176,8 +4184,8 @@ function computeBattleOrder(plan) {
                 fallbacks:  fallbacks,
                 tierRank:   tierSortValue(chosen.tier),
                 banners:    adjustedScore(chosen, t.modeKey === "FLEET"),
-                // The opening battle ranks on the PLAIN full-squad score, not the
-                // undersize-adjusted one: dropping units banks more, but it is
+                // The opening battle ranks on the authored score without a
+                // droppable-unit premium. Dropping units banks more, but it is
                 // precisely the risk you do not want on the battle carrying the
                 // one-off bonus (v3.1).
                 openerBanners: Number(chosen.bannerScore) || 0
@@ -4310,6 +4318,8 @@ function openerWarning(pick) {
         return "No reliable opener on the board — whichever you pick, the first-attack bonus is at risk. This is the best of them.";
     }
 
+    if (pick.counter.lineup === "FIXED") return null;
+
     const ceiling = cleanWinCeiling(pick.isFleet);
     const cost    = unitLossCost(pick.isFleet);
     const score   = Number(pick.counter.bannerScore);
@@ -4412,6 +4422,20 @@ function isPlainObject(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+function validFixedMatchup(row, mode, data) {
+    if (typeof row.counterId !== "string") return false;
+    const size = mode === "3v3" ? 3 : mode === "5v5" ? 5 : 0;
+    const definition = data.counterDefinitions[row.counterId];
+    const required = definition?.required;
+    return row.lineup === "FIXED" && size > 0 && typeof row.tier === "string" && /^[SABC]$/.test(row.tier) &&
+        row.counter === definition?.name && typeof row.counter === "string" && typeof row.notes === "string" &&
+        Object.keys(row).every(key => ["counterId", "counter", "tier", "bannerScore", "undersize", "lineup", "notes"].includes(key)) &&
+        Number.isInteger(row.bannerScore) && row.bannerScore > 0 && row.undersize === 0 &&
+        Array.isArray(required) && required.length > 0 && required.length < size &&
+        new Set(required).size === required.length && required.every(id => typeof id === "string" && data.characterDefinitions[id]?.unitType === "CHARACTER") &&
+        Array.isArray(definition.recommended) && definition.recommended.length === 0;
+}
+
 function isValidCataloguePayload(data) {
     return isPlainObject(data) &&
         isPlainObject(data.counters) &&
@@ -4425,6 +4449,7 @@ function isValidCataloguePayload(data) {
         isPlainObject(data.defenceCompositions) &&
         Object.entries(data.counters).every(([mode, teams]) => isPlainObject(teams) && Object.values(teams).every(rows => Array.isArray(rows) && rows.every(row => {
             if (!isPlainObject(row)) return false;
+            if (row.lineup !== undefined) return validFixedMatchup(row, mode, data);
             if (row.confidence === undefined) return true;
             let url;
             try { url = new URL(row.evidenceUrl); } catch { return false; }
@@ -4439,7 +4464,7 @@ function isValidCataloguePayload(data) {
         })));
 }
 
-function readCatalogueEntry(key, schema, sourceContract) {
+function readCatalogueEntry(key, schema, contracts) {
     let cached;
     try {
         cached = JSON.parse(localStorage.getItem(key) || "null");
@@ -4448,24 +4473,26 @@ function readCatalogueEntry(key, schema, sourceContract) {
     }
 
     if (!cached || cached.schema !== schema ||
-        cached.sourceContract !== sourceContract ||
+        !contracts.includes(cached.sourceContract) ||
         !Number.isFinite(Date.parse(cached.acceptedAt)) ||
-        !isValidCataloguePayload(cached.payload) ||
-        (key === CATALOGUE_CACHE_KEY && catalogueContract(cached.payload) !== sourceContract)) {
+        !isValidCataloguePayload(cached.payload)) {
         return null;
     }
+    const contract = catalogueContract(cached.payload);
+    if (!contract) return null;
+    if (key === CATALOGUE_CACHE_KEY ? contract !== cached.sourceContract : contract === FIXED_RELEASE_CONTRACT) return null;
     return cached;
 }
 
 // The validated v2 cache first, then a pre-cutover v1 cache (same seven-key
 // payload) so an upgrading user keeps their offline catalogue.
 function readCatalogueCache() {
-    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, LEGACY_V2_RELEASE_CONTRACT) || readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, CATALOGUE_RELEASE_CONTRACT);
+    const current = readCatalogueEntry(CATALOGUE_CACHE_KEY, CATALOGUE_CACHE_SCHEMA, SUPPORTED_CATALOGUE_CONTRACTS);
     if (current && CATALOGUE_CHECKSUM_PATTERN.test(current.checksum) &&
         Number.isSafeInteger(current.catalogueVersion) && current.catalogueVersion > 0) {
         return current;
     }
-    return readCatalogueEntry(LEGACY_CATALOGUE_CACHE_KEY, LEGACY_CATALOGUE_CACHE_SCHEMA, LEGACY_CATALOGUE_SOURCE_CONTRACT);
+    return readCatalogueEntry(LEGACY_CATALOGUE_CACHE_KEY, LEGACY_CATALOGUE_CACHE_SCHEMA, [LEGACY_CATALOGUE_SOURCE_CONTRACT]);
 }
 
 function writeCatalogueCache(release) {
@@ -4598,7 +4625,7 @@ async function refreshCatalogue(cached) {
             await fetchCatalogueText(CATALOGUE_POINTER_URL, CATALOGUE_POINTER_TIMEOUT_MS, { cache: "no-cache" })));
         if (!pointer) return "failed";
 
-        if (cached && await catalogueChecksum(cached.payload) === pointer.checksum) {
+        if (cached && catalogueContract(cached.payload) === pointer.contract && await catalogueChecksum(cached.payload) === pointer.checksum) {
             // Same catalogue already on screen. A migrated v1 cache is recorded
             // as v2 without downloading the release.
             if (cached.schema !== CATALOGUE_CACHE_SCHEMA) {
@@ -5019,7 +5046,11 @@ function defenceReason(counterId) {
 // scoring, or the spent/on-defence tracking above (only required[] feeds that,
 // unchanged). Returns null when there is nothing usable to show, so the card
 // can skip the disclosure affordance entirely rather than open onto emptiness.
-function counterCompositionForDisplay(counterId, modeKey) {
+function exactSquadLabel(counterId) {
+    return "Exact squad: " + requiredChars(counterId).map(getCharacterName).join(", ");
+}
+
+function counterCompositionForDisplay(counterId, modeKey, lineup) {
     const def = counterDefinitions[counterId];
     const required = (def && def.required) || [];
     const recommended = (def && def.recommended) || [];
@@ -5030,7 +5061,7 @@ function counterCompositionForDisplay(counterId, modeKey) {
     // guessing at a ship-count slot total.
     const battleSize = modeKey === "3v3" ? 3 : modeKey === "5v5" ? 5 : null;
     const explicitCount = required.length + recommended.length;
-    const flex = battleSize != null ? battleSize - explicitCount : 0;
+    const flex = lineup !== "FIXED" && battleSize != null ? battleSize - explicitCount : 0;
 
     return {
         required: required.map(id => ({ id, name: getCharacterName(id) })),
@@ -5649,7 +5680,7 @@ function buildCounterCardHtml(counter) {
         ? "weakening battle — not expected to win. Plan a second team to finish the defence."
         : "conditional cleanup — only after an earlier battle has weakened this defence. Not a fresh-team counter."}</div>` : `
     <div>🎯 <strong>Expected Banners:</strong> ${counter.bannerScore || "-"}</div>
-    ${(() => {
+    ${counter.lineup === "FIXED" ? `<div>👥 ${escapeHtml(exactSquadLabel(counter.counterId))}</div>` : (() => {
         const fleet = currentMode === "FLEET";
         const us = undersizeInfo(counter, fleet);
         return us
@@ -6116,8 +6147,9 @@ function renderNextUpRow(pick, isFleet) {
         ? `<div class="nextup-undersize">Undersize: ${fleetUndersizeText(us)}</div>`
         : `<div class="nextup-undersize">${us.total} banners if you undersize · drop up to ${us.drop}</div>`;
 
+    const fixed = c.lineup === "FIXED";
     const openerNote = opener
-        ? `<div class="nextup-opener-note">First attack of the round — the bonus is paid once, whatever happens. Play this one full squad.</div>`
+        ? `<div class="nextup-opener-note">First attack of the round — the bonus is paid once, whatever happens.${fixed ? "" : " Play this one full squad."}</div>`
         : "";
 
     const risk = allocationRiskText(roundPlan, pick.territory + ":" + pick.index);
@@ -6136,6 +6168,7 @@ function renderNextUpRow(pick, isFleet) {
         <span class="nextup-banners">~${c.bannerScore || "?"} banners</span>
     </div>
 </button>
+    ${fixed ? `<div class="nextup-undersize">${escapeHtml(exactSquadLabel(c.counterId))}</div>` : ""}
     ${openerNote}${warningLine}${us?.fleet ? undersizeLine : ""}
     <details class="nextup-rationale"><summary>Why this battle?</summary><div class="nextup-reason">${escapeHtml(pick.reason)}</div>${us?.fleet ? "" : undersizeLine}</details>
 </div>
@@ -6228,7 +6261,12 @@ function lastBattleConditions(adv, assigned) {
 
     if (adv.verdict === "impossible" || adv.verdict === "alreadyAhead") return lines;
 
-    if (needsPlay) {
+    const counters = adv.counters || [];
+    const available = counters.filter(c => c.available);
+    const pick = assigned && counters.find(c => c.counterId === assigned.counterId);
+    const exact = pick?.lineup === "FIXED";
+    const exactOnly = available.length > 0 && available.every(c => c.lineup === "FIXED");
+    if (needsPlay && !exact && !exactOnly) {
         const full = adv.formations[0];
         // Same maths for a squad and a fleet; only the nouns differ. A fleet with
         // unknown capital-ship stars reads its worst case (the 4th reinforcement
@@ -6258,7 +6296,7 @@ function lastBattleConditions(adv, assigned) {
             const drops = adv.formations.filter(f => f.mathematicalOnly && f.slotRuleConfirmed && f.meets === "yes");
             const better = drops.find(f => !f.flawlessRequired) || drops[0];
             if (better) {
-                const backed = (adv.counters || []).filter(c => c.available && c.documentedDrop >= better.emptySlots);
+                const backed = available.filter(c => c.documentedDrop >= better.emptySlots);
                 const support = fleet && !adv.fleetCapacity.capital
                     ? "Set your capital ship's stars to check which counters document it."
                     : backed.length
@@ -6270,19 +6308,19 @@ function lastBattleConditions(adv, assigned) {
                 lines.push(`${formation}: ceiling ${better.maxLow} (${signed(better.emptySlots)}), ${better.flawlessRequired ? "flawless required" : `${better.allowanceLow} to spare`}. ${support}`);
             }
         }
-
-        if (adv.target.attemptNumber === 1 || adv.ceilings.nextAttemptMax < adv.battleTarget) {
-            lines.push(adv.ceilings.nextAttemptMax < adv.battleTarget
-                ? `Win this attempt: a loss leaves the next attempt peaking at ${adv.ceilings.nextAttemptMax}.`
-                : `Winning first time matters: a loss drops the ceiling to ${adv.ceilings.nextAttemptMax}.`);
-        }
     }
 
-    if (assigned && adv.counters) {
-        const pick = adv.counters.find(c => c.counterId === assigned.counterId);
-        if (pick && pick.expected !== null && adv.battleTarget > 0) {
-            lines.push(`Recommended ${escapeHtml(pick.name)}: expected ~${pick.expected} (estimate, not a guarantee) — ${pick.expectedMeets ? "on track" : `${adv.battleTarget - pick.expected} short of the target on a typical clear`}.`);
-        }
+    if (needsPlay && (adv.target.attemptNumber === 1 || adv.ceilings.nextAttemptMax < adv.battleTarget)) {
+        lines.push(adv.ceilings.nextAttemptMax < adv.battleTarget
+            ? `Win this attempt: a loss leaves the next attempt peaking at ${adv.ceilings.nextAttemptMax}.`
+            : `Winning first time matters: a loss drops the ceiling to ${adv.ceilings.nextAttemptMax}.`);
+    }
+
+    if (pick && pick.expected !== null && (adv.battleTarget > 0 || exact)) {
+        const squad = exact ? ` (Exact squad: ${escapeHtml(pick.members.join(", "))})` : "";
+        const fit = adv.battleTarget === 0 ? "" : pick.expectedMeets ? " — on track"
+            : ` — ${adv.battleTarget - pick.expected} short of the target on a typical clear`;
+        lines.push(`Recommended ${escapeHtml(pick.name)}${squad}: expected ~${pick.expected} (estimate, not a guarantee)${fit}.`);
     }
     return lines;
 }
@@ -6299,7 +6337,8 @@ function lastBattleCounterRows(adv) {
             : `~${c.expected}${c.documentedDrop ? ` · drop ${c.documentedDrop} → ~${c.expectedWithDrop}` : ""}`;
         const meets = c.expected === null || adv.battleTarget === 0 ? ""
             : (c.expectedMeets ? " ✓" : c.expectedWithDropMeets ? " ✓ if undersized" : " ✗");
-        return `<li><span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier || "?")}</span> ${escapeHtml(c.name)} <span class="lb-muted">${est}${meets}</span></li>`;
+        const squad = c.lineup === "FIXED" ? ` · Exact squad: ${escapeHtml(c.members.join(", "))}` : "";
+        return `<li><span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier || "?")}</span> ${escapeHtml(c.name)}${squad} <span class="lb-muted">${est}${meets}</span></li>`;
     }).join("")}</ul><div class="lb-note">Estimates are typical clean-clear results, not guarantees.</div>`;
 }
 
@@ -6470,6 +6509,7 @@ function renderAttemptControl(side, territoryKey, team) {
 // therefore reports its drop and the conditional bonus but no reconstructed
 // total; the Last Battle advisor asks for the stars before adding the two.
 function undersizeInfo(counter, isFleet) {
+    if (counter?.lineup === "FIXED") return null;
     const drop = Math.max(0, Math.floor(Number(counter && counter.undersize)) || 0);
     if (drop <= 0) return null;                       // no undersize advice to show
     if (isFleet) return { drop, bonus: drop, total: null, fleet: true };
@@ -6499,10 +6539,10 @@ function fleetUndersizeText(us) {
 // A fleet counter ranks on its plain banner score: its undersize premium depends
 // on capital-ship stars the engine does not know, so it is not bankable here.
 function adjustedScore(counter, isFleet) {
-    const full = Number(counter && counter.bannerScore) || 0;
-    if (isFleet) return full;
-    const drop = Math.max(0, Math.floor(Number(counter && counter.undersize)) || 0);
-    return full + drop;
+    const score = Number(counter?.bannerScore) || 0;
+    if (isFleet || counter?.lineup === "FIXED") return score;
+    const drop = Math.max(0, Math.floor(Number(counter?.undersize)) || 0);
+    return score + drop;
 }
 
 // Strategic reserve (v3.6): shown on a card whose counter is High reserve while
@@ -6545,6 +6585,7 @@ function renderReserveAlternatives(alts, targetKey, reserveActive = true) {
             <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
             <button class="board-rec-btn" onclick="markCounterUsedFromBoard('${c.counterId}'${targetArg})">Mark used</button>
         </div>
+        ${c.lineup === "FIXED" ? `<div class="board-rec-reason">${escapeHtml(exactSquadLabel(c.counterId))} · ~${c.bannerScore} banners</div>` : ""}
         ${reserveActive && isHighReserve(c.counterId) ? `<div class="nextup-warning">⚠ ${RESERVE_WARNING_TEXT}</div>` : ""}
     </div>`).join("");
 }
@@ -6586,7 +6627,7 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         const warningLabel = risk ? "Risky counter" : info.reserveWarning ? "Consider holding" : "";
         const squadDisclosure = renderSquadDisclosure(squadKey, c.counterId, modeKey, {
             warnings, notes: undersizeLine + notes
-        }, warningLabel);
+        }, warningLabel, c.lineup);
         return `
 <div class="board-rec">
     <div class="board-rec-line">
@@ -6594,6 +6635,7 @@ function renderTeamRecommendation(side, territoryKey, team, modeKey) {
         <span class="tier-badge tier-badge-small" style="background:${getTierColour(c.tier)};">${escapeHtml(c.tier)}</span>
         <span class="board-rec-banners">~${c.bannerScore || "?"} banners</span>
     </div>
+    ${c.lineup === "FIXED" ? `<div class="board-rec-reason">${escapeHtml(exactSquadLabel(c.counterId))}</div>` : ""}
     ${squadDisclosure}
     <div class="board-rec-actions">
         <button class="board-rec-btn board-rec-btn-primary" onclick="markUsedAndCleared('${side}', '${territoryKey}', ${team.index}, '${c.counterId}')">✓ Used + Won</button>
@@ -6633,10 +6675,10 @@ function toggleCounterCardExpanded(key) {
     }
 }
 
-function renderSquadDisclosure(key, counterId, modeKey, supporting = {}, warningLabel = "") {
-    const comp = counterCompositionForDisplay(counterId, modeKey);
+function renderSquadDisclosure(key, counterId, modeKey, supporting = {}, warningLabel = "", lineup) {
+    const comp = counterCompositionForDisplay(counterId, modeKey, lineup);
     const sections = [
-        ["Squad", comp ? renderSuggestedSquad(comp) : ""],
+        [lineup === "FIXED" ? "Exact squad" : "Squad", comp ? renderSuggestedSquad(comp) : ""],
         ["Warnings & requirements", supporting.warnings],
         ["Counter notes", supporting.notes],
         ["Evidence & status", supporting.evidence]

@@ -568,3 +568,26 @@ test("the committed catalogue builds a passing release artifact", (t) => {
   assert.equal(built.pointer.catalogueVersion, record.catalogueVersion);
   assert.equal(built.pointer.checksum, record.checksum);
 });
+
+test("fixed releases build with an independent contract and legacy rollback remains reproducible", (t) => {
+  const { fixtureSource, defence } = require("./fixed-matchup-fixture.js");
+  const repo = fixtureRepo(t);
+  const legacy = repo.build(t);
+  writeSource(repo.sourceDir, fixtureSource());
+  repo.release();
+  repo.commit("synthetic fixed lineups");
+  const fixed = repo.build(t);
+  assert.equal(fixed.pointer.contract, "gac-catalogue-release:v3");
+  const readRelease = (site, file) => fs.readFileSync(path.join(site.out, "catalogue", file), "utf8");
+  assert.equal(verifyReleaseText(readRelease(fixed, fixed.pointer.path)).payload.counters["3v3"][defence][0].lineup, "FIXED");
+  assert.equal(readRelease(fixed, legacy.pointer.path), readRelease(legacy, legacy.pointer.path));
+
+  restoreSource({ repo: repo.dir, catalogueVersion: legacy.pointer.catalogueVersion });
+  repo.release();
+  repo.commit("rollback to ordinary catalogue");
+  const rollback = repo.build(t);
+  assert.equal(rollback.pointer.contract, "gac-catalogue-release:v1");
+  assert.equal(rollback.pointer.catalogueVersion, fixed.pointer.catalogueVersion + 1);
+  assert.equal(rollback.pointer.checksum, legacy.pointer.checksum);
+  assert.equal(readRelease(rollback, fixed.pointer.path), readRelease(fixed, fixed.pointer.path));
+});

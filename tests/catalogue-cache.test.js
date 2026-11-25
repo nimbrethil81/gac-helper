@@ -569,3 +569,30 @@ test("an incomplete install leaves owned and unrelated caches alone", async () =
     await assert.rejects(sw.install(), /App shell verification failed: styles.css/);
     assert.deepEqual([...sw.saved.keys()], ["unrelated", "gac-app-shell:/gac-helper/:" + "1".repeat(64)]);
 });
+
+test("fixed release loads, survives offline, rejects a legacy contract label and rolls back to v1", async () => {
+    const { fixtureSource, defence } = require("./fixed-matchup-fixture.js");
+    const fixed = compileSource(fixtureSource());
+    const site = published(fixed, 41);
+    const online = harness({ fetchImpl: pages(site.files).fetchImpl });
+    await online.run("loadData()");
+    const raw = online.values.get("catalogueCache:v2");
+    const saved = JSON.parse(raw);
+    assert.equal(saved.sourceContract, "gac-catalogue-release:v3");
+    assert.deepEqual(saved.payload, fixed);
+
+    const offline = harness({ storage: { "catalogueCache:v2": raw }, fetchImpl: pages({}).fetchImpl });
+    await offline.run("loadData()");
+    const lookup = `matchupCounters("3v3", ${JSON.stringify(defence)})[0].lineup`;
+    assert.equal(offline.run(lookup), "FIXED");
+
+    const mislabeled = JSON.stringify({ ...saved, sourceContract: "gac-catalogue-release:v1" });
+    const broken = harness({ storage: { "catalogueCache:v2": mislabeled }, fetchImpl: pages({}).fetchImpl });
+    assert.equal(broken.run("readCatalogueCache()"), null);
+
+    const rollback = published(catalogue("Rolled back"), 42);
+    const updated = harness({ storage: { "catalogueCache:v2": raw }, fetchImpl: pages(rollback.files).fetchImpl });
+    await updated.run("loadData()");
+    assert.equal(firstDefence(updated), "Rolled back");
+    assert.equal(updated.run("readCatalogueCache().sourceContract"), "gac-catalogue-release:v1");
+});
