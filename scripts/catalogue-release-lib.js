@@ -25,7 +25,7 @@ const { execFileSync } = require("node:child_process");
 
 const { REQUIRED_PAYLOAD_KEYS, sha256, sortJson } = require("./baseline-lib.js");
 const { auditPayload, payloadChecksum } = require("./catalogue-audit-lib.js");
-const { FILES, RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT, releaseContract, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
+const { FILES, RELEASE_CONTRACT, FIXED_RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT, releaseContract, SOURCE_SCHEMA, auditSource, readSource } = require("./catalogue-source-lib.js");
 const { APP_BUILD_PATH, PAGES_APP_FILES, buildAppShell, verifyAppShell } = require("./app-shell-lib.js");
 
 const RELEASE_FILE = "catalogue/release.json";
@@ -289,7 +289,7 @@ function verifySite(out, { budget = BUDGET } = {}) {
   const read = (relative) => fs.readFileSync(path.join(out, relative));
   const manifest = JSON.parse(read(MANIFEST_PATH).toString("utf8"));
   const pointer = JSON.parse(read(POINTER_PATH).toString("utf8"));
-  if (manifest.manifestSchema !== MANIFEST_SCHEMA || ![RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT].includes(manifest.contract) || !COMMIT.test(manifest.deployedCommit ?? "")) throw new Error("manifest.json has an unexpected shape");
+  if (manifest.manifestSchema !== MANIFEST_SCHEMA || ![RELEASE_CONTRACT, LEGACY_V2_RELEASE_CONTRACT, FIXED_RELEASE_CONTRACT].includes(manifest.contract) || !COMMIT.test(manifest.deployedCommit ?? "")) throw new Error("manifest.json has an unexpected shape");
   if (pointer.pointerSchema !== POINTER_SCHEMA || pointer.contract !== manifest.contract) throw new Error("current.json has an unexpected shape");
   if (Object.keys(pointer).sort().join() !== "bytes,catalogueVersion,checksum,contract,path,pointerSchema") throw new Error("current.json has unexpected keys");
 
@@ -439,7 +439,7 @@ function restoreSource({ repo, catalogueVersion }) {
   const rebuilt = rebuildEntry(repo, entry);
   if (!rebuilt.ok) throw new Error(`v${catalogueVersion} cannot be restored: ${rebuilt.reason}`);
   if (verifyReleaseText(rebuilt.rendered.text).release.contract === LEGACY_V2_RELEASE_CONTRACT) {
-    throw new Error(`v${catalogueVersion} contains retired provisional matchups. Choose a prior-good v1 release for rollback.`);
+    throw new Error(`v${catalogueVersion} contains retired provisional matchups. Choose a prior-good active release for rollback.`);
   }
   for (const file of Object.keys(FILES)) {
     const bytes = gitFileAt(repo, entry.sourceCommit, `${SOURCE_DIR}/${file}`);

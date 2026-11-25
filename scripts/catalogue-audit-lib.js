@@ -144,6 +144,7 @@ const RULES = Object.freeze({
   BANNER_SCORE_NO_MEANING: ["warning", "No Score_Meanings row exists for this mode and Banner Score."],
   UNDERSIZE_NONNUMERIC: ["warning", "Undersize is blank or non-numeric and is read as 0."],
   UNDERSIZE_INVALID: ["blocking", "Undersize is fractional, negative or larger than the format allows."],
+  MATCHUP_FIXED_INVALID: ["blocking", "Fixed lineups require a scored squad matchup and a complete undersized required-only character definition."],
   MATCHUP_PROVISIONAL_RETIRED: ["blocking", "Provisional matchup fields are retired and accepted only when verifying historical releases."],
   MATCHUP_PROVISIONAL_INVALID: ["blocking", "A historical provisional row must have valid evidence and exact attacking membership, with no scoring or tactical role."],
   NOTE_PROCESS_COMMENTARY: ["blocking", "A new or changed counter note contains process or research commentary (approval status, provisional status, URLs, history, sample sizes, scoring justification) instead of tactical guidance."],
@@ -792,7 +793,7 @@ function modelFromPayload(payload, add) {
   }
   for (const [id, definition] of objectEntries(payload.counterDefinitions)) {
     const at = `counterDefinitions[${JSON.stringify(id)}]`;
-    model.counters.push({ id, name: definition?.name, strategicReserve: definition?.strategicReserve, at });
+    model.counters.push({ id, name: definition?.name, strategicReserve: definition?.strategicReserve, required: definition?.required, recommended: definition?.recommended, at });
     for (const role of ["required", "recommended"]) {
       (Array.isArray(definition?.[role]) ? definition[role] : []).forEach((unitId, index) => {
         model.members.push({ counterId: id, unitId, role: role.toUpperCase(), at: `${at}.${role}[${index}]` });
@@ -814,6 +815,8 @@ function modelFromPayload(payload, add) {
           evidenceUrl: entry?.evidenceUrl,
           observedAt: entry?.observedAt,
           role: entry?.role,
+          lineup: entry?.lineup,
+          entryKeys: entry && Object.keys(entry),
           tier: entry?.tier,
           bannerScore: entry?.bannerScore,
           undersize: entry?.undersize,
@@ -1030,6 +1033,19 @@ function checkMatchups(model, add, units, scoreMeanings, historical) {
       add("DERIVED_VALUE_MISMATCH", { ...context, observed: jsonValue(matchup.counterName), expected: JSON.stringify(definition.name), effect: "Counter card name disagrees with counterDefinitions" });
     }
 
+    const exact = matchup.lineup !== undefined;
+    const required = definition?.required;
+    const squadSize = mode === "3v3" || mode === "5v5" ? UNIT_COUNT[mode] : 0;
+    if (exact && (matchup.lineup !== "FIXED" || !squadSize || matchup.role !== undefined ||
+      matchup.hasRetiredFields || matchup.undersize !== 0 || typeof matchup.notes !== "string" ||
+      typeof matchup.counterId !== "string" || typeof matchup.counterName !== "string" ||
+      matchup.entryKeys.some(key => !["counterId", "counter", "tier", "bannerScore", "undersize", "lineup", "notes"].includes(key)) ||
+      !Array.isArray(required) || !required.length || required.length >= squadSize ||
+      new Set(required).size !== required.length || required.some(id => units.get(id)?.unitType !== "CHARACTER") ||
+      !Array.isArray(definition?.recommended) || definition.recommended.length !== 0)) {
+      add("MATCHUP_FIXED_INVALID", { ...context, observed: jsonValue(matchup.lineup), expected: 'FIXED on a scored 3v3/5v5 row with undersize 0 and a unique, undersized required-only character squad', effect: "Cannot release the exact lineup" });
+    }
+
     if (matchup.hasRetiredFields) {
       if (!historical) {
         add("MATCHUP_PROVISIONAL_RETIRED", { ...context, observed: "retired matchup fields", expected: "a scored matchup or a SETUP/CLEANUP step", effect: "Cannot publish retired research options" });
@@ -1059,11 +1075,14 @@ function checkMatchups(model, add, units, scoreMeanings, historical) {
 
     if (!TIERS.includes(matchup.tier)) add("TIER_INVALID", { ...context, observed: jsonValue(matchup.tier), expected: TIERS.join(" | "), effect: "Tier sorts last and displays incorrectly" });
 
-    const ceiling = BANNER_CEILING[mode];
+    // Existing squad rules award one net banner per empty slot on a flawless win.
+    // This bounds authored fixed estimates without adding anything at runtime.
+    const fixedEmpty = exact && squadSize && Array.isArray(required) ? Math.max(0, squadSize - required.length) : 0;
+    const ceiling = BANNER_CEILING[mode] === undefined ? undefined : BANNER_CEILING[mode] + fixedEmpty;
     const score = matchup.bannerScore;
     if (typeof score !== "number" || !Number.isInteger(score) || score < 1 || (ceiling !== undefined && score > ceiling)) {
       add("BANNER_SCORE_INVALID", { ...context, observed: jsonValue(score), expected: `whole number 1..${ceiling ?? "ceiling"}`, effect: "Allocation tiebreaks and points-to-win use an invalid score" });
-    } else if (scoreMeanings && !scoreMeanings.has(`${mode}|${score}`)) {
+    } else if (!exact && scoreMeanings && !scoreMeanings.has(`${mode}|${score}`)) {
       add("BANNER_SCORE_NO_MEANING", { ...context, observed: String(score), expected: `a Score_Meanings row for ${mode}`, effect: "Derived Score Meaning is blank" });
     }
     if (scoreMeanings && model.sourceKind === "sheets" && matchup.scoreMeaning !== undefined) {
